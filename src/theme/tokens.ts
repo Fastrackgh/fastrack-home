@@ -1,0 +1,38 @@
+export const tokens = {
+  colors: {
+    primary: '#e01a2b',
+    primaryHover: '#cb1323',
+    primaryGlow: 'rgba(224, 26, 43, 0.12)',
+    primaryLight: '#fff0f2',
+    obsidian: '#0b0f17',
+    obsidianSurface: '#141822',
+    obsidianCard: '#1b2230',
+    obsidianBorder: 'rgba(255, 255, 255, 0.08)',
+    slate: {
+      50: '#f8fafc',
+      100: '#f1f5f9',
+      200: '#e2e8f0',
+      300: '#cbd5e1',
+      400: '#94a3b8',
+      500: '#64748b',
+      600: '#475569',
+      700: '#334155',
+      800: '#1e293b',
+      900: '#0f172a',
+    },
+    white: '#ffffff',
+  },
+  shadows: {
+    glow: '0 0 40px -10px rgba(224, 26, 43, 0.35)',
+    dashboard: '0 25px 80px -12px rgba(11, 15, 23, 0.18), 0 0 0 1px rgba(11, 15, 23, 0.08)',
+    card: '0 10px 30px -5px rgba(0, 0, 0, 0.05), 0 0 1px rgba(0, 0, 0, 0.1)',
+    cardHover: '0 20px 40px -10px rgba(224, 26, 43, 0.12), 0 0 1px rgba(224, 26, 43, 0.2)',
+  },
+  glass: {
+    background: 'rgba(255, 255, 255, 0.85)',
+    darkBackground: 'rgba(15, 23, 42, 0.75)',
+    border: 'rgba(255, 255, 255, 0.6)',
+    darkBorder: 'rgba(255, 255, 255, 0.1)',
+    blur: 'blur(16px)',
+  },
+};

@@ -19,10 +19,8 @@ export const Navbar: React.FC = () => {
         position: 'sticky',
         top: 0,
         zIndex: 100,
-        background: 'rgba(255, 255, 255, 0.88)',
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        borderBottom: '1px solid rgba(226, 232, 240, 0.8)',
+        background: '#ffffff',
+        borderBottom: '1px solid #e2e8f0',
         transition: 'all 0.3s ease',
       }}
     >
@@ -99,14 +97,28 @@ export const Navbar: React.FC = () => {
               Direct Support
             </Text>
             <Group gap="xs" mb={8}>
-              <Phone size={14} color="#e01a2b" />
-              <Text size="xs" fw={600} c="dark">
+              <Phone size={14} color="#f97316" />
+              <Text
+                component="a"
+                href={`tel:${businessInfo.phoneRaw}`}
+                size="xs"
+                fw={600}
+                c="dark"
+                style={{ textDecoration: 'none' }}
+              >
                 {businessInfo.phone}
               </Text>
             </Group>
             <Group gap="xs">
-              <Mail size={14} color="#e01a2b" />
-              <Text size="xs" fw={600} c="dark">
+              <Mail size={14} color="#f97316" />
+              <Text
+                component="a"
+                href={`mailto:${businessInfo.email}`}
+                size="xs"
+                fw={600}
+                c="dark"
+                style={{ textDecoration: 'none' }}
+              >
                 {businessInfo.email}
               </Text>
             </Group>

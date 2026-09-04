@@ -12,9 +12,10 @@ import {
   Textarea,
   Button,
   Notification,
+  Badge,
 } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DisplayHeading, StatusBadge } from '@/components/atoms';
+import { DisplayHeading } from '@/components/atoms';
 import { ContactInfoItem } from '@/components/molecules';
 import { businessInfo } from '@/data/businessInfo';
 import { Phone, Mail, MapPin, Navigation, Send, Check } from 'lucide-react';
@@ -39,33 +40,39 @@ export const ContactSection: React.FC = () => {
     <Box
       id="contact"
       component="section"
-      py={{ base: 60, md: 100 }}
+      py={{ base: 48, md: 88 }}
       style={{
         background: '#ffffff',
         borderTop: '1px solid #f1f5f9',
       }}
     >
       <Container size="xl">
-        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={48}>
+        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 36, md: 48 }}>
           {/* Left Column: Office & Contact Information */}
           <motion.div
-            initial={{ opacity: 0, x: -30 }}
+            initial={{ opacity: 0, x: -20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: '-50px' }}
             transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
           >
             <Stack gap="lg">
-              <Group gap="xs">
-                {/* <motion.div whileHover={{ scale: 1.05 }}>
-                  <StatusBadge variantStyle="red-subtle">
-                    Accra Corporate Office
-                  </StatusBadge>
-                </motion.div> */}
-              </Group>
-
-              <DisplayHeading
-                level={2}
+              <Badge
+                size="sm"
+                variant="light"
+                style={{
+                  background: '#fff7ed',
+                  color: '#ea580c',
+                  border: '1px solid #fed7aa',
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.06em',
+                  fontWeight: 700,
+                  width: 'fit-content',
+                }}
               >
+                Accra Corporate Headquarters
+              </Badge>
+
+              <DisplayHeading level={2}>
                 Get In Touch With Fastrack
               </DisplayHeading>
 
@@ -74,14 +81,14 @@ export const ContactSection: React.FC = () => {
                 c="dimmed"
                 style={{
                   lineHeight: 1.6,
-                  fontSize: '1rem',
+                  fontSize: 'clamp(0.9rem, 1.2vw, 1rem)',
                 }}
               >
                 Whether you are looking to deploy our flagship School ERP, modernize your database
-                infrastructure, or launch high-throughput Bulk SMS campaigns, our team in Accra is ready to help.
+                infrastructure, or launch high-throughput Bulk SMS campaigns, our team in Accra is ready to assist your institution.
               </Text>
 
-              <Stack gap="lg" mt="sm">
+              <Stack gap="md" mt="xs">
                 <ContactInfoItem
                   icon={<MapPin size={22} />}
                   label="Postal Address"
@@ -117,14 +124,14 @@ export const ContactSection: React.FC = () => {
 
           {/* Right Column: Direct Consultation Inquiry Form */}
           <motion.div
-            initial={{ opacity: 0, x: 30 }}
+            initial={{ opacity: 0, x: 20 }}
             whileInView={{ opacity: 1, x: 0 }}
             viewport={{ once: true, margin: '-50px' }}
-            transition={{ duration: 0.6, delay: 0.15, ease: [0.16, 1, 0.3, 1] }}
+            transition={{ duration: 0.6, delay: 0.1, ease: [0.16, 1, 0.3, 1] }}
           >
             <Box
               style={{
-                padding: '36px 32px',
+                padding: 'clamp(20px, 3.5vw, 36px)',
                 borderRadius: '24px',
                 background: '#f8fafc',
                 border: '1px solid #e2e8f0',
@@ -135,15 +142,15 @@ export const ContactSection: React.FC = () => {
                 style={{
                   fontFamily: 'var(--font-heading)',
                   fontWeight: 800,
-                  fontSize: '1.35rem',
+                  fontSize: 'clamp(1.2rem, 1.8vw, 1.45rem)',
                   color: '#0f172a',
-                  marginBottom: 6,
+                  marginBottom: 4,
                 }}
               >
                 Request a Consultation or Demo
               </Text>
-              <Text size="xs" c="dimmed" mb="xl">
-                Fill in your details below and a Fastrack solutions specialist will respond within 24 hours.
+              <Text size="xs" c="dimmed" mb="lg">
+                Fill in your details below and a Fastrack solutions specialist will respond promptly.
               </Text>
 
               <AnimatePresence mode="wait">
@@ -162,7 +169,7 @@ export const ContactSection: React.FC = () => {
                       radius="md"
                     >
                       Thank you for contacting Fastrack Management Services. Our Accra office has received your
-                      inquiry and will get back to you shortly.
+                      inquiry and will call or email you shortly.
                     </Notification>
                   </motion.div>
                 ) : (
@@ -198,7 +205,7 @@ export const ContactSection: React.FC = () => {
                         />
                         <TextInput
                           label="Phone / WhatsApp Number"
-                          placeholder="+233 24 123 4567"
+                          placeholder="0243-630-648"
                           value={form.phone}
                           onChange={(e) => setForm({ ...form, phone: e.target.value })}
                           radius="md"
@@ -207,7 +214,7 @@ export const ContactSection: React.FC = () => {
 
                       <Textarea
                         label="How can we assist your institution?"
-                        placeholder="Tell us about your school size, current challenges, or services of interest..."
+                        placeholder="Tell us about your student population, current challenges, or modules of interest..."
                         minRows={4}
                         value={form.message}
                         onChange={(e) => setForm({ ...form, message: e.target.value })}
@@ -217,15 +224,17 @@ export const ContactSection: React.FC = () => {
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
                         <Button
                           type="submit"
-                          color="fastrackRed"
+                          color="fastrackOrange"
                           size="md"
                           radius="xl"
                           fullWidth
                           rightSection={<Send size={16} />}
                           style={{
                             marginTop: 8,
-                            background: 'linear-gradient(135deg, #e01a2b 0%, #cb1323 100%)',
-                            boxShadow: '0 8px 24px -4px rgba(224, 26, 43, 0.35)',
+                            background: 'linear-gradient(135deg, #f97316 0%, #e01a2b 100%)',
+                            boxShadow: '0 8px 24px -4px rgba(249, 115, 22, 0.4)',
+                            height: 46,
+                            fontWeight: 700,
                           }}
                         >
                           Send Consultation Request

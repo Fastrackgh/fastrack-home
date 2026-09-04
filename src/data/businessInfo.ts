@@ -55,8 +55,8 @@ export const businessInfo: BusinessInfo = {
   location: 'Mallam – Accra, Ghana',
   digitalAddress: 'GS-102-212-1555 Accra',
   poBox: 'P.O. Box 742 Mallam – Accra, Ghana',
-  phone: '+233-243-630',
-  phoneRaw: '+233243630',
+  phone: '0243-630-648',
+  phoneRaw: '+233243630648',
   email: 'fastrackus@gmail.com',
   about:
     'Since 2014, Fastrack Management Services has been transforming how organizations operate, leveraging cutting-edge technology to help you work smarter, accomplish more, and eliminate workplace stress. Based in Accra, the capital city of Ghana, we are a leading ICT consultancy dedicated to delivering high-impact, affordable, and value-driven technology solutions tailored to your unique operational needs.',

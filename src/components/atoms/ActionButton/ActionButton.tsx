@@ -59,16 +59,16 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   if (variantStyle === 'primary') {
     customStyle = {
       ...customStyle,
-      background: 'linear-gradient(135deg, #e01a2b 0%, #cb1323 100%)',
+      background: '#e01a2b',
       color: '#ffffff',
-      boxShadow: '0 8px 24px -4px rgba(224, 26, 43, 0.4), 0 0 0 1px rgba(224, 26, 43, 0.2)',
+      boxShadow: '0 8px 18px -10px rgba(224, 26, 43, 0.5)',
     };
   } else if (variantStyle === 'dark') {
     customStyle = {
       ...customStyle,
       background: '#0b0f17',
       color: '#ffffff',
-      boxShadow: '0 8px 20px -4px rgba(11, 15, 23, 0.3)',
+      boxShadow: '0 8px 16px -12px rgba(11, 15, 23, 0.35)',
     };
   } else if (variantStyle === 'secondary') {
     buttonVariant = 'default';
@@ -77,7 +77,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
       background: '#ffffff',
       color: '#1e293b',
       border: '1px solid #e2e8f0',
-      boxShadow: '0 2px 8px rgba(0, 0, 0, 0.04)',
+      boxShadow: '0 2px 6px rgba(15, 23, 42, 0.04)',
     };
   } else if (variantStyle === 'outline-red') {
     buttonVariant = 'outline';

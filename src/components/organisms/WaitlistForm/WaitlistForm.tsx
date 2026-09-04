@@ -13,6 +13,8 @@ import {
   Badge,
 } from '@mantine/core';
 import { Check, ShieldCheck, ArrowRight } from 'lucide-react';
+import { businessInfo } from '@/data/businessInfo';
+import { motion } from 'framer-motion';
 
 export const WaitlistForm: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
@@ -21,7 +23,7 @@ export const WaitlistForm: React.FC = () => {
     adminName: '',
     email: '',
     phone: '',
-    studentCount: '200-500',
+    studentCount: '200 - 500 Students',
     currentSystem: 'Manual Records / Excel',
   });
 
@@ -35,11 +37,11 @@ export const WaitlistForm: React.FC = () => {
     return (
       <Box
         style={{
-          padding: '36px 28px',
-          borderRadius: '12px',
+          padding: 'clamp(24px, 4vw, 40px)',
+          borderRadius: '16px',
           background: '#ffffff',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.05)',
+          boxShadow: '0 4px 20px -2px rgba(0, 0, 0, 0.05)',
           textAlign: 'center',
         }}
       >
@@ -66,7 +68,7 @@ export const WaitlistForm: React.FC = () => {
         <Text
           style={{
             fontFamily: 'var(--font-heading)',
-            fontSize: '1.5rem',
+            fontSize: 'clamp(1.25rem, 2vw, 1.6rem)',
             fontWeight: 800,
             color: '#0f172a',
             marginBottom: 8,
@@ -82,7 +84,7 @@ export const WaitlistForm: React.FC = () => {
         <Box
           style={{
             padding: '12px 16px',
-            borderRadius: '8px',
+            borderRadius: '10px',
             background: '#f8fafc',
             border: '1px solid #e2e8f0',
             display: 'inline-flex',
@@ -90,9 +92,9 @@ export const WaitlistForm: React.FC = () => {
             gap: 8,
           }}
         >
-          <ShieldCheck size={16} color="#e01a2b" />
+          <ShieldCheck size={16} color="#f97316" />
           <Text size="xs" fw={600} c="dark">
-            Direct Support Line: +233-243-630 | fastrackus@gmail.com
+            Direct Support Line: {businessInfo.phone} | {businessInfo.email}
           </Text>
         </Box>
       </Box>
@@ -102,20 +104,20 @@ export const WaitlistForm: React.FC = () => {
   return (
     <Box
       style={{
-        padding: '32px 28px',
-        borderRadius: '12px',
+        padding: 'clamp(20px, 3.5vw, 32px)',
+        borderRadius: '16px',
         background: '#ffffff',
         border: '1px solid #e2e8f0',
-        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.04)',
+        boxShadow: '0 4px 16px -2px rgba(0, 0, 0, 0.04)',
       }}
     >
-      <Group justify="space-between" align="center" mb="md">
+      <Group justify="space-between" align="center" mb="md" wrap="wrap" gap="xs">
         <Box>
           <Text
             style={{
               fontFamily: 'var(--font-heading)',
               fontWeight: 800,
-              fontSize: '1.25rem',
+              fontSize: 'clamp(1.1rem, 1.8vw, 1.35rem)',
               color: '#0f172a',
             }}
           >
@@ -126,8 +128,8 @@ export const WaitlistForm: React.FC = () => {
           </Text>
         </Box>
 
-        <Badge variant="outline" color="gray" size="sm">
-          Phase 1 Onboarding
+        <Badge variant="light" color="orange" size="sm">
+          Phase 1 Priority
         </Badge>
       </Group>
 
@@ -140,7 +142,7 @@ export const WaitlistForm: React.FC = () => {
               required
               value={form.schoolName}
               onChange={(e) => setForm({ ...form, schoolName: e.target.value })}
-              radius="sm"
+              radius="md"
             />
             <TextInput
               label="Headmaster / Administrator Name"
@@ -148,7 +150,7 @@ export const WaitlistForm: React.FC = () => {
               required
               value={form.adminName}
               onChange={(e) => setForm({ ...form, adminName: e.target.value })}
-              radius="sm"
+              radius="md"
             />
           </SimpleGrid>
 
@@ -160,15 +162,15 @@ export const WaitlistForm: React.FC = () => {
               type="email"
               value={form.email}
               onChange={(e) => setForm({ ...form, email: e.target.value })}
-              radius="sm"
+              radius="md"
             />
             <TextInput
               label="Phone / WhatsApp Number"
-              placeholder="+233 24 123 4567"
+              placeholder="0243-630-648"
               required
               value={form.phone}
               onChange={(e) => setForm({ ...form, phone: e.target.value })}
-              radius="sm"
+              radius="md"
             />
           </SimpleGrid>
 
@@ -178,35 +180,39 @@ export const WaitlistForm: React.FC = () => {
               data={['Less than 200 Students', '200 - 500 Students', '500 - 1,500 Students', '1,500+ Students']}
               value={form.studentCount}
               onChange={(val) => setForm({ ...form, studentCount: val || '' })}
-              radius="sm"
+              radius="md"
             />
             <Select
               label="Current Administration System"
               data={['Manual Records / Excel', 'Legacy Software', 'Paper-Based Only', 'Other']}
               value={form.currentSystem}
               onChange={(val) => setForm({ ...form, currentSystem: val || '' })}
-              radius="sm"
+              radius="md"
             />
           </SimpleGrid>
 
-          <Button
-            type="submit"
-            color="fastrackRed"
-            size="md"
-            radius="sm"
-            rightSection={<ArrowRight size={16} />}
-            style={{
-              marginTop: 8,
-              background: '#e01a2b',
-              fontWeight: 700,
-              height: 44,
-            }}
-          >
-            Submit Early Access Request
-          </Button>
+          <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+            <Button
+              type="submit"
+              color="fastrackOrange"
+              size="md"
+              radius="xl"
+              fullWidth
+              rightSection={<ArrowRight size={16} />}
+              style={{
+                marginTop: 6,
+                background: 'linear-gradient(135deg, #f97316 0%, #e01a2b 100%)',
+                boxShadow: '0 6px 20px rgba(249, 115, 22, 0.4)',
+                fontWeight: 700,
+                height: 46,
+              }}
+            >
+              Submit Early Access Request
+            </Button>
+          </motion.div>
 
           <Text size="10px" c="dimmed" style={{ textAlign: 'center' }}>
-            Hosted in Accra, Ghana. Fastrack Management Services.
+            Direct Support: 0243-630-648 • Accra, Ghana
           </Text>
         </Stack>
       </form>

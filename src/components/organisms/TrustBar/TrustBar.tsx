@@ -11,18 +11,18 @@ const containerVariants: Variants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.12,
+      staggerChildren: 0.1,
     },
   },
 };
 
 const itemVariants: Variants = {
-  hidden: { opacity: 0, y: 20 },
+  hidden: { opacity: 0, y: 15 },
   visible: {
     opacity: 1,
     y: 0,
     transition: {
-      duration: 0.5,
+      duration: 0.45,
       ease: 'easeOut',
     },
   },
@@ -35,14 +35,14 @@ export const TrustBar: React.FC = () => {
       unit: 'Years',
       label: 'In Operation Since 2014',
       icon: <Clock size={20} />,
-      color: '#e01a2b',
+      color: '#f97316',
     },
     {
       value: '99.9%',
       unit: '',
       label: 'Cloud Gateway Uptime',
       icon: <TrendingUp size={20} />,
-      color: '#0ea5e9',
+      color: '#38bdf8',
     },
     {
       value: 'Instant',
@@ -56,7 +56,7 @@ export const TrustBar: React.FC = () => {
       unit: 'SSL',
       label: 'Bank-Grade Data Encryption',
       icon: <ShieldCheck size={20} />,
-      color: '#7c3aed',
+      color: '#e01a2b',
     },
   ];
 
@@ -65,33 +65,13 @@ export const TrustBar: React.FC = () => {
       component="section"
       style={{
         background: '#0f172a',
-        paddingTop: '40px',
-        paddingBottom: '40px',
+        paddingTop: 'clamp(28px, 4vw, 40px)',
+        paddingBottom: 'clamp(28px, 4vw, 40px)',
         position: 'relative',
         overflow: 'hidden',
+        borderBottom: '1px solid #1e293b',
       }}
     >
-      {/* Subtle animated gradient accent line at top */}
-      <motion.div
-        animate={{
-          backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
-        }}
-        transition={{
-          duration: 10,
-          repeat: Infinity,
-          ease: 'linear',
-        }}
-        style={{
-          position: 'absolute',
-          top: 0,
-          left: 0,
-          right: 0,
-          height: '2px',
-          background: 'linear-gradient(90deg, transparent, #e01a2b 30%, #7c3aed 70%, transparent)',
-          backgroundSize: '200% 200%',
-        }}
-      />
-
       <Container size="xl">
         <motion.div
           variants={containerVariants}
@@ -109,46 +89,41 @@ export const TrustBar: React.FC = () => {
             <motion.div
               key={idx}
               variants={itemVariants}
-              whileHover={{ y: -6, scale: 1.02 }}
+              whileHover={{ y: -4, scale: 1.02 }}
               transition={{ duration: 0.2 }}
             >
               <Box
                 style={{
                   textAlign: 'center',
-                  padding: '20px 24px',
-                  borderRight: idx < metrics.length - 1 ? '1px solid rgba(255,255,255,0.08)' : 'none',
+                  padding: 'clamp(14px, 2.5vw, 20px) clamp(10px, 2vw, 24px)',
                   position: 'relative',
                 }}
+                className={`trust-item trust-item-${idx}`}
               >
                 {/* Icon badge */}
-                <motion.div
-                  whileHover={{ rotate: [0, -10, 10, 0] }}
-                  transition={{ duration: 0.4 }}
+                <Box
+                  style={{
+                    width: 38,
+                    height: 38,
+                    borderRadius: '10px',
+                    background: `${m.color}18`,
+                    border: `1px solid ${m.color}35`,
+                    color: m.color,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    margin: '0 auto 10px',
+                  }}
                 >
-                  <Box
-                    style={{
-                      width: 42,
-                      height: 42,
-                      borderRadius: '10px',
-                      background: `${m.color}18`,
-                      border: `1px solid ${m.color}35`,
-                      color: m.color,
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      margin: '0 auto 12px',
-                    }}
-                  >
-                    {m.icon}
-                  </Box>
-                </motion.div>
+                  {m.icon}
+                </Box>
 
                 {/* Value */}
                 <Box style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
                   <Text
                     style={{
                       fontFamily: 'var(--font-heading)',
-                      fontSize: 'clamp(1.6rem, 2.5vw, 2.2rem)',
+                      fontSize: 'clamp(1.4rem, 2.5vw, 2.1rem)',
                       fontWeight: 800,
                       color: '#ffffff',
                       lineHeight: 1,
@@ -160,7 +135,7 @@ export const TrustBar: React.FC = () => {
                     <Text
                       style={{
                         fontFamily: 'var(--font-heading)',
-                        fontSize: '1rem',
+                        fontSize: '0.9rem',
                         fontWeight: 700,
                         color: m.color,
                         lineHeight: 1,
@@ -175,11 +150,11 @@ export const TrustBar: React.FC = () => {
                 <Text
                   size="xs"
                   style={{
-                    color: 'rgba(255,255,255,0.45)',
+                    color: 'rgba(255,255,255,0.6)',
                     fontWeight: 500,
                     marginTop: 6,
-                    lineHeight: 1.4,
-                    letterSpacing: '0.01em',
+                    lineHeight: 1.35,
+                    fontSize: 'clamp(0.72rem, 1vw, 0.8rem)',
                   }}
                 >
                   {m.label}
@@ -190,22 +165,23 @@ export const TrustBar: React.FC = () => {
         </motion.div>
       </Container>
 
-      {/* Bottom gradient accent line */}
-      <Box
-        style={{
-          position: 'absolute',
-          bottom: 0,
-          left: 0,
-          right: 0,
-          height: '1px',
-          background: 'rgba(255,255,255,0.06)',
-        }}
-      />
-
       <style>{`
+        .trust-item {
+          border-right: 1px solid rgba(255,255,255,0.08);
+        }
+        .trust-item-3 {
+          border-right: none;
+        }
         @media (max-width: 640px) {
           .trust-bar-grid {
             grid-template-columns: repeat(2, 1fr) !important;
+            gap: 8px 0 !important;
+          }
+          .trust-item-0, .trust-item-2 {
+            border-right: 1px solid rgba(255,255,255,0.08);
+          }
+          .trust-item-1, .trust-item-3 {
+            border-right: none;
           }
         }
       `}</style>

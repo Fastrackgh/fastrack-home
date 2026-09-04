@@ -15,8 +15,7 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
 }) => {
   const isDarkBg = variant === 'dark' || variant === 'white';
 
-  const logoHeight = size === 'sm' ? 28 : size === 'lg' ? 82 : 56;
-  const logoWidth = Math.round(logoHeight * 2.5);
+  const logoHeight = size === 'sm' ? 28 : size === 'lg' ? 76 : 50;
 
   return (
     <Link href="/" style={{ textDecoration: 'none', color: 'inherit', display: 'inline-block' }}>
@@ -33,10 +32,10 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
         <Image
           src="/logo(1).png"
           alt="Fastrack Management Services"
-          width={logoWidth}
+          width={140}
           height={logoHeight}
           style={{
-            height: `${logoHeight}px`,
+            height: size === 'sm' ? '28px' : size === 'lg' ? 'clamp(54px, 8vw, 76px)' : 'clamp(38px, 6vw, 50px)',
             width: 'auto',
             objectFit: 'contain',
             display: 'block',

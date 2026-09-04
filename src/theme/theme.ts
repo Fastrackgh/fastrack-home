@@ -14,6 +14,20 @@ const fastrackRed: MantineColorsTuple = [
   '#68040d', // 9: deepest wine
 ];
 
+// 10-shade Fastrack Orange Palette
+const fastrackOrange: MantineColorsTuple = [
+  '#fff7ed', // 0: softest cream
+  '#ffedd5', // 1: light badge background
+  '#fed7aa', // 2: soft border
+  '#fdba74', // 3: warm accent
+  '#fb923c', // 4: vibrant secondary
+  '#f97316', // 5: [PRIMARY] Fastrack Orange
+  '#ea580c', // 6: [HOVER] Deep Orange
+  '#c2410c', // 7: dark active
+  '#9a3412', // 8: dark accent
+  '#7c2d12', // 9: deepest amber
+];
+
 // Obsidian Charcoal Scale (The "Touch of Black")
 const obsidian: MantineColorsTuple = [
   '#f8fafc', // 0: platinum surface
@@ -25,13 +39,14 @@ const obsidian: MantineColorsTuple = [
   '#475569', // 6: slate heading
   '#334155', // 7: dark slate
   '#1e293b', // 8: midnight card
-  '#0b0f17', // 9: deep obsidian black
+  '#0f172a', // 9: deep obsidian black
 ];
 
 export const theme = createTheme({
   primaryColor: 'fastrackRed',
   colors: {
     fastrackRed,
+    fastrackOrange,
     obsidian,
   },
   fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif',

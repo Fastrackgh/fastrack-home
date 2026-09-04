@@ -1,12 +1,12 @@
 'use client';
 
 import React from 'react';
-import { Box, Container, Stack, Text, SimpleGrid, Group } from '@mantine/core';
+import { Box, Container, Stack, Text, SimpleGrid, Group, Badge } from '@mantine/core';
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
-import { DisplayHeading, StatusBadge } from '@/components/atoms';
+import { DisplayHeading } from '@/components/atoms';
 import { businessInfo } from '@/data/businessInfo';
-import { Smartphone, LineChart, BarChart3, Check } from 'lucide-react';
+import { Smartphone, LineChart, BarChart3, Check, Sparkles } from 'lucide-react';
 import Image from 'next/image';
 
 const containerVariants: Variants = {
@@ -33,8 +33,8 @@ const itemVariants: Variants = {
 
 export const BusinessInsightsSection: React.FC = () => {
   const icons = [
-    <Smartphone key="1" size={26} color="#e01a2b" />,
-    <LineChart key="2" size={26} color="#e01a2b" />,
+    <Smartphone key="1" size={26} color="#f97316" />,
+    <LineChart key="2" size={26} color="#ea580c" />,
     <BarChart3 key="3" size={26} color="#e01a2b" />,
   ];
 
@@ -42,7 +42,7 @@ export const BusinessInsightsSection: React.FC = () => {
     <Box
       id="insights"
       component="section"
-      py={{ base: 60, md: 100 }}
+      py={{ base: 48, md: 88 }}
       style={{
         background: '#ffffff',
       }}
@@ -54,8 +54,21 @@ export const BusinessInsightsSection: React.FC = () => {
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
         >
-          <Stack align="center" gap="sm" mb="xl">
-            
+          <Stack align="center" gap="sm" mb={{ base: 28, md: 48 }}>
+            <Badge
+              size="sm"
+              variant="light"
+              style={{
+                background: '#fff7ed',
+                color: '#ea580c',
+                border: '1px solid #fed7aa',
+                textTransform: 'uppercase',
+                letterSpacing: '0.06em',
+                fontWeight: 700,
+              }}
+            >
+              Institutional Intelligence
+            </Badge>
 
             <DisplayHeading
               level={2}
@@ -72,6 +85,7 @@ export const BusinessInsightsSection: React.FC = () => {
                 maxWidth: 640,
                 textAlign: 'center',
                 lineHeight: 1.6,
+                fontSize: 'clamp(0.9rem, 1.3vw, 1rem)',
               }}
             >
               Go beyond simple static reporting. Aggregate multi-source data, extract actionable
@@ -80,7 +94,7 @@ export const BusinessInsightsSection: React.FC = () => {
           </Stack>
         </motion.div>
 
-        {/* Cinematic image banner */}
+        {/* Cinematic image banner with responsive mobile height */}
         <motion.div
           initial={{ opacity: 0, y: 30 }}
           whileInView={{ opacity: 1, y: 0 }}
@@ -88,26 +102,30 @@ export const BusinessInsightsSection: React.FC = () => {
           transition={{ duration: 0.7 }}
         >
           <Box
-            mb={48}
+            mb={{ base: 32, md: 48 }}
             style={{
               borderRadius: '20px',
               overflow: 'hidden',
               position: 'relative',
-              aspectRatio: '16 / 7',
+              minHeight: '260px',
+              height: 'clamp(260px, 35vw, 420px)',
+              boxShadow: '0 12px 36px rgba(0, 0, 0, 0.08)',
+              border: '1px solid #e2e8f0',
             }}
           >
             <Image
               src="/teacher_with_laptop.jpg"
               alt="Ghanaian school administrator using Fastrack dashboard on laptop"
               fill
-              style={{ objectFit: 'cover' }}
+              style={{ objectFit: 'cover', objectPosition: 'center 30%' }}
               sizes="(max-width: 768px) 100vw, 1200px"
             />
             <Box
               style={{
                 position: 'absolute',
                 inset: 0,
-                background: 'linear-gradient(to top, rgba(15,23,42,0.6) 0%, transparent 60%)',
+                background:
+                  'linear-gradient(to top, rgba(15,23,42,0.85) 0%, rgba(15,23,42,0.4) 50%, rgba(15,23,42,0.1) 100%)',
               }}
             />
             <Box
@@ -116,31 +134,36 @@ export const BusinessInsightsSection: React.FC = () => {
                 bottom: 0,
                 left: 0,
                 right: 0,
-                padding: 'clamp(20px, 3vw, 36px)',
+                padding: 'clamp(16px, 3.5vw, 36px)',
               }}
             >
-              <Text
-                size="xs"
-                fw={600}
-                style={{
-                  color: 'rgba(255,255,255,0.8)',
-                  letterSpacing: '0.05em',
-                  textTransform: 'uppercase',
-                }}
-              >
-                Real-time School Operations Dashboard
-              </Text>
+              <Group gap={6} mb={4}>
+                <BarChart3 size={14} color="#fdba74" />
+                <Text
+                  size="xs"
+                  fw={700}
+                  style={{
+                    color: '#fdba74',
+                    letterSpacing: '0.05em',
+                    textTransform: 'uppercase',
+                    fontSize: 'clamp(0.7rem, 1.1vw, 0.8rem)',
+                  }}
+                >
+                  Real-Time School Operations Control
+                </Text>
+              </Group>
               <Text
                 style={{
                   fontFamily: 'var(--font-heading)',
-                  fontWeight: 700,
-                  fontSize: 'clamp(1.1rem, 2vw, 1.5rem)',
+                  fontWeight: 800,
+                  fontSize: 'clamp(1.1rem, 2.2vw, 1.6rem)',
                   color: '#ffffff',
-                  lineHeight: 1.3,
-                  marginTop: 4,
+                  lineHeight: 1.25,
+                  maxWidth: '680px',
+                  textShadow: '0 2px 8px rgba(0,0,0,0.6)',
                 }}
               >
-                Every metric your school needs — one screen, zero friction.
+                Every metric your school needs — one unified screen, zero administrative friction.
               </Text>
             </Box>
           </Box>
@@ -152,18 +175,18 @@ export const BusinessInsightsSection: React.FC = () => {
           whileInView="visible"
           viewport={{ once: true, margin: '-40px' }}
         >
-          <SimpleGrid cols={{ base: 1, md: 3 }} spacing="xl" mt="xl">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 'md', md: 'xl' }} mt="md">
             {businessInfo.benefits.map((benefit, idx) => (
               <motion.div
                 key={idx}
                 variants={itemVariants}
-                whileHover={{ y: -8 }}
+                whileHover={{ y: -6 }}
                 transition={{ duration: 0.25 }}
                 style={{ height: '100%' }}
               >
                 <Box
                   style={{
-                    padding: '36px 28px',
+                    padding: 'clamp(24px, 3vw, 36px) clamp(20px, 2.5vw, 28px)',
                     borderRadius: '20px',
                     background: '#f8fafc',
                     border: '1px solid #e2e8f0',
@@ -174,8 +197,8 @@ export const BusinessInsightsSection: React.FC = () => {
                     transition: 'all 0.25s cubic-bezier(0.16, 1, 0.3, 1)',
                   }}
                   onMouseEnter={(e) => {
-                    e.currentTarget.style.borderColor = '#cbd5e1';
-                    e.currentTarget.style.boxShadow = '0 20px 40px -8px rgba(11, 15, 23, 0.08)';
+                    e.currentTarget.style.borderColor = '#fdba74';
+                    e.currentTarget.style.boxShadow = '0 20px 40px -8px rgba(249, 115, 22, 0.12)';
                   }}
                   onMouseLeave={(e) => {
                     e.currentTarget.style.borderColor = '#e2e8f0';
@@ -184,7 +207,7 @@ export const BusinessInsightsSection: React.FC = () => {
                 >
                   <Box>
                     <motion.div
-                      whileHover={{ scale: 1.1, rotate: 5 }}
+                      whileHover={{ scale: 1.08, rotate: 4 }}
                       transition={{ duration: 0.2 }}
                       style={{
                         width: 52,
@@ -195,7 +218,7 @@ export const BusinessInsightsSection: React.FC = () => {
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'center',
-                        marginBottom: 20,
+                        marginBottom: 18,
                         boxShadow: '0 2px 8px rgba(0,0,0,0.03)',
                       }}
                     >
@@ -206,10 +229,10 @@ export const BusinessInsightsSection: React.FC = () => {
                       style={{
                         fontFamily: 'var(--font-heading)',
                         fontWeight: 700,
-                        fontSize: '1.2rem',
+                        fontSize: 'clamp(1.05rem, 1.5vw, 1.25rem)',
                         color: '#0f172a',
                         lineHeight: 1.3,
-                        marginBottom: 12,
+                        marginBottom: 10,
                       }}
                     >
                       {benefit.title}
@@ -221,6 +244,7 @@ export const BusinessInsightsSection: React.FC = () => {
                       style={{
                         lineHeight: 1.6,
                         fontFamily: 'var(--font-inter)',
+                        fontSize: 'clamp(0.85rem, 1.1vw, 0.92rem)',
                       }}
                     >
                       {benefit.description}
@@ -228,7 +252,7 @@ export const BusinessInsightsSection: React.FC = () => {
                   </Box>
 
                   <Group gap="xs" mt="lg" pt="md" style={{ borderTop: '1px solid #e2e8f0' }}>
-                    <Check size={16} color="#e01a2b" strokeWidth={2.5} />
+                    <Check size={16} color="#f97316" strokeWidth={2.5} />
                     <Text size="xs" fw={700} c="dark">
                       Built-in to Fastrack Cloud ERP
                     </Text>

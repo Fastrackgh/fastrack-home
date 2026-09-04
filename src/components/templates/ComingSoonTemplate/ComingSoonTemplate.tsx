@@ -8,14 +8,14 @@ import {
   Stack,
   Group,
   Text,
-  SimpleGrid,
+  Grid,
   Badge,
 } from '@mantine/core';
-import { BrandLogo, StatusBadge } from '@/components/atoms';
+import { BrandLogo } from '@/components/atoms';
 import { CountdownUnit } from '@/components/molecules';
 import { WaitlistForm } from '@/components/organisms';
 import {
-  ArrowLeft,
+  Home,
   Phone,
   Mail,
   ShieldCheck,
@@ -23,15 +23,19 @@ import {
   GraduationCap,
   CreditCard,
   MessageSquare,
+  MapPin,
+  Building2,
+  CheckCircle2,
 } from 'lucide-react';
 import { businessInfo } from '@/data/businessInfo';
+import { motion } from 'framer-motion';
 
 export const ComingSoonTemplate: React.FC = () => {
   const [timeLeft, setTimeLeft] = useState({
-    days: 60,
-    hours: 14,
-    minutes: 35,
-    seconds: 42,
+    days: 45,
+    hours: 18,
+    minutes: 24,
+    seconds: 30,
   });
 
   useEffect(() => {
@@ -57,114 +61,159 @@ export const ComingSoonTemplate: React.FC = () => {
     <Box
       style={{
         minHeight: '100vh',
-        background: '#ffffff',
+        background: '#f8fafc',
         color: '#0f172a',
-        paddingTop: '24px',
-        paddingBottom: '80px',
+        paddingTop: 'clamp(16px, 3vw, 24px)',
+        paddingBottom: 'clamp(48px, 6vw, 80px)',
       }}
     >
-      {/* Top Header / Navigation */}
-      <Container size="xl" mb={{ base: 36, md: 48 }}>
-        <Group justify="space-between" align="center">
+      {/* 1. Header Navigation Bar */}
+      <Container size="xl" mb={{ base: 24, md: 36 }}>
+        <Group justify="space-between" align="center" wrap="nowrap">
           <BrandLogo variant="light" size="md" withTagline />
 
           <Link href="/" style={{ textDecoration: 'none' }}>
-            <Group
-              gap="xs"
-              style={{
-                padding: '6px 14px',
-                borderRadius: '6px',
-                background: '#f8fafc',
-                border: '1px solid #cbd5e1',
-                color: '#334155',
-                fontSize: '0.8rem',
-                fontWeight: 600,
-              }}
-            >
-              <ArrowLeft size={14} />
-              <span>Back to Homepage</span>
-            </Group>
+            <motion.div whileHover={{ scale: 1.04 }} whileTap={{ scale: 0.96 }}>
+              <Group
+                gap={6}
+                style={{
+                  padding: '8px 16px',
+                  borderRadius: '999px',
+                  background: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  color: '#0f172a',
+                  fontSize: '0.85rem',
+                  fontWeight: 700,
+                  boxShadow: '0 2px 6px rgba(0, 0, 0, 0.04)',
+                  cursor: 'pointer',
+                  transition: 'all 0.2s ease',
+                }}
+              >
+                <Home size={16} color="#ea580c" />
+                <span>Home</span>
+              </Group>
+            </motion.div>
           </Link>
         </Group>
       </Container>
 
+      {/* 2. Hero Headline & Countdown Section */}
       <Container size="xl">
-        <Stack align="center" gap="md" mb={{ base: 36, md: 48 }} style={{ textAlign: 'center' }}>
+        <Stack align="center" gap="xs" mb={{ base: 28, md: 44 }} style={{ textAlign: 'center' }}>
+          <Badge
+            size="sm"
+            variant="light"
+            style={{
+              background: '#fff7ed',
+              color: '#ea580c',
+              border: '1px solid #fed7aa',
+              textTransform: 'uppercase',
+              letterSpacing: '0.06em',
+              fontWeight: 700,
+              padding: '6px 14px',
+              height: 'auto',
+            }}
+          >
+            Fastrack EduSuite • National Launch
+          </Badge>
 
           <h1
             style={{
               fontFamily: 'var(--font-heading)',
               fontWeight: 800,
-              fontSize: 'clamp(2rem, 3.8vw, 3rem)',
+              fontSize: 'clamp(1.85rem, 3.6vw, 2.9rem)',
               lineHeight: 1.15,
               letterSpacing: '-0.03em',
               textAlign: 'center',
               maxWidth: '780px',
               color: '#0f172a',
-              margin: 0,
+              margin: '0 auto',
             }}
           >
-            Fastrack is Launching Soon
+            Transforming School Operations Across Ghana
           </h1>
 
           <Text
             size="md"
-            c="dimmed"
             style={{
-              maxWidth: 640,
+              maxWidth: 620,
               lineHeight: 1.6,
-              fontFamily: 'var(--font-inter)',
+              color: '#64748b',
+              margin: '0 auto',
+              fontSize: 'clamp(0.88rem, 1.2vw, 1rem)',
             }}
           >
-            We are finalizing deployment for our cloud school management platform. Request early access below to reserve priority onboarding for your institution.
+            We are finalizing national cloud deployment. Reserve priority onboarding for your school to receive complimentary data migration, staff training, and bulk SMS credits.
           </Text>
 
           {/* Launch Countdown Ticker */}
-          <Group gap="sm" justify="center" mt="xs">
+          <Group gap={8} justify="center" mt="sm" wrap="nowrap">
             <CountdownUnit value={timeLeft.days} label="Days" />
             <CountdownUnit value={timeLeft.hours} label="Hours" />
-            <CountdownUnit value={timeLeft.minutes} label="Minutes" />
-            <CountdownUnit value={timeLeft.seconds} label="Seconds" />
+            <CountdownUnit value={timeLeft.minutes} label="Mins" />
+            <CountdownUnit value={timeLeft.seconds} label="Secs" />
           </Group>
         </Stack>
 
-        {/* Waitlist Form and Early Access Perks Grid */}
-        <SimpleGrid cols={{ base: 1, md: 12 }} spacing="xl">
-          {/* Left: Waitlist Form */}
-          <Box style={{ gridColumn: 'span 7' }}>
+        {/* 3. Main Two-Column Layout (Form on Left, Perks & Support on Right) */}
+        <Grid gutter={{ base: 'md', md: 'xl' }} align="start">
+          {/* Left Column: Waitlist Form */}
+          <Grid.Col span={{ base: 12, md: 7 }}>
             <WaitlistForm />
-          </Box>
+          </Grid.Col>
 
-          {/* Right: Early Access Benefits */}
-          <Box style={{ gridColumn: 'span 5' }}>
+          {/* Right Column: Early Adopter Perks & Support Info */}
+          <Grid.Col span={{ base: 12, md: 5 }}>
             <Stack gap="md">
               {/* Early Adopter VIP Perks Box */}
               <Box
                 style={{
-                  padding: '24px',
-                  borderRadius: '12px',
-                  background: '#f8fafc',
+                  padding: 'clamp(18px, 2.5vw, 24px)',
+                  borderRadius: '16px',
+                  background: '#ffffff',
                   border: '1px solid #e2e8f0',
+                  boxShadow: '0 4px 16px -2px rgba(0, 0, 0, 0.03)',
                 }}
               >
-                <Group gap="xs" mb="sm">
-                  <Zap size={16} color="#e01a2b" />
-                  <Text size="xs" fw={700} style={{ color: '#0f172a', textTransform: 'uppercase', letterSpacing: '0.05em', fontFamily: 'var(--font-heading)' }}>
-                    Early Adopter Program Benefits
+                <Group gap="xs" mb="sm" align="center">
+                  <Box
+                    style={{
+                      width: 28,
+                      height: 28,
+                      borderRadius: 8,
+                      background: '#fff7ed',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <Zap size={16} color="#ea580c" />
+                  </Box>
+                  <Text
+                    size="xs"
+                    fw={800}
+                    style={{
+                      color: '#0f172a',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.04em',
+                      fontFamily: 'var(--font-heading)',
+                    }}
+                  >
+                    Priority Onboarding Benefits
                   </Text>
                 </Group>
 
-                <Stack gap="xs">
+                <Stack gap={10}>
                   {[
                     '3 Months Complimentary Bulk SMS Credits',
-                    'Zero-Fee Legacy Student Data Migration',
-                    'Dedicated Fastrack On-Site Training Specialist',
-                    'Automated Staff Payroll & GRA/SSNIT Schedule Generator',
+                    '100% Free Legacy Student Data Migration',
+                    'Dedicated On-Site Training Specialist in Accra',
+                    'Automated Staff Payroll & GRA/SSNIT Schedules',
                     'Guaranteed Lifetime Discounted Cloud Licensing',
                   ].map((perk, idx) => (
                     <Group key={idx} gap="xs" wrap="nowrap" align="flex-start">
-                      <ShieldCheck size={15} color="#16a34a" style={{ flexShrink: 0, marginTop: 2 }} />
-                      <Text size="xs" fw={500} style={{ color: '#334155', lineHeight: 1.4 }}>
+                      <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0, marginTop: 2 }} />
+                      <Text size="xs" fw={500} style={{ color: '#334155', lineHeight: 1.45 }}>
                         {perk}
                       </Text>
                     </Group>
@@ -172,30 +221,38 @@ export const ComingSoonTemplate: React.FC = () => {
                 </Stack>
               </Box>
 
-              {/* Modules in Staging */}
+              {/* Modules Ready in Fastrack EduSuite */}
               <Box
                 style={{
-                  padding: '24px',
-                  borderRadius: '12px',
+                  padding: 'clamp(18px, 2.5vw, 24px)',
+                  borderRadius: '16px',
                   background: '#ffffff',
                   border: '1px solid #e2e8f0',
+                  boxShadow: '0 4px 16px -2px rgba(0, 0, 0, 0.03)',
                 }}
               >
-                <Text size="xs" fw={700} c="dimmed" mb="xs" style={{ textTransform: 'uppercase' }}>
-                  Modules Ready for Launch
+                <Text
+                  size="xs"
+                  fw={700}
+                  c="dimmed"
+                  mb="sm"
+                  style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                >
+                  EduSuite Modules in Staging
                 </Text>
 
-                <Stack gap="xs">
+                <Stack gap={8}>
                   {[
-                    { title: 'Automated GPA & Terminal Reports', icon: <GraduationCap size={15} color="#64748b" /> },
-                    { title: 'MoMo & Cashbook Reconciliation', icon: <CreditCard size={15} color="#64748b" /> },
-                    { title: 'Parent Portal & Instant SMS Dispatcher', icon: <MessageSquare size={15} color="#64748b" /> },
+                    { title: 'Continuous Assessment & Report Cards', icon: <GraduationCap size={15} color="#f97316" />, tag: 'Ready' },
+                    { title: 'Mobile Money Fee Reconciliation', icon: <CreditCard size={15} color="#16a34a" />, tag: 'Ready' },
+                    { title: 'Morning Attendance & Bulk SMS', icon: <MessageSquare size={15} color="#ea580c" />, tag: 'Ready' },
+                    { title: 'Staff Payroll & GRA/SSNIT Filing', icon: <Building2 size={15} color="#2563eb" />, tag: 'Ready' },
                   ].map((item, idx) => (
                     <Box
                       key={idx}
                       style={{
-                        padding: '8px 12px',
-                        borderRadius: '6px',
+                        padding: '10px 14px',
+                        borderRadius: '10px',
                         background: '#f8fafc',
                         border: '1px solid #e2e8f0',
                         display: 'flex',
@@ -203,47 +260,56 @@ export const ComingSoonTemplate: React.FC = () => {
                         justifyContent: 'space-between',
                       }}
                     >
-                      <Group gap="xs">
+                      <Group gap="xs" wrap="nowrap">
                         {item.icon}
                         <Text size="xs" fw={600} style={{ color: '#0f172a' }}>
                           {item.title}
                         </Text>
                       </Group>
-                      <Badge size="xs" variant="outline" color="green" style={{ fontSize: '8px' }}>
-                        Ready
+                      <Badge size="xs" variant="light" color="green" style={{ fontSize: '9px' }}>
+                        {item.tag}
                       </Badge>
                     </Box>
                   ))}
                 </Stack>
               </Box>
 
-              {/* Support Contact Box */}
+              {/* Direct Support & Accra Office Box */}
               <Box
                 style={{
-                  padding: '16px 20px',
-                  borderRadius: '8px',
-                  background: '#f8fafc',
+                  padding: 'clamp(16px, 2vw, 20px)',
+                  borderRadius: '16px',
+                  background: '#ffffff',
                   border: '1px solid #e2e8f0',
+                  boxShadow: '0 4px 16px -2px rgba(0, 0, 0, 0.03)',
                 }}
               >
-                <Text size="xs" fw={700} c="dimmed" mb="xs" style={{ textTransform: 'uppercase' }}>
-                  Consultation & Inquiries
+                <Text
+                  size="xs"
+                  fw={700}
+                  c="dimmed"
+                  mb="xs"
+                  style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+                >
+                  Direct Consultation & Inquiries
                 </Text>
-                <Group gap="md">
-                  <Group gap={6}>
-                    <Phone size={13} color="#e01a2b" />
+
+                <Stack gap={8}>
+                  <Group gap={8} wrap="nowrap">
+                    <Phone size={14} color="#ea580c" style={{ flexShrink: 0 }} />
                     <Text
                       component="a"
                       href={`tel:${businessInfo.phoneRaw}`}
                       size="xs"
-                      fw={600}
+                      fw={700}
                       style={{ color: '#0f172a', textDecoration: 'none' }}
                     >
                       {businessInfo.phone}
                     </Text>
                   </Group>
-                  <Group gap={6}>
-                    <Mail size={13} color="#e01a2b" />
+
+                  <Group gap={8} wrap="nowrap">
+                    <Mail size={14} color="#ea580c" style={{ flexShrink: 0 }} />
                     <Text
                       component="a"
                       href={`mailto:${businessInfo.email}`}
@@ -254,11 +320,18 @@ export const ComingSoonTemplate: React.FC = () => {
                       {businessInfo.email}
                     </Text>
                   </Group>
-                </Group>
+
+                  <Group gap={8} wrap="nowrap">
+                    <MapPin size={14} color="#ea580c" style={{ flexShrink: 0 }} />
+                    <Text size="xs" c="dimmed">
+                      {businessInfo.digitalAddress} • Mallam – Accra, Ghana
+                    </Text>
+                  </Group>
+                </Stack>
               </Box>
             </Stack>
-          </Box>
-        </SimpleGrid>
+          </Grid.Col>
+        </Grid>
       </Container>
     </Box>
   );

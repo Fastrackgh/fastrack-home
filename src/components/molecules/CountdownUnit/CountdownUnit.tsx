@@ -10,18 +10,18 @@ export const CountdownUnit: React.FC<CountdownUnitProps> = ({ value, label }) =>
   return (
     <Box
       style={{
-        padding: '12px 16px',
-        borderRadius: '8px',
+        padding: 'clamp(8px, 1.5vw, 12px) clamp(10px, 2vw, 16px)',
+        borderRadius: '10px',
         background: '#f8fafc',
         border: '1px solid #cbd5e1',
-        minWidth: '72px',
+        minWidth: 'clamp(58px, 18vw, 76px)',
         textAlign: 'center',
       }}
     >
       <Text
         style={{
           fontFamily: 'var(--font-heading)',
-          fontSize: '1.75rem',
+          fontSize: 'clamp(1.25rem, 3.5vw, 1.75rem)',
           fontWeight: 800,
           lineHeight: 1,
           color: '#0f172a',
@@ -36,9 +36,9 @@ export const CountdownUnit: React.FC<CountdownUnitProps> = ({ value, label }) =>
           textTransform: 'uppercase',
           letterSpacing: '0.05em',
           fontWeight: 700,
-          color: '#e01a2b',
+          color: '#ea580c',
           marginTop: 4,
-          fontSize: '0.65rem',
+          fontSize: 'clamp(0.58rem, 1.2vw, 0.65rem)',
         }}
       >
         {label}

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Container, Grid, Group, Stack, Text, UnstyledButton } from '@mantine/core';
+import { Box, Container, Group, Stack, Text, UnstyledButton } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CheckCircle2, ShieldCheck, Star } from 'lucide-react';
 import { ActionButton, SectionEyebrow } from '@/components/atoms';
@@ -54,273 +54,234 @@ export const HeroSection: React.FC = () => {
   return (
     <Box
       component="section"
+      onMouseEnter={() => setIsPaused(true)}
+      onMouseLeave={() => setIsPaused(false)}
       style={{
         position: 'relative',
         overflow: 'hidden',
-        background: 'linear-gradient(180deg, #fbfcfe 0%, #ffffff 55%)',
-        borderBottom: '1px solid #eef2f7',
+        minHeight: 'calc(100vh - 72px)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        background: '#0b0f17',
       }}
     >
-      {/* Ambient brand glow */}
-      <Box
-        style={{
-          position: 'absolute',
-          top: -180,
-          right: -140,
-          width: 560,
-          height: 560,
-          borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(224, 26, 43, 0.10) 0%, transparent 70%)',
-          filter: 'blur(40px)',
-          pointerEvents: 'none',
-        }}
-      />
-      {/* Subtle grid */}
+      {/* Full-screen crossfading background images */}
+      <AnimatePresence mode="sync">
+        <motion.div
+          key={active.id}
+          initial={{ opacity: 0, scale: 1.08 }}
+          animate={{ opacity: 1, scale: 1 }}
+          exit={{ opacity: 0 }}
+          transition={{ duration: 1, ease: 'easeInOut' }}
+          style={{
+            position: 'absolute',
+            inset: 0,
+            backgroundImage: `url(${active.image})`,
+            backgroundSize: 'cover',
+            backgroundPosition: 'center',
+            zIndex: 0,
+          }}
+        />
+      </AnimatePresence>
+
+      {/* Legibility overlay */}
       <Box
         style={{
           position: 'absolute',
           inset: 0,
-          backgroundImage:
-            'linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px)',
-          backgroundSize: '44px 44px',
-          maskImage: 'radial-gradient(circle at 72% 12%, black 0%, transparent 62%)',
-          WebkitMaskImage: 'radial-gradient(circle at 72% 12%, black 0%, transparent 62%)',
+          zIndex: 1,
+          background:
+            'linear-gradient(180deg, rgba(11, 15, 23, 0.55) 0%, rgba(11, 15, 23, 0.72) 55%, rgba(11, 15, 23, 0.92) 100%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      {/* Ambient brand glow */}
+      <Box
+        style={{
+          position: 'absolute',
+          top: '18%',
+          left: '50%',
+          transform: 'translateX(-50%)',
+          width: 640,
+          height: 420,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(224, 26, 43, 0.20) 0%, transparent 70%)',
+          filter: 'blur(70px)',
+          zIndex: 1,
           pointerEvents: 'none',
         }}
       />
 
       <Container
-        size="xl"
+        size="lg"
         style={{
           position: 'relative',
-          zIndex: 1,
-          paddingTop: 'clamp(48px, 8vh, 92px)',
-          paddingBottom: 'clamp(56px, 9vh, 104px)',
+          zIndex: 2,
+          width: '100%',
+          paddingTop: 'clamp(56px, 10vh, 96px)',
+          paddingBottom: 'clamp(72px, 12vh, 120px)',
         }}
       >
-        <Grid gutter={{ base: 40, lg: 56 }} align="center">
-          {/* Left: message */}
-          <Grid.Col span={{ base: 12, lg: 5 }}>
+        <Stack align="center" gap="lg" style={{ maxWidth: 840, margin: '0 auto', textAlign: 'center' }}>
+          <AnimatePresence mode="wait">
             <motion.div
-              initial={{ opacity: 0, y: 18 }}
+              key={active.id + '-eyebrow'}
+              initial={{ opacity: 0, y: 8 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{ duration: 0.35 }}
             >
-              <Stack gap="lg">
-                <SectionEyebrow label="School ERP · Trusted since 2014" align="left" />
+              <SectionEyebrow label={active.caption} onDark />
+            </motion.div>
+          </AnimatePresence>
 
-                <h1
-                  style={{
-                    fontFamily: 'var(--font-heading)',
-                    fontWeight: 800,
-                    fontSize: 'clamp(2.2rem, 3.6vw, 3.4rem)',
-                    lineHeight: 1.08,
-                    letterSpacing: '-0.03em',
-                    color: '#0f172a',
-                    margin: 0,
-                  }}
-                >
-                  Run your entire school on{' '}
-                  <span
-                    style={{
-                      background: 'linear-gradient(135deg, #f0566a 0%, #e01a2b 55%, #a80d1a 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                    }}
-                  >
-                    one trusted platform
-                  </span>
-                </h1>
+          <h1
+            style={{
+              fontFamily: 'var(--font-heading)',
+              fontWeight: 800,
+              fontSize: 'clamp(2.3rem, 4.6vw, 3.85rem)',
+              lineHeight: 1.08,
+              letterSpacing: '-0.035em',
+              color: '#ffffff',
+              margin: 0,
+              textShadow: '0 2px 18px rgba(0, 0, 0, 0.4)',
+            }}
+          >
+            Run your entire school on{' '}
+            <span
+              style={{
+                background: 'linear-gradient(135deg, #f0566a 0%, #e01a2b 55%, #ff6b7a 100%)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+              }}
+            >
+              one trusted platform
+            </span>
+          </h1>
 
-                <Text
-                  style={{
-                    color: '#475569',
-                    fontSize: 'clamp(1rem, 1.3vw, 1.15rem)',
-                    lineHeight: 1.65,
-                    maxWidth: 520,
-                  }}
-                >
-                  Fastrack EduSuite unifies admissions, attendance, fees, grading, and parent
-                  communication — so your team spends less time on paperwork and more time running a
-                  great school.
+          <Text
+            style={{
+              color: 'rgba(241, 245, 249, 0.92)',
+              fontSize: 'clamp(1rem, 1.4vw, 1.2rem)',
+              lineHeight: 1.65,
+              maxWidth: 680,
+              textShadow: '0 1px 10px rgba(0, 0, 0, 0.35)',
+            }}
+          >
+            Fastrack EduSuite unifies admissions, attendance, fees, grading, and parent
+            communication, so your team spends less time on paperwork and more time running a
+            great school.
+          </Text>
+
+          <Group gap="sm" justify="center" wrap="wrap" mt={4}>
+            {benefits.map((item) => (
+              <Group
+                key={item}
+                gap={8}
+                wrap="nowrap"
+                px={14}
+                py={7}
+                style={{
+                  borderRadius: 999,
+                  background: 'rgba(255, 255, 255, 0.09)',
+                  backdropFilter: 'blur(8px)',
+                  border: '1px solid rgba(255, 255, 255, 0.16)',
+                }}
+              >
+                <CheckCircle2 size={14} color="#4ade80" style={{ flexShrink: 0 }} />
+                <Text size="sm" fw={600} c="#f8fafc">
+                  {item}
                 </Text>
+              </Group>
+            ))}
+          </Group>
 
-                <Stack gap={10} mt={4}>
-                  {benefits.map((item) => (
-                    <Group key={item} gap="sm" wrap="nowrap">
-                      <CheckCircle2 size={18} color="#e01a2b" style={{ flexShrink: 0 }} />
-                      <Text size="sm" fw={500} c="#334155">
-                        {item}
-                      </Text>
-                    </Group>
-                  ))}
-                </Stack>
-
-                <Group gap="md" mt="xs">
-                  <ActionButton
-                    href="/coming-soon"
-                    variantStyle="primary"
-                    size="md"
-                    withArrow
-                    style={{
-                      height: 50,
-                      paddingLeft: 26,
-                      paddingRight: 26,
-                      fontSize: '1rem',
-                      fontWeight: 700,
-                      background: 'linear-gradient(135deg, #e01a2b 0%, #a80d1a 100%)',
-                      boxShadow: '0 12px 26px -10px rgba(224, 26, 43, 0.6)',
-                    }}
-                  >
-                    Get Started
-                  </ActionButton>
-                  <ActionButton
-                    variantStyle="secondary"
-                    size="md"
-                    onClick={scrollToFeatures}
-                    style={{ height: 50, paddingLeft: 22, paddingRight: 22, fontSize: '1rem', fontWeight: 600 }}
-                  >
-                    Explore School ERP
-                  </ActionButton>
-                </Group>
-
-                <Group gap="xl" mt="sm">
-                  <Group gap={6} wrap="nowrap">
-                    {Array.from({ length: 5 }).map((_, i) => (
-                      <Star key={i} size={15} fill="#f59e0b" color="#f59e0b" />
-                    ))}
-                    <Text size="sm" fw={600} c="#334155" ml={4}>
-                      Trusted by 260+ schools
-                    </Text>
-                  </Group>
-                  <Group gap={6} wrap="nowrap">
-                    <ShieldCheck size={16} color="#16a34a" />
-                    <Text size="sm" c="dimmed">
-                      Bank-grade security
-                    </Text>
-                  </Group>
-                </Group>
-              </Stack>
-            </motion.div>
-          </Grid.Col>
-
-          {/* Right: rotating slide images */}
-          <Grid.Col span={{ base: 12, lg: 7 }}>
-            <motion.div
-              initial={{ opacity: 0, y: 24, scale: 0.98 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              transition={{ duration: 0.6, delay: 0.1 }}
+          <Group gap="md" justify="center" mt="sm">
+            <ActionButton
+              href="/coming-soon"
+              variantStyle="primary"
+              size="md"
+              withArrow
+              style={{
+                height: 52,
+                paddingLeft: 28,
+                paddingRight: 28,
+                fontSize: '1rem',
+                fontWeight: 700,
+                background: 'linear-gradient(135deg, #e01a2b 0%, #a80d1a 100%)',
+                boxShadow: '0 14px 30px -10px rgba(224, 26, 43, 0.7)',
+              }}
             >
-              <Box style={{ position: 'relative' }}>
-                <Box
-                  style={{
-                    position: 'absolute',
-                    inset: '-6% -4%',
-                    background: 'radial-gradient(circle at 60% 40%, rgba(224, 26, 43, 0.12), transparent 60%)',
-                    filter: 'blur(34px)',
-                    pointerEvents: 'none',
-                  }}
-                />
+              Get Started
+            </ActionButton>
+            <ActionButton
+              variantStyle="secondary"
+              size="md"
+              onClick={scrollToFeatures}
+              style={{
+                height: 52,
+                paddingLeft: 24,
+                paddingRight: 24,
+                fontSize: '1rem',
+                fontWeight: 600,
+                background: 'rgba(255, 255, 255, 0.1)',
+                backdropFilter: 'blur(10px)',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.24)',
+              }}
+            >
+              Explore School ERP
+            </ActionButton>
+          </Group>
 
-                <Box
-                  onMouseEnter={() => setIsPaused(true)}
-                  onMouseLeave={() => setIsPaused(false)}
-                  style={{
-                    position: 'relative',
-                    borderRadius: 24,
-                    overflow: 'hidden',
-                    aspectRatio: '4 / 3',
-                    border: '1px solid #e8edf3',
-                    boxShadow: '0 30px 60px -22px rgba(15, 23, 42, 0.32)',
-                    background: '#0b0f17',
-                  }}
-                >
-                  <AnimatePresence mode="sync">
-                    <motion.div
-                      key={active.id}
-                      initial={{ opacity: 0, scale: 1.06 }}
-                      animate={{ opacity: 1, scale: 1 }}
-                      exit={{ opacity: 0 }}
-                      transition={{ duration: 0.9, ease: 'easeInOut' }}
-                      style={{
-                        position: 'absolute',
-                        inset: 0,
-                        backgroundImage: `url(${active.image})`,
-                        backgroundSize: 'cover',
-                        backgroundPosition: 'center',
-                      }}
-                    />
-                  </AnimatePresence>
-
-                  {/* Bottom gradient + caption */}
-                  <Box
-                    style={{
-                      position: 'absolute',
-                      inset: 0,
-                      background:
-                        'linear-gradient(180deg, transparent 45%, rgba(11, 15, 23, 0.72) 100%)',
-                      pointerEvents: 'none',
-                    }}
-                  />
-                  <Group
-                    justify="space-between"
-                    align="center"
-                    style={{ position: 'absolute', left: 20, right: 20, bottom: 18 }}
-                  >
-                    <AnimatePresence mode="wait">
-                      <motion.div
-                        key={active.id + '-cap'}
-                        initial={{ opacity: 0, y: 8 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, y: -8 }}
-                        transition={{ duration: 0.35 }}
-                      >
-                        <Group gap={8} wrap="nowrap">
-                          <Box
-                            style={{
-                              width: 8,
-                              height: 8,
-                              borderRadius: '50%',
-                              background: '#22c55e',
-                              boxShadow: '0 0 10px #22c55e',
-                            }}
-                          />
-                          <Text size="sm" fw={600} c="#ffffff">
-                            {active.caption}
-                          </Text>
-                        </Group>
-                      </motion.div>
-                    </AnimatePresence>
-
-                    <Group gap={6} wrap="nowrap">
-                      {slides.map((s, idx) => {
-                        const isCurrent = idx === currentSlide;
-                        return (
-                          <UnstyledButton
-                            key={s.id}
-                            onClick={() => setCurrentSlide(idx)}
-                            aria-label={`Go to slide ${idx + 1}`}
-                            style={{ padding: 3 }}
-                          >
-                            <motion.div
-                              animate={{
-                                width: isCurrent ? 24 : 8,
-                                backgroundColor: isCurrent ? '#ffffff' : 'rgba(255,255,255,0.45)',
-                              }}
-                              transition={{ duration: 0.3 }}
-                              style={{ height: 7, borderRadius: 999 }}
-                            />
-                          </UnstyledButton>
-                        );
-                      })}
-                    </Group>
-                  </Group>
-                </Box>
-              </Box>
-            </motion.div>
-          </Grid.Col>
-        </Grid>
+          <Group gap="xl" justify="center" mt="lg">
+            <Group gap={6} wrap="nowrap">
+              {Array.from({ length: 5 }).map((_, i) => (
+                <Star key={i} size={15} fill="#f59e0b" color="#f59e0b" />
+              ))}
+              <Text size="sm" fw={600} c="#f1f5f9" ml={4}>
+                Trusted by 260+ schools
+              </Text>
+            </Group>
+            <Group gap={6} wrap="nowrap">
+              <ShieldCheck size={16} color="#4ade80" />
+              <Text size="sm" c="#cbd5e1">
+                Bank-grade security
+              </Text>
+            </Group>
+          </Group>
+        </Stack>
       </Container>
+
+      {/* Pagination dots */}
+      <Group
+        gap={8}
+        justify="center"
+        style={{ position: 'absolute', bottom: 26, left: 0, right: 0, zIndex: 3 }}
+      >
+        {slides.map((s, idx) => {
+          const isCurrent = idx === currentSlide;
+          return (
+            <UnstyledButton
+              key={s.id}
+              onClick={() => setCurrentSlide(idx)}
+              aria-label={`Go to slide ${idx + 1}`}
+              style={{ padding: 4 }}
+            >
+              <motion.div
+                animate={{
+                  width: isCurrent ? 30 : 9,
+                  backgroundColor: isCurrent ? '#e01a2b' : 'rgba(255,255,255,0.4)',
+                }}
+                transition={{ duration: 0.3 }}
+                style={{ height: 8, borderRadius: 999 }}
+              />
+            </UnstyledButton>
+          );
+        })}
+      </Group>
     </Box>
   );
 };

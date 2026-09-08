@@ -381,8 +381,8 @@ export const SchoolFeaturesSection: React.FC = () => {
                               width: 22,
                               height: 22,
                               borderRadius: '50%',
-                              background: 'rgba(224,26,43,0.18)',
-                              border: '1px solid rgba(224,26,43,0.38)',
+                              background: 'rgba(249,115,22,0.2)',
+                              border: '1px solid rgba(249,115,22,0.4)',
                               display: 'flex',
                               alignItems: 'center',
                               justifyContent: 'center',
@@ -390,7 +390,7 @@ export const SchoolFeaturesSection: React.FC = () => {
                               marginTop: 2,
                             }}
                           >
-                            <CheckCircle2 size={13} color="#eb5969" />
+                            <CheckCircle2 size={13} color="#f97316" />
                           </Box>
                           <Text
                             size="xs"

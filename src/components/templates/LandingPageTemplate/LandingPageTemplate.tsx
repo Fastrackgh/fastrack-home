@@ -5,6 +5,7 @@ import { Box } from '@mantine/core';
 import {
   HeroSection,
   TrustBar,
+  DashboardShowcaseSection,
   SchoolFeaturesSection,
   ServicesGridSection,
   PartnershipSection,
@@ -19,7 +20,10 @@ export const LandingPageTemplate: React.FC = () => {
       {/* 1. High Impact Hero */}
       <HeroSection />
 
-      {/* 2. Trust Bar Metrics & Longevity */}
+      {/* 2. Live Dashboard Product Preview */}
+      <DashboardShowcaseSection />
+
+      {/* 3. Trust Bar Metrics & Longevity */}
       <TrustBar />
 
       {/* 3. Flagship School Management Modules */}

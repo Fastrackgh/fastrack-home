@@ -1,6 +1,7 @@
 export * from './Navbar/Navbar';
 export * from './HeroSection/HeroSection';
 export * from './DashboardPreview/DashboardPreview';
+export * from './DashboardShowcaseSection/DashboardShowcaseSection';
 export * from './TrustBar/TrustBar';
 export * from './SchoolFeaturesSection/SchoolFeaturesSection';
 export * from './ServicesGridSection/ServicesGridSection';

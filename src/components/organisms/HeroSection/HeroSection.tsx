@@ -1,459 +1,327 @@
 'use client';
 
 import React, { useState, useEffect, useCallback } from 'react';
-import { Box, Container, Stack, Group, Text, Badge, UnstyledButton } from '@mantine/core';
+import { Box, Container, Grid, Group, Stack, Text, UnstyledButton } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ActionButton } from '@/components/atoms';
-import { DashboardPreview } from '@/components/organisms/DashboardPreview/DashboardPreview';
-import {
-  ShieldCheck,
-  GraduationCap,
-  CreditCard,
-  MessageSquare,
-  Users,
-} from 'lucide-react';
+import { CheckCircle2, ShieldCheck, Star } from 'lucide-react';
+import { ActionButton, SectionEyebrow } from '@/components/atoms';
 
-interface HeroSlide {
-  id: string;
-  badge: string;
-  badgeColor: string;
-  badgeIcon: React.ReactNode;
-  titlePrefix: string;
-  titleHighlight: string;
-  titleHighlightColor: string;
-  subtitle: string;
-  bgImage: string;
-  chips: string[];
-}
+const benefits = [
+  'Automated fees & MoMo reconciliation',
+  'Instant attendance SMS to every parent',
+  'Error-free terminal report cards',
+];
 
-const slides: HeroSlide[] = [
+const slides = [
   {
-    id: 'fees-momo',
-    badge: 'Mobile Money Fee Automation',
-    badgeColor: '#f97316',
-    badgeIcon: <CreditCard size={14} color="#f97316" />,
-    titlePrefix: 'Collect School Fees with Zero Leakages via ',
-    titleHighlight: 'MoMo & Bank Gateways',
-    titleHighlightColor: '#f97316',
-    subtitle:
-      'Parents pay tuition effortlessly via MTN Mobile Money and Telecel Cash. Bursars get instant payment receipts, automated debtor lists, and real-time reconciled cashbooks.',
-    bgImage: '/teacher_with_laptop.jpg',
-    chips: ['Instant MoMo SMS Receipts', 'Automatic Cashbook Reconciliation', 'Zero Fee Leakages'],
+    id: 'fees',
+    image: '/teacher_with_laptop.jpg',
+    caption: 'Mobile Money fee automation',
   },
   {
-    id: 'academics-grading',
-    badge: 'Automated Academic Grading',
-    badgeColor: '#e01a2b',
-    badgeIcon: <GraduationCap size={14} color="#e01a2b" />,
-    titlePrefix: 'Generate Error-Free Terminal Report Cards in ',
-    titleHighlight: 'Just a Few Clicks',
-    titleHighlightColor: '#ff4d5e',
-    subtitle:
-      'Teachers enter continuous assessment scores on phone or laptop. Fastrack automatically computes GPAs, class positions, and remarks aligned with GES and Cambridge standards.',
-    bgImage: '/students_running_to_school.jpg',
-    chips: ['GES & Cambridge Aligned', 'Instant Report Card Printing', 'Automated GPA Computation'],
+    id: 'academics',
+    image: '/students_running_to_school.jpg',
+    caption: 'Attendance & parent SMS alerts',
   },
   {
-    id: 'attendance-sms',
-    badge: 'Attendance & Parent Alerts',
-    badgeColor: '#f97316',
-    badgeIcon: <MessageSquare size={14} color="#f97316" />,
-    titlePrefix: 'Keep Every Parent Connected with Instant ',
-    titleHighlight: 'Morning Attendance SMS',
-    titleHighlightColor: '#f97316',
-    subtitle:
-      'Mark morning attendance in under 30 seconds. Parents receive instant SMS notifications when their wards arrive, increasing parent trust and student accountability.',
-    bgImage: '/mother_child_phone.jpg',
-    chips: ['Instant Morning SMS Alerts', 'Custom School Sender ID', 'Parent Portal on Phone'],
-  },
-  {
-    id: 'admissions-payroll',
-    badge: 'Student Biodata & Staff Payroll',
-    badgeColor: '#38bdf8',
-    badgeIcon: <Users size={14} color="#38bdf8" />,
-    titlePrefix: '100% Paperless Student Records & ',
-    titleHighlight: 'Automated SSNIT/GRA Payroll',
-    titleHighlightColor: '#38bdf8',
-    subtitle:
-      'Maintain comprehensive student academic and medical biodata in one central repository, while generating monthly GRA PAYE and SSNIT deduction schedules with zero manual math.',
-    bgImage: '/school_assembly.jpg',
-    chips: ['100% Paperless Biodata', 'GRA PAYE & SSNIT Ready', 'Multi-Campus Consolidation'],
+    id: 'attendance',
+    image: '/mother_child_phone.jpg',
+    caption: 'Parent portal on any phone',
   },
 ];
 
 export const HeroSection: React.FC = () => {
-  const [currentSlide, setCurrentSlide] = useState<number>(0);
-  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [isPaused, setIsPaused] = useState(false);
 
   const nextSlide = useCallback(() => {
     setCurrentSlide((prev) => (prev + 1) % slides.length);
   }, []);
 
-  const goToSlide = (idx: number) => {
-    setCurrentSlide(idx);
-  };
-
-  // Autoplay timer: changes slide smoothly every 7 seconds
   useEffect(() => {
     if (isPaused) return;
-    const interval = setInterval(() => {
-      nextSlide();
-    }, 7000);
+    const interval = setInterval(nextSlide, 5000);
     return () => clearInterval(interval);
   }, [nextSlide, isPaused]);
+
+  const active = slides[currentSlide];
 
   const scrollToFeatures = () => {
     const el = document.getElementById('school-erp');
     if (el) el.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const active = slides[currentSlide];
-
   return (
-    <Box component="section">
-      {/* 1. HERO SWIPER CONTAINER */}
+    <Box
+      component="section"
+      style={{
+        position: 'relative',
+        overflow: 'hidden',
+        background: 'linear-gradient(180deg, #fbfcfe 0%, #ffffff 55%)',
+        borderBottom: '1px solid #eef2f7',
+      }}
+    >
+      {/* Ambient brand glow */}
       <Box
-        onMouseEnter={() => setIsPaused(true)}
-        onMouseLeave={() => setIsPaused(false)}
-        onTouchStart={() => setIsPaused(true)}
-        onTouchEnd={() => setIsPaused(false)}
+        style={{
+          position: 'absolute',
+          top: -180,
+          right: -140,
+          width: 560,
+          height: 560,
+          borderRadius: '50%',
+          background: 'radial-gradient(circle, rgba(224, 26, 43, 0.10) 0%, transparent 70%)',
+          filter: 'blur(40px)',
+          pointerEvents: 'none',
+        }}
+      />
+      {/* Subtle grid */}
+      <Box
+        style={{
+          position: 'absolute',
+          inset: 0,
+          backgroundImage:
+            'linear-gradient(rgba(15, 23, 42, 0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(15, 23, 42, 0.03) 1px, transparent 1px)',
+          backgroundSize: '44px 44px',
+          maskImage: 'radial-gradient(circle at 72% 12%, black 0%, transparent 62%)',
+          WebkitMaskImage: 'radial-gradient(circle at 72% 12%, black 0%, transparent 62%)',
+          pointerEvents: 'none',
+        }}
+      />
+
+      <Container
+        size="xl"
         style={{
           position: 'relative',
-          minHeight: 'calc(100vh - 72px)',
-          overflow: 'hidden',
-          backgroundColor: '#0f172a',
-          borderBottom: '1px solid #1e293b',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
+          zIndex: 1,
+          paddingTop: 'clamp(48px, 8vh, 92px)',
+          paddingBottom: 'clamp(56px, 9vh, 104px)',
         }}
       >
-        {/* Animated Background Image Swiper with Smooth Crossfade */}
-        <AnimatePresence mode="sync">
-          <motion.div
-            key={active.id + '-bg'}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            transition={{ duration: 0.8, ease: 'easeInOut' }}
-            style={{
-              position: 'absolute',
-              inset: 0,
-              backgroundImage: `url(${active.bgImage})`,
-              backgroundPosition: 'center',
-              backgroundSize: 'cover',
-              backgroundRepeat: 'no-repeat',
-              zIndex: 0,
-            }}
-          />
-        </AnimatePresence>
-
-        {/* Clean, high-contrast dark overlay for optimal text readability */}
-        <Box
-          style={{
-            position: 'absolute',
-            inset: 0,
-            zIndex: 1,
-            background: 'rgba(15, 23, 42, 0.72)',
-            pointerEvents: 'none',
-          }}
-        />
-
-        {/* Main Swiper Content Stage */}
-        <Container
-          size="xl"
-          style={{
-            position: 'relative',
-            zIndex: 2,
-            width: '100%',
-            paddingTop: 'clamp(44px, 8vh, 76px)',
-            paddingBottom: 'clamp(56px, 9vh, 88px)',
-          }}
-        >
-          {/* Smooth Text Transition */}
-          <AnimatePresence mode="wait">
+        <Grid gutter={{ base: 40, lg: 56 }} align="center">
+          {/* Left: message */}
+          <Grid.Col span={{ base: 12, lg: 5 }}>
             <motion.div
-              key={active.id}
-              initial={{ opacity: 0, y: 12 }}
+              initial={{ opacity: 0, y: 18 }}
               animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: -12 }}
-              transition={{ duration: 0.45, ease: [0.25, 0.1, 0.25, 1.0] }}
+              transition={{ duration: 0.5 }}
             >
-              <Stack align="center" gap="md" style={{ maxWidth: '900px', margin: '0 auto', textAlign: 'center' }}>
-                {/* Category Badge */}
-                <Box
-                  style={{
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: '8px',
-                    padding: '6px 16px',
-                    borderRadius: '999px',
-                    background: 'rgba(15, 23, 42, 0.78)',
-                    border: '1px solid rgba(255, 255, 255, 0.12)',
-                    boxShadow: 'none',
-                  }}
-                >
-                  {active.badgeIcon}
-                  <Text
-                    size="xs"
-                    fw={700}
-                    style={{
-                      color: '#ffffff',
-                      letterSpacing: '0.04em',
-                      textTransform: 'uppercase',
-                      fontSize: '0.78rem',
-                    }}
-                  >
-                    {active.badge}
-                  </Text>
-                </Box>
+              <Stack gap="lg">
+                <SectionEyebrow label="School ERP · Trusted since 2014" align="left" />
 
-                {/* Main Headline */}
                 <h1
                   style={{
                     fontFamily: 'var(--font-heading)',
                     fontWeight: 800,
-                    fontSize: 'clamp(2rem, 4.2vw, 3.6rem)',
-                    lineHeight: 1.16,
+                    fontSize: 'clamp(2.2rem, 3.6vw, 3.4rem)',
+                    lineHeight: 1.08,
                     letterSpacing: '-0.03em',
-                    textAlign: 'center',
-                    color: '#ffffff',
+                    color: '#0f172a',
                     margin: 0,
-                    textShadow: '0 2px 14px rgba(0, 0, 0, 0.7)',
                   }}
                 >
-                  {active.titlePrefix}
-                  <span style={{ color: active.titleHighlightColor }}>
-                    {active.titleHighlight}
+                  Run your entire school on{' '}
+                  <span
+                    style={{
+                      background: 'linear-gradient(135deg, #f0566a 0%, #e01a2b 55%, #a80d1a 100%)',
+                      WebkitBackgroundClip: 'text',
+                      WebkitTextFillColor: 'transparent',
+                    }}
+                  >
+                    one trusted platform
                   </span>
                 </h1>
 
-                {/* Subtitle Description */}
                 <Text
-                  size="lg"
                   style={{
-                    fontFamily: 'var(--font-inter)',
-                    maxWidth: '740px',
-                    textAlign: 'center',
+                    color: '#475569',
+                    fontSize: 'clamp(1rem, 1.3vw, 1.15rem)',
                     lineHeight: 1.65,
-                    fontSize: 'clamp(0.95rem, 1.5vw, 1.15rem)',
-                    color: 'rgba(241, 245, 249, 0.92)',
-                    textShadow: '0 1px 8px rgba(0, 0, 0, 0.6)',
-                    margin: '0 auto',
+                    maxWidth: 520,
                   }}
                 >
-                  {active.subtitle}
+                  Fastrack EduSuite unifies admissions, attendance, fees, grading, and parent
+                  communication — so your team spends less time on paperwork and more time running a
+                  great school.
                 </Text>
 
-                {/* Key Benefits Chips */}
-                <Group gap="xs" justify="center" wrap="wrap">
-                  {active.chips.map((chip, idx) => (
-                    <Badge
-                      key={idx}
-                      size="sm"
-                      variant="light"
-                      style={{
-                        background: 'rgba(255, 255, 255, 0.12)',
-                        color: '#ffffff',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        textTransform: 'none',
-                        fontWeight: 600,
-                        padding: '6px 14px',
-                      }}
-                    >
-                      ✓ {chip}
-                    </Badge>
+                <Stack gap={10} mt={4}>
+                  {benefits.map((item) => (
+                    <Group key={item} gap="sm" wrap="nowrap">
+                      <CheckCircle2 size={18} color="#e01a2b" style={{ flexShrink: 0 }} />
+                      <Text size="sm" fw={500} c="#334155">
+                        {item}
+                      </Text>
+                    </Group>
                   ))}
-                </Group>
+                </Stack>
 
-                {/* Action Buttons */}
-                <Group
-                  gap="md"
-                  mt="xs"
-                  justify="center"
-                  style={{
-                    flexDirection: 'row',
-                    flexWrap: 'wrap',
-                  }}
-                >
-                  <motion.div whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
-                    <ActionButton
-                      href="/coming-soon"
-                      variantStyle="primary"
-                      size="md"
-                      style={{
-                        paddingLeft: 26,
-                        paddingRight: 26,
-                        height: 48,
-                        fontSize: '0.98rem',
-                        background: '#e01a2b',
-                        boxShadow: 'none',
-                      }}
-                    >
-                      Get Started (Early Access)
-                    </ActionButton>
-                  </motion.div>
-
-                  <motion.div whileHover={{ scale: 1.02, y: -1 }} whileTap={{ scale: 0.98 }}>
-                    <ActionButton
-                      variantStyle="secondary"
-                      size="md"
-                      onClick={scrollToFeatures}
-                      style={{
-                        paddingLeft: 22,
-                        paddingRight: 22,
-                        height: 48,
-                        fontSize: '0.98rem',
-                        background: 'rgba(255, 255, 255, 0.08)',
-                        color: '#ffffff',
-                        border: '1px solid rgba(255, 255, 255, 0.2)',
-                        boxShadow: 'none',
-                      }}
-                    >
-                      View System Modules
-                    </ActionButton>
-                  </motion.div>
-                </Group>
-
-                {/* Trust Indicator */}
-                <Group gap={6} mt={4} justify="center" wrap="nowrap">
-                  <ShieldCheck size={16} color="#4ade80" />
-                  <Text
-                    size="xs"
-                    fw={500}
+                <Group gap="md" mt="xs">
+                  <ActionButton
+                    href="/coming-soon"
+                    variantStyle="primary"
+                    size="md"
+                    withArrow
                     style={{
-                      color: '#cbd5e1',
-                      fontSize: 'clamp(0.75rem, 1.2vw, 0.82rem)',
+                      height: 50,
+                      paddingLeft: 26,
+                      paddingRight: 26,
+                      fontSize: '1rem',
+                      fontWeight: 700,
+                      background: 'linear-gradient(135deg, #e01a2b 0%, #a80d1a 100%)',
+                      boxShadow: '0 12px 26px -10px rgba(224, 26, 43, 0.6)',
                     }}
                   >
-                    Serving Ghanaian schools & corporate enterprises since 2014 • Mallam – Accra
-                  </Text>
+                    Get Started
+                  </ActionButton>
+                  <ActionButton
+                    variantStyle="secondary"
+                    size="md"
+                    onClick={scrollToFeatures}
+                    style={{ height: 50, paddingLeft: 22, paddingRight: 22, fontSize: '1rem', fontWeight: 600 }}
+                  >
+                    Explore School ERP
+                  </ActionButton>
+                </Group>
+
+                <Group gap="xl" mt="sm">
+                  <Group gap={6} wrap="nowrap">
+                    {Array.from({ length: 5 }).map((_, i) => (
+                      <Star key={i} size={15} fill="#f59e0b" color="#f59e0b" />
+                    ))}
+                    <Text size="sm" fw={600} c="#334155" ml={4}>
+                      Trusted by 260+ schools
+                    </Text>
+                  </Group>
+                  <Group gap={6} wrap="nowrap">
+                    <ShieldCheck size={16} color="#16a34a" />
+                    <Text size="sm" c="dimmed">
+                      Bank-grade security
+                    </Text>
+                  </Group>
                 </Group>
               </Stack>
             </motion.div>
-          </AnimatePresence>
-        </Container>
+          </Grid.Col>
 
-        {/* Clean Swiper Pagination Indicators (No Arrows) */}
-        <Box
-          style={{
-            position: 'absolute',
-            bottom: '22px',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            zIndex: 3,
-          }}
-        >
-          <Group gap={8} justify="center">
-            {slides.map((s, idx) => {
-              const isCurrent = idx === currentSlide;
-              return (
-                <UnstyledButton
-                  key={s.id}
-                  onClick={() => goToSlide(idx)}
-                  aria-label={`Go to slide ${idx + 1}`}
+          {/* Right: rotating slide images */}
+          <Grid.Col span={{ base: 12, lg: 7 }}>
+            <motion.div
+              initial={{ opacity: 0, y: 24, scale: 0.98 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
+              <Box style={{ position: 'relative' }}>
+                <Box
                   style={{
-                    padding: '4px',
-                    cursor: 'pointer',
+                    position: 'absolute',
+                    inset: '-6% -4%',
+                    background: 'radial-gradient(circle at 60% 40%, rgba(224, 26, 43, 0.12), transparent 60%)',
+                    filter: 'blur(34px)',
+                    pointerEvents: 'none',
+                  }}
+                />
+
+                <Box
+                  onMouseEnter={() => setIsPaused(true)}
+                  onMouseLeave={() => setIsPaused(false)}
+                  style={{
+                    position: 'relative',
+                    borderRadius: 24,
+                    overflow: 'hidden',
+                    aspectRatio: '4 / 3',
+                    border: '1px solid #e8edf3',
+                    boxShadow: '0 30px 60px -22px rgba(15, 23, 42, 0.32)',
+                    background: '#0b0f17',
                   }}
                 >
-                  <motion.div
-                    animate={{
-                      width: isCurrent ? 32 : 10,
-                      backgroundColor: isCurrent ? '#f97316' : 'rgba(255, 255, 255, 0.35)',
-                    }}
-                    transition={{ duration: 0.3, ease: 'easeOut' }}
+                  <AnimatePresence mode="sync">
+                    <motion.div
+                      key={active.id}
+                      initial={{ opacity: 0, scale: 1.06 }}
+                      animate={{ opacity: 1, scale: 1 }}
+                      exit={{ opacity: 0 }}
+                      transition={{ duration: 0.9, ease: 'easeInOut' }}
+                      style={{
+                        position: 'absolute',
+                        inset: 0,
+                        backgroundImage: `url(${active.image})`,
+                        backgroundSize: 'cover',
+                        backgroundPosition: 'center',
+                      }}
+                    />
+                  </AnimatePresence>
+
+                  {/* Bottom gradient + caption */}
+                  <Box
                     style={{
-                      height: 8,
-                      borderRadius: 999,
+                      position: 'absolute',
+                      inset: 0,
+                      background:
+                        'linear-gradient(180deg, transparent 45%, rgba(11, 15, 23, 0.72) 100%)',
+                      pointerEvents: 'none',
                     }}
                   />
-                </UnstyledButton>
-              );
-            })}
-          </Group>
-        </Box>
-      </Box>
+                  <Group
+                    justify="space-between"
+                    align="center"
+                    style={{ position: 'absolute', left: 20, right: 20, bottom: 18 }}
+                  >
+                    <AnimatePresence mode="wait">
+                      <motion.div
+                        key={active.id + '-cap'}
+                        initial={{ opacity: 0, y: 8 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, y: -8 }}
+                        transition={{ duration: 0.35 }}
+                      >
+                        <Group gap={8} wrap="nowrap">
+                          <Box
+                            style={{
+                              width: 8,
+                              height: 8,
+                              borderRadius: '50%',
+                              background: '#22c55e',
+                              boxShadow: '0 0 10px #22c55e',
+                            }}
+                          />
+                          <Text size="sm" fw={600} c="#ffffff">
+                            {active.caption}
+                          </Text>
+                        </Group>
+                      </motion.div>
+                    </AnimatePresence>
 
-      {/* 2. STANDALONE DASHBOARD PREVIEW SECTION — Clean, Non-AI Enterprise Presentation */}
-      <Box
-        id="live-preview"
-        component="section"
-        style={{
-          background: '#0f172a',
-          paddingTop: 'clamp(56px, 8vw, 88px)',
-          paddingBottom: 'clamp(64px, 10vw, 96px)',
-          position: 'relative',
-          overflow: 'hidden',
-          borderBottom: '1px solid #1e293b',
-        }}
-      >
-        <Container size="xl" style={{ position: 'relative', zIndex: 1, paddingLeft: 16, paddingRight: 16 }}>
-          {/* Section header */}
-          <Box style={{ textAlign: 'center', marginBottom: 'clamp(28px, 5vw, 48px)' }}>
-            <Badge
-              size="sm"
-              variant="light"
-              style={{
-                background: 'rgba(249, 115, 22, 0.15)',
-                color: '#fdba74',
-                border: '1px solid rgba(249, 115, 22, 0.3)',
-                letterSpacing: '0.06em',
-                textTransform: 'uppercase',
-                fontWeight: 700,
-                marginBottom: 10,
-              }}
-            >
-              Live System Demonstration
-            </Badge>
-
-            <h2
-              style={{
-                fontFamily: 'var(--font-heading)',
-                fontWeight: 800,
-                fontSize: 'clamp(1.75rem, 3.2vw, 2.75rem)',
-                lineHeight: 1.15,
-                letterSpacing: '-0.02em',
-                color: '#ffffff',
-                margin: '0 auto 12px',
-                maxWidth: 680,
-              }}
-            >
-              Experience the{' '}
-              <span style={{ color: '#f97316' }}>
-                Fastrack EduSuite Interface
-              </span>
-            </h2>
-
-            <Text
-              size="md"
-              style={{
-                color: '#94a3b8',
-                maxWidth: 560,
-                margin: '0 auto',
-                lineHeight: 1.6,
-                fontSize: 'clamp(0.88rem, 1.2vw, 1rem)',
-              }}
-            >
-              Explore how school administrators, bursars, and teachers manage admissions, fees, terminal grading, and bulk SMS in one unified workspace.
-            </Text>
-          </Box>
-
-          {/* Clean Dashboard Card Wrapper */}
-          <Box
-            style={{
-              position: 'relative',
-              borderRadius: '16px',
-              border: '1px solid #334155',
-              boxShadow: '0 25px 60px -12px rgba(0, 0, 0, 0.5)',
-              background: '#ffffff',
-              overflow: 'hidden',
-            }}
-          >
-            <DashboardPreview fullWidth={false} />
-          </Box>
-        </Container>
-      </Box>
+                    <Group gap={6} wrap="nowrap">
+                      {slides.map((s, idx) => {
+                        const isCurrent = idx === currentSlide;
+                        return (
+                          <UnstyledButton
+                            key={s.id}
+                            onClick={() => setCurrentSlide(idx)}
+                            aria-label={`Go to slide ${idx + 1}`}
+                            style={{ padding: 3 }}
+                          >
+                            <motion.div
+                              animate={{
+                                width: isCurrent ? 24 : 8,
+                                backgroundColor: isCurrent ? '#ffffff' : 'rgba(255,255,255,0.45)',
+                              }}
+                              transition={{ duration: 0.3 }}
+                              style={{ height: 7, borderRadius: 999 }}
+                            />
+                          </UnstyledButton>
+                        );
+                      })}
+                    </Group>
+                  </Group>
+                </Box>
+              </Box>
+            </motion.div>
+          </Grid.Col>
+        </Grid>
+      </Container>
     </Box>
   );
 };
+

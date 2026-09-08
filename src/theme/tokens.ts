@@ -2,7 +2,7 @@ export const tokens = {
   colors: {
     primary: '#e01a2b',
     primaryHover: '#cb1323',
-    primaryGlow: 'rgba(224, 26, 43, 0.12)',
+    primaryGlow: 'rgba(224, 26, 43, 0.15)',
     primaryLight: '#fff0f2',
     orange: {
       50: '#fff7ed',
@@ -17,7 +17,7 @@ export const tokens = {
       900: '#7c2d12',
     },
     obsidian: '#0b0f17',
-    obsidianSurface: '#141822',
+    obsidianSurface: '#0f172a',
     obsidianCard: '#1e293b',
     obsidianBorder: 'rgba(255, 255, 255, 0.08)',
     slate: {
@@ -35,16 +35,21 @@ export const tokens = {
     white: '#ffffff',
   },
   shadows: {
-    glow: '0 0 16px rgba(224, 26, 43, 0.12)',
-    dashboard: '0 12px 28px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.06)',
-    card: '0 6px 18px -8px rgba(15, 23, 42, 0.08), 0 0 0 1px rgba(15, 23, 42, 0.04)',
-    cardHover: '0 12px 24px -12px rgba(224, 26, 43, 0.12), 0 0 0 1px rgba(224, 26, 43, 0.08)',
+    subtle: '0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04)',
+    md: '0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04)',
+    lg: '0 12px 24px -4px rgba(15, 23, 42, 0.06), 0 4px 8px -4px rgba(15, 23, 42, 0.03)',
+    glow: '0 8px 24px rgba(224, 26, 43, 0.2)',
+    glowOrange: '0 8px 24px rgba(249, 115, 22, 0.2)',
+    dashboard: '0 25px 50px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.06)',
+    card: '0 4px 14px rgba(15, 23, 42, 0.04), 0 0 0 1px rgba(15, 23, 42, 0.05)',
+    cardHover: '0 16px 32px -8px rgba(15, 23, 42, 0.1), 0 0 0 1px rgba(249, 115, 22, 0.25)',
   },
   glass: {
-    background: 'rgba(255, 255, 255, 0.96)',
-    darkBackground: 'rgba(15, 23, 42, 0.96)',
-    border: 'rgba(148, 163, 184, 0.2)',
-    darkBorder: 'rgba(148, 163, 184, 0.15)',
-    blur: 'blur(0px)',
+    background: 'rgba(255, 255, 255, 0.85)',
+    darkBackground: 'rgba(15, 23, 42, 0.85)',
+    border: 'rgba(226, 232, 240, 0.8)',
+    darkBorder: 'rgba(255, 255, 255, 0.1)',
+    blur: 'blur(16px)',
   },
 };
+

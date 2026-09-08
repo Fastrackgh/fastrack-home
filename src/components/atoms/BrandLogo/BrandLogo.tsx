@@ -21,12 +21,13 @@ export const BrandLogo: React.FC<BrandLogoProps> = ({
     <Link href="/" style={{ textDecoration: 'none', color: 'inherit', display: 'inline-block' }}>
       <Box
         style={{
-          display: 'flex',
+          display: 'inline-flex',
           alignItems: 'center',
           justifyContent: 'center',
-          padding: isDarkBg ? '4px 8px' : '0',
+          padding: isDarkBg ? '12px 18px' : '0',
           background: isDarkBg ? '#ffffff' : 'transparent',
-          borderRadius: isDarkBg ? '6px' : '0',
+          borderRadius: isDarkBg ? '14px' : '0',
+          boxShadow: isDarkBg ? '0 10px 28px -10px rgba(0, 0, 0, 0.45)' : 'none',
         }}
       >
         <Image

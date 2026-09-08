@@ -3,3 +3,4 @@ export * from './ActionButton/ActionButton';
 export * from './StatusBadge/StatusBadge';
 export * from './DisplayHeading/DisplayHeading';
 export * from './GlassCard/GlassCard';
+export * from './SectionEyebrow/SectionEyebrow';

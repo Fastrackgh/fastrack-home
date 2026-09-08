@@ -8,7 +8,6 @@ import {
   SchoolFeaturesSection,
   ServicesGridSection,
   PartnershipSection,
-  BusinessInsightsSection,
   AboutSection,
   ContactSection,
   CTASection,
@@ -17,32 +16,30 @@ import {
 export const LandingPageTemplate: React.FC = () => {
   return (
     <Box>
-      {/* 1. High Impact Hero with Live Dashboard Preview */}
+      {/* 1. High Impact Hero */}
       <HeroSection />
 
       {/* 2. Trust Bar Metrics & Longevity */}
       <TrustBar />
 
-      {/* 3. Flagship School Management Modules (Admissions, Academics, Fees, SMS, Payroll & Governance) */}
+      {/* 3. Flagship School Management Modules */}
       <SchoolFeaturesSection />
 
-      {/* 4. Comprehensive Corporate Services (IT Consultancy, DB, Mobile, Software, SMS, Auditing) */}
+      {/* 4. Comprehensive Corporate Services */}
       <ServicesGridSection />
 
-      {/* 5. Enterprise Cloud & Data Security Architecture (256-Bit SSL, GES Alignment, Backups) */}
+      {/* 5. Enterprise Cloud & Data Security Architecture */}
       <PartnershipSection />
 
-      {/* 6. Business Intelligence, Dashboards & Mobile Freedom */}
-      <BusinessInsightsSection />
-
-      {/* 7. About Fastrack, Mission, Vision, and Values */}
+      {/* 6. About Fastrack, Mission, Vision, and Values */}
       <AboutSection />
 
-      {/* 8. Accra Corporate Office & Consultation Request */}
+      {/* 7. Accra Corporate Office & Consultation Request */}
       <ContactSection />
 
-      {/* 9. Final Early Adopter CTA Banner */}
+      {/* 8. Final Early Adopter CTA Banner */}
       <CTASection />
     </Box>
   );
 };
+

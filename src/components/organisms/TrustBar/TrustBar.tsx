@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Box, Container, Text } from '@mantine/core';
+import { Box, Container, Text, SimpleGrid } from '@mantine/core';
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { TrendingUp, Clock, Zap, ShieldCheck } from 'lucide-react';
@@ -11,7 +11,7 @@ const containerVariants: Variants = {
   visible: {
     opacity: 1,
     transition: {
-      staggerChildren: 0.1,
+      staggerChildren: 0.08,
     },
   },
 };
@@ -33,30 +33,34 @@ export const TrustBar: React.FC = () => {
     {
       value: '10+',
       unit: 'Years',
-      label: 'In Operation Since 2014',
+      label: 'Operational Excellence Since 2014',
       icon: <Clock size={20} />,
-      color: '#f97316',
+      color: '#e01a2b',
+      bg: 'rgba(224, 26, 43, 0.1)',
     },
     {
       value: '99.9%',
       unit: '',
-      label: 'Cloud Gateway Uptime',
+      label: 'Cloud Infrastructure Uptime',
       icon: <TrendingUp size={20} />,
-      color: '#38bdf8',
+      color: '#0284c7',
+      bg: 'rgba(2, 132, 199, 0.1)',
     },
     {
       value: 'Instant',
       unit: 'SMS',
-      label: 'Parent Notification Speed',
+      label: 'Parent Notification Delivery',
       icon: <Zap size={20} />,
       color: '#16a34a',
+      bg: 'rgba(22, 163, 74, 0.1)',
     },
     {
       value: '256-Bit',
       unit: 'SSL',
-      label: 'Bank-Grade Data Encryption',
+      label: 'Bank-Grade Data Security',
       icon: <ShieldCheck size={20} />,
       color: '#e01a2b',
+      bg: 'rgba(224, 26, 43, 0.1)',
     },
   ];
 
@@ -64,12 +68,11 @@ export const TrustBar: React.FC = () => {
     <Box
       component="section"
       style={{
-        background: '#0f172a',
-        paddingTop: 'clamp(28px, 4vw, 40px)',
-        paddingBottom: 'clamp(28px, 4vw, 40px)',
+        background: '#ffffff',
+        paddingTop: 'clamp(32px, 5vw, 48px)',
+        paddingBottom: 'clamp(32px, 5vw, 48px)',
         position: 'relative',
-        overflow: 'hidden',
-        borderBottom: '1px solid #1e293b',
+        borderBottom: '1px solid #f1f5f9',
       }}
     >
       <Container size="xl">
@@ -78,113 +81,105 @@ export const TrustBar: React.FC = () => {
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-40px' }}
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(4, 1fr)',
-            gap: '0px',
-          }}
-          className="trust-bar-grid"
         >
-          {metrics.map((m, idx) => (
-            <motion.div
-              key={idx}
-              variants={itemVariants}
-              whileHover={{ y: -4, scale: 1.02 }}
-              transition={{ duration: 0.2 }}
-            >
-              <Box
-                style={{
-                  textAlign: 'center',
-                  padding: 'clamp(14px, 2.5vw, 20px) clamp(10px, 2vw, 24px)',
-                  position: 'relative',
-                }}
-                className={`trust-item trust-item-${idx}`}
+          <SimpleGrid cols={{ base: 2, sm: 2, md: 4 }} spacing={{ base: 'sm', md: 'lg' }}>
+            {metrics.map((m, idx) => (
+              <motion.div
+                key={idx}
+                variants={itemVariants}
+                whileHover={{ y: -3 }}
+                transition={{ duration: 0.2 }}
+                style={{ height: '100%' }}
               >
-                {/* Icon badge */}
                 <Box
                   style={{
-                    width: 38,
-                    height: 38,
-                    borderRadius: '10px',
-                    background: `${m.color}18`,
-                    border: `1px solid ${m.color}35`,
-                    color: m.color,
+                    textAlign: 'center',
+                    padding: 'clamp(18px, 2.5vw, 24px) clamp(12px, 2vw, 20px)',
+                    borderRadius: '16px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    boxShadow: '0 2px 8px rgba(15, 23, 42, 0.02)',
                     display: 'flex',
+                    flexDirection: 'column',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    margin: '0 auto 10px',
+                    height: '100%',
+                    transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+                  }}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.borderColor = '#cbd5e1';
+                    e.currentTarget.style.boxShadow = '0 8px 20px -4px rgba(15, 23, 42, 0.06)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.borderColor = '#e2e8f0';
+                    e.currentTarget.style.boxShadow = '0 2px 8px rgba(15, 23, 42, 0.02)';
                   }}
                 >
-                  {m.icon}
-                </Box>
-
-                {/* Value */}
-                <Box style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
-                  <Text
+                  {/* Icon badge */}
+                  <Box
                     style={{
-                      fontFamily: 'var(--font-heading)',
-                      fontSize: 'clamp(1.4rem, 2.5vw, 2.1rem)',
-                      fontWeight: 800,
-                      color: '#ffffff',
-                      lineHeight: 1,
+                      width: 42,
+                      height: 42,
+                      borderRadius: '12px',
+                      background: m.bg,
+                      color: m.color,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      marginBottom: 12,
                     }}
                   >
-                    {m.value}
-                  </Text>
-                  {m.unit && (
+                    {m.icon}
+                  </Box>
+
+                  {/* Value */}
+                  <Box style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
                     <Text
                       style={{
                         fontFamily: 'var(--font-heading)',
-                        fontSize: '0.9rem',
-                        fontWeight: 700,
-                        color: m.color,
+                        fontSize: 'clamp(1.5rem, 2.6vw, 2.2rem)',
+                        fontWeight: 800,
+                        color: '#0f172a',
                         lineHeight: 1,
                       }}
                     >
-                      {m.unit}
+                      {m.value}
                     </Text>
-                  )}
-                </Box>
+                    {m.unit && (
+                      <Text
+                        style={{
+                          fontFamily: 'var(--font-heading)',
+                          fontSize: '0.92rem',
+                          fontWeight: 700,
+                          color: m.color,
+                          lineHeight: 1,
+                        }}
+                      >
+                        {m.unit}
+                      </Text>
+                    )}
+                  </Box>
 
-                {/* Label */}
-                <Text
-                  size="xs"
-                  style={{
-                    color: 'rgba(255,255,255,0.6)',
-                    fontWeight: 500,
-                    marginTop: 6,
-                    lineHeight: 1.35,
-                    fontSize: 'clamp(0.72rem, 1vw, 0.8rem)',
-                  }}
-                >
-                  {m.label}
-                </Text>
-              </Box>
-            </motion.div>
-          ))}
+                  {/* Label */}
+                  <Text
+                    size="xs"
+                    style={{
+                      color: '#64748b',
+                      fontWeight: 500,
+                      marginTop: 8,
+                      lineHeight: 1.4,
+                      fontSize: 'clamp(0.75rem, 1vw, 0.84rem)',
+                    }}
+                  >
+                    {m.label}
+                  </Text>
+                </Box>
+              </motion.div>
+            ))}
+          </SimpleGrid>
         </motion.div>
       </Container>
-
-      <style>{`
-        .trust-item {
-          border-right: 1px solid rgba(255,255,255,0.08);
-        }
-        .trust-item-3 {
-          border-right: none;
-        }
-        @media (max-width: 640px) {
-          .trust-bar-grid {
-            grid-template-columns: repeat(2, 1fr) !important;
-            gap: 8px 0 !important;
-          }
-          .trust-item-0, .trust-item-2 {
-            border-right: 1px solid rgba(255,255,255,0.08);
-          }
-          .trust-item-1, .trust-item-3 {
-            border-right: none;
-          }
-        }
-      `}</style>
     </Box>
   );
 };
+

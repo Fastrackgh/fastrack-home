@@ -4,8 +4,8 @@ import React from 'react';
 import { Box, Container, Stack, Text, SimpleGrid, Badge } from '@mantine/core';
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
-import { DisplayHeading } from '@/components/atoms';
 import { ServiceCard } from '@/components/molecules';
+import { SectionEyebrow } from '@/components/atoms';
 import { businessInfo } from '@/data/businessInfo';
 import {
   ShieldCheck,
@@ -14,6 +14,7 @@ import {
   Smartphone,
   MessageSquare,
   Calculator,
+  Layers,
 } from 'lucide-react';
 
 const containerVariants: Variants = {
@@ -62,9 +63,11 @@ export const ServicesGridSection: React.FC = () => {
     <Box
       id="services"
       component="section"
-      py={{ base: 48, md: 88 }}
+      py={{ base: 64, md: 104 }}
       style={{
-        background: '#ffffff',
+        background: '#f8fafc',
+        borderTop: '1px solid #e2e8f0',
+        borderBottom: '1px solid #e2e8f0',
       }}
     >
       <Container size="xl">
@@ -74,40 +77,43 @@ export const ServicesGridSection: React.FC = () => {
           viewport={{ once: true, margin: '-60px' }}
           transition={{ duration: 0.5, ease: [0.16, 1, 0.3, 1] }}
         >
-          <Stack align="center" gap="xs" mb={{ base: 24, md: 44 }}>
-            <Badge
-              size="sm"
-              variant="light"
+          <Stack align="center" gap="md" mb={{ base: 32, md: 52 }}>
+            <SectionEyebrow label="Enterprise IT Capabilities" />
+
+            <h2
               style={{
-                background: '#fff7ed',
-                color: '#ea580c',
-                border: '1px solid #fed7aa',
-                textTransform: 'uppercase',
-                letterSpacing: '0.06em',
-                fontWeight: 700,
+                fontFamily: 'var(--font-heading)',
+                fontWeight: 800,
+                fontSize: 'clamp(1.9rem, 3.4vw, 3rem)',
+                lineHeight: 1.15,
+                letterSpacing: '-0.03em',
+                textAlign: 'center',
+                color: '#0f172a',
+                margin: '0 auto',
+                maxWidth: 780,
               }}
             >
-              Enterprise IT Capabilities
-            </Badge>
-
-            <DisplayHeading
-              level={2}
-              align="center"
-              highlightWord="Excellence"
-              highlightColor="#f97316"
-              maxWidth={780}
-            >
-              End-to-End ICT & Management
-            </DisplayHeading>
+              End-to-End ICT & Management{' '}
+              <span
+                style={{
+                  background: 'linear-gradient(135deg, #eb5969 0%, #e01a2b 60%, #a80d1a 100%)',
+                  WebkitBackgroundClip: 'text',
+                  WebkitTextFillColor: 'transparent',
+                }}
+              >
+                Excellence
+              </span>
+            </h2>
 
             <Text
               size="md"
-              c="dimmed"
               style={{
                 maxWidth: 640,
                 textAlign: 'center',
                 lineHeight: 1.6,
-                fontSize: 'clamp(0.88rem, 1.2vw, 1rem)',
+                color: '#64748b',
+                marginTop: 4,
+                fontSize: 'clamp(0.9rem, 1.2vw, 1.05rem)',
               }}
             >
               Delivering high-impact, affordable, and value-driven technology solutions
@@ -116,14 +122,14 @@ export const ServicesGridSection: React.FC = () => {
           </Stack>
         </motion.div>
 
-        {/* 2 in a Row on Mobile, 2 on Tablet, 3 on Desktop */}
+        {/* 1 col on Mobile, 2 on Tablet, 3 on Desktop */}
         <motion.div
           variants={containerVariants}
           initial="hidden"
           whileInView="visible"
           viewport={{ once: true, margin: '-40px' }}
         >
-          <SimpleGrid cols={{ base: 2, sm: 2, md: 3 }} spacing={{ base: 'xs', sm: 'md', md: 'lg' }} mt="md">
+          <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 'md', sm: 'md', md: 'lg' }}>
             {businessInfo.services.map((svc) => (
               <motion.div key={svc.id} variants={itemVariants} style={{ height: '100%' }}>
                 <ServiceCard
@@ -138,3 +144,4 @@ export const ServicesGridSection: React.FC = () => {
     </Box>
   );
 };
+

@@ -3,7 +3,7 @@
 import React from 'react';
 import { Box, Text, Group, Badge, Stack } from '@mantine/core';
 import { motion } from 'framer-motion';
-import { Check } from 'lucide-react';
+import { Check, Sparkles } from 'lucide-react';
 import { CorporateService } from '@/data/businessInfo';
 
 interface ServiceCardProps {
@@ -14,48 +14,61 @@ interface ServiceCardProps {
 export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
   return (
     <motion.div
-      whileHover={{ y: -4 }}
-      transition={{ duration: 0.2, ease: [0.16, 1, 0.3, 1] }}
+      whileHover={{ y: -5 }}
+      transition={{ duration: 0.25, ease: [0.16, 1, 0.3, 1] }}
       style={{ height: '100%' }}
     >
       <Box
         style={{
-          padding: 'clamp(12px, 2.5vw, 24px)',
-          borderRadius: '16px',
+          padding: 'clamp(18px, 2.5vw, 26px)',
+          borderRadius: '18px',
           background: '#ffffff',
           border: '1px solid #e2e8f0',
-          boxShadow: '0 2px 8px rgba(0, 0, 0, 0.03)',
+          boxShadow: '0 4px 14px rgba(15, 23, 42, 0.03)',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
           position: 'relative',
           overflow: 'hidden',
-          transition: 'border-color 0.2s ease, box-shadow 0.2s ease',
+          transition: 'all 0.25s ease',
         }}
         onMouseEnter={(e) => {
-          e.currentTarget.style.borderColor = '#fdba74';
-          e.currentTarget.style.boxShadow = '0 12px 28px -6px rgba(249, 115, 22, 0.12)';
+          e.currentTarget.style.borderColor = '#f9b8c0';
+          e.currentTarget.style.boxShadow = '0 16px 32px -8px rgba(224, 26, 43, 0.12)';
         }}
         onMouseLeave={(e) => {
           e.currentTarget.style.borderColor = '#e2e8f0';
-          e.currentTarget.style.boxShadow = '0 2px 8px rgba(0, 0, 0, 0.03)';
+          e.currentTarget.style.boxShadow = '0 4px 14px rgba(15, 23, 42, 0.03)';
         }}
       >
+        {/* Subtle accent bar at top */}
+        <Box
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: '3px',
+            background: 'linear-gradient(90deg, #e01a2b 0%, #a80d1a 100%)',
+            opacity: 0.8,
+          }}
+        />
+
         <Box>
           {/* Top Row: Icon & Badge */}
-          <Group justify="space-between" align="center" mb={{ base: 'xs', sm: 'md' }} wrap="nowrap" gap={6}>
+          <Group justify="space-between" align="center" mb="md" wrap="nowrap" gap={6}>
             <Box
               style={{
-                width: 'clamp(34px, 4.5vw, 46px)',
-                height: 'clamp(34px, 4.5vw, 46px)',
-                borderRadius: 10,
-                background: 'rgba(249, 115, 22, 0.12)',
-                color: '#ea580c',
+                width: 44,
+                height: 44,
+                borderRadius: 12,
+                background: 'rgba(224, 26, 43, 0.1)',
+                color: '#e01a2b',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                padding: 'clamp(7px, 1vw, 10px)',
+                padding: '10px',
                 flexShrink: 0,
               }}
             >
@@ -70,10 +83,12 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
                 textTransform: 'none',
                 fontWeight: 600,
                 color: '#475569',
-                fontSize: 'clamp(8px, 1vw, 11px)',
-                padding: '3px 8px',
+                fontSize: '0.72rem',
+                padding: '4px 9px',
                 height: 'auto',
                 flexShrink: 0,
+                background: '#f1f5f9',
+                border: '1px solid #e2e8f0',
               }}
             >
               {service.badge}
@@ -85,10 +100,10 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
             style={{
               fontFamily: 'var(--font-heading)',
               fontWeight: 700,
-              fontSize: 'clamp(0.85rem, 1.3vw, 1.15rem)',
+              fontSize: 'clamp(1rem, 1.3vw, 1.18rem)',
               color: '#0f172a',
-              lineHeight: 1.25,
-              marginBottom: 6,
+              lineHeight: 1.3,
+              marginBottom: 8,
             }}
           >
             {service.title}
@@ -96,26 +111,26 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
 
           {/* Short Description */}
           <Text
-            size="xs"
-            c="dimmed"
+            size="sm"
             style={{
               fontFamily: 'var(--font-inter)',
-              lineHeight: 1.45,
-              fontSize: 'clamp(0.72rem, 1.05vw, 0.86rem)',
-              marginBottom: 12,
+              color: '#64748b',
+              lineHeight: 1.55,
+              fontSize: '0.88rem',
+              marginBottom: 16,
             }}
           >
             {service.shortDesc}
           </Text>
 
           {/* Bullet Points */}
-          <Stack gap={6} mb="md">
+          <Stack gap={8} mb="md">
             {service.bulletPoints.map((point, index) => (
-              <Group key={index} gap={6} wrap="nowrap" align="flex-start">
+              <Group key={index} gap={8} wrap="nowrap" align="flex-start">
                 <Box
                   style={{
-                    width: 14,
-                    height: 14,
+                    width: 16,
+                    height: 16,
                     borderRadius: '50%',
                     background: 'rgba(249, 115, 22, 0.15)',
                     color: '#ea580c',
@@ -126,16 +141,16 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
                     marginTop: 2,
                   }}
                 >
-                  <Check size={9} strokeWidth={3} />
+                  <Check size={10} strokeWidth={3} />
                 </Box>
                 <Text
                   size="xs"
                   style={{
                     fontFamily: 'var(--font-inter)',
-                    color: '#475569',
-                    lineHeight: 1.35,
+                    color: '#334155',
+                    lineHeight: 1.4,
                     fontWeight: 500,
-                    fontSize: 'clamp(0.68rem, 0.95vw, 0.8rem)',
+                    fontSize: '0.82rem',
                   }}
                 >
                   {point}
@@ -148,10 +163,11 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
         {/* Core Objective Callout */}
         <Box
           style={{
-            padding: 'clamp(8px, 1.5vw, 12px)',
-            borderRadius: '10px',
+            padding: '10px 14px',
+            borderRadius: '12px',
             background: '#f8fafc',
             border: '1px solid #f1f5f9',
+            marginTop: 8,
           }}
         >
           <Text
@@ -159,8 +175,8 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
             fw={700}
             style={{
               textTransform: 'uppercase',
-              letterSpacing: '0.04em',
-              fontSize: 'clamp(0.58rem, 0.8vw, 0.65rem)',
+              letterSpacing: '0.05em',
+              fontSize: '0.68rem',
               color: '#ea580c',
               marginBottom: 2,
             }}
@@ -171,9 +187,9 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
             size="xs"
             style={{
               fontFamily: 'var(--font-inter)',
-              color: '#334155',
-              lineHeight: 1.35,
-              fontSize: 'clamp(0.66rem, 0.9vw, 0.78rem)',
+              color: '#475569',
+              lineHeight: 1.4,
+              fontSize: '0.8rem',
             }}
           >
             {service.coreObjective}
@@ -183,3 +199,4 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
     </motion.div>
   );
 };
+

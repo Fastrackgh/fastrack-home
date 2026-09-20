@@ -12,3 +12,4 @@ export * from './ContactSection/ContactSection';
 export * from './CTASection/CTASection';
 export * from './WaitlistForm/WaitlistForm';
 export * from './Footer/Footer';
+export * from './DashboardShell/DashboardShell';

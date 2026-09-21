@@ -234,7 +234,7 @@ export default function SchoolAdminLoginPage() {
                   Welcome back
                 </Title>
                 <Text c="dimmed" size="sm" mt={4}>
-                  Sign in to your school administrator dashboard.
+                  Preview the workspaces for school staff, parents, and platform administrators.
                 </Text>
               </Box>
 
@@ -283,7 +283,7 @@ export default function SchoolAdminLoginPage() {
                     boxShadow: '0 16px 30px -14px rgba(224, 26, 43, 0.6)',
                   }}
                 >
-                  Sign in to dashboard
+                  Open dashboard preview
                 </Button>
               </Stack>
 
@@ -295,14 +295,15 @@ export default function SchoolAdminLoginPage() {
                 radius="md"
                 fullWidth
                 leftSection={<GraduationCap size={16} />}
+                disabled
               >
-                Continue with Fastrack SSO
+                Fastrack SSO · coming with integration
               </Button>
 
               <Group gap={6} justify="center">
                 <Sparkles size={13} color="#94a3b8" />
                 <Text size="xs" c="dimmed" ta="center">
-                  Protected by enterprise-grade encryption and activity monitoring.
+                  UI preview uses sample data. Sign-in integration is not connected yet.
                 </Text>
               </Group>
             </Stack>

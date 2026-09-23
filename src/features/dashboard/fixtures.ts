@@ -6,6 +6,7 @@ import {
   Panel,
   Role,
   roleConfig,
+  areaLabels,
 } from "./model";
 
 const panel = (
@@ -28,7 +29,7 @@ const panel = (
     note,
   })),
 });
-const panels: Record<Area, Panel> = {
+const panels: Partial<Record<Area, Panel>> = {
   finance: panel(
     "Collections & revenue",
     "Tuition, other income, and approved concessions.",
@@ -614,6 +615,32 @@ const panels: Record<Area, Panel> = {
   ),
 };
 const metrics: Record<Role, Metric[]> = {
+  SECRETARY: [
+    {
+      label: "Active students",
+      value: "520",
+      detail: "School enrollment",
+      tone: "blue",
+    },
+    {
+      label: "New admissions",
+      value: "45",
+      detail: "Current term",
+      tone: "green",
+    },
+    {
+      label: "Open enquiries",
+      value: "12",
+      detail: "Admissions follow-up",
+      tone: "orange",
+    },
+    {
+      label: "School staff",
+      value: "32",
+      detail: "Teaching and administration",
+      tone: "blue",
+    },
+  ],
   ADMIN: [
     {
       label: "Tuition collected",
@@ -803,7 +830,15 @@ export const previewRepository: DashboardRepository = {
       priorities: [],
     };
     for (const area of roleConfig[role].areas)
-      data.panels[area] = structuredClone(panels[area]);
+      data.panels[area] = panels[area]
+        ? structuredClone(panels[area])
+        : {
+            title: areaLabels[area],
+            description:
+              "Phase-one workspace · open to review records and actions.",
+            columns: ["Record", "Scope", "Status"],
+            rows: [],
+          };
     const academic = ["TEACHER", "ACADEMIC_HEAD", "PARENT"].includes(role);
     data.bars = (
       academic
@@ -983,13 +1018,11 @@ export const previewRepository: DashboardRepository = {
           ],
         ],
       );
-    data.priorities = roleConfig[role].featured
-      .slice(0, 3)
-      .map((area) => ({
-        title: data.panels[area]!.title,
-        detail: data.panels[area]!.description,
-        area,
-      }));
+    data.priorities = roleConfig[role].featured.slice(0, 3).map((area) => ({
+      title: data.panels[area]!.title,
+      detail: data.panels[area]!.description,
+      area,
+    }));
     if (termId === "2025-3") {
       // Archived fixture deliberately contains no current-term records or writable actions.
       data.metrics = [

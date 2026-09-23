@@ -1,5 +1,7 @@
 # Dashboard integration handoff
 
+Updated 23 September: the six role-review PDFs are implemented in the [phase-one feature](./phase-one/README.md). That coverage document supersedes the original notes below for finance, enrollment, grading, calendar, archives, uploads and local form behavior. There are now seven preview roles, including Administrative Secretary (`SECRETARY`). Both `SECRETARY` and `ACADEMIC_HEAD` need backend role support. Future-update modules listed in the PDFs are excluded.
+
 The UI is available at `/school-admin/dashboard`. It is an explicitly labelled preview, not an authenticated application. All six roles can be reviewed with the preview selector. The existing login screen now links to the preview without implying authentication.
 
 ## Role mapping

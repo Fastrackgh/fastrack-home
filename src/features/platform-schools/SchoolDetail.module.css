@@ -1,0 +1,23 @@
+.page { min-height: 100vh; background: #f8fafc; color: #172033; padding: 20px clamp(18px, 4vw, 64px) 54px; }
+.topbar, .hero { max-width: 1280px; margin: 0 auto; display: flex; align-items: center; justify-content: space-between; gap: 16px; }
+.hero { margin-top: 26px; padding: 24px; background: linear-gradient(120deg, #fff 0%, #fff7f8 100%); border: 1px solid #f0d9dc; border-radius: 16px; box-shadow: 0 12px 32px rgba(34, 40, 49, .05); }
+.schoolMark { width: 58px; height: 58px; display: grid; place-items: center; color: #d52c3d; background: #fff0f1; border-radius: 14px; }
+.heroCopy { margin-right: auto; }
+.hero h1 { margin: 0; font-size: clamp(1.45rem, 3vw, 2rem); line-height: 1.2; }
+.previewAlert, .metrics, .tabs { max-width: 1280px; margin-left: auto; margin-right: auto; }
+.previewAlert { margin-top: 18px; }
+.metrics { margin-top: 18px; }
+.tabs { margin-top: 26px; }
+.overviewGrid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
+.details { color: #4b5565; font-size: .875rem; }
+.details span { display: flex; gap: 9px; align-items: center; }
+.peoplePair { display: grid; gap: 18px; }
+.table { width: 100%; border-collapse: collapse; min-width: 700px; }
+.table th { text-align: left; color: #7a8493; font-size: .72rem; letter-spacing: .04em; text-transform: uppercase; padding: 0 10px 10px; font-weight: 800; }
+.table td { padding: 12px 10px; border-top: 1px solid #edf0f4; color: #536071; font-size: .84rem; vertical-align: middle; }
+.table tr:hover td { background: #fffafb; }
+.activity { display: flex; gap: 13px; padding: 13px 0; border-top: 1px solid #edf0f4; }
+.activity:first-child { border-top: 0; padding-top: 0; }
+.activityDot { display: block; width: 9px; height: 9px; border-radius: 50%; background: #e01a2b; box-shadow: 0 0 0 4px #fff0f1; margin-top: 5px; flex: 0 0 auto; }
+.formGrid { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+@media (max-width: 760px) { .topbar { align-items: flex-start; } .hero { align-items: flex-start; flex-wrap: wrap; padding: 18px; } .schoolMark { width: 46px; height: 46px; } .overviewGrid { grid-template-columns: 1fr; } .formGrid { grid-template-columns: 1fr; } .tabs :global(.mantine-Tabs-list) { overflow-x: auto; flex-wrap: nowrap; } }

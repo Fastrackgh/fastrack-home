@@ -5,6 +5,7 @@ export const roles = [
   "ACADEMIC_HEAD",
   "ADMIN",
   "SUPER_ADMIN",
+  "SECRETARY",
 ] as const;
 export type Role = (typeof roles)[number];
 export type Area =
@@ -24,7 +25,17 @@ export type Area =
   | "schools"
   | "subscriptions"
   | "access"
-  | "activity";
+  | "activity"
+  | "meals"
+  | "gallery"
+  | "calendar"
+  | "archive"
+  | "questions"
+  | "enquiries"
+  | "staffing"
+  | "plans"
+  | "admissions"
+  | "grading";
 export interface Metric {
   label: string;
   value: string;
@@ -87,7 +98,15 @@ export const roleConfig: Record<
     label: "Account Officer",
     name: "Ama",
     subtitle: "Collections, commitments, and a clear view of school finances.",
-    areas: ["finance", "debts", "budgets", "enrollment"],
+    areas: [
+      "finance",
+      "debts",
+      "budgets",
+      "enrollment",
+      "plans",
+      "calendar",
+      "archive",
+    ],
     featured: ["finance", "debts", "budgets", "enrollment"],
     chart: "Revenue & expenditure",
   },
@@ -102,6 +121,16 @@ export const roleConfig: Record<
       "performance",
       "reports",
       "communication",
+      "budgets",
+      "plans",
+      "admissions",
+      "enquiries",
+      "staffing",
+      "meals",
+      "gallery",
+      "calendar",
+      "archive",
+      "questions",
     ],
     featured: ["enrollment", "performance", "attendance", "communication"],
     chart: "School financial performance",
@@ -110,7 +139,20 @@ export const roleConfig: Record<
     label: "Academic Head",
     name: "Akosua",
     subtitle: "Turn academic insight into better learning outcomes.",
-    areas: ["performance", "faculty", "attendance", "reports", "enrollment"],
+    areas: [
+      "performance",
+      "faculty",
+      "attendance",
+      "reports",
+      "enrollment",
+      "gallery",
+      "calendar",
+      "archive",
+      "questions",
+      "communication",
+      "schedule",
+      "grading",
+    ],
     featured: ["performance", "faculty", "reports", "enrollment"],
     chart: "Subject proficiency",
   },
@@ -118,8 +160,18 @@ export const roleConfig: Record<
     label: "Teacher",
     name: "Kofi",
     subtitle: "A little less administration. More time for your classroom.",
-    areas: ["attendance", "gradebook", "schedule", "resources", "performance"],
-    featured: ["schedule", "performance", "gradebook", "resources"],
+    areas: [
+      "attendance",
+      "gradebook",
+      "schedule",
+      "performance",
+      "meals",
+      "gallery",
+      "calendar",
+      "archive",
+      "questions",
+    ],
+    featured: ["schedule", "performance", "gradebook", "questions"],
     chart: "My class performance",
   },
   PARENT: {
@@ -133,6 +185,10 @@ export const roleConfig: Record<
       "reports",
       "communication",
       "schedule",
+      "meals",
+      "gallery",
+      "calendar",
+      "archive",
     ],
     featured: ["children", "finance", "reports", "communication"],
     chart: "Learning progress",
@@ -144,6 +200,22 @@ export const roleConfig: Record<
     areas: ["schools", "subscriptions", "access", "activity"],
     featured: ["schools", "subscriptions", "access", "activity"],
     chart: "Platform growth",
+  },
+  SECRETARY: {
+    label: "Administrative Secretary",
+    name: "Efua",
+    subtitle: "Admissions, people, and the everyday life of your school.",
+    areas: [
+      "enrollment",
+      "enquiries",
+      "staffing",
+      "meals",
+      "gallery",
+      "calendar",
+      "archive",
+    ],
+    featured: ["enrollment", "enquiries", "calendar", "staffing"],
+    chart: "Enrollment trends",
   },
 };
 export const areaLabels: Record<Area, string> = {
@@ -164,6 +236,16 @@ export const areaLabels: Record<Area, string> = {
   subscriptions: "Subscriptions",
   access: "Users & access",
   activity: "Activity log",
+  meals: "Weekly meal menu",
+  gallery: "Photo gallery",
+  calendar: "School calendar",
+  archive: "Documents & archive",
+  questions: "Question bank",
+  enquiries: "Enquiries",
+  staffing: "Staffing",
+  plans: "Payment plans",
+  admissions: "Online admissions",
+  grading: "Grading configuration",
 };
 export function canAccess(role: Role, area: Area) {
   return roleConfig[role].areas.includes(area);

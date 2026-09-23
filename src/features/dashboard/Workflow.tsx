@@ -23,7 +23,7 @@ export const workflowAllowed = (role: Role, area: Area) =>
       budgets: ["ADMIN"],
       attendance: ["TEACHER"],
       gradebook: ["TEACHER"],
-      communication: ["PARENT", "SCHOOL_HEAD"],
+      communication: ["PARENT", "SCHOOL_HEAD", "ACADEMIC_HEAD"],
       resources: ["TEACHER"],
       schools: ["SUPER_ADMIN"],
       access: ["SUPER_ADMIN"],
@@ -292,6 +292,9 @@ export function Workflow({
                                     "All parents",
                                     "Primary parents",
                                     "JHS parents",
+                                    "All students",
+                                    "Primary students",
+                                    "JHS students",
                                   ]
                               : ["Overdue accounts", "Payment plan accounts"]
                 }

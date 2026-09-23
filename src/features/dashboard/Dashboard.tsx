@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   ActionIcon,
   Alert,
@@ -56,8 +57,16 @@ import {
   sampleUser,
 } from "./model";
 import { previewRepository, sampleTerms } from "./fixtures";
+import { getPreviewPlatformSchoolId } from "../platform-schools/fixtures";
 import { Workflow, workflowAllowed } from "./Workflow";
 import { SectionInsights } from "./SectionInsights";
+import { usePhaseState } from "./phase-one/usePhaseState";
+import {
+  PhaseWorkspace,
+  PhaseShortcuts,
+  isPhaseArea,
+  phaseMetrics,
+} from "./phase-one/Workspace";
 import styles from "./Dashboard.module.css";
 
 const icons: Partial<Record<Area, typeof Users>> = {
@@ -169,6 +178,7 @@ export function Dashboard({
 }: {
   repository?: DashboardRepository;
 }) {
+  const router = useRouter();
   const [role, setRole] = useState<Role>("SCHOOL_HEAD");
   const [area, setArea] = useState<Area | "overview">("overview");
   const [term, setTerm] = useState("2026-1");
@@ -185,6 +195,7 @@ export function Dashboard({
   const [help, setHelp] = useState(false);
   const [alerts, setAlerts] = useState(false);
   const config = roleConfig[role];
+  const phase = usePhaseState(role, term, child);
   useEffect(() => {
     const controller = new AbortController();
     setLoading(true);
@@ -217,6 +228,15 @@ export function Dashboard({
     setDetail(null);
     setWorkflow(null);
     setDrawer(false);
+  };
+  const openRecord = (row: RecordRow) => {
+    const schoolId =
+      role === "SUPER_ADMIN" ? getPreviewPlatformSchoolId(row.name) : undefined;
+    if (schoolId) {
+      router.push(`/school-admin/platform/schools/${schoolId}`);
+      return;
+    }
+    setDetail(row);
   };
   const changeRole = (value: string) => {
     if (!roles.includes(value as Role)) return;
@@ -439,14 +459,18 @@ export function Dashboard({
               />
             </Group>
           </Group>
-          {!loading && !error && panel && area !== "overview" && (
-            <SectionInsights
-              key={`${role}-${area}-${term}-${child}`}
-              area={area}
-              role={role}
-              panel={panel}
-            />
-          )}
+          {!loading &&
+            !error &&
+            panel &&
+            area !== "overview" &&
+            !isPhaseArea(area, role) && (
+              <SectionInsights
+                key={`${role}-${area}-${term}-${child}`}
+                area={area}
+                role={role}
+                panel={panel}
+              />
+            )}
           {loading ? (
             <div className={styles.state} role="status">
               <Loader color="red" />
@@ -465,37 +489,45 @@ export function Dashboard({
                 {area === "overview" ? (
                   <>
                     <section className={styles.kpis} aria-label="Key metrics">
-                      {data.metrics.map((m, i) => {
-                        const Icon = [Users, Wallet, CheckCheck, ClipboardList][
-                          i % 4
-                        ];
-                        return (
-                          <article className={styles.metric} key={m.label}>
-                            <Group justify="space-between" gap="xs">
-                              <Text size="xs" fw={600} c="#748092">
-                                {m.label}
-                              </Text>
-                              <div className={styles.metricIcon}>
-                                <Icon size={17} />
+                      {(phaseMetrics(role, term, phase) ?? data.metrics).map(
+                        (m, i) => {
+                          const Icon = [
+                            Users,
+                            Wallet,
+                            CheckCheck,
+                            ClipboardList,
+                          ][i % 4];
+                          return (
+                            <article className={styles.metric} key={m.label}>
+                              <Group justify="space-between" gap="xs">
+                                <Text size="xs" fw={600} c="#748092">
+                                  {m.label}
+                                </Text>
+                                <div className={styles.metricIcon}>
+                                  <Icon size={17} />
+                                </div>
+                              </Group>
+                              <div className={styles.metricValue}>
+                                {m.value}
                               </div>
-                            </Group>
-                            <div className={styles.metricValue}>{m.value}</div>
-                            <Text
-                              size="10px"
-                              c={
-                                m.tone === "green"
-                                  ? "#168168"
-                                  : m.tone === "orange"
-                                    ? "#b47731"
-                                    : "dimmed"
-                              }
-                            >
-                              {m.detail}
-                            </Text>
-                          </article>
-                        );
-                      })}
+                              <Text
+                                size="10px"
+                                c={
+                                  m.tone === "green"
+                                    ? "#168168"
+                                    : m.tone === "orange"
+                                      ? "#b47731"
+                                      : "dimmed"
+                                }
+                              >
+                                {m.detail}
+                              </Text>
+                            </article>
+                          );
+                        },
+                      )}
                     </section>
+                    <PhaseShortcuts role={role} onOpen={navigate} />
                     <div className={styles.middle}>
                       <section className={styles.card}>
                         <Group justify="space-between">
@@ -624,16 +656,32 @@ export function Dashboard({
                                 View all
                               </Button>
                             </Group>
-                            <RecordTable
-                              panel={p}
-                              rows={p.rows.slice(0, 3)}
-                              onDetail={setDetail}
-                            />
+                            {isPhaseArea(key, role) ? (
+                              <Text size="sm" c="dimmed">
+                                Open this workspace to review current preview
+                                records, reports, and available actions. Changes
+                                are shared across the phase-one screens.
+                              </Text>
+                            ) : (
+                              <RecordTable
+                                panel={p}
+                                rows={p.rows.slice(0, 3)}
+                                onDetail={openRecord}
+                              />
+                            )}
                           </section>
                         );
                       })}
                     </div>
                   </>
+                ) : isPhaseArea(area, role) ? (
+                  <PhaseWorkspace
+                    key={`${role}-${child}-${term}-${area}`}
+                    area={area}
+                    role={role}
+                    term={term}
+                    store={phase}
+                  />
                 ) : panel ? (
                   <section className={styles.card} style={{ marginTop: 26 }}>
                     <Group justify="space-between" mb="lg">
@@ -680,7 +728,7 @@ export function Dashboard({
                     <RecordTable
                       panel={panel}
                       rows={filtered}
-                      onDetail={setDetail}
+                      onDetail={openRecord}
                     />
                     <Text size="xs" c="dimmed" mt="md">
                       {filtered.length} of {panel.rows.length} records · Sample
@@ -812,7 +860,7 @@ export function Dashboard({
       >
         <Stack>
           <Text size="sm">
-            Use the preview role selector to review all six workspaces.
+            Use the preview role selector to review all seven workspaces.
             Navigation and actions follow each role’s responsibilities.
           </Text>
           <Text size="sm">

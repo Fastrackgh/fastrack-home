@@ -59,39 +59,17 @@ export default function SchoolAdminLoginPage() {
           width: '46%',
           padding: '48px 56px',
           overflow: 'hidden',
-          background:
-            'radial-gradient(circle at 18% 12%, rgba(224, 26, 43, 0.35), transparent 45%), linear-gradient(160deg, #0b0f17 0%, #131a26 55%, #0b0f17 100%)',
+          backgroundImage:
+            'linear-gradient(180deg, rgba(11,15,23,0.18) 0%, rgba(11,15,23,0.65) 50%, rgba(11,15,23,0.88) 100%), url("/login-school-child.png")',
+          backgroundSize: 'cover',
+          backgroundPosition: 'center 30%',
+          backgroundRepeat: 'no-repeat',
           color: '#f8fafc',
           display: 'flex',
           flexDirection: 'column',
           justifyContent: 'space-between',
         }}
       >
-        {/* Ambient glow */}
-        <Box
-          style={{
-            position: 'absolute',
-            top: '-10%',
-            right: '-8%',
-            width: 320,
-            height: 320,
-            borderRadius: '50%',
-            background: 'rgba(224, 26, 43, 0.25)',
-            filter: 'blur(90px)',
-            pointerEvents: 'none',
-          }}
-        />
-        <Box
-          style={{
-            position: 'absolute',
-            inset: 0,
-            backgroundImage:
-              'linear-gradient(rgba(255,255,255,0.04) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.04) 1px, transparent 1px)',
-            backgroundSize: '46px 46px',
-            maskImage: 'radial-gradient(circle at 30% 20%, black 30%, transparent 90%)',
-            pointerEvents: 'none',
-          }}
-        />
 
         <Box style={{ position: 'relative', zIndex: 1 }}>
           {/* <Group
@@ -202,11 +180,12 @@ export default function SchoolAdminLoginPage() {
           flexDirection: 'column',
           padding: 'clamp(24px, 5vw, 56px)',
           position: 'relative',
+          background: '#ffffff',
         }}
       >
         <Group justify="space-between">
           <BrandLogo size="md" />
-          <Button
+          {/* <Button
             component={Link}
             href="/"
             variant="subtle"
@@ -215,15 +194,18 @@ export default function SchoolAdminLoginPage() {
             leftSection={<ArrowLeft size={14} />}
           >
             Back to Website
-          </Button>
+          </Button> */}
         </Group>
 
-        <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5 }}
-            style={{ width: '100%', maxWidth: 420 }}
+            style={{
+              width: '100%',
+              maxWidth: 420,
+            }}
           >
             <Stack gap="lg">
               <Box>
@@ -310,7 +292,11 @@ export default function SchoolAdminLoginPage() {
           </motion.div>
         </Box>
 
-        <Text size="xs" c="dimmed" ta="center">
+        <Text
+          size="xs"
+          c="dimmed"
+          ta="center"
+        >
           © {new Date().getFullYear()} Fastrack Management Services. All rights reserved.
         </Text>
       </Box>

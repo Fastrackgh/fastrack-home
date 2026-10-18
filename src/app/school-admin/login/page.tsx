@@ -81,8 +81,9 @@ export default function SchoolAdminLoginPage() {
         message: `Signed in as ${user.firstName} ${user.lastName}${school ? ` (${school.name})` : ''}`,
       });
 
-      if (user.userType === 'SUPER_ADMIN') {
-        router.push('/school-admin/platform/schools');
+      const role = user.role || user.userType;
+      if (role === 'SUPER_ADMIN') {
+        router.push('/school-admin/platform');
       } else {
         router.push('/school-admin/dashboard');
       }

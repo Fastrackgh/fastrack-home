@@ -26,6 +26,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import {
   BookOpen,
+  Building2,
   Bell,
   CalendarClock,
   CreditCard,
@@ -47,6 +48,7 @@ export type SidebarKey =
   | 'fees'
   | 'academics'
   | 'announcements'
+  | 'platform'
   | 'settings';
 
 const sidebarSections: {
@@ -80,13 +82,49 @@ const sidebarSections: {
 function SidebarContent({
   active,
   academicInfo,
+  isSuperAdmin,
 }: {
   active: SidebarKey;
   academicInfo?: { year: string; term: string } | null;
+  isSuperAdmin?: boolean;
 }) {
   return (
     <Stack justify="space-between" h="100%" gap="lg">
       <Stack gap="lg">
+        {isSuperAdmin && (
+          <Box>
+            <Text
+              size="10px"
+              fw={700}
+              c="red"
+              mb={8}
+              pl={12}
+              style={{ textTransform: "uppercase", letterSpacing: "0.08em" }}
+            >
+              Platform Admin
+            </Text>
+            <UnstyledButton
+              component={Link}
+              href="/school-admin/platform"
+              style={{
+                display: "flex",
+                alignItems: "center",
+                gap: 10,
+                borderRadius: 10,
+                padding: "9px 12px",
+                background: active === "platform" ? "#fff0f2" : "transparent",
+                color: active === "platform" ? "#0f172a" : "#475569",
+                fontWeight: active === "platform" ? 700 : 500,
+                transition: "background 0.15s ease",
+              }}
+            >
+              <Building2 size={17} color={active === "platform" ? "#e01a2b" : "#e01a2b"} />
+              <Text size="sm" style={{ color: "inherit" }}>
+                Platform Console
+              </Text>
+            </UnstyledButton>
+          </Box>
+        )}
         {sidebarSections.map((section) => (
           <Box key={section.heading}>
             <Text
@@ -298,7 +336,7 @@ export function DashboardShell({
             h="calc(100vh - 96px)"
             style={{ position: 'sticky', top: 88, borderColor: '#e8edf3' }}
           >
-            <SidebarContent active={active} academicInfo={academicInfo} />
+            <SidebarContent active={active} academicInfo={academicInfo} isSuperAdmin={(user?.role || user?.userType) === "SUPER_ADMIN"} />
           </Paper>
         </Grid.Col>
 
@@ -327,7 +365,7 @@ export function DashboardShell({
       </Grid>
 
       <Drawer opened={opened} onClose={close} hiddenFrom="md" title="Navigation" padding="md" size="xs">
-        <SidebarContent active={active} academicInfo={academicInfo} />
+        <SidebarContent active={active} academicInfo={academicInfo} isSuperAdmin={(user?.role || user?.userType) === "SUPER_ADMIN"} />
       </Drawer>
     </Box>
   );

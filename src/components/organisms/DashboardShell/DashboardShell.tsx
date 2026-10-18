@@ -1,6 +1,6 @@
 'use client';
 
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
@@ -37,6 +37,8 @@ import {
   Users,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/atoms';
+import { useAuth } from '@/lib/auth-context';
+import { apiClient } from '@/lib/api-client';
 
 export type SidebarKey =
   | 'overview'
@@ -62,7 +64,7 @@ const sidebarSections: {
   {
     heading: 'Operations',
     items: [
-      { label: 'Fees & Billing', key: 'fees', href: '/coming-soon?module=fees', icon: CreditCard },
+      { label: 'Fees & Billing', key: 'fees', href: '/school-admin/fees', icon: CreditCard },
       { label: 'Academics', key: 'academics', href: '/coming-soon?module=academics', icon: BookOpen },
       { label: 'Announcements', key: 'announcements', href: '/coming-soon?module=announcements', icon: Megaphone },
     ],
@@ -75,7 +77,13 @@ const sidebarSections: {
   },
 ];
 
-function SidebarContent({ active }: { active: SidebarKey }) {
+function SidebarContent({
+  active,
+  academicInfo,
+}: {
+  active: SidebarKey;
+  academicInfo?: { year: string; term: string } | null;
+}) {
   return (
     <Stack justify="space-between" h="100%" gap="lg">
       <Stack gap="lg">
@@ -134,16 +142,16 @@ function SidebarContent({ active }: { active: SidebarKey }) {
         }}
       >
         <Badge size="xs" color="fastrackRed" variant="filled" radius="sm" mb={8} tt="none">
-          Academic Week 4
+          {academicInfo ? `${academicInfo.term} • ${academicInfo.year}` : 'Active Session'}
         </Badge>
         <Text fw={700} size="sm">
-          Mid-term reports due
+          Academic Session Active
         </Text>
         <Text size="xs" c="#94a3b8" mb="sm">
-          3 days remaining to finalize.
+          Enrollment & attendance in sync.
         </Text>
-        <Button size="xs" radius="md" color="fastrackRed" fullWidth>
-          Open Planner
+        <Button size="xs" radius="md" color="fastrackRed" fullWidth component={Link} href="/school-admin/students">
+          Manage Students
         </Button>
       </Paper>
     </Stack>
@@ -165,6 +173,38 @@ export function DashboardShell({
 }) {
   const [opened, { toggle, close }] = useDisclosure(false);
   const pathname = usePathname();
+  const { user, school, logout } = useAuth();
+  const [academicInfo, setAcademicInfo] = useState<{ year: string; term: string } | null>(null);
+
+  useEffect(() => {
+    let isMounted = true;
+    async function loadAcademicCalendar() {
+      try {
+        const [yearRes, termRes] = await Promise.allSettled([
+          apiClient.get<{ yearLabel: string }>('/schools/me/academic-years/current'),
+          apiClient.get<{ termLabel: string }>('/schools/me/academic-terms/current'),
+        ]);
+
+        if (isMounted) {
+          const year = yearRes.status === 'fulfilled' && yearRes.value?.data?.yearLabel ? yearRes.value.data.yearLabel : '2026/27';
+          const term = termRes.status === 'fulfilled' && termRes.value?.data?.termLabel ? termRes.value.data.termLabel : 'Term 2';
+          setAcademicInfo({ year, term });
+        }
+      } catch {
+        // Fallback default
+      }
+    }
+    loadAcademicCalendar();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  const fullName = user?.firstName && user?.lastName
+    ? `${user.firstName} ${user.lastName}`
+    : (user?.email || 'Ama Owusu');
+  const roleName = (user?.role || 'Principal').replace(/_/g, ' ');
+  const initials = `${user?.firstName?.[0] || 'A'}${user?.lastName?.[0] || 'O'}`.toUpperCase();
 
   return (
     <Box style={{ minHeight: '100vh', background: '#f6f8fb' }}>
@@ -180,9 +220,24 @@ export function DashboardShell({
         }}
       >
         <Group justify="space-between" px={{ base: 'md', md: 'xl' }} py="sm">
-          <Group gap="sm">
+          <Group gap="md">
             <Burger opened={opened} onClick={toggle} hiddenFrom="md" size="sm" aria-label="Toggle sidebar" />
             <BrandLogo size="sm" />
+            {school?.name ? (
+              <Box visibleFrom="sm" style={{ borderLeft: '1px solid #e2e8f0', paddingLeft: 12 }}>
+                <Text size="xs" fw={700} c="#0f172a" lh={1.1}>
+                  {school.name}
+                </Text>
+                <Text size="10px" c="dimmed">
+                  Code: {school.code}
+                </Text>
+              </Box>
+            ) : null}
+            {academicInfo ? (
+              <Badge variant="light" color="blue" radius="md" size="sm" visibleFrom="md" tt="none">
+                {academicInfo.year} • {academicInfo.term}
+              </Badge>
+            ) : null}
           </Group>
 
           <Group gap="sm">
@@ -191,7 +246,7 @@ export function DashboardShell({
               leftSection={<Search size={15} />}
               visibleFrom="sm"
               radius="md"
-              w={300}
+              w={260}
             />
             <ActionIcon variant="default" radius="md" size={38} pos="relative">
               <Bell size={17} />
@@ -210,20 +265,19 @@ export function DashboardShell({
             </ActionIcon>
             <Group gap={8} visibleFrom="sm">
               <Avatar radius="xl" color="fastrackRed" size={36}>
-                AA
+                {initials}
               </Avatar>
               <Box>
                 <Text size="sm" fw={700} lh={1.1}>
-                  Ama Adjei
+                  {fullName}
                 </Text>
-                <Text size="xs" c="dimmed" lh={1.1}>
-                  Administrator
+                <Text size="xs" c="dimmed" lh={1.1} tt="capitalize">
+                  {roleName.toLowerCase()}
                 </Text>
               </Box>
             </Group>
             <Button
-              component={Link}
-              href="/school-admin/login"
+              onClick={logout}
               variant="subtle"
               color="gray"
               size="sm"
@@ -244,7 +298,7 @@ export function DashboardShell({
             h="calc(100vh - 96px)"
             style={{ position: 'sticky', top: 88, borderColor: '#e8edf3' }}
           >
-            <SidebarContent active={active} />
+            <SidebarContent active={active} academicInfo={academicInfo} />
           </Paper>
         </Grid.Col>
 
@@ -254,7 +308,7 @@ export function DashboardShell({
             <Group justify="space-between" align="flex-end" wrap="wrap">
               <Box>
                 <Text size="sm" c="dimmed">
-                  {pathname.startsWith('/school-admin') ? 'Monday, 8 September 2026' : null}
+                  {pathname.startsWith('/school-admin') ? 'Academic Portal • Live Operations' : null}
                 </Text>
                 <Title order={2} style={{ fontFamily: 'var(--font-heading)' }}>
                   {title}
@@ -273,7 +327,7 @@ export function DashboardShell({
       </Grid>
 
       <Drawer opened={opened} onClose={close} hiddenFrom="md" title="Navigation" padding="md" size="xs">
-        <SidebarContent active={active} />
+        <SidebarContent active={active} academicInfo={academicInfo} />
       </Drawer>
     </Box>
   );

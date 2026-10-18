@@ -1,9 +1,10 @@
 import React from 'react';
+import { AuthProvider } from '@/lib/auth-context';
 
 export default function SchoolAdminLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
-  return <>{children}</>;
+  return <AuthProvider>{children}</AuthProvider>;
 }

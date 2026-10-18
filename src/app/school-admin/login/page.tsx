@@ -1,6 +1,8 @@
 'use client';
 
+import React, { useState } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Box,
@@ -14,18 +16,20 @@ import {
   TextInput,
   ThemeIcon,
   Title,
+  Alert,
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import {
-  ArrowLeft,
   ArrowRight,
   CheckCircle2,
-  GraduationCap,
   Lock,
   Mail,
   ShieldCheck,
   Sparkles,
+  AlertCircle,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/atoms';
+import { useAuth } from '@/lib/auth-context';
 
 const highlights = [
   {
@@ -49,13 +53,70 @@ const stats = [
 ];
 
 export default function SchoolAdminLoginPage() {
+  const router = useRouter();
+  const { login } = useAuth();
+
+  const [email, setEmail] = useState('head@fastrack.school');
+  const [password, setPassword] = useState('S3curePassw0rd!');
+  const [rememberMe, setRememberMe] = useState(true);
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMessage(null);
+
+    if (!email || !password) {
+      setErrorMessage('Please enter both email and password.');
+      return;
+    }
+
+    try {
+      setSubmitting(true);
+      const { user, school } = await login(email, password);
+
+      notifications.show({
+        color: 'green',
+        title: 'Welcome to Fastrack',
+        message: `Signed in as ${user.firstName} ${user.lastName}${school ? ` (${school.name})` : ''}`,
+      });
+
+      if (user.userType === 'SUPER_ADMIN') {
+        router.push('/school-admin/platform/schools');
+      } else {
+        router.push('/school-admin/dashboard');
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Invalid email or password.';
+      setErrorMessage(msg);
+      notifications.show({
+        color: 'red',
+        title: 'Authentication Failed',
+        message: msg,
+      });
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const handleQuickFill = (presetEmail: string, presetPassword = 'S3curePassw0rd!') => {
+    setEmail(presetEmail);
+    setPassword(presetPassword);
+    setErrorMessage(null);
+  };
+
   return (
-    <Box style={{ minHeight: '100vh', display: 'flex', background: '#ffffff' }}>
-      {/* Left brand panel */}
+    <Box
+      style={{
+        minHeight: '100vh',
+        display: 'flex',
+        background: '#f8fafc',
+      }}
+    >
+      {/* Left hero panel */}
       <Box
         visibleFrom="md"
         style={{
-          position: 'relative',
           width: '46%',
           padding: '48px 56px',
           overflow: 'hidden',
@@ -70,9 +131,8 @@ export default function SchoolAdminLoginPage() {
           justifyContent: 'space-between',
         }}
       >
-
         <Box style={{ position: 'relative', zIndex: 1 }}>
-          {/* <Group
+          <Group
             gap="xs"
             px="sm"
             py={6}
@@ -94,9 +154,9 @@ export default function SchoolAdminLoginPage() {
               }}
             />
             <Text size="xs" fw={600} c="#e2e8f0">
-              School Admin Portal · Live
+              Fastrack Connected Campus · Port 3001
             </Text>
-          </Group> */}
+          </Group>
         </Box>
 
         <Box style={{ position: 'relative', zIndex: 1 }}>
@@ -185,16 +245,6 @@ export default function SchoolAdminLoginPage() {
       >
         <Group justify="space-between">
           <BrandLogo size="md" />
-          {/* <Button
-            component={Link}
-            href="/"
-            variant="subtle"
-            color="gray"
-            size="sm"
-            leftSection={<ArrowLeft size={14} />}
-          >
-            Back to Website
-          </Button> */}
         </Group>
 
         <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
@@ -204,91 +254,127 @@ export default function SchoolAdminLoginPage() {
             transition={{ duration: 0.5 }}
             style={{
               width: '100%',
-              maxWidth: 420,
+              maxWidth: 440,
             }}
           >
-            <Stack gap="lg">
-              <Box>
-                <ThemeIcon size={48} radius="lg" variant="light" color="fastrackRed" mb="md">
-                  <Lock size={22} />
-                </ThemeIcon>
-                <Title order={2} style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem' }}>
-                  Welcome back
-                </Title>
-                <Text c="dimmed" size="sm" mt={4}>
-                  Preview the workspaces for school staff, parents, and platform administrators.
-                </Text>
-              </Box>
-
-              <Stack gap="md">
-                <TextInput
-                  label="School email"
-                  placeholder="admin@school.edu.gh"
-                  required
-                  size="md"
-                  radius="md"
-                  leftSection={<Mail size={16} />}
-                />
-
-                <PasswordInput
-                  label="Password"
-                  placeholder="Enter your password"
-                  required
-                  size="md"
-                  radius="md"
-                  leftSection={<ShieldCheck size={16} />}
-                />
-
-                <Group justify="space-between">
-                  <Checkbox label="Remember me" size="sm" />
-                  <Text
-                    component={Link}
-                    href="#"
-                    size="sm"
-                    fw={600}
-                    c="fastrackRed"
-                    style={{ textDecoration: 'none' }}
-                  >
-                    Forgot password?
+            <form onSubmit={handleSubmit}>
+              <Stack gap="lg">
+                <Box>
+                  <ThemeIcon size={48} radius="lg" variant="light" color="fastrackRed" mb="md">
+                    <Lock size={22} />
+                  </ThemeIcon>
+                  <Title order={2} style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem' }}>
+                    Sign in to Fastrack
+                  </Title>
+                  <Text c="dimmed" size="sm" mt={4}>
+                    Access your unified school management workspace.
                   </Text>
+                </Box>
+
+                {errorMessage && (
+                  <Alert icon={<AlertCircle size={16} />} title="Authentication Error" color="red" radius="md">
+                    {errorMessage}
+                  </Alert>
+                )}
+
+                <Stack gap="md">
+                  <TextInput
+                    label="School email"
+                    placeholder="head@fastrack.school"
+                    required
+                    size="md"
+                    radius="md"
+                    leftSection={<Mail size={16} />}
+                    value={email}
+                    onChange={(e) => setEmail(e.currentTarget.value)}
+                  />
+
+                  <PasswordInput
+                    label="Password"
+                    placeholder="Enter your password"
+                    required
+                    size="md"
+                    radius="md"
+                    leftSection={<ShieldCheck size={16} />}
+                    value={password}
+                    onChange={(e) => setPassword(e.currentTarget.value)}
+                  />
+
+                  <Group justify="space-between">
+                    <Checkbox
+                      label="Remember me"
+                      size="sm"
+                      checked={rememberMe}
+                      onChange={(e) => setRememberMe(e.currentTarget.checked)}
+                    />
+                    <Text
+                      component={Link}
+                      href="#"
+                      size="sm"
+                      fw={600}
+                      c="fastrackRed"
+                      style={{ textDecoration: 'none' }}
+                    >
+                      Forgot password?
+                    </Text>
+                  </Group>
+
+                  <Button
+                    type="submit"
+                    size="md"
+                    radius="md"
+                    fullWidth
+                    loading={submitting}
+                    rightSection={<ArrowRight size={16} />}
+                    style={{
+                      background: 'linear-gradient(110deg, #e01a2b 0%, #ba1020 100%)',
+                      boxShadow: '0 16px 30px -14px rgba(224, 26, 43, 0.6)',
+                    }}
+                  >
+                    Sign in to Portal
+                  </Button>
+                </Stack>
+
+                <Divider label="Test Credentials Quick Fill" labelPosition="center" />
+
+                <Group gap="xs" justify="center">
+                  <Button
+                    variant="light"
+                    color="gray"
+                    size="xs"
+                    radius="md"
+                    onClick={() => handleQuickFill('head@fastrack.school', 'S3curePassw0rd!')}
+                  >
+                    Principal (Fastrack Int.)
+                  </Button>
+                  <Button
+                    variant="light"
+                    color="gray"
+                    size="xs"
+                    radius="md"
+                    onClick={() => handleQuickFill('kwame.mensah@fastrack.school', 'S3curePassw0rd!')}
+                  >
+                    Teacher (Kwame)
+                  </Button>
+                  <Button
+                    variant="light"
+                    color="gray"
+                    size="xs"
+                    radius="md"
+                    onClick={() => handleQuickFill('superadmin@fastrack.dev', 'ChangeMe123!')}
+                  >
+                    Super Admin
+                  </Button>
                 </Group>
 
-                <Button
-                  component={Link}
-                  href="/school-admin/dashboard"
-                  size="md"
-                  radius="md"
-                  fullWidth
-                  rightSection={<ArrowRight size={16} />}
-                  style={{
-                    background: 'linear-gradient(110deg, #e01a2b 0%, #ba1020 100%)',
-                    boxShadow: '0 16px 30px -14px rgba(224, 26, 43, 0.6)',
-                  }}
-                >
-                  Open dashboard preview
-                </Button>
+                <Group gap={6} justify="center">
+                  <Sparkles size={13} color="#94a3b8" />
+                  <Text size="xs" c="dimmed" ta="center">
+                    Connected live to Fastrack backend API on port 3000.
+                  </Text>
+                </Group>
               </Stack>
-
-              <Divider label="or" labelPosition="center" />
-
-              <Button
-                variant="default"
-                size="md"
-                radius="md"
-                fullWidth
-                leftSection={<GraduationCap size={16} />}
-                disabled
-              >
-                Fastrack SSO · coming with integration
-              </Button>
-
-              <Group gap={6} justify="center">
-                <Sparkles size={13} color="#94a3b8" />
-                <Text size="xs" c="dimmed" ta="center">
-                  UI preview uses sample data. Sign-in integration is not connected yet.
-                </Text>
-              </Group>
-            </Stack>
+            </form>
           </motion.div>
         </Box>
 

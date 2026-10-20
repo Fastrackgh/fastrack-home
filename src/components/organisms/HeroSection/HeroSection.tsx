@@ -124,7 +124,11 @@ export const HeroSection: React.FC = () => {
           paddingBottom: 'clamp(72px, 12vh, 120px)',
         }}
       >
-        <Stack align="center" gap="lg" style={{ maxWidth: 840, margin: '0 auto', textAlign: 'center' }}>
+        <Stack
+          align="center"
+          gap="lg"
+          style={{ maxWidth: 840, margin: '0 auto', textAlign: 'center' }}
+        >
           <AnimatePresence mode="wait">
             <motion.div
               key={active.id + '-eyebrow'}
@@ -171,8 +175,8 @@ export const HeroSection: React.FC = () => {
             }}
           >
             Fastrack EduSuite unifies admissions, attendance, fees, grading, and parent
-            communication, so your team spends less time on paperwork and more time running a
-            great school.
+            communication, so your team spends less time on paperwork and more time running a great
+            school.
           </Text>
 
           <Group gap="sm" justify="center" wrap="wrap" mt={4}>
@@ -285,4 +289,3 @@ export const HeroSection: React.FC = () => {
     </Box>
   );
 };
-

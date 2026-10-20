@@ -133,7 +133,14 @@ export const TrustBar: React.FC = () => {
                   </Box>
 
                   {/* Value */}
-                  <Box style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'center', gap: '4px' }}>
+                  <Box
+                    style={{
+                      display: 'flex',
+                      alignItems: 'baseline',
+                      justifyContent: 'center',
+                      gap: '4px',
+                    }}
+                  >
                     <Text
                       style={{
                         fontFamily: 'var(--font-heading)',
@@ -182,4 +189,3 @@ export const TrustBar: React.FC = () => {
     </Box>
   );
 };
-

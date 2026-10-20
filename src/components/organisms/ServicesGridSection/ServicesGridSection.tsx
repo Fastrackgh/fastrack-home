@@ -1,21 +1,13 @@
 'use client';
 
 import React from 'react';
-import { Box, Container, Stack, Text, SimpleGrid, Badge } from '@mantine/core';
+import { Box, Container, Stack, Text, SimpleGrid } from '@mantine/core';
 import { motion } from 'framer-motion';
 import type { Variants } from 'framer-motion';
 import { ServiceCard } from '@/components/molecules';
 import { SectionEyebrow } from '@/components/atoms';
 import { businessInfo } from '@/data/businessInfo';
-import {
-  ShieldCheck,
-  Database,
-  Code,
-  Smartphone,
-  MessageSquare,
-  Calculator,
-  Layers,
-} from 'lucide-react';
+import { ShieldCheck, Database, Code, Smartphone, MessageSquare, Calculator } from 'lucide-react';
 
 const containerVariants: Variants = {
   hidden: { opacity: 0 },
@@ -116,8 +108,8 @@ export const ServicesGridSection: React.FC = () => {
                 fontSize: 'clamp(0.9rem, 1.2vw, 1.05rem)',
               }}
             >
-              Delivering high-impact, affordable, and value-driven technology solutions
-              tailored to enterprise operations, database infrastructure, mobile apps, and statutory compliance.
+              Delivering high-impact, affordable, and value-driven technology solutions tailored to
+              enterprise operations, database infrastructure, mobile apps, and statutory compliance.
             </Text>
           </Stack>
         </motion.div>
@@ -132,10 +124,7 @@ export const ServicesGridSection: React.FC = () => {
           <SimpleGrid cols={{ base: 1, sm: 2, md: 3 }} spacing={{ base: 'md', sm: 'md', md: 'lg' }}>
             {businessInfo.services.map((svc) => (
               <motion.div key={svc.id} variants={itemVariants} style={{ height: '100%' }}>
-                <ServiceCard
-                  service={svc}
-                  icon={getIcon(svc.iconName)}
-                />
+                <ServiceCard service={svc} icon={getIcon(svc.iconName)} />
               </motion.div>
             ))}
           </SimpleGrid>
@@ -144,4 +133,3 @@ export const ServicesGridSection: React.FC = () => {
     </Box>
   );
 };
-

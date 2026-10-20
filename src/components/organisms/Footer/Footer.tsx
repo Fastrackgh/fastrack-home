@@ -62,8 +62,8 @@ export const Footer: React.FC = () => {
         <div className={classes.logo}>
           <BrandLogo variant="light" size="md" withTagline />
           <Text size="sm" c="dimmed" className={classes.description}>
-            Simple, reliable, and trusted school &amp; enterprise software, built in Accra,
-            Ghana since 2014.
+            Simple, reliable, and trusted school &amp; enterprise software, built in Accra, Ghana
+            since 2014.
           </Text>
           <div className={classes.contact}>
             <a className={classes.contactRow} href={`tel:${businessInfo.phoneRaw}`}>
@@ -85,7 +85,8 @@ export const Footer: React.FC = () => {
 
       <Container size="xl" className={classes.afterFooter}>
         <Text c="dimmed" size="sm">
-          © {new Date().getFullYear()} Fastrack Management Services. All rights reserved. Mallam – Accra, Ghana.
+          © {new Date().getFullYear()} Fastrack Management Services. All rights reserved. Mallam –
+          Accra, Ghana.
         </Text>
         <Group gap={4} wrap="nowrap">
           <ActionIcon
@@ -98,13 +99,34 @@ export const Footer: React.FC = () => {
           >
             <IconBrandWhatsapp size={18} stroke={1.5} />
           </ActionIcon>
-          <ActionIcon size="lg" color="gray" variant="subtle" aria-label="Facebook" component="a" href="#">
+          <ActionIcon
+            size="lg"
+            color="gray"
+            variant="subtle"
+            aria-label="Facebook"
+            component="a"
+            href="#"
+          >
             <IconBrandFacebook size={18} stroke={1.5} />
           </ActionIcon>
-          <ActionIcon size="lg" color="gray" variant="subtle" aria-label="LinkedIn" component="a" href="#">
+          <ActionIcon
+            size="lg"
+            color="gray"
+            variant="subtle"
+            aria-label="LinkedIn"
+            component="a"
+            href="#"
+          >
             <IconBrandLinkedin size={18} stroke={1.5} />
           </ActionIcon>
-          <ActionIcon size="lg" color="gray" variant="subtle" aria-label="Instagram" component="a" href="#">
+          <ActionIcon
+            size="lg"
+            color="gray"
+            variant="subtle"
+            aria-label="Instagram"
+            component="a"
+            href="#"
+          >
             <IconBrandInstagram size={18} stroke={1.5} />
           </ActionIcon>
         </Group>
@@ -112,4 +134,3 @@ export const Footer: React.FC = () => {
     </footer>
   );
 };
-

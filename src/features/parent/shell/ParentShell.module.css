@@ -1,0 +1,136 @@
+.root {
+  min-height: 100dvh;
+  background: var(--mantine-color-body);
+}
+
+.header {
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  padding: calc(env(safe-area-inset-top) + 10px) 16px 10px;
+  background: light-dark(rgba(255, 255, 255, 0.92), rgba(15, 23, 42, 0.92));
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid light-dark(var(--mantine-color-gray-2), rgba(255, 255, 255, 0.08));
+}
+
+.headerInner {
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.wardButton {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+  padding: 4px 8px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid transparent;
+  background: none;
+  color: inherit;
+  cursor: pointer;
+  text-align: left;
+}
+
+.wardButton:hover {
+  border-color: light-dark(var(--mantine-color-gray-3), rgba(255, 255, 255, 0.12));
+}
+
+.main {
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 20px 16px calc(96px + env(safe-area-inset-bottom));
+}
+
+.tabBar {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+  display: flex;
+  padding: 6px 4px calc(6px + env(safe-area-inset-bottom));
+  background: light-dark(rgba(255, 255, 255, 0.96), rgba(15, 23, 42, 0.96));
+  backdrop-filter: blur(12px);
+  border-top: 1px solid light-dark(var(--mantine-color-gray-2), rgba(255, 255, 255, 0.08));
+}
+
+.tab {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 0;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  color: light-dark(var(--mantine-color-gray-6), var(--mantine-color-dark-1));
+}
+
+.tab[data-active] {
+  color: var(--mantine-color-fastrackRed-6);
+}
+
+.rail {
+  display: none;
+}
+
+.offline {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 6px 16px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--mantine-color-orange-9);
+  background: var(--mantine-color-orange-1);
+}
+
+@media (min-width: 62em) {
+  .tabBar {
+    display: none;
+  }
+
+  .rail {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    width: 220px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    padding: 20px 12px;
+    border-right: 1px solid light-dark(var(--mantine-color-gray-2), rgba(255, 255, 255, 0.08));
+  }
+
+  .rail .tab {
+    flex: none;
+    flex-direction: row;
+    gap: 10px;
+    padding: 10px 12px;
+    font-size: 14px;
+  }
+
+  .rail .tab[data-active] {
+    background: light-dark(var(--mantine-color-fastrackRed-0), rgba(224, 26, 43, 0.12));
+  }
+
+  .header,
+  .main,
+  .offline {
+    margin-left: 220px;
+  }
+
+  .main {
+    margin-left: max(220px, calc(220px + (100vw - 220px - 760px) / 2));
+    padding-bottom: 48px;
+  }
+}

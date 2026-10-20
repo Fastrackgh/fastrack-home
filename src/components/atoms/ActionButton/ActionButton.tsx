@@ -53,7 +53,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
     ...style,
   };
 
-  let rootColor = 'fastrackRed';
+  const rootColor = 'fastrackRed';
   let buttonVariant: ButtonProps['variant'] = 'filled';
 
   if (variantStyle === 'primary') {

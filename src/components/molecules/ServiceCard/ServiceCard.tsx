@@ -3,7 +3,7 @@
 import React from 'react';
 import { Box, Text, Group, Badge, Stack } from '@mantine/core';
 import { motion } from 'framer-motion';
-import { Check, Sparkles } from 'lucide-react';
+import { Check } from 'lucide-react';
 import { CorporateService } from '@/data/businessInfo';
 
 interface ServiceCardProps {
@@ -199,4 +199,3 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, icon }) => {
     </motion.div>
   );
 };
-

@@ -1,0 +1,23 @@
+/* Row buttons show on hover, focus or selection so section names get the room. */
+.row .actions {
+  display: none;
+}
+
+.row:hover .actions,
+.row:focus-within .actions,
+.row[data-selected] .actions {
+  display: flex;
+}
+
+/* Touch screens have no hover: always show them. */
+@media (hover: none) {
+  .row .actions {
+    display: flex;
+  }
+}
+
+/* A two-column section's columns, one under the other, indented under it. */
+.column {
+  padding-left: 8px;
+  border-left: 2px solid var(--mantine-color-gray-3);
+}

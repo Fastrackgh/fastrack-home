@@ -82,7 +82,11 @@ export const schoolModules: SchoolModule[] = [
     metricValue: '96.8% On-Time',
     previewDetails: [
       { label: 'MoMo Direct Collection', sublabel: 'MTN & Telecel Gateways', status: 'Reconciled' },
-      { label: 'Outstanding Balance SMS', sublabel: 'Automated gentle reminders', status: 'Scheduled' },
+      {
+        label: 'Outstanding Balance SMS',
+        sublabel: 'Automated gentle reminders',
+        status: 'Scheduled',
+      },
       { label: 'Audited Cashbook', sublabel: 'Zero-discrepancy daily logs', status: 'Balanced' },
     ],
   },
@@ -104,7 +108,11 @@ export const schoolModules: SchoolModule[] = [
     metricLabel: 'SMS Open Rate',
     metricValue: '98.5%',
     previewDetails: [
-      { label: 'Morning Attendance Alert', sublabel: 'Delivered to 1,420 parents', status: 'Delivered' },
+      {
+        label: 'Morning Attendance Alert',
+        sublabel: 'Delivered to 1,420 parents',
+        status: 'Delivered',
+      },
       { label: 'PTA Meeting Notice', sublabel: 'Custom Sender ID: FASTRACK', status: 'Broadcast' },
       { label: 'Term Fee Due Notice', sublabel: 'Targeted to debtors list', status: 'Instant' },
     ],
@@ -128,7 +136,11 @@ export const schoolModules: SchoolModule[] = [
     metricValue: '99.9%',
     previewDetails: [
       { label: 'Teacher Mobile App', sublabel: 'One-tap attendance & grades', status: 'Online' },
-      { label: 'Parent Pocket Portal', sublabel: 'View grades & pay fees 24/7', status: 'Connected' },
+      {
+        label: 'Parent Pocket Portal',
+        sublabel: 'View grades & pay fees 24/7',
+        status: 'Connected',
+      },
       { label: 'Executive Dashboard', sublabel: 'Real-time revenue & enrollment', status: 'Live' },
     ],
   },
@@ -150,7 +162,11 @@ export const schoolModules: SchoolModule[] = [
     metricLabel: 'Payroll Automation',
     metricValue: '100% Error-Free',
     previewDetails: [
-      { label: 'GRA PAYE Calculator', sublabel: 'Automated monthly tax schedules', status: 'Active' },
+      {
+        label: 'GRA PAYE Calculator',
+        sublabel: 'Automated monthly tax schedules',
+        status: 'Active',
+      },
       { label: 'SSNIT Tier 1 & 2', sublabel: 'Statutory compliance exports', status: 'Ready' },
       { label: 'Multi-Campus Sync', sublabel: 'Consolidated executive view', status: 'Live' },
     ],

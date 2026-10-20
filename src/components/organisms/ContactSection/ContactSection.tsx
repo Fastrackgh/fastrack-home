@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import {
   Box,
   Container,
-  Group,
   Text,
   SimpleGrid,
   Stack,
@@ -12,13 +11,13 @@ import {
   Textarea,
   Button,
   Notification,
-  Badge,
 } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ContactInfoItem } from '@/components/molecules';
 import { SectionEyebrow } from '@/components/atoms';
 import { businessInfo } from '@/data/businessInfo';
-import { Phone, Mail, MapPin, Navigation, Send, Check, Sparkles } from 'lucide-react';
+import { honeypotStyle, submitLead } from '@/lib/leads';
+import { Phone, Mail, MapPin, Navigation, Send, Check } from 'lucide-react';
 
 export const ContactSection: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
@@ -30,10 +29,27 @@ export const ContactSection: React.FC = () => {
     message: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [website, setWebsite] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.email) return;
-    setSubmitted(true);
+    if (!form.name || !form.email || sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      await submitLead({ kind: 'CONTACT', ...form, website });
+      setSubmitted(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `We could not send your request: ${err.message}`
+          : 'We could not send your request. Please try again or call us.',
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -47,7 +63,11 @@ export const ContactSection: React.FC = () => {
       }}
     >
       <Container size="xl">
-        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 40, md: 56 }} style={{ alignItems: 'start' }}>
+        <SimpleGrid
+          cols={{ base: 1, md: 2 }}
+          spacing={{ base: 40, md: 56 }}
+          style={{ alignItems: 'start' }}
+        >
           {/* Left Column: Office & Contact Information */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -90,7 +110,8 @@ export const ContactSection: React.FC = () => {
                 }}
               >
                 Whether you are looking to deploy our flagship School ERP, modernize your database
-                infrastructure, or launch high-throughput Bulk SMS campaigns, our team in Accra is ready to assist your institution.
+                infrastructure, or launch high-throughput Bulk SMS campaigns, our team in Accra is
+                ready to assist your institution.
               </Text>
 
               <Stack gap="md" mt="xs">
@@ -155,7 +176,8 @@ export const ContactSection: React.FC = () => {
                 Request a Consultation or Demo
               </Text>
               <Text size="sm" c="dimmed" mb="lg" style={{ lineHeight: 1.5 }}>
-                Fill in your details below and a Fastrack solutions specialist will respond promptly.
+                Fill in your details below and a Fastrack solutions specialist will respond
+                promptly.
               </Text>
 
               <AnimatePresence mode="wait">
@@ -173,12 +195,22 @@ export const ContactSection: React.FC = () => {
                       withCloseButton={false}
                       radius="md"
                     >
-                      Thank you for contacting Fastrack Management Services. Our Accra office has received your
-                      inquiry and will call or email you shortly.
+                      Thank you for contacting Fastrack Management Services. Our Accra office has
+                      received your inquiry and will call or email you shortly.
                     </Notification>
                   </motion.div>
                 ) : (
                   <form onSubmit={handleSubmit}>
+                    <input
+                      type="text"
+                      name="website"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      aria-hidden="true"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      style={honeypotStyle}
+                    />
                     <Stack gap="md">
                       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <TextInput
@@ -232,8 +264,14 @@ export const ContactSection: React.FC = () => {
                       />
 
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        {error && (
+                          <Text size="sm" c="red.7" role="alert" mb={4}>
+                            {error}
+                          </Text>
+                        )}
                         <Button
                           type="submit"
+                          loading={sending}
                           color="fastrackRed"
                           size="md"
                           radius="xl"
@@ -262,4 +300,3 @@ export const ContactSection: React.FC = () => {
     </Box>
   );
 };
-

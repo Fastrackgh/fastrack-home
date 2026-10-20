@@ -114,7 +114,7 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
             }}
           >
             <Image
-              src="/logo(1).png"
+              src="/logo.png"
               alt="Fastrack"
               width={65}
               height={22}
@@ -580,7 +580,7 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                           <Group justify="space-between" align="flex-start" mb={4}>
                             <Group gap={4}>
                               <Text size="xs" c="dimmed" fw={600}>
-                                Today's Attendance
+                                Today&apos;s Attendance
                               </Text>
                               <Info size={12} color="#f97316" />
                             </Group>
@@ -1008,7 +1008,7 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                         Sender ID: FASTRACK-SCH
                       </Text>
                       <Text size="xs" c="dimmed" mt={4}>
-                        "Dear Parent, Terminal 2 GPA reports for Kofi Mensah are now live on the portal. Fee balance: GH₵ 0.00. Thank you."
+                        &ldquo;Dear Parent, Terminal 2 GPA reports for Kofi Mensah are now live on the portal. Fee balance: GH₵ 0.00. Thank you.&rdquo;
                       </Text>
                     </Box>
                     <Group justify="space-between" mt="sm">

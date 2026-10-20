@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Group, UnstyledButton, Text, Box } from '@mantine/core';
+import { Group, UnstyledButton, Text } from '@mantine/core';
 
 interface NavLinksProps {
   orientation?: 'horizontal' | 'vertical';
@@ -16,10 +16,7 @@ export const navItems = [
   { label: 'Contact', href: '#contact' },
 ];
 
-export const NavLinks: React.FC<NavLinksProps> = ({
-  orientation = 'horizontal',
-  onItemClick,
-}) => {
+export const NavLinks: React.FC<NavLinksProps> = ({ orientation = 'horizontal', onItemClick }) => {
   const handleScroll = (href: string) => {
     if (onItemClick) onItemClick();
     if (href.startsWith('#')) {
@@ -84,4 +81,3 @@ export const NavLinks: React.FC<NavLinksProps> = ({
     </Group>
   );
 };
-

@@ -1,0 +1,107 @@
+# Flow: Parent portal
+
+**Status:** the portal is built at `/parent`, and the PWA can be installed. These work against the backend today:
+- registering an account
+- signing in
+- listing, linking (code plus OTP) and unlinking children
+
+Fees, online payment, reports, attendance and the ward profile are built against the proposed contract in [docs/api/parent-portal.md](../api/parent-portal.md). Until the backend ships those endpoints, those screens show "This is not available yet…". To see them on sample data, set `NEXT_PUBLIC_PARENT_API_MOCK=1`.
+
+Code: `src/features/parent/*`, with routes in `src/app/parent/*`.
+
+| Area | Files |
+| --- | --- |
+| API and contract | `api.ts` (`parentApi`), `types.ts`, `mock.ts` (sample adapter) |
+| Session-wide state | `ActiveWardProvider.tsx` (wards list and the selected child), `useParentQuery.ts` (reads with offline copies) |
+| Frame | `shell/ParentShell.tsx`: child switcher, bottom tabs on phones, a rail on wide screens, offline banner |
+| PWA | `pwa.tsx` (service worker registration, install card), `public/parent-sw.js`, `public/parent-app/*` (manifest and icons) |
+
+## How a parent gets in
+
+| Path | Screen |
+| --- | --- |
+| Self-registration | `/parent/register` → `POST /auth/register-parent` (signed in straight away) |
+| Sign in | `/parent/login`. The staff login also works: `landingPathFor('PARENT')` is `/parent` |
+| Link a child | `/parent/wards/link`: student code (and school code if asked) → 6-digit OTP sent to the guardian contact the school holds → linked |
+| Unlink | `/parent/wards` → ⋮ → Remove from my account |
+
+Parents can no longer open `/school-admin/*`. Staff and Super Admins can't open `/parent/*`. A signed-out visitor to `/parent/*` is sent to `/parent/login?next=…`, and an expired session lands there too.
+
+## Diagram
+
+```mermaid
+sequenceDiagram
+  actor Pa as Parent
+  participant P as /parent (PWA)
+  participant API as Backend
+  participant PS as Paystack
+  Pa->>P: register or sign in
+  P->>API: POST /auth/register-parent | /auth/login
+  P->>API: GET /parents/me/wards
+  alt no wards
+    P->>Pa: "Link your child"
+    Pa->>P: student code
+    P->>API: POST /parents/me/wards/link/initiate
+    API-->>Pa: OTP to guardian contact
+    Pa->>P: OTP
+    P->>API: POST /parents/me/wards/link/verify
+  end
+  P->>API: GET /parents/me/wards/:id/{invoices,reports,attendance}
+  Pa->>P: Pay now (amount ≤ balance, MoMo or card)
+  P->>API: POST …/invoices/:id/checkout {idempotencyKey, callbackUrl}
+  API->>PS: initialize
+  P->>PS: redirect to authorizationUrl
+  PS->>API: webhook charge.success (posts payment)
+  PS->>P: /parent/fees/pay/callback?reference=…
+  P->>API: GET /parents/me/payments/verify (polls while pending)
+  P->>Pa: receipt
+```
+
+## Screens
+
+| Tab | Route | Contents |
+| --- | --- | --- |
+| Home | `/parent` | Child card; tiles for fees owed, this month's attendance and the latest report; other children; install card |
+| Fees | `/parent/fees` | Bills (filter by term, outstanding total) and Payments |
+| | `/parent/fees/[invoiceId]` | Breakdown, Pay now, printable bill |
+| | `/parent/receipts/[paymentId]` | Receipt and printable receipt |
+| Reports | `/parent/reports` | Terminal reports |
+| | `/parent/reports/[reportId]` | Subject table and remarks; the report card in the school's design |
+| Attendance | `/parent/attendance` | Month calendar coloured by mark, plus a summary |
+| More | `/parent/more` | Profile, my children, link a child, install, appearance, sign out |
+
+The child switcher sits in the header. The choice is kept in `fastrack_parent_active_ward`. Detail pages go back to their list when the parent switches child.
+
+## States
+
+| State | UI |
+| --- | --- |
+| Loading | A loader. If an offline copy exists, it shows immediately and is refreshed in place |
+| Offline | Orange "You are offline" banner. Saved pages and data still show, with "Showing a saved copy from …" and Refresh. Pay is disabled |
+| Never-visited page offline | `/parent/offline`, served by the service worker |
+| 404 / 403 from the API | "This is not available yet…" or "Your school has not turned this on for parents." |
+| No children | "Link your child" on every tab |
+| Payment pending | "Confirming your payment…" (polls about 30 s), then "Payment still processing" with "Check again" |
+
+## Safety
+
+- **Duplicate payments (QA-004):** checkout sends an idempotency key per bill, amount and channel. It is kept in `sessionStorage` until the payment resolves, so a double tap or a retry can't charge twice.
+- **Overpayment (QA-029):** the amount is capped at the balance in the UI. The backend must enforce it too.
+- **Enumeration (QA-014):** registration and ward-link failures use one generic message (except validation and 429).
+- **Shared devices:** sign-out (`apiClient.clearSession`) removes tokens, the selected child and every offline copy (`fastrack_cache:*`). The service worker caches only static assets and client-rendered page shells, never API data.
+- **Documents:** bills, receipts and reports render in an `<iframe sandbox>` without `allow-scripts`.
+
+## Permissions in play
+
+- Route rules (`APP_ROUTES.parent*`):
+
+  | Route | Needs |
+  | --- | --- |
+  | wards | `students:read` |
+  | fees | `invoices:read` |
+  | receipts | `payments:read` |
+  | attendance | `attendance:read` |
+  | reports | `marks:read` (frontend grant) |
+
+- Pay now needs the frontend grant `payments:make` (PARENT only).
+- Module gating happens in the backend, against the ward's school (see the contract).

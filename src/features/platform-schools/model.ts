@@ -1,87 +1,74 @@
-export type SchoolStatus = "Active" | "Trial" | "Suspended";
-export type UserStatus = "Active" | "Invited" | "Inactive";
-export type SchoolRole =
-  | "Owner"
-  | "Principal"
-  | "Administrator"
-  | "Academic Head"
-  | "Teacher"
-  | "Account Officer"
-  | "Secretary";
+/** Shapes returned by the Super Admin school endpoints (`/super-admin/schools/...`). */
 
-export interface SchoolProfile {
+export interface PlatformSchool {
   id: string;
   name: string;
   code: string;
-  status: SchoolStatus;
-  email: string;
-  phone: string;
-  address: string;
-  city: string;
-  region: string;
-  website: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  isActive: boolean;
   createdAt: string;
+  schoolHead: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    phone: string | null;
+    isActive: boolean;
+  } | null;
+  studentsCount: number;
+  staffCount: number;
+  enabledModules: string[];
 }
 
-export interface SchoolPerson {
-  id: string;
+/** The editable profile fields (`PATCH /super-admin/schools/:id`); omitted fields stay unchanged. */
+export interface SchoolProfileUpdate {
   name: string;
+  code: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+}
+
+export interface PlatformStudent {
+  id: string;
+  studentCode: string;
+  fullName: string;
+  gender: string;
+  status: string;
+  className: string | null;
+  guardianName: string | null;
+  guardianContact: string | null;
+  admissionDate: string | null;
+}
+
+export interface PlatformStaff {
+  id: string;
+  firstName: string;
+  lastName: string;
   email: string;
-  phone: string;
-  role: SchoolRole;
-  status: UserStatus;
-  lastActive: string;
+  phone: string | null;
+  role: string;
+  position: string | null;
+  department: string | null;
+  isActive: boolean;
 }
 
-export interface SchoolStudent {
-  id: string;
-  name: string;
-  className: string;
-  guardian: string;
-  guardianPhone: string;
-  status: "Active" | "Inactive" | "Pending";
-  balance: string;
-}
-
-export interface SchoolModule {
-  id: string;
-  name: string;
+export interface ModuleEntitlement {
+  moduleId: string;
+  moduleKey: string;
+  moduleName: string;
   description: string;
-  enabled: boolean;
+  isEnabled: boolean;
 }
 
-export interface SchoolSubscription {
-  plan: "Trial" | "Standard" | "Professional" | "Enterprise";
-  status: "Active" | "Trial" | "Past due" | "Paused";
-  seats: number;
-  renewalDate: string;
-  monthlyFee: string;
-}
-
-export interface SchoolActivity {
-  id: string;
-  summary: string;
-  actor: string;
-  occurredAt: string;
-}
-
-export interface PlatformSchoolSnapshot {
-  profile: SchoolProfile;
-  ownerId: string;
-  principalId: string;
-  users: SchoolPerson[];
-  students: SchoolStudent[];
-  staff: SchoolPerson[];
-  modules: SchoolModule[];
-  subscription: SchoolSubscription;
-  activity: SchoolActivity[];
-}
-
-/**
- * Boundary for the future platform API. The page currently receives fixture data,
- * but its UI depends only on this contract rather than school-dashboard state.
- */
-export interface PlatformSchoolsRepository {
-  getSchool(schoolId: string): Promise<PlatformSchoolSnapshot | null>;
-  listSchoolIds(): Promise<string[]>;
+export interface PageMeta {
+  page: number;
+  limit: number;
+  total: number;
+  totalPages: number;
 }

@@ -14,6 +14,7 @@ import {
 } from '@mantine/core';
 import { Check, ShieldCheck, ArrowRight } from 'lucide-react';
 import { businessInfo } from '@/data/businessInfo';
+import { honeypotStyle, submitLead } from '@/lib/leads';
 import { motion } from 'framer-motion';
 
 export const WaitlistForm: React.FC = () => {
@@ -27,10 +28,36 @@ export const WaitlistForm: React.FC = () => {
     currentSystem: 'Manual Records / Excel',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [website, setWebsite] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.schoolName || !form.email || !form.adminName) return;
-    setSubmitted(true);
+    if (!form.schoolName || !form.email || !form.adminName || sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      await submitLead({
+        kind: 'WAITLIST',
+        name: form.adminName,
+        email: form.email,
+        phone: form.phone,
+        organization: form.schoolName,
+        studentCount: form.studentCount,
+        currentSystem: form.currentSystem,
+        website,
+      });
+      setSubmitted(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `We could not register your school: ${err.message}`
+          : 'We could not register your school. Please try again or call us.',
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   if (submitted) {
@@ -77,8 +104,13 @@ export const WaitlistForm: React.FC = () => {
           Registration Received for {form.schoolName}
         </Text>
 
-        <Text size="sm" c="dimmed" style={{ maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.6 }}>
-          Thank you. Our team from Fastrack Accra headquarters will send login credentials and system onboarding materials to <strong>{form.email}</strong>.
+        <Text
+          size="sm"
+          c="dimmed"
+          style={{ maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.6 }}
+        >
+          Thank you. Our team from Fastrack Accra headquarters will send login credentials and
+          system onboarding materials to <strong>{form.email}</strong>.
         </Text>
 
         <Box
@@ -134,6 +166,16 @@ export const WaitlistForm: React.FC = () => {
       </Group>
 
       <form onSubmit={handleSubmit}>
+        <input
+          type="text"
+          name="website"
+          tabIndex={-1}
+          autoComplete="off"
+          aria-hidden="true"
+          value={website}
+          onChange={(e) => setWebsite(e.target.value)}
+          style={honeypotStyle}
+        />
         <Stack gap="md">
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
             <TextInput
@@ -177,7 +219,12 @@ export const WaitlistForm: React.FC = () => {
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
             <Select
               label="Estimated Student Population"
-              data={['Less than 200 Students', '200 - 500 Students', '500 - 1,500 Students', '1,500+ Students']}
+              data={[
+                'Less than 200 Students',
+                '200 - 500 Students',
+                '500 - 1,500 Students',
+                '1,500+ Students',
+              ]}
               value={form.studentCount}
               onChange={(val) => setForm({ ...form, studentCount: val || '' })}
               radius="md"
@@ -191,9 +238,15 @@ export const WaitlistForm: React.FC = () => {
             />
           </SimpleGrid>
 
+          {error && (
+            <Text size="sm" c="red.7" role="alert">
+              {error}
+            </Text>
+          )}
           <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
             <Button
               type="submit"
+              loading={sending}
               color="fastrackOrange"
               size="md"
               radius="xl"

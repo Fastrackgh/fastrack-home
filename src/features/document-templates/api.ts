@@ -52,6 +52,8 @@ export interface BlockSchema {
   icon: string;
   container: boolean;
   props: PropSchema[];
+  /** Where the section can sit on the page (width, position, spacing, alignment). */
+  layoutProps?: PropSchema[];
 }
 
 /** A field a text can show, e.g. the student's name. */
@@ -66,6 +68,8 @@ export interface LayoutBlock {
   type: string;
   props: Record<string, unknown>;
   hidden?: boolean;
+  /** Placement on the page; absent when everything is at its default. */
+  style?: Record<string, unknown>;
   children?: { left: LayoutBlock[]; right: LayoutBlock[] };
 }
 

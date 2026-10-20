@@ -78,6 +78,20 @@ export function updateProps(
   });
 }
 
+/** Sets a section's placement; `null` puts it back to the default. */
+export function updateStyle(
+  layout: DocumentLayout,
+  id: string,
+  style: Record<string, unknown> | null,
+): DocumentLayout {
+  return edit(layout, (draft) => {
+    const found = locate(draft, id);
+    if (!found) return;
+    if (style) found.block.style = style;
+    else delete found.block.style;
+  });
+}
+
 export function removeBlock(layout: DocumentLayout, id: string): DocumentLayout {
   return edit(layout, (draft) => {
     const found = locate(draft, id);

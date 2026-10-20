@@ -2,15 +2,15 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
+  ActionIcon,
   Alert,
   Badge,
   Button,
   Card,
+  Divider,
   FileButton,
-  Grid,
   Group,
   Loader,
-  ScrollArea,
   SegmentedControl,
   Select,
   Stack,
@@ -18,9 +18,19 @@ import {
   TextInput,
   Tooltip,
 } from '@mantine/core';
-import { useDebouncedValue } from '@mantine/hooks';
+import { useDebouncedValue, useMediaQuery } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
-import { Code2, Copy, FilePlus2, Redo2, Rocket, Undo2, Upload } from 'lucide-react';
+import {
+  Code2,
+  Copy,
+  FilePlus2,
+  Maximize2,
+  Minimize2,
+  Redo2,
+  Rocket,
+  Undo2,
+  Upload,
+} from 'lucide-react';
 import {
   KIND_LABELS,
   type DesignImage,
@@ -45,11 +55,14 @@ import {
   removeBlock,
   toggleHidden,
   updateProps,
+  updateStyle,
   type BlockSlot,
 } from './layout-ops';
 import { Outline } from './Outline';
+import { paperWidthFor, PreviewFrame, type PreviewZoom } from './PreviewFrame';
 import { PropertyField, type FieldContext } from './PropertyField';
 import { StarterGallery } from './StarterGallery';
+import classes from './TemplateBuilder.module.css';
 import { useLayoutHistory } from './useLayoutHistory';
 
 const errorMessage = (error: unknown, fallback: string) =>
@@ -95,6 +108,12 @@ export function TemplateBuilder({
   const [addSlot, setAddSlot] = useState<BlockSlot | null>(null);
   const [startersOpen, setStartersOpen] = useState(false);
   const [view, setView] = useState<'preview' | 'sample' | 'both'>('preview');
+  const [zoom, setZoom] = useState<PreviewZoom>('fit');
+  /** Hides the side panels so the preview gets the whole width. */
+  const [focus, setFocus] = useState(false);
+  /** Which side panel shows when there is room for only one. */
+  const [panel, setPanel] = useState<'sections' | 'settings'>('sections');
+  const wide = useMediaQuery('(min-width: 105em)');
   const [invoiceId, setInvoiceId] = useState('');
   const [previewHtml, setPreviewHtml] = useState('');
   const [problem, setProblem] = useState<string | null>(null);
@@ -251,6 +270,130 @@ export function TemplateBuilder({
     ? info?.blocks.find((b) => b.type === selected.block.type)
     : undefined;
   const live = versions?.find((v) => v.status === 'PUBLISHED');
+
+  const sectionsPanel = layout ? (
+    <Outline
+      layout={layout}
+      blocks={info?.blocks ?? []}
+      selectedId={selectedId}
+      readOnly={!editable}
+      onSelect={(id) => {
+        setSelectedId(id);
+        if (id) setPanel('settings');
+      }}
+      onMove={(id, d) => change(moveBlock(layout, id, d))}
+      onDrop={(id, target) => change(moveTo(layout, id, target))}
+      onDuplicate={(id) => change(duplicateBlock(layout, id))}
+      onToggleHidden={(id) => change(toggleHidden(layout, id))}
+      onRemove={(id) => {
+        change(removeBlock(layout, id));
+        if (selectedId === id) setSelectedId(null);
+      }}
+      onAdd={setAddSlot}
+    />
+  ) : (
+    <Text size="sm" c="dimmed">
+      This version has no visual sections.
+    </Text>
+  );
+
+  const settingsPanel = (
+    <>
+      {current && editable && (
+        <TextInput
+          label="Design name"
+          mb="sm"
+          value={current.name}
+          onChange={(e) => setCurrent({ ...current, name: e.currentTarget.value })}
+          onBlur={() => void api.update(current.id, { name: current.name }).catch(() => undefined)}
+        />
+      )}
+      {selected && selectedDef ? (
+        <Stack gap="sm">
+          <Group gap={6}>
+            <BlockIcon name={selectedDef.icon} />
+            <Text fw={600}>{selectedDef.label}</Text>
+          </Group>
+          <Text size="xs" c="dimmed">
+            {selectedDef.description}
+          </Text>
+          {selectedDef.props.map((schema) => (
+            <PropertyField
+              key={`${selected.block.id}-${schema.key}`}
+              schema={schema}
+              value={selected.block.props[schema.key]}
+              onChange={(value) =>
+                layout &&
+                change(
+                  updateProps(layout, selected.block.id, {
+                    ...selected.block.props,
+                    [schema.key]: value,
+                  }),
+                )
+              }
+              ctx={ctx}
+            />
+          ))}
+          {(selectedDef.layoutProps?.length ?? 0) > 0 && (
+            <>
+              <Divider label="Position on the page" labelPosition="left" mt="xs" />
+              {selectedDef.layoutProps!.map((schema) => (
+                <PropertyField
+                  key={`${selected.block.id}-style-${schema.key}`}
+                  schema={schema}
+                  value={selected.block.style?.[schema.key] ?? schema.default}
+                  onChange={(value) =>
+                    layout &&
+                    change(
+                      updateStyle(layout, selected.block.id, {
+                        ...selected.block.style,
+                        [schema.key]: value,
+                      }),
+                    )
+                  }
+                  ctx={ctx}
+                />
+              ))}
+              {selected.block.style && editable && (
+                <Button
+                  size="compact-xs"
+                  variant="subtle"
+                  w="fit-content"
+                  onClick={() => layout && change(updateStyle(layout, selected.block.id, null))}
+                >
+                  Reset position
+                </Button>
+              )}
+            </>
+          )}
+          <Button size="xs" variant="subtle" onClick={() => setSelectedId(null)}>
+            Page settings
+          </Button>
+        </Stack>
+      ) : layout ? (
+        <Stack gap="sm">
+          <Text fw={600}>Page settings</Text>
+          <Text size="xs" c="dimmed">
+            Paper, font and colours for the whole document. Click a section to change it.
+          </Text>
+          {(info?.themeProps ?? []).map((schema) => (
+            <PropertyField
+              key={schema.key}
+              schema={schema}
+              value={layout.theme[schema.key]}
+              onChange={(value) =>
+                change({
+                  ...layout,
+                  theme: { ...layout.theme, [schema.key]: value },
+                } as DocumentLayout)
+              }
+              ctx={ctx}
+            />
+          ))}
+        </Stack>
+      ) : null}
+    </>
+  );
 
   if (advanced) {
     return (
@@ -484,44 +627,39 @@ export function TemplateBuilder({
           </Stack>
         </Card>
       ) : (
-        <Grid gutter="sm">
-          {/* Sections */}
-          <Grid.Col span={{ base: 12, lg: 3 }}>
-            <Card withBorder padding="xs">
-              <Text fw={600} size="sm" mb={6}>
-                Sections
-              </Text>
-              {layout ? (
-                <ScrollArea.Autosize mah="70vh">
-                  <Outline
-                    layout={layout}
-                    blocks={info.blocks}
-                    selectedId={selectedId}
-                    readOnly={!editable}
-                    onSelect={setSelectedId}
-                    onMove={(id, d) => change(moveBlock(layout, id, d))}
-                    onDrop={(id, target) => change(moveTo(layout, id, target))}
-                    onDuplicate={(id) => change(duplicateBlock(layout, id))}
-                    onToggleHidden={(id) => change(toggleHidden(layout, id))}
-                    onRemove={(id) => {
-                      change(removeBlock(layout, id));
-                      if (selectedId === id) setSelectedId(null);
-                    }}
-                    onAdd={setAddSlot}
-                  />
-                </ScrollArea.Autosize>
-              ) : (
-                <Text size="sm" c="dimmed">
-                  This version has no visual sections.
+        <div className={classes.workspace} data-columns={focus ? 1 : wide ? 3 : 2}>
+          {!focus && (
+            <Card withBorder padding="xs" className={classes.panel}>
+              {wide ? (
+                <Text fw={600} size="sm" mb={6}>
+                  Sections
                 </Text>
+              ) : (
+                <SegmentedControl
+                  size="xs"
+                  mb="xs"
+                  fullWidth
+                  value={panel}
+                  onChange={(v) => setPanel(v as typeof panel)}
+                  data={[
+                    { value: 'sections', label: 'Sections' },
+                    {
+                      value: 'settings',
+                      label: selectedDef ? 'Section settings' : 'Page settings',
+                    },
+                  ]}
+                />
               )}
+              <div className={classes.scroll}>
+                {wide || panel === 'sections' ? sectionsPanel : settingsPanel}
+              </div>
             </Card>
-          </Grid.Col>
+          )}
 
           {/* Preview / sample */}
-          <Grid.Col span={{ base: 12, lg: 6 }}>
-            <Card withBorder padding="xs">
-              <Group justify="space-between" mb={6}>
+          <Card withBorder padding="xs" className={classes.previewPanel}>
+            <Group justify="space-between" mb={6} gap="xs">
+              <Group gap="xs">
                 <SegmentedControl
                   size="xs"
                   value={view}
@@ -532,6 +670,19 @@ export function TemplateBuilder({
                     { value: 'both', label: 'Side by side' },
                   ]}
                 />
+                {view !== 'sample' && (
+                  <SegmentedControl
+                    size="xs"
+                    value={String(zoom)}
+                    onChange={(v) => setZoom(v === 'fit' ? 'fit' : 1)}
+                    data={[
+                      { value: 'fit', label: 'Fit' },
+                      { value: '1', label: '100%' },
+                    ]}
+                  />
+                )}
+              </Group>
+              <Group gap="xs">
                 {kind === 'invoice.bill' && (
                   <TextInput
                     size="xs"
@@ -541,99 +692,35 @@ export function TemplateBuilder({
                     onChange={(e) => setInvoiceId(e.currentTarget.value)}
                   />
                 )}
+                <Tooltip label={focus ? 'Show the side panels' : 'Make the preview bigger'}>
+                  <ActionIcon
+                    variant="default"
+                    aria-label={focus ? 'Show the side panels' : 'Make the preview bigger'}
+                    onClick={() => setFocus((f) => !f)}
+                  >
+                    {focus ? <Minimize2 size={15} /> : <Maximize2 size={15} />}
+                  </ActionIcon>
+                </Tooltip>
               </Group>
-              <Group align="stretch" gap={6} wrap="nowrap">
-                {view !== 'sample' && (
-                  <iframe
-                    title="Preview"
-                    sandbox=""
-                    srcDoc={previewHtml}
-                    style={{
-                      flex: 1,
-                      height: '75vh',
-                      border: '1px solid var(--mantine-color-gray-3)',
-                      borderRadius: 6,
-                      minWidth: 0,
-                    }}
-                  />
-                )}
-                {view !== 'preview' && <SamplePane samples={samples} />}
-              </Group>
-            </Card>
-          </Grid.Col>
+            </Group>
+            <div className={classes.viewer}>
+              {view !== 'sample' && (
+                <PreviewFrame
+                  html={previewHtml}
+                  paperWidth={paperWidthFor(layout?.theme.page)}
+                  zoom={zoom}
+                />
+              )}
+              {view !== 'preview' && <SamplePane samples={samples} />}
+            </div>
+          </Card>
 
-          {/* Properties */}
-          <Grid.Col span={{ base: 12, lg: 3 }}>
-            <Card withBorder padding="xs">
-              <ScrollArea.Autosize mah="78vh">
-                {current && editable && (
-                  <TextInput
-                    label="Design name"
-                    mb="sm"
-                    value={current.name}
-                    onChange={(e) => setCurrent({ ...current, name: e.currentTarget.value })}
-                    onBlur={() =>
-                      void api.update(current.id, { name: current.name }).catch(() => undefined)
-                    }
-                  />
-                )}
-                {selected && selectedDef ? (
-                  <Stack gap="sm">
-                    <Group gap={6}>
-                      <BlockIcon name={selectedDef.icon} />
-                      <Text fw={600}>{selectedDef.label}</Text>
-                    </Group>
-                    <Text size="xs" c="dimmed">
-                      {selectedDef.description}
-                    </Text>
-                    {selectedDef.props.map((schema) => (
-                      <PropertyField
-                        key={`${selected.block.id}-${schema.key}`}
-                        schema={schema}
-                        value={selected.block.props[schema.key]}
-                        onChange={(value) =>
-                          layout &&
-                          change(
-                            updateProps(layout, selected.block.id, {
-                              ...selected.block.props,
-                              [schema.key]: value,
-                            }),
-                          )
-                        }
-                        ctx={ctx}
-                      />
-                    ))}
-                    <Button size="xs" variant="subtle" onClick={() => setSelectedId(null)}>
-                      Page settings
-                    </Button>
-                  </Stack>
-                ) : layout ? (
-                  <Stack gap="sm">
-                    <Text fw={600}>Page settings</Text>
-                    <Text size="xs" c="dimmed">
-                      Paper, font and colours for the whole document. Click a section on the left to
-                      change it.
-                    </Text>
-                    {info.themeProps.map((schema) => (
-                      <PropertyField
-                        key={schema.key}
-                        schema={schema}
-                        value={layout.theme[schema.key]}
-                        onChange={(value) =>
-                          change({
-                            ...layout,
-                            theme: { ...layout.theme, [schema.key]: value },
-                          } as DocumentLayout)
-                        }
-                        ctx={ctx}
-                      />
-                    ))}
-                  </Stack>
-                ) : null}
-              </ScrollArea.Autosize>
+          {wide && !focus && (
+            <Card withBorder padding="xs" className={classes.panel}>
+              <div className={classes.scroll}>{settingsPanel}</div>
             </Card>
-          </Grid.Col>
-        </Grid>
+          )}
+        </div>
       )}
 
       {live && current?.id !== live.id && (
@@ -652,6 +739,7 @@ export function TemplateBuilder({
           const block = createBlock(definition);
           change(insertBlock(layout, block, addSlot));
           setSelectedId(block.id);
+          setPanel('settings');
           setAddSlot(null);
         }}
       />
@@ -683,7 +771,7 @@ function SamplePane({ samples }: { samples: TemplateSample[] }) {
         style={{
           border: '1px dashed var(--mantine-color-gray-4)',
           borderRadius: 6,
-          height: '75vh',
+          height: '100%',
         }}
       >
         <Text size="sm" c="dimmed" ta="center" maw={260}>
@@ -693,7 +781,7 @@ function SamplePane({ samples }: { samples: TemplateSample[] }) {
     );
   }
   return (
-    <Stack flex={1} gap={4} style={{ minWidth: 0 }}>
+    <Stack flex={1} gap={4} h="100%" style={{ minWidth: 0 }}>
       {samples.length > 1 && (
         <Select
           size="xs"
@@ -710,13 +798,13 @@ function SamplePane({ samples }: { samples: TemplateSample[] }) {
         <iframe
           title="School sample"
           src={sample.url}
-          style={{ width: '100%', height: '72vh', border: 0 }}
+          style={{ width: '100%', flex: 1, minHeight: 0, border: 0 }}
         />
       ) : (
-        <ScrollArea h="72vh">
+        <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={sample.url} alt="School sample" style={{ width: '100%' }} />
-        </ScrollArea>
+        </div>
       )}
     </Stack>
   );

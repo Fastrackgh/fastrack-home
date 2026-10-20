@@ -6,6 +6,7 @@ import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, GripVertical, Plus, Trash2 } fro
 import type { BlockSchema, DocumentLayout, LayoutBlock } from '../api';
 import { BlockIcon } from './BlockIcon';
 import type { BlockSlot } from './layout-ops';
+import classes from './Outline.module.css';
 
 interface OutlineProps {
   layout: DocumentLayout;
@@ -116,6 +117,8 @@ function BlockRow(
         withBorder
         p={6}
         radius="sm"
+        className={classes.row}
+        data-selected={selected || undefined}
         draggable={!readOnly}
         onDragStart={(e) => {
           e.dataTransfer.setData(DRAG_TYPE, block.id);
@@ -145,7 +148,12 @@ function BlockRow(
             </Badge>
           )}
           {!readOnly && (
-            <Group gap={0} wrap="nowrap" onClick={(e) => e.stopPropagation()}>
+            <Group
+              gap={0}
+              wrap="nowrap"
+              className={classes.actions}
+              onClick={(e) => e.stopPropagation()}
+            >
               <Tooltip label="Move up">
                 <ActionIcon
                   size="sm"
@@ -194,15 +202,9 @@ function BlockRow(
           )}
         </Group>
         {block.children && (
-          <Group
-            align="flex-start"
-            gap={6}
-            mt={6}
-            wrap="nowrap"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <Stack gap={8} mt={6} onClick={(e) => e.stopPropagation()}>
             {(['left', 'right'] as const).map((side) => (
-              <Stack key={side} gap={4} style={{ flex: 1, minWidth: 0 }}>
+              <Stack key={side} gap={4} className={classes.column}>
                 <Text size="xs" c="dimmed">
                   {side === 'left' ? 'Left column' : 'Right column'}
                 </Text>
@@ -223,7 +225,7 @@ function BlockRow(
                 )}
               </Stack>
             ))}
-          </Group>
+          </Stack>
         )}
       </Paper>
     </div>

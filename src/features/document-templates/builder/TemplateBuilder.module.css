@@ -1,0 +1,71 @@
+/*
+ * Builder workspace: a side panel (or two on very wide screens) next to the
+ * preview. Panels stay in view while the page scrolls, and each scrolls on
+ * its own, so the preview always keeps the full window height.
+ */
+.workspace {
+  display: grid;
+  grid-template-columns: 320px minmax(0, 1fr);
+  gap: var(--mantine-spacing-sm);
+  align-items: start;
+}
+
+.workspace[data-columns='3'] {
+  grid-template-columns: 310px minmax(0, 1fr) 320px;
+}
+
+.workspace[data-columns='1'] {
+  grid-template-columns: minmax(0, 1fr);
+}
+
+.panel {
+  position: sticky;
+  top: var(--mantine-spacing-md);
+  display: flex;
+  flex-direction: column;
+  max-height: calc(100vh - 2 * var(--mantine-spacing-md));
+  min-width: 0;
+}
+
+.previewPanel {
+  composes: panel;
+  height: calc(100vh - 2 * var(--mantine-spacing-md));
+  min-height: 560px;
+}
+
+.scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  /* Room for the scrollbar so it never covers row actions. */
+  padding-right: 4px;
+}
+
+.viewer {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  gap: 6px;
+}
+
+.viewer > * {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Tablets and phones: one column, natural heights. */
+@media (max-width: 62em) {
+  .workspace,
+  .workspace[data-columns='3'] {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .panel {
+    position: static;
+    max-height: none;
+  }
+
+  .previewPanel {
+    height: 80vh;
+  }
+}

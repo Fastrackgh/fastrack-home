@@ -1,14 +1,11 @@
 'use client';
 
-import React, { useState } from 'react';
-import Link from 'next/link';
+import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
   Box,
   Button,
-  Checkbox,
-  Divider,
   Group,
   PasswordInput,
   Stack,
@@ -19,17 +16,10 @@ import {
   Alert,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import {
-  ArrowRight,
-  CheckCircle2,
-  Lock,
-  Mail,
-  ShieldCheck,
-  Sparkles,
-  AlertCircle,
-} from 'lucide-react';
+import { ArrowRight, CheckCircle2, Lock, Mail, ShieldCheck, AlertCircle } from 'lucide-react';
 import { BrandLogo } from '@/components/atoms';
-import { useAuth } from '@/lib/auth-context';
+import { useAuth } from '@/lib/auth';
+import { landingPathFor, safeRedirectTarget } from '@/lib/rbac';
 
 const highlights = [
   {
@@ -54,13 +44,20 @@ const stats = [
 
 export default function SchoolAdminLoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, user, isLoading } = useAuth();
 
-  const [email, setEmail] = useState('head@fastrack.school');
-  const [password, setPassword] = useState('S3curePassw0rd!');
-  const [rememberMe, setRememberMe] = useState(true);
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
   const [submitting, setSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  // A signed-in user never stays on this page: send them to the page they
+  // asked for (if their role may open it) or to their own landing page.
+  useEffect(() => {
+    if (isLoading || !user) return;
+    const next = new URLSearchParams(window.location.search).get('next');
+    router.replace(safeRedirectTarget(next, user) ?? landingPathFor(user.role));
+  }, [isLoading, user, router]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -73,20 +70,13 @@ export default function SchoolAdminLoginPage() {
 
     try {
       setSubmitting(true);
-      const { user, school } = await login(email, password);
+      const { user: signedIn, school } = await login(email, password);
 
       notifications.show({
         color: 'green',
         title: 'Welcome to Fastrack',
-        message: `Signed in as ${user.firstName} ${user.lastName}${school ? ` (${school.name})` : ''}`,
+        message: `Signed in as ${signedIn.firstName} ${signedIn.lastName}${school ? ` (${school.name})` : ''}`,
       });
-
-      const role = user.role || user.userType;
-      if (role === 'SUPER_ADMIN') {
-        router.push('/school-admin/platform');
-      } else {
-        router.push('/school-admin/dashboard');
-      }
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Invalid email or password.';
       setErrorMessage(msg);
@@ -98,12 +88,6 @@ export default function SchoolAdminLoginPage() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const handleQuickFill = (presetEmail: string, presetPassword = 'S3curePassw0rd!') => {
-    setEmail(presetEmail);
-    setPassword(presetPassword);
-    setErrorMessage(null);
   };
 
   return (
@@ -174,7 +158,8 @@ export default function SchoolAdminLoginPage() {
               Run your school from one calm command center.
             </Title>
             <Text mt="md" size="md" c="#94a3b8" maw={420}>
-              Fastrack gives school leadership a single, confident source of truth from morning attendance to end-of-term analytics.
+              Fastrack gives school leadership a single, confident source of truth from morning
+              attendance to end-of-term analytics.
             </Text>
           </motion.div>
 
@@ -248,7 +233,15 @@ export default function SchoolAdminLoginPage() {
           <BrandLogo size="md" />
         </Group>
 
-        <Box style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '32px 0' }}>
+        <Box
+          style={{
+            flex: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: '32px 0',
+          }}
+        >
           <motion.div
             initial={{ opacity: 0, y: 18 }}
             animate={{ opacity: 1, y: 0 }}
@@ -264,7 +257,10 @@ export default function SchoolAdminLoginPage() {
                   <ThemeIcon size={48} radius="lg" variant="light" color="fastrackRed" mb="md">
                     <Lock size={22} />
                   </ThemeIcon>
-                  <Title order={2} style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem' }}>
+                  <Title
+                    order={2}
+                    style={{ fontFamily: 'var(--font-heading)', fontSize: '1.9rem' }}
+                  >
                     Sign in to Fastrack
                   </Title>
                   <Text c="dimmed" size="sm" mt={4}>
@@ -273,7 +269,12 @@ export default function SchoolAdminLoginPage() {
                 </Box>
 
                 {errorMessage && (
-                  <Alert icon={<AlertCircle size={16} />} title="Authentication Error" color="red" radius="md">
+                  <Alert
+                    icon={<AlertCircle size={16} />}
+                    title="Authentication Error"
+                    color="red"
+                    radius="md"
+                  >
                     {errorMessage}
                   </Alert>
                 )}
@@ -281,7 +282,7 @@ export default function SchoolAdminLoginPage() {
                 <Stack gap="md">
                   <TextInput
                     label="School email"
-                    placeholder="head@fastrack.school"
+                    placeholder="you@yourschool.com"
                     required
                     size="md"
                     radius="md"
@@ -301,25 +302,6 @@ export default function SchoolAdminLoginPage() {
                     onChange={(e) => setPassword(e.currentTarget.value)}
                   />
 
-                  <Group justify="space-between">
-                    <Checkbox
-                      label="Remember me"
-                      size="sm"
-                      checked={rememberMe}
-                      onChange={(e) => setRememberMe(e.currentTarget.checked)}
-                    />
-                    <Text
-                      component={Link}
-                      href="#"
-                      size="sm"
-                      fw={600}
-                      c="fastrackRed"
-                      style={{ textDecoration: 'none' }}
-                    >
-                      Forgot password?
-                    </Text>
-                  </Group>
-
                   <Button
                     type="submit"
                     size="md"
@@ -335,55 +317,12 @@ export default function SchoolAdminLoginPage() {
                     Sign in to Portal
                   </Button>
                 </Stack>
-
-                <Divider label="Test Credentials Quick Fill" labelPosition="center" />
-
-                <Group gap="xs" justify="center">
-                  <Button
-                    variant="light"
-                    color="gray"
-                    size="xs"
-                    radius="md"
-                    onClick={() => handleQuickFill('head@fastrack.school', 'S3curePassw0rd!')}
-                  >
-                    Principal (Fastrack Int.)
-                  </Button>
-                  <Button
-                    variant="light"
-                    color="gray"
-                    size="xs"
-                    radius="md"
-                    onClick={() => handleQuickFill('kwame.mensah@fastrack.school', 'S3curePassw0rd!')}
-                  >
-                    Teacher (Kwame)
-                  </Button>
-                  <Button
-                    variant="light"
-                    color="gray"
-                    size="xs"
-                    radius="md"
-                    onClick={() => handleQuickFill('superadmin@fastrack.dev', 'ChangeMe123!')}
-                  >
-                    Super Admin
-                  </Button>
-                </Group>
-
-                <Group gap={6} justify="center">
-                  <Sparkles size={13} color="#94a3b8" />
-                  <Text size="xs" c="dimmed" ta="center">
-                    Connected live to Fastrack backend API on port 3000.
-                  </Text>
-                </Group>
               </Stack>
             </form>
           </motion.div>
         </Box>
 
-        <Text
-          size="xs"
-          c="dimmed"
-          ta="center"
-        >
+        <Text size="xs" c="dimmed" ta="center">
           © {new Date().getFullYear()} Fastrack Management Services. All rights reserved.
         </Text>
       </Box>

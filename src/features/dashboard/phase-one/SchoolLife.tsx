@@ -1,5 +1,5 @@
-"use client";
-import { useState } from "react";
+'use client';
+import { useState } from 'react';
 import {
   Alert,
   Badge,
@@ -11,127 +11,108 @@ import {
   Stack,
   Text,
   Title,
-} from "@mantine/core";
-import { Role } from "../model";
-import {
-  ArchiveRecord,
-  SchoolEvent,
-  canAcademic,
-  canManage,
-  classes,
-  schoolDays,
-  terms,
-} from "./domain";
-import { PhaseStore } from "./usePhaseState";
-import { Editor, Preview, Report, Summary, f, id } from "./Shared";
+} from '@mantine/core';
+import { can, dataScopeOf, type AccessPermission } from '@/lib/rbac';
+import type { Viewer } from '../model';
+import { ArchiveRecord, SchoolEvent, classes, sampleTeacher, schoolDays, terms } from './domain';
+import { PhaseStore } from './usePhaseState';
+import { Editor, Preview, Report, Summary, f, id } from './Shared';
+
+type SchoolLifeArea = 'calendar' | 'meals' | 'gallery' | 'archive' | 'questions';
+
+const managePermission: Record<SchoolLifeArea, AccessPermission> = {
+  calendar: 'calendar:manage',
+  meals: 'meals:manage',
+  gallery: 'gallery:manage',
+  archive: 'documents:manage',
+  questions: 'question_bank:manage',
+};
 
 export function SchoolLife({
   store,
-  role,
+  viewer,
   term,
   area,
 }: {
   store: PhaseStore;
-  role: Role;
+  viewer: Viewer;
   term: string;
-  area: "calendar" | "meals" | "gallery" | "archive" | "questions";
+  area: SchoolLifeArea;
 }) {
+  const scope = dataScopeOf(viewer.role);
+  const ownChildrenOnly = scope === 'own_children';
+  const assignedClassesOnly = scope === 'assigned_classes';
   const { state, update, attach } = store;
   const [editor, setEditor] = useState(false);
   const [record, setRecord] = useState<ArchiveRecord | null>(null);
-  const [photo, setPhoto] = useState<{ title: string; src: string } | null>(
-    null,
-  );
-  const [week, setWeek] = useState("4");
+  const [photo, setPhoto] = useState<{ title: string; src: string } | null>(null);
+  const [week, setWeek] = useState('4');
   const [classId, setClass] = useState(
-    role === "PARENT"
-      ? (state.students[0]?.classId ?? "Whole School")
-      : "Whole School",
+    ownChildrenOnly ? (state.students[0]?.classId ?? 'Whole School') : 'Whole School',
   );
-  const [category, setCategory] = useState("All");
-  const [subject, setSubject] = useState("All");
-  const [archiveTerm, setArchiveTerm] = useState("All");
-  const canEdit =
-    canManage(role) ||
-    (area === "calendar" && canAcademic(role)) ||
-    (area === "questions" && (role === "TEACHER" || canAcademic(role)));
+  const [category, setCategory] = useState('All');
+  const [subject, setSubject] = useState('All');
+  const [archiveTerm, setArchiveTerm] = useState('All');
+  const canEdit = can(viewer, managePermission[area]);
   const t = terms[term as keyof typeof terms];
   const days = schoolDays(t.start, t.end, state.events, term, classId);
   const events = state.events.filter(
     (e) =>
       e.termId === term &&
-      (e.scope === "Whole School" ||
-        e.scope === classId ||
-        role !== "PARENT" ||
-        e.scope === "PTA"),
+      (e.scope === 'Whole School' || e.scope === classId || !ownChildrenOnly || e.scope === 'PTA'),
   );
   const meals = state.meals.filter(
     (m) =>
       m.termId === term &&
       m.week === Number(week) &&
-      (m.classId === "Whole School" ||
-        classId === "Whole School" ||
-        m.classId === classId),
+      (m.classId === 'Whole School' || classId === 'Whole School' || m.classId === classId),
   );
-  const docs = (
-    area === "questions" ? state.questions : state.documents
-  ).filter(
+  const docs = (area === 'questions' ? state.questions : state.documents).filter(
     (d) =>
-      (archiveTerm === "All" || d.termId === archiveTerm) &&
-      (category === "All" || d.category === category) &&
-      (subject === "All" || d.subject === subject) &&
-      (classId === "Whole School" || d.classId === classId),
+      (archiveTerm === 'All' || d.termId === archiveTerm) &&
+      (category === 'All' || d.category === category) &&
+      (subject === 'All' || d.subject === subject) &&
+      (classId === 'Whole School' || d.classId === classId),
   );
   const images = [
     {
-      title: "Learning together",
-      src: "/students-in-classroom.jpeg",
-      classId: "Primary 2",
+      title: 'Learning together',
+      src: '/students-in-classroom.jpeg',
+      classId: 'Primary 2',
     },
     {
-      title: "Morning assembly",
-      src: "/school_assembly.jpg",
-      classId: "Whole School",
+      title: 'Morning assembly',
+      src: '/school_assembly.jpg',
+      classId: 'Whole School',
     },
     {
-      title: "A new school day",
-      src: "/students_running_to_school.jpg",
-      classId: "Primary 4",
+      title: 'A new school day',
+      src: '/students_running_to_school.jpg',
+      classId: 'Primary 4',
     },
   ].filter(
     (p) =>
-      role !== "PARENT" ||
-      p.classId === "Whole School" ||
-      p.classId === state.students[0]?.classId,
+      !ownChildrenOnly || p.classId === 'Whole School' || p.classId === state.students[0]?.classId,
   );
   return (
     <Stack gap="lg">
-      {area === "calendar" ? (
+      {area === 'calendar' ? (
         <>
           <Summary
             items={[
-              { label: "Term begins", value: t.start },
-              { label: "Weekdays", value: days.weekdays },
-              { label: "Holiday / mid-term days", value: days.excluded },
-              { label: "School days for attendance", value: days.total },
+              { label: 'Term begins', value: t.start },
+              { label: 'Weekdays', value: days.weekdays },
+              { label: 'Holiday / mid-term days', value: days.excluded },
+              { label: 'School days for attendance', value: days.total },
             ]}
           />
           <Alert color="teal">
-            Weekends are excluded. Overlapping active holidays and mid-term
-            breaks are deducted once; cancelled or postponed events do not
-            reduce attendance days.
+            Weekends are excluded. Overlapping active holidays and mid-term breaks are deducted
+            once; cancelled or postponed events do not reduce attendance days.
           </Alert>
           <Report
             title="School calendar"
-            columns={[
-              "Type",
-              "Description",
-              "Dates",
-              "Time",
-              "Location",
-              "Audience",
-              "Status",
-            ]}
+            columns={['Type', 'Description', 'Dates', 'Time', 'Location', 'Audience', 'Status']}
             rows={events.map((e) => [
               e.type,
               e.description,
@@ -148,9 +129,9 @@ export function SchoolLife({
               value={classId}
               onChange={(e) => setClass(e.target.value)}
               data={
-                role === "PARENT"
-                  ? [state.students[0]?.classId ?? "Whole School"]
-                  : ["Whole School", ...classes]
+                ownChildrenOnly
+                  ? [state.students[0]?.classId ?? 'Whole School']
+                  : ['Whole School', ...classes]
               }
             />
             {canEdit &&
@@ -162,7 +143,7 @@ export function SchoolLife({
                   <NativeSelect
                     aria-label={`Status for ${e.description}`}
                     value={e.status}
-                    data={["Active", "Postponed", "Cancelled"]}
+                    data={['Active', 'Postponed', 'Cancelled']}
                     onChange={(event) =>
                       update((s) => ({
                         ...s,
@@ -170,8 +151,7 @@ export function SchoolLife({
                           x.id === e.id
                             ? {
                                 ...x,
-                                status: event.target
-                                  .value as SchoolEvent["status"],
+                                status: event.target.value as SchoolEvent['status'],
                               }
                             : x,
                         ),
@@ -182,26 +162,12 @@ export function SchoolLife({
               ))}
           </Report>
         </>
-      ) : area === "meals" ? (
+      ) : area === 'meals' ? (
         <Report
           title="Weekly meal menu"
           subtitle={`${t.year} · ${t.label}`}
-          columns={[
-            "Week",
-            "Day",
-            "Time",
-            "Meal type",
-            "Menu item",
-            "Grade / class",
-          ]}
-          rows={meals.map((m) => [
-            m.week,
-            m.day,
-            m.time,
-            m.type,
-            m.item,
-            m.classId,
-          ])}
+          columns={['Week', 'Day', 'Time', 'Meal type', 'Menu item', 'Grade / class']}
+          rows={meals.map((m) => [m.week, m.day, m.time, m.type, m.item, m.classId])}
           add={canEdit ? () => setEditor(true) : undefined}
         >
           <Group>
@@ -216,14 +182,14 @@ export function SchoolLife({
               value={classId}
               onChange={(e) => setClass(e.target.value)}
               data={
-                role === "PARENT"
-                  ? [state.students[0]?.classId ?? "Whole School"]
-                  : ["Whole School", ...classes]
+                ownChildrenOnly
+                  ? [state.students[0]?.classId ?? 'Whole School']
+                  : ['Whole School', ...classes]
               }
             />
           </Group>
         </Report>
-      ) : area === "gallery" ? (
+      ) : area === 'gallery' ? (
         <>
           <Group justify="space-between">
             <Title order={3}>School photo gallery</Title>
@@ -240,20 +206,21 @@ export function SchoolLife({
                 onClick={() => setPhoto(p)}
                 style={{
                   padding: 0,
-                  border: "1px solid #e8ebef",
+                  border: '1px solid #e8ebef',
                   borderRadius: 12,
-                  overflow: "hidden",
-                  background: "white",
-                  textAlign: "left",
-                  cursor: "pointer",
+                  overflow: 'hidden',
+                  background: 'white',
+                  textAlign: 'left',
+                  cursor: 'pointer',
                 }}
               >
+                {/* eslint-disable-next-line @next/next/no-img-element -- blob URL of a local upload */}
                 <img
                   src={p.src}
                   alt={p.title}
                   draggable={false}
                   onContextMenu={(e) => e.preventDefault()}
-                  style={{ width: "100%", height: 220, objectFit: "cover" }}
+                  style={{ width: '100%', height: 220, objectFit: 'cover' }}
                 />
                 <Text fw={600} p="md">
                   {p.title}
@@ -264,18 +231,11 @@ export function SchoolLife({
         </>
       ) : (
         <Report
-          title={area === "questions" ? "Question bank" : "Documents & archive"}
-          columns={[
-            "Title",
-            "Year / term",
-            "Category",
-            "Class",
-            "Subject",
-            "Created by",
-          ]}
+          title={area === 'questions' ? 'Question bank' : 'Documents & archive'}
+          columns={['Title', 'Year / term', 'Category', 'Class', 'Subject', 'Created by']}
           rows={docs.map((d) => [
             d.title,
-            `${terms[d.termId as keyof typeof terms]?.year ?? d.termId} / ${terms[d.termId as keyof typeof terms]?.label ?? ""}`,
+            `${terms[d.termId as keyof typeof terms]?.year ?? d.termId} / ${terms[d.termId as keyof typeof terms]?.label ?? ''}`,
             d.category,
             d.classId,
             d.subject,
@@ -290,7 +250,7 @@ export function SchoolLife({
               value={archiveTerm}
               onChange={(e) => setArchiveTerm(e.target.value)}
               data={[
-                { value: "All", label: "All years / terms" },
+                { value: 'All', label: 'All years / terms' },
                 ...Object.entries(terms).map(([value, t]) => ({
                   value,
                   label: `${t.year} · ${t.label}`,
@@ -302,19 +262,19 @@ export function SchoolLife({
               value={classId}
               onChange={(e) => setClass(e.target.value)}
               data={
-                role === "PARENT"
-                  ? [state.students[0]?.classId ?? "Whole School"]
-                  : role === "TEACHER"
-                    ? ["Whole School", "Primary 2"]
-                    : ["Whole School", ...classes]
+                ownChildrenOnly
+                  ? [state.students[0]?.classId ?? 'Whole School']
+                  : assignedClassesOnly
+                    ? ['Whole School', sampleTeacher.classId]
+                    : ['Whole School', ...classes]
               }
             />
-            {area === "questions" ? (
+            {area === 'questions' ? (
               <NativeSelect
                 label="Subject"
                 value={subject}
                 onChange={(e) => setSubject(e.target.value)}
-                data={["All", "Mathematics", "English", "Science", "ICT"]}
+                data={['All', 'Mathematics', 'English', 'Science', 'ICT']}
               />
             ) : (
               <NativeSelect
@@ -322,91 +282,76 @@ export function SchoolLife({
                 value={category}
                 onChange={(e) => setCategory(e.target.value)}
                 data={[
-                  "All",
-                  "Terminal report",
-                  "Fees receipt",
-                  "Other income receipt",
-                  "Scanned document",
-                  "Other",
+                  'All',
+                  'Terminal report',
+                  'Fees receipt',
+                  'Other income receipt',
+                  'Scanned document',
+                  'Other',
                 ]}
               />
             )}
           </Group>
         </Report>
       )}
-      {editor && area === "calendar" && (
+      {editor && canEdit && area === 'calendar' && (
         <Editor
           title="Add school event"
           onClose={() => setEditor(false)}
           initial={{
             date: t.start,
             endDate: t.start,
-            startTime: "08:00",
-            endTime: "16:00",
-            scope: "Whole School",
-            status: "Active",
+            startTime: '08:00',
+            endTime: '16:00',
+            scope: 'Whole School',
+            status: 'Active',
           }}
           fields={[
-            f("type", "Event type", "text", [
-              "Field Trip",
-              "Mid-Term",
-              "Holiday/Closure",
-              "Sports Day",
-              "PTA Meeting",
-              "Examination",
+            f('type', 'Event type', 'text', [
+              'Field Trip',
+              'Mid-Term',
+              'Holiday/Closure',
+              'Sports Day',
+              'PTA Meeting',
+              'Examination',
             ]),
-            f("description", "Description / instructions", "textarea"),
-            f("date", "Start date", "date"),
-            f("endDate", "End date", "date"),
-            f("startTime", "Start time", "time"),
-            f("endTime", "End time", "time"),
-            f("location", "Location"),
-            f("scope", "Target scope", "text", [
-              "Whole School",
-              ...classes,
-              "Staff Only",
-              "PTA",
-            ]),
-            f("status", "Status", "text", ["Active", "Postponed", "Cancelled"]),
+            f('description', 'Description / instructions', 'textarea'),
+            f('date', 'Start date', 'date'),
+            f('endDate', 'End date', 'date'),
+            f('startTime', 'Start time', 'time'),
+            f('endTime', 'End time', 'time'),
+            f('location', 'Location'),
+            f('scope', 'Target scope', 'text', ['Whole School', ...classes, 'Staff Only', 'PTA']),
+            f('status', 'Status', 'text', ['Active', 'Postponed', 'Cancelled']),
           ]}
           onSave={(v) => {
             if (v.date > v.endDate || v.date < t.start || v.endDate > t.end)
-              return "Event dates must fall within this term, with end on or after start.";
-            if (v.startTime >= v.endTime)
-              return "End time must follow start time.";
+              return 'Event dates must fall within this term, with end on or after start.';
+            if (v.startTime >= v.endTime) return 'End time must follow start time.';
             update((s) => ({
               ...s,
-              events: [
-                ...s.events,
-                { ...v, id: id(), termId: term } as unknown as SchoolEvent,
-              ],
+              events: [...s.events, { ...v, id: id(), termId: term } as unknown as SchoolEvent],
             }));
           }}
         />
       )}
-      {editor && area === "meals" && (
+      {editor && canEdit && area === 'meals' && (
         <Editor
           title="Add meal schedule"
           onClose={() => setEditor(false)}
-          initial={{ week, time: "12:00", classId: "Whole School" }}
+          initial={{ week, time: '12:00', classId: 'Whole School' }}
           fields={[
             {
-              ...f("week", "Week number", "number"),
+              ...f('week', 'Week number', 'number'),
               min: 1,
               max: 16,
-              step: "1",
+              step: '1',
             },
-            f("day", "Day", "text", [
-              "Monday",
-              "Tuesday",
-              "Wednesday",
-              "Thursday",
-              "Friday",
-            ]),
-            f("time", "Serving time", "time"),
-            f("type", "Meal type", "text", ["Breakfast", "Lunch", "Snack"]),
-            f("item", "Menu item"),
-            f("classId", "Grade / class", "text", ["Whole School", ...classes]),
+            f('day', 'Day', 'text', ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday']),
+            f('time', 'Serving time', 'time'),
+            f('type', 'Meal type', 'text', ['Breakfast', 'Lunch', 'Snack']),
+            f('item', 'Menu item'),
+            f('classId', 'Grade / class', 'text', ['Whole School', ...classes]),
           ]}
           onSave={(v) => {
             update((s) => ({
@@ -428,70 +373,59 @@ export function SchoolLife({
           }}
         />
       )}
-      {editor && ["archive", "questions"].includes(area) && (
+      {editor && canEdit && ['archive', 'questions'].includes(area) && (
         <Editor
-          title={
-            area === "questions" ? "Add past questions" : "Archive a document"
-          }
+          title={area === 'questions' ? 'Add past questions' : 'Archive a document'}
           onClose={() => setEditor(false)}
           initial={{
-            author: role === "TEACHER" ? "Kofi Mensah" : "School office",
-            category:
-              area === "questions" ? "Past questions" : "Scanned document",
+            author: assignedClassesOnly ? sampleTeacher.name : 'School office',
+            category: area === 'questions' ? 'Past questions' : 'Scanned document',
           }}
           fields={[
-            f("title", "Title"),
-            f(
-              "classId",
-              "Class",
-              "text",
-              role === "TEACHER" ? ["Primary 2"] : classes,
-            ),
-            f("subject", "Subject", "text", [
-              "Mathematics",
-              "English",
-              "Science",
-              "ICT",
-              "All subjects",
+            f('title', 'Title'),
+            f('classId', 'Class', 'text', assignedClassesOnly ? [sampleTeacher.classId] : classes),
+            f('subject', 'Subject', 'text', [
+              'Mathematics',
+              'English',
+              'Science',
+              'ICT',
+              'All subjects',
             ]),
-            f("author", "Created by"),
+            f('author', 'Created by'),
             f(
-              "category",
-              "Category",
-              "text",
-              area === "questions"
-                ? ["Past questions"]
-                : [
-                    "Terminal report",
-                    "Fees receipt",
-                    "Other income receipt",
-                    "Scanned document",
-                    "Other",
-                  ],
+              'category',
+              'Category',
+              'text',
+              area === 'questions'
+                ? ['Past questions']
+                : assignedClassesOnly
+                  ? // Teachers file teaching material for their own classes, never finance records.
+                    ['Lesson notes', 'Handout', 'Scanned document', 'Other']
+                  : [
+                      'Terminal report',
+                      'Fees receipt',
+                      'Other income receipt',
+                      'Scanned document',
+                      'Other',
+                    ],
             ),
             f(
-              "studentId",
-              "Student (optional)",
-              "text",
+              'studentId',
+              'Student (optional)',
+              'text',
               state.students.map((s) => s.id),
               false,
             ),
-            f("content", "Text / description", "textarea", undefined, false),
-            f("file", "Upload file", "file", undefined, false),
+            f('content', 'Text / description', 'textarea', undefined, false),
+            f('file', 'Upload file', 'file', undefined, false),
           ]}
           onSave={(v, file) => {
-            if (!file && !v.content?.trim())
-              return "Add a file or document text.";
+            if (!file && !v.content?.trim()) return 'Add a file or document text.';
             if (
               file &&
-              ![
-                "application/pdf",
-                "image/png",
-                "image/jpeg",
-                "text/plain",
-              ].includes(file.type)
+              !['application/pdf', 'image/png', 'image/jpeg', 'text/plain'].includes(file.type)
             )
-              return "Use a PDF, PNG, JPEG, or text file.";
+              return 'Use a PDF, PNG, JPEG, or text file.';
             const doc: ArchiveRecord = {
               id: id(),
               termId: term,
@@ -501,14 +435,14 @@ export function SchoolLife({
               author: v.author,
               category: v.category,
               studentId: v.studentId || undefined,
-              filename: file?.name ?? "",
+              filename: file?.name ?? '',
               url: file ? attach(file) : undefined,
-              content: v.content || "",
+              content: v.content || '',
             };
             update((s) => ({
               ...s,
-              [area === "questions" ? "questions" : "documents"]: [
-                ...s[area === "questions" ? "questions" : "documents"],
+              [area === 'questions' ? 'questions' : 'documents']: [
+                ...s[area === 'questions' ? 'questions' : 'documents'],
                 doc,
               ],
             }));
@@ -520,9 +454,7 @@ export function SchoolLife({
           <Text>
             {record.author} · {record.subject} · {record.classId}
           </Text>
-          {record.content && (
-            <Text style={{ whiteSpace: "pre-wrap" }}>{record.content}</Text>
-          )}
+          {record.content && <Text style={{ whiteSpace: 'pre-wrap' }}>{record.content}</Text>}
           {record.url && (
             <>
               <Text size="sm">{record.filename}</Text>
@@ -530,14 +462,9 @@ export function SchoolLife({
                 title={`Preview ${record.title}`}
                 src={record.url}
                 sandbox=""
-                style={{ width: "100%", height: 480, border: "1px solid #ddd" }}
+                style={{ width: '100%', height: 480, border: '1px solid #ddd' }}
               />
-              <Button
-                component="a"
-                href={record.url}
-                download={record.filename}
-                variant="default"
-              >
+              <Button component="a" href={record.url} download={record.filename} variant="default">
                 Download document
               </Button>
             </>
@@ -545,18 +472,14 @@ export function SchoolLife({
         </Preview>
       )}
       {photo && (
-        <Modal
-          opened
-          onClose={() => setPhoto(null)}
-          title={photo.title}
-          size="xl"
-        >
+        <Modal opened onClose={() => setPhoto(null)} title={photo.title} size="xl">
+          {/* eslint-disable-next-line @next/next/no-img-element -- blob URL of a local upload */}
           <img
             src={photo.src}
             alt={photo.title}
             draggable={false}
             onContextMenu={(e) => e.preventDefault()}
-            style={{ width: "100%", display: "block", userSelect: "none" }}
+            style={{ width: '100%', display: 'block', userSelect: 'none' }}
           />
           <Text size="xs" c="dimmed" mt="sm">
             View-only school gallery

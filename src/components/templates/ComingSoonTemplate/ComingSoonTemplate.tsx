@@ -2,15 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import {
-  Box,
-  Container,
-  Stack,
-  Group,
-  Text,
-  Grid,
-  Badge,
-} from '@mantine/core';
+import { Box, Container, Stack, Group, Text, Grid, Badge } from '@mantine/core';
 import { BrandLogo } from '@/components/atoms';
 import { CountdownUnit } from '@/components/molecules';
 import { WaitlistForm } from '@/components/organisms';
@@ -18,7 +10,6 @@ import {
   Home,
   Phone,
   Mail,
-  ShieldCheck,
   Zap,
   GraduationCap,
   CreditCard,
@@ -143,7 +134,8 @@ export const ComingSoonTemplate: React.FC = () => {
               fontSize: 'clamp(0.88rem, 1.2vw, 1rem)',
             }}
           >
-            We are finalizing national cloud deployment. Reserve priority onboarding for your school to receive complimentary data migration, staff training, and bulk SMS credits.
+            We are finalizing national cloud deployment. Reserve priority onboarding for your school
+            to receive complimentary data migration, staff training, and bulk SMS credits.
           </Text>
 
           {/* Launch Countdown Ticker */}
@@ -212,7 +204,11 @@ export const ComingSoonTemplate: React.FC = () => {
                     'Guaranteed Lifetime Discounted Cloud Licensing',
                   ].map((perk, idx) => (
                     <Group key={idx} gap="xs" wrap="nowrap" align="flex-start">
-                      <CheckCircle2 size={16} color="#16a34a" style={{ flexShrink: 0, marginTop: 2 }} />
+                      <CheckCircle2
+                        size={16}
+                        color="#16a34a"
+                        style={{ flexShrink: 0, marginTop: 2 }}
+                      />
                       <Text size="xs" fw={500} style={{ color: '#334155', lineHeight: 1.45 }}>
                         {perk}
                       </Text>
@@ -243,10 +239,26 @@ export const ComingSoonTemplate: React.FC = () => {
 
                 <Stack gap={8}>
                   {[
-                    { title: 'Continuous Assessment & Report Cards', icon: <GraduationCap size={15} color="#f97316" />, tag: 'Ready' },
-                    { title: 'Mobile Money Fee Reconciliation', icon: <CreditCard size={15} color="#16a34a" />, tag: 'Ready' },
-                    { title: 'Morning Attendance & Bulk SMS', icon: <MessageSquare size={15} color="#ea580c" />, tag: 'Ready' },
-                    { title: 'Staff Payroll & GRA/SSNIT Filing', icon: <Building2 size={15} color="#2563eb" />, tag: 'Ready' },
+                    {
+                      title: 'Continuous Assessment & Report Cards',
+                      icon: <GraduationCap size={15} color="#f97316" />,
+                      tag: 'Ready',
+                    },
+                    {
+                      title: 'Mobile Money Fee Reconciliation',
+                      icon: <CreditCard size={15} color="#16a34a" />,
+                      tag: 'Ready',
+                    },
+                    {
+                      title: 'Morning Attendance & Bulk SMS',
+                      icon: <MessageSquare size={15} color="#ea580c" />,
+                      tag: 'Ready',
+                    },
+                    {
+                      title: 'Staff Payroll & GRA/SSNIT Filing',
+                      icon: <Building2 size={15} color="#2563eb" />,
+                      tag: 'Ready',
+                    },
                   ].map((item, idx) => (
                     <Box
                       key={idx}

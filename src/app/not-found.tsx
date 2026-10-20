@@ -32,11 +32,7 @@ export default function NotFound() {
           >
             404
           </Text>
-          <Text
-            size="xl"
-            fw={800}
-            style={{ fontFamily: 'var(--font-heading)', color: '#0f172a' }}
-          >
+          <Text size="xl" fw={800} style={{ fontFamily: 'var(--font-heading)', color: '#0f172a' }}>
             Page Not Found
           </Text>
           <Text size="md" c="dimmed" style={{ maxWidth: 420 }}>

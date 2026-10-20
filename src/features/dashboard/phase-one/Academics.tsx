@@ -1,89 +1,92 @@
-"use client";
-import { useState } from "react";
-import { Alert, Button, Group, NativeSelect, Stack, Text } from "@mantine/core";
-import { Role } from "../model";
+'use client';
+import { useState } from 'react';
+import { Alert, Button, Group, NativeSelect, Stack, Text } from '@mantine/core';
+import { can, dataScopeOf } from '@/lib/rbac';
+import type { Viewer } from '../model';
 import {
   Assessment,
   Slot,
-  canAcademic,
   classes,
   hasConflict,
   resultFor,
+  sampleTeacher,
   schoolDays,
   terms,
-} from "./domain";
-import { PhaseStore } from "./usePhaseState";
-import { Editor, Preview, Report, Summary, f, id } from "./Shared";
+} from './domain';
+import { PhaseStore } from './usePhaseState';
+import { Editor, Preview, Report, Summary, f, id } from './Shared';
+
 export function Academics({
   store,
-  role,
+  viewer,
   term,
   area,
 }: {
   store: PhaseStore;
-  role: Role;
+  viewer: Viewer;
   term: string;
-  area: "schedule" | "grading" | "reports" | "gradebook";
+  area: 'schedule' | 'grading' | 'reports' | 'gradebook';
 }) {
   const { state, update } = store;
   const [editor, setEditor] = useState<string | null>(null);
-  const [studentId, setStudent] = useState(state.students[0]?.id ?? "");
-  const [subject, setSubject] = useState("All");
+  const [studentId, setStudent] = useState(state.students[0]?.id ?? '');
+  const [subject, setSubject] = useState('All');
   const [selected, setSelected] = useState<Assessment | null>(null);
-  const [preview, setPreview] = useState<"report" | "transcript" | null>(null);
-  const [notice, setNotice] = useState("");
+  const [preview, setPreview] = useState<'report' | 'transcript' | null>(null);
+  const [notice, setNotice] = useState('');
   const t = terms[term as keyof typeof terms];
   const marks = state.assessments.filter(
     (a) =>
       a.termId === term &&
       state.students.some((s) => s.id === a.studentId) &&
-      (subject === "All" || a.subject === subject),
+      (subject === 'All' || a.subject === subject),
   );
   const student = state.students.find((s) => s.id === studentId);
   const days = schoolDays(t.start, t.end, state.events, term, student?.classId);
   const personMarks = state.assessments.filter(
-    (a) =>
-      a.studentId === studentId &&
-      (preview === "transcript" || a.termId === term),
+    (a) => a.studentId === studentId && (preview === 'transcript' || a.termId === term),
   );
+  const ownLessonsOnly = dataScopeOf(viewer.role) === 'assigned_classes';
   const slots = state.slots.filter(
-    (s) =>
-      s.termId === term && (role !== "TEACHER" || s.teacher === "Kofi Mensah"),
+    (s) => s.termId === term && (!ownLessonsOnly || s.teacher === sampleTeacher.name),
   );
-  const canEdit = canAcademic(role);
+  const may = {
+    manageTimetable: can(viewer, 'timetable:manage'),
+    configureGrading: can(viewer, 'grading:manage'),
+    enterMarks: can(viewer, 'marks:enter'),
+    generateReports: can(viewer, 'reports:generate'),
+  };
   return (
     <Stack gap="lg">
-      {area === "schedule" ? (
+      {area === 'schedule' ? (
         <>
           <Group>
-            <Button disabled={!canEdit} onClick={() => setEditor("slot")}>
-              Add lesson / examination
-            </Button>
-            {canEdit && (
+            {may.manageTimetable && (
+              <Button onClick={() => setEditor('slot')}>Add lesson / examination</Button>
+            )}
+            {may.manageTimetable && (
               <Button
                 variant="default"
                 onClick={() => {
                   const next: Slot = {
                     id: id(),
                     termId: term,
-                    kind: "Lesson",
-                    day: "Tuesday",
-                    start: "09:00",
-                    end: "10:00",
-                    classId: "Primary 2",
-                    subject: "Science",
-                    teacher: "Kofi Mensah",
-                    room: "Science lab",
+                    kind: 'Lesson',
+                    day: 'Tuesday',
+                    start: '09:00',
+                    end: '10:00',
+                    classId: 'Primary 2',
+                    subject: 'Science',
+                    teacher: 'Kofi Mensah',
+                    room: 'Science lab',
                   };
                   if (hasConflict(next, state.slots)) {
-                    setNotice(
-                      "No slot generated: teacher, room, or class is already booked.",
-                    );
+                    setNotice('No slot generated: teacher, room, or class is already booked.');
                     return;
                   }
                   update((s) => ({ ...s, slots: [...s.slots, next] }));
                   setNotice(
-                    "Generated a conflict-free sample Science slot. Review before publishing.",
+                    'Generated a conflict-free sample Science slot. Review before publishing.',
                   );
                 }}
               >
@@ -94,15 +97,7 @@ export function Academics({
           {notice && <Alert color="blue">{notice}</Alert>}
           <Report
             title="Master timetable & examination calendar"
-            columns={[
-              "Type",
-              "Day / date",
-              "Time",
-              "Class",
-              "Subject",
-              "Teacher",
-              "Room",
-            ]}
+            columns={['Type', 'Day / date', 'Time', 'Class', 'Subject', 'Teacher', 'Room']}
             rows={slots.map((s) => [
               s.kind,
               s.day,
@@ -115,47 +110,43 @@ export function Academics({
           />
           <Report
             title="Teacher availability"
-            columns={["Teacher", "Booked sessions", "Allocated hours"]}
+            columns={['Teacher', 'Booked sessions', 'Allocated hours']}
             rows={state.staff
-              .filter((s) => s.category === "Teaching")
+              .filter((s) => s.category === 'Teaching')
               .map((s) => {
                 const assigned = slots.filter((x) => x.teacher === s.name);
-                const minutes = (v: string) =>
-                  Number(v.slice(0, 2)) * 60 + Number(v.slice(3));
+                const minutes = (v: string) => Number(v.slice(0, 2)) * 60 + Number(v.slice(3));
                 return [
                   s.name,
                   assigned.length,
-                  assigned.reduce(
-                    (n, x) => n + (minutes(x.end) - minutes(x.start)) / 60,
-                    0,
-                  ),
+                  assigned.reduce((n, x) => n + (minutes(x.end) - minutes(x.start)) / 60, 0),
                 ];
               })}
           />
         </>
-      ) : area === "grading" ? (
+      ) : area === 'grading' ? (
         <>
           <Summary
             items={[
               {
-                label: "Continuous assessment weight",
+                label: 'Continuous assessment weight',
                 value: `${state.caWeight}%`,
               },
-              { label: "Examination weight", value: `${state.examWeight}%` },
+              { label: 'Examination weight', value: `${state.examWeight}%` },
               {
-                label: "GPA maximum",
+                label: 'GPA maximum',
                 value: Math.max(...state.scales.map((s) => s.points)),
               },
             ]}
           />
           <Report
             title="Grading scale & GPA configuration"
-            columns={["Minimum score", "Grade", "GPA points"]}
+            columns={['Minimum score', 'Grade', 'GPA points']}
             rows={state.scales.map((s) => [s.min, s.grade, s.points])}
           />
-          <Button disabled={!canEdit} onClick={() => setEditor("scale")}>
-            Edit assessment weights & scale
-          </Button>
+          {may.configureGrading && (
+            <Button onClick={() => setEditor('scale')}>Edit assessment weights & scale</Button>
+          )}
         </>
       ) : (
         <>
@@ -164,7 +155,7 @@ export function Academics({
               label="Subject"
               value={subject}
               onChange={(e) => setSubject(e.target.value)}
-              data={["All", "English", "Mathematics", "Science"]}
+              data={['All', 'English', 'Mathematics', 'Science']}
             />
             <Group>
               <NativeSelect
@@ -176,115 +167,93 @@ export function Academics({
                   label: s.name,
                 }))}
               />
-              <Button
-                disabled={
-                  !student || !marks.some((m) => m.studentId === studentId)
-                }
-                onClick={() => setPreview("report")}
-              >
-                Generate terminal report
-              </Button>
-              <Button
-                variant="default"
-                disabled={!student}
-                onClick={() => setPreview("transcript")}
-              >
-                Transcript
-              </Button>
+              {may.generateReports && (
+                <Button
+                  disabled={!student || !marks.some((m) => m.studentId === studentId)}
+                  onClick={() => setPreview('report')}
+                >
+                  Generate terminal report
+                </Button>
+              )}
+              {may.generateReports && (
+                <Button
+                  variant="default"
+                  disabled={!student}
+                  onClick={() => setPreview('transcript')}
+                >
+                  Transcript
+                </Button>
+              )}
             </Group>
           </Group>
           <Report
             title="Continuous assessment & exam mark sheets"
             subtitle="Raw scores are out of 100; configured weights determine the final score."
             columns={[
-              "Student",
-              "Class",
-              "Subject",
-              "CA / 100",
-              "Exam / 100",
-              "Weighted score",
-              "Grade",
-              "GPA points",
+              'Student',
+              'Class',
+              'Subject',
+              'CA / 100',
+              'Exam / 100',
+              'Weighted score',
+              'Grade',
+              'GPA points',
             ]}
             rows={marks.map((a) => {
               const s = state.students.find((s) => s.id === a.studentId)!;
               const r = resultFor(a, state);
-              return [
-                s.name,
-                s.classId,
-                a.subject,
-                a.ca,
-                a.exam,
-                r.total,
-                r.grade,
-                r.points,
-              ];
+              return [s.name, s.classId, a.subject, a.ca, a.exam, r.total, r.grade, r.points];
             })}
             onOpen={
-              role === "TEACHER" || canEdit
+              may.enterMarks
                 ? (i) => {
                     setSelected(marks[i]);
-                    setEditor("marks");
+                    setEditor('marks');
                   }
                 : undefined
             }
           />
         </>
       )}
-      {editor === "slot" && (
+      {editor === 'slot' && may.manageTimetable && (
         <Editor
           title="Schedule a lesson or exam"
           onClose={() => setEditor(null)}
           fields={[
-            f("kind", "Type", "text", ["Lesson", "Examination"]),
-            f("day", "Weekday or exam date"),
-            f("start", "Start time", "time"),
-            f("end", "End time", "time"),
-            f("classId", "Class", "text", classes),
-            f("subject", "Subject", "text", [
-              "Mathematics",
-              "English",
-              "Science",
-              "ICT",
-            ]),
+            f('kind', 'Type', 'text', ['Lesson', 'Examination']),
+            f('day', 'Weekday or exam date'),
+            f('start', 'Start time', 'time'),
+            f('end', 'End time', 'time'),
+            f('classId', 'Class', 'text', classes),
+            f('subject', 'Subject', 'text', ['Mathematics', 'English', 'Science', 'ICT']),
             f(
-              "teacher",
-              "Teacher",
-              "text",
-              state.staff
-                .filter((s) => s.category === "Teaching")
-                .map((s) => s.name),
+              'teacher',
+              'Teacher',
+              'text',
+              state.staff.filter((s) => s.category === 'Teaching').map((s) => s.name),
             ),
-            f("room", "Room"),
+            f('room', 'Room'),
           ]}
           onSave={(v) => {
-            if (v.start >= v.end) return "End time must follow start time.";
+            if (v.start >= v.end) return 'End time must follow start time.';
             if (
-              v.kind === "Lesson" &&
-              ![
-                "Monday",
-                "Tuesday",
-                "Wednesday",
-                "Thursday",
-                "Friday",
-              ].includes(v.day)
+              v.kind === 'Lesson' &&
+              !['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].includes(v.day)
             )
-              return "For a lesson, enter Monday, Tuesday, Wednesday, Thursday or Friday.";
+              return 'For a lesson, enter Monday, Tuesday, Wednesday, Thursday or Friday.';
             if (
-              v.kind === "Examination" &&
-              (!/^\d{4}-\d{2}-\d{2}$/.test(v.day) ||
-                v.day < t.start ||
-                v.day > t.end)
+              v.kind === 'Examination' &&
+              (!/^\d{4}-\d{2}-\d{2}$/.test(v.day) || v.day < t.start || v.day > t.end)
             )
-              return "Use an examination date within the term (YYYY-MM-DD).";
+              return 'Use an examination date within the term (YYYY-MM-DD).';
             const slot = { ...v, id: id(), termId: term } as unknown as Slot;
             if (hasConflict(slot, state.slots))
-              return "Scheduling conflict: this class, teacher, or room is already booked.";
+              return 'Scheduling conflict: this class, teacher, or room is already booked.';
             update((s) => ({ ...s, slots: [...s.slots, slot] }));
           }}
         />
       )}
-      {editor === "marks" && selected && (
+      {editor === 'marks' && may.enterMarks && selected && (
         <Editor
           title="Enter marks & report comment"
           initial={{
@@ -294,22 +263,21 @@ export function Academics({
             comment: selected.comment,
           }}
           fields={[
-            { ...f("ca", "CA raw mark / 100", "number"), min: 0, max: 100 },
-            { ...f("exam", "Exam raw mark / 100", "number"), min: 0, max: 100 },
+            { ...f('ca', 'CA raw mark / 100', 'number'), min: 0, max: 100 },
+            { ...f('exam', 'Exam raw mark / 100', 'number'), min: 0, max: 100 },
             {
-              ...f("present", "Days present", "number"),
+              ...f('present', 'Days present', 'number'),
               min: 0,
               max: schoolDays(
                 t.start,
                 t.end,
                 state.events,
                 term,
-                state.students.find((s) => s.id === selected.studentId)
-                  ?.classId,
+                state.students.find((s) => s.id === selected.studentId)?.classId,
               ).total,
-              step: "1",
+              step: '1',
             },
-            f("comment", "Teacher comment", "textarea"),
+            f('comment', 'Teacher comment', 'textarea'),
           ]}
           onClose={() => setEditor(null)}
           onSave={(v) => {
@@ -337,7 +305,7 @@ export function Academics({
           }}
         />
       )}
-      {editor === "scale" && (
+      {editor === 'scale' && may.configureGrading && (
         <Editor
           title="Assessment policy"
           onClose={() => setEditor(null)}
@@ -353,25 +321,24 @@ export function Academics({
             ),
           }}
           fields={[
-            { ...f("ca", "CA weight %", "number"), min: 0, max: 100 },
-            { ...f("exam", "Exam weight %", "number"), min: 0, max: 100 },
+            { ...f('ca', 'CA weight %', 'number'), min: 0, max: 100 },
+            { ...f('exam', 'Exam weight %', 'number'), min: 0, max: 100 },
             ...state.scales.flatMap((_, i) => [
               {
-                ...f(`min${i}`, `Band ${i + 1} minimum`, "number"),
+                ...f(`min${i}`, `Band ${i + 1} minimum`, 'number'),
                 min: 0,
                 max: 100,
               },
               f(`grade${i}`, `Band ${i + 1} grade`),
               {
-                ...f(`points${i}`, `Band ${i + 1} GPA points`, "number"),
+                ...f(`points${i}`, `Band ${i + 1} GPA points`, 'number'),
                 min: 0,
                 max: 10,
               },
             ]),
           ]}
           onSave={(v) => {
-            if (Number(v.ca) + Number(v.exam) !== 100)
-              return "Assessment weights must total 100%.";
+            if (Number(v.ca) + Number(v.exam) !== 100) return 'Assessment weights must total 100%.';
             const scales = state.scales
               .map((_, i) => ({
                 min: Number(v[`min${i}`]),
@@ -383,7 +350,7 @@ export function Academics({
               scales.at(-1)?.min !== 0 ||
               new Set(scales.map((s) => s.min)).size !== scales.length
             )
-              return "Use unique minimum scores, with the lowest band starting at zero.";
+              return 'Use unique minimum scores, with the lowest band starting at zero.';
             update((s) => ({
               ...s,
               scales,
@@ -393,11 +360,9 @@ export function Academics({
           }}
         />
       )}
-      {preview && student && (
+      {preview && may.generateReports && student && (
         <Preview
-          title={
-            preview === "report" ? "Terminal report card" : "Student transcript"
-          }
+          title={preview === 'report' ? 'Terminal report card' : 'Student transcript'}
           onClose={() => setPreview(null)}
         >
           <Text fw={700}>
@@ -406,30 +371,28 @@ export function Academics({
           <Text>
             {t.year} · {t.label}
           </Text>
-          {preview === "report" && (
+          {preview === 'report' && (
             <Summary
               items={[
-                { label: "School days in term", value: days.total },
+                { label: 'School days in term', value: days.total },
                 {
-                  label: "Days present",
+                  label: 'Days present',
                   value: Math.min(days.total, personMarks[0]?.present ?? 0),
                 },
                 {
-                  label: "Attendance",
+                  label: 'Attendance',
                   value: days.total
                     ? `${Math.round((Math.min(days.total, personMarks[0]?.present ?? 0) / days.total) * 100)}%`
-                    : "—",
+                    : '—',
                 },
                 {
-                  label: "GPA",
+                  label: 'GPA',
                   value: personMarks.length
                     ? (
-                        personMarks.reduce(
-                          (s, a) => s + resultFor(a, state).points,
-                          0,
-                        ) / personMarks.length
+                        personMarks.reduce((s, a) => s + resultFor(a, state).points, 0) /
+                        personMarks.length
                       ).toFixed(2)
-                    : "—",
+                    : '—',
                 },
               ]}
             />
@@ -438,13 +401,13 @@ export function Academics({
             title="Results"
             exportable={false}
             columns={[
-              "Term",
-              "Subject",
-              "CA weighted",
-              "Exam weighted",
-              "Total",
-              "Grade",
-              "Comment",
+              'Term',
+              'Subject',
+              'CA weighted',
+              'Exam weighted',
+              'Total',
+              'Grade',
+              'Comment',
             ]}
             rows={personMarks.map((a) => {
               const r = resultFor(a, state);
@@ -460,9 +423,8 @@ export function Academics({
             })}
           />
           <Alert color="gray">
-            Generated from local assessment records and the school calendar.
-            Official publication and parent delivery require backend
-            integration.
+            Generated from local assessment records and the school calendar. Official publication
+            and parent delivery require backend integration.
           </Alert>
         </Preview>
       )}

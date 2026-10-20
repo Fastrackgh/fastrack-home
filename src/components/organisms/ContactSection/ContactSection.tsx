@@ -4,7 +4,6 @@ import React, { useState } from 'react';
 import {
   Box,
   Container,
-  Group,
   Text,
   SimpleGrid,
   Stack,
@@ -12,13 +11,12 @@ import {
   Textarea,
   Button,
   Notification,
-  Badge,
 } from '@mantine/core';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ContactInfoItem } from '@/components/molecules';
 import { SectionEyebrow } from '@/components/atoms';
 import { businessInfo } from '@/data/businessInfo';
-import { Phone, Mail, MapPin, Navigation, Send, Check, Sparkles } from 'lucide-react';
+import { Phone, Mail, MapPin, Navigation, Send, Check } from 'lucide-react';
 
 export const ContactSection: React.FC = () => {
   const [submitted, setSubmitted] = useState(false);
@@ -47,7 +45,11 @@ export const ContactSection: React.FC = () => {
       }}
     >
       <Container size="xl">
-        <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 40, md: 56 }} style={{ alignItems: 'start' }}>
+        <SimpleGrid
+          cols={{ base: 1, md: 2 }}
+          spacing={{ base: 40, md: 56 }}
+          style={{ alignItems: 'start' }}
+        >
           {/* Left Column: Office & Contact Information */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
@@ -90,7 +92,8 @@ export const ContactSection: React.FC = () => {
                 }}
               >
                 Whether you are looking to deploy our flagship School ERP, modernize your database
-                infrastructure, or launch high-throughput Bulk SMS campaigns, our team in Accra is ready to assist your institution.
+                infrastructure, or launch high-throughput Bulk SMS campaigns, our team in Accra is
+                ready to assist your institution.
               </Text>
 
               <Stack gap="md" mt="xs">
@@ -155,7 +158,8 @@ export const ContactSection: React.FC = () => {
                 Request a Consultation or Demo
               </Text>
               <Text size="sm" c="dimmed" mb="lg" style={{ lineHeight: 1.5 }}>
-                Fill in your details below and a Fastrack solutions specialist will respond promptly.
+                Fill in your details below and a Fastrack solutions specialist will respond
+                promptly.
               </Text>
 
               <AnimatePresence mode="wait">
@@ -173,8 +177,8 @@ export const ContactSection: React.FC = () => {
                       withCloseButton={false}
                       radius="md"
                     >
-                      Thank you for contacting Fastrack Management Services. Our Accra office has received your
-                      inquiry and will call or email you shortly.
+                      Thank you for contacting Fastrack Management Services. Our Accra office has
+                      received your inquiry and will call or email you shortly.
                     </Notification>
                   </motion.div>
                 ) : (
@@ -262,4 +266,3 @@ export const ContactSection: React.FC = () => {
     </Box>
   );
 };
-

@@ -51,7 +51,8 @@ export const theme = createTheme({
   },
   fontFamily: 'var(--font-inter), -apple-system, BlinkMacSystemFont, sans-serif',
   headings: {
-    fontFamily: 'var(--font-heading), "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',
+    fontFamily:
+      'var(--font-heading), "Plus Jakarta Sans", -apple-system, BlinkMacSystemFont, sans-serif',
     fontWeight: '700',
     sizes: {
       h1: { fontSize: '3.25rem', lineHeight: '1.1', fontWeight: '800' },

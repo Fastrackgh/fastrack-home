@@ -46,4 +46,3 @@ export const LandingPageTemplate: React.FC = () => {
     </Box>
   );
 };
-

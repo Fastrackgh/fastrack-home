@@ -1,5 +1,5 @@
-"use client";
-import { useState } from "react";
+'use client';
+import { useState } from 'react';
 import {
   Alert,
   Badge,
@@ -14,13 +14,14 @@ import {
   Textarea,
   TextInput,
   Title,
-} from "@mantine/core";
-import { Download, Plus, Search } from "lucide-react";
+} from '@mantine/core';
+import { Download, Plus, Search } from 'lucide-react';
+import { useAuth } from '@/lib/auth';
 
 export type Field = {
   key: string;
   label: string;
-  type?: "text" | "date" | "time" | "number" | "email" | "textarea" | "file";
+  type?: 'text' | 'date' | 'time' | 'number' | 'email' | 'textarea' | 'file';
   options?: string[];
   required?: boolean;
   min?: number;
@@ -31,7 +32,7 @@ export type Values = Record<string, string>;
 export const f = (
   key: string,
   label: string,
-  type: Field["type"] = "text",
+  type: Field['type'] = 'text',
   options?: string[],
   required = true,
 ): Field => ({ key, label, type, options, required });
@@ -46,14 +47,11 @@ export function Editor({
   fields: Field[];
   initial?: Values;
   onClose: () => void;
-  onSave: (
-    values: Values,
-    file: File | null,
-  ) => string | void | Promise<string | void>;
+  onSave: (values: Values, file: File | null) => string | void | Promise<string | void>;
 }) {
   const [values, setValues] = useState<Values>(initial);
   const [file, setFile] = useState<File | null>(null);
-  const [error, setError] = useState("");
+  const [error, setError] = useState('');
   const [saving, setSaving] = useState(false);
   return (
     <Modal
@@ -71,35 +69,30 @@ export function Editor({
         onSubmit={async (e) => {
           e.preventDefault();
           if (saving) return;
-          setError("");
+          setError('');
           if (
             fields.some(
-              (field) =>
-                field.required &&
-                field.type !== "file" &&
-                !values[field.key]?.trim(),
+              (field) => field.required && field.type !== 'file' && !values[field.key]?.trim(),
             )
           ) {
-            setError("Complete all required fields.");
+            setError('Complete all required fields.');
             return;
           }
           if (
             fields.some(
               (field) =>
-                field.type === "number" &&
+                field.type === 'number' &&
                 values[field.key] &&
                 (!Number.isFinite(Number(values[field.key])) ||
-                  (field.min !== undefined &&
-                    Number(values[field.key]) < field.min) ||
-                  (field.max !== undefined &&
-                    Number(values[field.key]) > field.max)),
+                  (field.min !== undefined && Number(values[field.key]) < field.min) ||
+                  (field.max !== undefined && Number(values[field.key]) > field.max)),
             )
           ) {
-            setError("Check the allowed numeric ranges.");
+            setError('Check the allowed numeric ranges.');
             return;
           }
           if (file && file.size > 10 * 1024 * 1024) {
-            setError("Choose a file up to 10 MB.");
+            setError('Choose a file up to 10 MB.');
             return;
           }
           setSaving(true);
@@ -108,11 +101,7 @@ export function Editor({
             if (result) setError(result);
             else onClose();
           } catch (error) {
-            setError(
-              error instanceof Error
-                ? error.message
-                : "Unable to save. Please try again.",
-            );
+            setError(error instanceof Error ? error.message : 'Unable to save. Please try again.');
           } finally {
             setSaving(false);
           }
@@ -120,22 +109,19 @@ export function Editor({
       >
         <Stack>
           <Alert color="blue">
-            Frontend preview: saves update this workspace only. No data is sent
-            to the school.
+            Frontend preview: saves update this workspace only. No data is sent to the school.
           </Alert>
           <SimpleGrid cols={{ base: 1, sm: 2 }}>
             {fields.map((field) => {
               const common = {
                 label: field.label,
                 required: field.required,
-                value: values[field.key] ?? "",
+                value: values[field.key] ?? '',
                 onChange: (
-                  e: React.ChangeEvent<
-                    HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement
-                  >,
+                  e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>,
                 ) => setValues({ ...values, [field.key]: e.target.value }),
               };
-              return field.type === "file" ? (
+              return field.type === 'file' ? (
                 <TextInput
                   key={field.key}
                   type="file"
@@ -145,12 +131,8 @@ export function Editor({
                   description="PDF, image or text · 10 MB maximum"
                 />
               ) : field.options ? (
-                <NativeSelect
-                  key={field.key}
-                  {...common}
-                  data={["", ...field.options]}
-                />
-              ) : field.type === "textarea" ? (
+                <NativeSelect key={field.key} {...common} data={['', ...field.options]} />
+              ) : field.type === 'textarea' ? (
                 <Textarea key={field.key} {...common} minRows={3} />
               ) : (
                 <TextInput
@@ -159,9 +141,7 @@ export function Editor({
                   type={field.type}
                   min={field.min}
                   max={field.max}
-                  step={
-                    field.step ?? (field.type === "number" ? "any" : undefined)
-                  }
+                  step={field.step ?? (field.type === 'number' ? 'any' : undefined)}
                 />
               );
             })}
@@ -203,12 +183,11 @@ export function Report({
   children?: React.ReactNode;
   exportable?: boolean;
 }) {
-  const [query, setQuery] = useState("");
+  const [query, setQuery] = useState('');
+  const mayExport = useAuth().can('data:export');
   const visible = rows
     .map((row, index) => ({ row, index }))
-    .filter(({ row }) =>
-      row.join(" ").toLowerCase().includes(query.toLowerCase()),
-    );
+    .filter(({ row }) => row.join(' ').toLowerCase().includes(query.toLowerCase()));
   const exportCsv = () => {
     const escape = (v: string | number) => {
       let text = String(v);
@@ -218,17 +197,17 @@ export function Report({
     const url = URL.createObjectURL(
       new Blob(
         [
-          "\uFEFF" +
+          '\uFEFF' +
             [columns, ...visible.map((r) => r.row)]
-              .map((r) => r.map(escape).join(","))
-              .join("\r\n"),
+              .map((r) => r.map(escape).join(','))
+              .join('\r\n'),
         ],
-        { type: "text/csv;charset=utf-8" },
+        { type: 'text/csv;charset=utf-8' },
       ),
     );
-    const a = document.createElement("a");
+    const a = document.createElement('a');
     a.href = url;
-    a.download = `preview-${title.replaceAll(" ", "-")}.csv`;
+    a.download = `preview-${title.replaceAll(' ', '-')}.csv`;
     a.click();
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
@@ -246,7 +225,7 @@ export function Report({
           )}
         </div>
         <Group>
-          {exportable && (
+          {exportable && mayExport && (
             <Button
               variant="default"
               size="xs"
@@ -258,12 +237,7 @@ export function Report({
             </Button>
           )}
           {add && (
-            <Button
-              size="xs"
-              color="fastrackRed"
-              leftSection={<Plus size={14} />}
-              onClick={add}
-            >
+            <Button size="xs" color="fastrackRed" leftSection={<Plus size={14} />} onClick={add}>
               Add record
             </Button>
           )}
@@ -296,11 +270,7 @@ export function Report({
                 ))}
                 {onOpen && (
                   <Table.Td>
-                    <Button
-                      variant="subtle"
-                      size="compact-xs"
-                      onClick={() => onOpen(index)}
-                    >
+                    <Button variant="subtle" size="compact-xs" onClick={() => onOpen(index)}>
                       Open
                     </Button>
                   </Table.Td>
@@ -310,20 +280,14 @@ export function Report({
           </Table.Tbody>
         </Table>
       </Table.ScrollContainer>
-      {!visible.length && (
-        <Alert color="gray">No records match these filters.</Alert>
-      )}
+      {!visible.length && <Alert color="gray">No records match these filters.</Alert>}
       <Text size="xs" c="dimmed">
         {visible.length} records · Preview data
       </Text>
     </Stack>
   );
 }
-export function Summary({
-  items,
-}: {
-  items: { label: string; value: string | number }[];
-}) {
+export function Summary({ items }: { items: { label: string; value: string | number }[] }) {
   return (
     <SimpleGrid cols={{ base: 2, md: Math.min(4, items.length) }}>
       {items.map((i) => (
@@ -331,9 +295,9 @@ export function Summary({
           key={i.label}
           style={{
             padding: 16,
-            border: "1px solid #e8ebef",
+            border: '1px solid #e8ebef',
             borderRadius: 10,
-            background: "#fafbfc",
+            background: '#fafbfc',
           }}
         >
           <Text size="xs" c="dimmed">
@@ -356,11 +320,12 @@ export function Preview({
   children: React.ReactNode;
   onClose: () => void;
 }) {
+  const { school } = useAuth();
   return (
     <Modal opened onClose={onClose} title={title} size="xl">
       <Stack data-print-preview>
         <Group justify="space-between">
-          <Title order={3}>Fastrack International School</Title>
+          <Title order={3}>{school?.name}</Title>
           <Badge color="orange">Preview · not official</Badge>
         </Group>
         <Text size="sm">{title}</Text>

@@ -77,8 +77,13 @@ export const WaitlistForm: React.FC = () => {
           Registration Received for {form.schoolName}
         </Text>
 
-        <Text size="sm" c="dimmed" style={{ maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.6 }}>
-          Thank you. Our team from Fastrack Accra headquarters will send login credentials and system onboarding materials to <strong>{form.email}</strong>.
+        <Text
+          size="sm"
+          c="dimmed"
+          style={{ maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.6 }}
+        >
+          Thank you. Our team from Fastrack Accra headquarters will send login credentials and
+          system onboarding materials to <strong>{form.email}</strong>.
         </Text>
 
         <Box
@@ -177,7 +182,12 @@ export const WaitlistForm: React.FC = () => {
           <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
             <Select
               label="Estimated Student Population"
-              data={['Less than 200 Students', '200 - 500 Students', '500 - 1,500 Students', '1,500+ Students']}
+              data={[
+                'Less than 200 Students',
+                '200 - 500 Students',
+                '500 - 1,500 Students',
+                '1,500+ Students',
+              ]}
               value={form.studentCount}
               onChange={(val) => setForm({ ...form, studentCount: val || '' })}
               radius="md"

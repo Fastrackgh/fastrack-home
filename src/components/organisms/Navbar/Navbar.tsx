@@ -6,7 +6,7 @@ import { useDisclosure } from '@mantine/hooks';
 import { motion } from 'framer-motion';
 import { BrandLogo, ActionButton } from '@/components/atoms';
 import { NavLinks } from '@/components/molecules';
-import { Phone, Mail, ArrowRight } from 'lucide-react';
+import { Phone, Mail } from 'lucide-react';
 import { businessInfo } from '@/data/businessInfo';
 
 export const Navbar: React.FC = () => {
@@ -104,7 +104,13 @@ export const Navbar: React.FC = () => {
 
           {/* Contact quick links in drawer */}
           <Box pt="lg" style={{ borderTop: '1px solid #f1f5f9' }}>
-            <Text size="xs" fw={700} c="dimmed" mb="xs" style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+            <Text
+              size="xs"
+              fw={700}
+              c="dimmed"
+              mb="xs"
+              style={{ textTransform: 'uppercase', letterSpacing: '0.05em' }}
+            >
               Direct Support • Accra
             </Text>
             <Group gap="xs" mb={8}>
@@ -139,4 +145,3 @@ export const Navbar: React.FC = () => {
     </Box>
   );
 };
-

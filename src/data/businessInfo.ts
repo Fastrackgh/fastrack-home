@@ -62,8 +62,7 @@ export const businessInfo: BusinessInfo = {
     'Since 2014, Fastrack Management Services has been transforming how organizations operate, leveraging cutting-edge technology to help you work smarter, accomplish more, and eliminate workplace stress. Based in Accra, the capital city of Ghana, we are a leading ICT consultancy dedicated to delivering high-impact, affordable, and value-driven technology solutions tailored to your unique operational needs.',
   mission:
     'To be the preferred Software Providers: providing simple, reliable, and trusted solutions to clients.',
-  vision:
-    'To be the trusted Software Providers in Ghana and beyond.',
+  vision: 'To be the trusted Software Providers in Ghana and beyond.',
   values: ['Excellence', 'Integrity', 'Innovation', 'Teamwork'],
   stats: [
     {

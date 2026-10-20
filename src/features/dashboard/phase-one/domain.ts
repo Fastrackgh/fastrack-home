@@ -1,22 +1,29 @@
-import type { Role } from "../model";
+import type { DataScope } from '@/lib/rbac';
 
-export type TermId = "2026-1" | "2025-3";
+export type TermId = '2026-1' | '2025-3';
 export const terms = {
-  "2026-1": {
-    year: "2026/27",
-    label: "Term 1",
-    start: "2026-09-01",
-    end: "2026-12-18",
+  '2026-1': {
+    year: '2026/27',
+    label: 'Term 1',
+    start: '2026-09-01',
+    end: '2026-12-18',
+    closed: false,
   },
-  "2025-3": {
-    year: "2025/26",
-    label: "Term 3",
-    start: "2026-04-20",
-    end: "2026-07-24",
+  '2025-3': {
+    year: '2025/26',
+    label: 'Term 3',
+    start: '2026-04-20',
+    end: '2026-07-24',
+    closed: true,
   },
 };
-export const classes = ["Nursery 1", "Primary 2", "Primary 4", "JHS 1"];
-export const methods = ["Cash", "MoMo", "Bank Transfer", "Cheque"];
+
+/** A closed (archived) term is read-only: records can be viewed and exported, not changed. */
+export function isClosedTerm(term: string) {
+  return terms[term as TermId]?.closed ?? false;
+}
+export const classes = ['Nursery 1', 'Primary 2', 'Primary 4', 'JHS 1'];
+export const methods = ['Cash', 'MoMo', 'Bank Transfer', 'Cheque'];
 export interface Student {
   id: string;
   name: string;
@@ -31,7 +38,7 @@ export interface Student {
   previousSchool: string;
   admissionDate: string;
   termId: string;
-  status: "Active" | "Stopped";
+  status: 'Active' | 'Stopped';
   exitDate?: string;
   exitReason?: string;
 }
@@ -56,7 +63,7 @@ export interface Payment {
   amount: number;
   method: string;
   bank: string;
-  kind: "School fees" | "Other income";
+  kind: 'School fees' | 'Other income';
   account: string;
   reference: string;
 }
@@ -75,7 +82,7 @@ export interface Plan {
   studentId: string;
   termId: string;
   installments: { amount: number; due: string; reminder: string }[];
-  status: "Active" | "Cancelled";
+  status: 'Active' | 'Cancelled';
 }
 export interface SchoolEvent {
   id: string;
@@ -88,7 +95,7 @@ export interface SchoolEvent {
   endTime: string;
   location: string;
   scope: string;
-  status: "Active" | "Postponed" | "Cancelled";
+  status: 'Active' | 'Postponed' | 'Cancelled';
 }
 export interface Meal {
   id: string;
@@ -189,9 +196,7 @@ export interface PhaseState {
   budgets: { category: string; amount: number }[];
 }
 export const money = (minor: number) =>
-  new Intl.NumberFormat("en-GH", { style: "currency", currency: "GHS" }).format(
-    minor / 100,
-  );
+  new Intl.NumberFormat('en-GH', { style: 'currency', currency: 'GHS' }).format(minor / 100);
 export function billTotals(b: Bill, payments: Payment[]) {
   const totalFees = b.tuition + b.maintenance + b.books + b.abacus;
   const discount =
@@ -200,12 +205,7 @@ export function billTotals(b: Bill, payments: Payment[]) {
   const accumulated = b.arrears + totalFees;
   const payable = accumulated - discount;
   const paid = payments
-    .filter(
-      (p) =>
-        p.studentId === b.studentId &&
-        p.termId === b.termId &&
-        p.kind === "School fees",
-    )
+    .filter((p) => p.studentId === b.studentId && p.termId === b.termId && p.kind === 'School fees')
     .reduce((sum, p) => sum + p.amount, 0);
   return {
     totalFees,
@@ -221,15 +221,14 @@ export function schoolDays(
   end: string,
   events: SchoolEvent[],
   termId: string,
-  scope = "Whole School",
+  scope = 'Whole School',
 ) {
-  if (!start || !end || start > end)
-    return { weekdays: 0, excluded: 0, total: 0 };
+  if (!start || !end || start > end) return { weekdays: 0, excluded: 0, total: 0 };
   let weekdays = 0,
     excluded = 0;
   for (
-    let d = new Date(start + "T00:00:00Z");
-    d <= new Date(end + "T00:00:00Z");
+    let d = new Date(start + 'T00:00:00Z');
+    d <= new Date(end + 'T00:00:00Z');
     d.setUTCDate(d.getUTCDate() + 1)
   ) {
     if ([0, 6].includes(d.getUTCDay())) continue;
@@ -239,9 +238,9 @@ export function schoolDays(
       events.some(
         (e) =>
           e.termId === termId &&
-          e.status === "Active" &&
-          ["Holiday/Closure", "Mid-Term"].includes(e.type) &&
-          (e.scope === "Whole School" || e.scope === scope) &&
+          e.status === 'Active' &&
+          ['Holiday/Closure', 'Mid-Term'].includes(e.type) &&
+          (e.scope === 'Whole School' || e.scope === scope) &&
           e.date <= date &&
           e.endDate >= date,
       )
@@ -250,31 +249,23 @@ export function schoolDays(
   }
   return { weekdays, excluded, total: weekdays - excluded };
 }
-export const nextReceipt = (payments: Payment[], kind: Payment["kind"]) =>
-  `${kind === "School fees" ? "FEE" : "INC"}-${String(Math.max(0, ...payments.filter((p) => p.kind === kind).map((p) => Number(p.id.split("-").at(-1)) || 0)) + 1).padStart(3, "0")}`;
+export const nextReceipt = (payments: Payment[], kind: Payment['kind']) =>
+  `${kind === 'School fees' ? 'FEE' : 'INC'}-${String(Math.max(0, ...payments.filter((p) => p.kind === kind).map((p) => Number(p.id.split('-').at(-1)) || 0)) + 1).padStart(3, '0')}`;
 export function planStatus(plan: Plan, state: PhaseState) {
-  const bill = state.bills.find(
-    (b) => b.studentId === plan.studentId && b.termId === plan.termId,
-  );
-  if (plan.status === "Cancelled") return "Cancelled";
+  const bill = state.bills.find((b) => b.studentId === plan.studentId && b.termId === plan.termId);
+  if (plan.status === 'Cancelled') return 'Cancelled';
   return bill && billTotals(bill, state.payments).balance <= 0
-    ? "Settled · reminders cancelled"
-    : "Active · penalty exempt";
+    ? 'Settled · reminders cancelled'
+    : 'Active · penalty exempt';
 }
 const sameScheduleDay = (a: string, b: string) => {
   const date = /^\d{4}-\d{2}-\d{2}$/;
   if (date.test(a) && date.test(b)) return a === b;
   const weekday = (value: string) =>
     date.test(value)
-      ? [
-          "Sunday",
-          "Monday",
-          "Tuesday",
-          "Wednesday",
-          "Thursday",
-          "Friday",
-          "Saturday",
-        ][new Date(value + "T00:00:00Z").getUTCDay()]
+      ? ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'][
+          new Date(value + 'T00:00:00Z').getUTCDay()
+        ]
       : value;
   return weekday(a) === weekday(b);
 };
@@ -286,116 +277,111 @@ export const hasConflict = (slot: Slot, others: Slot[]) =>
       sameScheduleDay(s.day, slot.day) &&
       s.start < slot.end &&
       s.end > slot.start &&
-      (s.teacher === slot.teacher ||
-        s.room === slot.room ||
-        s.classId === slot.classId),
+      (s.teacher === slot.teacher || s.room === slot.room || s.classId === slot.classId),
   );
-export const canManage = (role: Role) =>
-  ["SCHOOL_HEAD", "SECRETARY"].includes(role);
-export const canFinance = (role: Role) =>
-  ["SCHOOL_HEAD", "ADMIN"].includes(role);
-export const canAcademic = (role: Role) =>
-  ["SCHOOL_HEAD", "ACADEMIC_HEAD"].includes(role);
+/** The sample teacher and the class assigned to them in this preview data. */
+export const sampleTeacher = { name: 'Kofi Mensah', classId: 'Primary 2' };
 
-export function initialPhaseState(role: Role, child: string): PhaseState {
+/** Sample records, already narrowed to what the viewer's data scope allows. */
+export function initialPhaseState(scope: DataScope, child: string): PhaseState {
   const students: Student[] = [
     {
-      id: "abena",
-      name: "Abena Osei",
-      gender: "Female",
-      birthDate: "2019-07-22",
-      nationality: "Ghanaian",
-      classId: "Primary 2",
-      parent: "Mercy Osei",
-      phone: "0244000222",
-      email: "mercy@example.test",
-      address: "Accra",
-      previousSchool: "Little Stars",
-      admissionDate: "2026-09-02",
-      termId: "2026-1",
-      status: "Active",
+      id: 'abena',
+      name: 'Abena Osei',
+      gender: 'Female',
+      birthDate: '2019-07-22',
+      nationality: 'Ghanaian',
+      classId: 'Primary 2',
+      parent: 'Mercy Osei',
+      phone: '0244000222',
+      email: 'mercy@example.test',
+      address: 'Accra',
+      previousSchool: 'Little Stars',
+      admissionDate: '2026-09-02',
+      termId: '2026-1',
+      status: 'Active',
     },
     {
-      id: "kwesi",
-      name: "Kwesi Osei",
-      gender: "Male",
-      birthDate: "2017-02-10",
-      nationality: "Ghanaian",
-      classId: "Primary 4",
-      parent: "Mercy Osei",
-      phone: "0244000222",
-      email: "mercy@example.test",
-      address: "Accra",
-      previousSchool: "Little Stars",
-      admissionDate: "2025-09-03",
-      termId: "2025-1",
-      status: "Active",
+      id: 'kwesi',
+      name: 'Kwesi Osei',
+      gender: 'Male',
+      birthDate: '2017-02-10',
+      nationality: 'Ghanaian',
+      classId: 'Primary 4',
+      parent: 'Mercy Osei',
+      phone: '0244000222',
+      email: 'mercy@example.test',
+      address: 'Accra',
+      previousSchool: 'Little Stars',
+      admissionDate: '2025-09-03',
+      termId: '2025-1',
+      status: 'Active',
     },
     {
-      id: "kofi",
-      name: "Kofi Ansah",
-      gender: "Male",
-      birthDate: "2019-03-12",
-      nationality: "Ghanaian",
-      classId: "Primary 2",
-      parent: "George Ansah",
-      phone: "0244000111",
-      email: "george@example.test",
-      address: "Tema",
-      previousSchool: "",
-      admissionDate: "2026-09-04",
-      termId: "2026-1",
-      status: "Active",
+      id: 'kofi',
+      name: 'Kofi Ansah',
+      gender: 'Male',
+      birthDate: '2019-03-12',
+      nationality: 'Ghanaian',
+      classId: 'Primary 2',
+      parent: 'George Ansah',
+      phone: '0244000111',
+      email: 'george@example.test',
+      address: 'Tema',
+      previousSchool: '',
+      admissionDate: '2026-09-04',
+      termId: '2026-1',
+      status: 'Active',
     },
     {
-      id: "yaw",
-      name: "Yaw Agyemang",
-      gender: "Male",
-      birthDate: "2018-11-05",
-      nationality: "Ghanaian",
-      classId: "Primary 2",
-      parent: "Kwabena Agyemang",
-      phone: "0244000333",
-      email: "kwabena@example.test",
-      address: "Accra",
-      previousSchool: "",
-      admissionDate: "2025-09-04",
-      termId: "2025-1",
-      status: "Stopped",
-      exitDate: "2026-09-15",
-      exitReason: "Relocated",
+      id: 'yaw',
+      name: 'Yaw Agyemang',
+      gender: 'Male',
+      birthDate: '2018-11-05',
+      nationality: 'Ghanaian',
+      classId: 'Primary 2',
+      parent: 'Kwabena Agyemang',
+      phone: '0244000333',
+      email: 'kwabena@example.test',
+      address: 'Accra',
+      previousSchool: '',
+      admissionDate: '2025-09-04',
+      termId: '2025-1',
+      status: 'Stopped',
+      exitDate: '2026-09-15',
+      exitReason: 'Relocated',
     },
   ];
   const documents: ArchiveRecord[] = students.map((s) => ({
     id: `doc-${s.id}`,
-    termId: "2026-1",
+    termId: '2026-1',
     title: `${s.name} · terminal report`,
-    category: "Terminal report",
+    category: 'Terminal report',
     classId: s.classId,
     studentId: s.id,
-    author: "Academic office",
-    subject: "All subjects",
-    filename: "",
+    author: 'Academic office',
+    subject: 'All subjects',
+    filename: '',
     content: `${s.name}\nEnglish: 78 · Mathematics: 72 · Science: 84\nTeacher comment: Good progress this term. Sample report, not an official record.`,
   }));
   const state: PhaseState = {
     assessments: students.flatMap((s) =>
-      ["English", "Mathematics", "Science"].map((subject, i) => ({
+      ['English', 'Mathematics', 'Science'].map((subject, i) => ({
         id: `mark-${s.id}-${i}`,
         studentId: s.id,
-        termId: "2026-1",
+        termId: '2026-1',
         subject,
         ca: 76 + i * 3,
         exam: 70 + i * 4,
         present: 66,
-        comment: "Good progress. Continue regular practice.",
+        comment: 'Good progress. Continue regular practice.',
       })),
     ),
     students,
     bills: students.map((s, i) => ({
       id: `bill-${s.id}`,
       studentId: s.id,
-      termId: "2026-1",
+      termId: '2026-1',
       arrears: i === 0 ? 20000 : 0,
       tuition: 100000,
       maintenance: 10000,
@@ -406,208 +392,206 @@ export function initialPhaseState(role: Role, child: string): PhaseState {
     })),
     payments: [
       {
-        id: "FEE-001",
-        studentId: "abena",
-        termId: "2026-1",
-        date: "2026-09-10",
+        id: 'FEE-001',
+        studentId: 'abena',
+        termId: '2026-1',
+        date: '2026-09-10',
         amount: 60000,
-        method: "MoMo",
-        bank: "",
-        kind: "School fees",
-        account: "Tuition fee",
-        reference: "DEMO-1028",
+        method: 'MoMo',
+        bank: '',
+        kind: 'School fees',
+        account: 'Tuition fee',
+        reference: 'DEMO-1028',
       },
       {
-        id: "FEE-002",
-        studentId: "kofi",
-        termId: "2026-1",
-        date: "2026-09-12",
+        id: 'FEE-002',
+        studentId: 'kofi',
+        termId: '2026-1',
+        date: '2026-09-12',
         amount: 40000,
-        method: "Bank Transfer",
-        bank: "CalBank",
-        kind: "School fees",
-        account: "Tuition fee",
-        reference: "DEMO-1029",
+        method: 'Bank Transfer',
+        bank: 'CalBank',
+        kind: 'School fees',
+        account: 'Tuition fee',
+        reference: 'DEMO-1029',
       },
       {
-        id: "INC-001",
-        studentId: "abena",
-        termId: "2026-1",
-        date: "2026-09-14",
+        id: 'INC-001',
+        studentId: 'abena',
+        termId: '2026-1',
+        date: '2026-09-14',
         amount: 15000,
-        method: "Cash",
-        bank: "",
-        kind: "Other income",
-        account: "Abacus lessons",
-        reference: "",
+        method: 'Cash',
+        bank: '',
+        kind: 'Other income',
+        account: 'Abacus lessons',
+        reference: '',
       },
     ],
     expenses: [
       {
-        id: "exp-1",
-        termId: "2026-1",
-        date: "2026-09-15",
-        category: "Supplies",
-        description: "Exercise books",
+        id: 'exp-1',
+        termId: '2026-1',
+        date: '2026-09-15',
+        category: 'Supplies',
+        description: 'Exercise books',
         amount: 45000,
-        method: "Bank Transfer",
-        payee: "School supplies",
+        method: 'Bank Transfer',
+        payee: 'School supplies',
       },
     ],
     budgets: [
-      { category: "Supplies", amount: 100000 },
-      { category: "Facilities", amount: 200000 },
-      { category: "Utilities", amount: 80000 },
-      { category: "Payroll", amount: 500000 },
+      { category: 'Supplies', amount: 100000 },
+      { category: 'Facilities', amount: 200000 },
+      { category: 'Utilities', amount: 80000 },
+      { category: 'Payroll', amount: 500000 },
     ],
     plans: [
       {
-        id: "plan-1",
-        studentId: "abena",
-        termId: "2026-1",
-        status: "Active",
+        id: 'plan-1',
+        studentId: 'abena',
+        termId: '2026-1',
+        status: 'Active',
         installments: [
-          { amount: 45000, due: "2026-10-01", reminder: "2026-09-28" },
-          { amount: 45000, due: "2026-11-01", reminder: "2026-10-28" },
+          { amount: 45000, due: '2026-10-01', reminder: '2026-09-28' },
+          { amount: 45000, due: '2026-11-01', reminder: '2026-10-28' },
         ],
       },
     ],
     events: [
       {
-        id: "event-1",
-        termId: "2026-1",
-        type: "Holiday/Closure",
-        description: "Founders’ Day observed",
-        date: "2026-09-21",
-        endDate: "2026-09-21",
-        startTime: "08:00",
-        endTime: "16:00",
-        location: "School",
-        scope: "Whole School",
-        status: "Active",
+        id: 'event-1',
+        termId: '2026-1',
+        type: 'Holiday/Closure',
+        description: 'Founders’ Day observed',
+        date: '2026-09-21',
+        endDate: '2026-09-21',
+        startTime: '08:00',
+        endTime: '16:00',
+        location: 'School',
+        scope: 'Whole School',
+        status: 'Active',
       },
       {
-        id: "event-2",
-        termId: "2026-1",
-        type: "Mid-Term",
-        description: "Mid-term break",
-        date: "2026-10-26",
-        endDate: "2026-10-30",
-        startTime: "08:00",
-        endTime: "16:00",
-        location: "School",
-        scope: "Whole School",
-        status: "Active",
+        id: 'event-2',
+        termId: '2026-1',
+        type: 'Mid-Term',
+        description: 'Mid-term break',
+        date: '2026-10-26',
+        endDate: '2026-10-30',
+        startTime: '08:00',
+        endTime: '16:00',
+        location: 'School',
+        scope: 'Whole School',
+        status: 'Active',
       },
       {
-        id: "event-3",
-        termId: "2026-1",
-        type: "PTA Meeting",
-        description: "Meet the school leadership",
-        date: "2026-09-26",
-        endDate: "2026-09-26",
-        startTime: "10:00",
-        endTime: "12:00",
-        location: "Main auditorium",
-        scope: "PTA",
-        status: "Active",
+        id: 'event-3',
+        termId: '2026-1',
+        type: 'PTA Meeting',
+        description: 'Meet the school leadership',
+        date: '2026-09-26',
+        endDate: '2026-09-26',
+        startTime: '10:00',
+        endTime: '12:00',
+        location: 'Main auditorium',
+        scope: 'PTA',
+        status: 'Active',
       },
     ],
-    meals: ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday"].map(
-      (day, i) => ({
-        id: `meal-${i}`,
-        termId: "2026-1",
-        week: 4,
-        day,
-        time: "12:00",
-        type: "Lunch",
-        item: [
-          "Waakye with boiled egg",
-          "Jollof rice & chicken",
-          "Banku & fish",
-          "Rice & vegetable stew",
-          "Yam & palava sauce",
-        ][i],
-        classId: "Whole School",
-      }),
-    ),
+    meals: ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'].map((day, i) => ({
+      id: `meal-${i}`,
+      termId: '2026-1',
+      week: 4,
+      day,
+      time: '12:00',
+      type: 'Lunch',
+      item: [
+        'Waakye with boiled egg',
+        'Jollof rice & chicken',
+        'Banku & fish',
+        'Rice & vegetable stew',
+        'Yam & palava sauce',
+      ][i],
+      classId: 'Whole School',
+    })),
     enquiries: [
       {
-        id: "enq-1",
-        termId: "2026-1",
-        date: "2026-09-20",
-        name: "Akua Addo",
-        birthDate: "2020-03-10",
-        gender: "Female",
-        classId: "Nursery 1",
-        nationality: "Ghanaian",
-        parent: "Nana Addo",
-        phone: "0244000999",
-        email: "nana@example.test",
-        address: "East Legon",
-        previousSchool: "",
-        source: "School website",
-        status: "New",
-        assignedTo: "Efua Mensah",
-        followUp: "2026-09-25",
-        notes: "Arrange a school visit.",
+        id: 'enq-1',
+        termId: '2026-1',
+        date: '2026-09-20',
+        name: 'Akua Addo',
+        birthDate: '2020-03-10',
+        gender: 'Female',
+        classId: 'Nursery 1',
+        nationality: 'Ghanaian',
+        parent: 'Nana Addo',
+        phone: '0244000999',
+        email: 'nana@example.test',
+        address: 'East Legon',
+        previousSchool: '',
+        source: 'School website',
+        status: 'New',
+        assignedTo: 'Efua Mensah',
+        followUp: '2026-09-25',
+        notes: 'Arrange a school visit.',
       },
     ],
     documents,
     questions: [
       {
-        id: "q-1",
-        termId: "2025-3",
-        title: "Fractions · revision questions",
-        category: "Past questions",
-        classId: "Primary 2",
-        subject: "Mathematics",
-        author: "Kofi Mensah",
-        filename: "",
+        id: 'q-1',
+        termId: '2025-3',
+        title: 'Fractions · revision questions',
+        category: 'Past questions',
+        classId: 'Primary 2',
+        subject: 'Mathematics',
+        author: 'Kofi Mensah',
+        filename: '',
         content:
-          "1. Write two fractions equivalent to 1/2.\n2. Add 1/4 and 2/4.\n3. Share 12 oranges equally among four children.",
+          '1. Write two fractions equivalent to 1/2.\n2. Add 1/4 and 2/4.\n3. Share 12 oranges equally among four children.',
       },
     ],
     staff: [
       {
-        id: "staff-1",
-        name: "Kofi Mensah",
-        email: "kofi@example.test",
-        phone: "0244000777",
-        category: "Teaching",
-        position: "Primary 2 teacher",
-        status: "Active",
+        id: 'staff-1',
+        name: 'Kofi Mensah',
+        email: 'kofi@example.test',
+        phone: '0244000777',
+        category: 'Teaching',
+        position: 'Primary 2 teacher',
+        status: 'Active',
       },
       {
-        id: "staff-2",
-        name: "Efua Mensah",
-        email: "efua@example.test",
-        phone: "0244000888",
-        category: "Non-Teaching",
-        position: "Administrative Secretary",
-        status: "Active",
+        id: 'staff-2',
+        name: 'Efua Mensah',
+        email: 'efua@example.test',
+        phone: '0244000888',
+        category: 'Non-Teaching',
+        position: 'Administrative Secretary',
+        status: 'Active',
       },
     ],
     slots: [
       {
-        id: "slot-1",
-        termId: "2026-1",
-        kind: "Lesson",
-        day: "Monday",
-        start: "08:00",
-        end: "09:00",
-        classId: "Primary 2",
-        subject: "Mathematics",
-        teacher: "Kofi Mensah",
-        room: "Room P2",
+        id: 'slot-1',
+        termId: '2026-1',
+        kind: 'Lesson',
+        day: 'Monday',
+        start: '08:00',
+        end: '09:00',
+        classId: 'Primary 2',
+        subject: 'Mathematics',
+        teacher: 'Kofi Mensah',
+        room: 'Room P2',
       },
     ],
     scales: [
-      { min: 80, grade: "A", points: 4 },
-      { min: 70, grade: "B", points: 3 },
-      { min: 60, grade: "C", points: 2 },
-      { min: 50, grade: "D", points: 1 },
-      { min: 0, grade: "F", points: 0 },
+      { min: 80, grade: 'A', points: 4 },
+      { min: 70, grade: 'B', points: 3 },
+      { min: 60, grade: 'C', points: 2 },
+      { min: 50, grade: 'D', points: 1 },
+      { min: 0, grade: 'F', points: 0 },
     ],
     caWeight: 40,
     examWeight: 60,
@@ -617,46 +601,51 @@ export function initialPhaseState(role: Role, child: string): PhaseState {
       id: `archived-${p.id}`,
       termId: p.termId,
       title: `Receipt ${p.id}`,
-      category:
-        p.kind === "School fees" ? "Fees receipt" : "Other income receipt",
+      category: p.kind === 'School fees' ? 'Fees receipt' : 'Other income receipt',
       classId: students.find((s) => s.id === p.studentId)!.classId,
       studentId: p.studentId,
-      author: "Accounts office",
-      subject: "Finance",
-      filename: "",
+      author: 'Accounts office',
+      subject: 'Finance',
+      filename: '',
       content: `Preview receipt ${p.id}\n${p.date} · ${p.method}\n${p.account}: ${money(p.amount)}`,
     })),
   );
-  if (role === "PARENT") {
+  if (scope === 'own_children') {
     state.students = students.filter((s) => s.id === child);
     state.documents = documents.filter((d) => d.studentId === child);
     state.bills = state.bills.filter((b) => b.studentId === child);
     state.payments = state.payments.filter((p) => p.studentId === child);
+    state.plans = state.plans.filter((p) => p.studentId === child);
     state.enquiries = [];
     state.staff = [];
     state.questions = [];
+    state.expenses = [];
+    state.budgets = [];
     state.assessments = state.assessments.filter((a) => a.studentId === child);
   }
-  if (role === "TEACHER") {
-    state.students = students.filter((s) => s.classId === "Primary 2");
-    state.documents = documents.filter((d) => d.classId === "Primary 2");
+  if (scope === 'assigned_classes') {
+    state.students = students.filter((s) => s.classId === sampleTeacher.classId);
+    state.documents = documents.filter((d) => d.classId === sampleTeacher.classId);
     state.assessments = state.assessments.filter((a) =>
       state.students.some((s) => s.id === a.studentId),
     );
-    state.documents = state.documents.filter(
-      (d) => d.category === "Terminal report",
-    );
+    state.documents = state.documents.filter((d) => d.category === 'Terminal report');
+    // Teachers hold no finance or front-office records.
+    state.bills = [];
+    state.payments = [];
+    state.plans = [];
+    state.expenses = [];
+    state.budgets = [];
+    state.enquiries = [];
+    state.staff = [];
   }
   return state;
 }
 export function resultFor(
   a: Assessment,
-  state: Pick<PhaseState, "caWeight" | "examWeight" | "scales">,
+  state: Pick<PhaseState, 'caWeight' | 'examWeight' | 'scales'>,
 ) {
-  const total =
-    Math.round(a.ca * state.caWeight + a.exam * state.examWeight) / 100;
-  const band = [...state.scales]
-    .sort((a, b) => b.min - a.min)
-    .find((g) => total >= g.min)!;
+  const total = Math.round(a.ca * state.caWeight + a.exam * state.examWeight) / 100;
+  const band = [...state.scales].sort((a, b) => b.min - a.min).find((g) => total >= g.min)!;
   return { total, ...band };
 }

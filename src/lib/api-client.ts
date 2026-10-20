@@ -1,7 +1,6 @@
-const API_BASE_URL =
-  process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
-export interface ApiResponse<T = unknown, M = any> {
+export interface ApiResponse<T = unknown, M = unknown> {
   statusCode?: number;
   message?: string;
   data: T;
@@ -20,42 +19,52 @@ export class ApiError extends Error {
   }
 }
 
+/** Every browser-storage key that belongs to a signed-in session. */
+export const SESSION_STORAGE_KEYS = {
+  accessToken: 'fastrack_access_token',
+  refreshToken: 'fastrack_refresh_token',
+  user: 'fastrack_user',
+  school: 'fastrack_school',
+} as const;
+
 class ApiClient {
-  private isRefreshing = false;
-  private refreshSubscribers: ((token: string) => void)[] = [];
+  /** Shared by every request that hits a 401 while a refresh is in flight. */
+  private refreshInFlight: Promise<string | null> | null = null;
 
   public getAccessToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('fastrack_access_token');
+    return localStorage.getItem(SESSION_STORAGE_KEYS.accessToken);
   }
 
   public getRefreshToken(): string | null {
     if (typeof window === 'undefined') return null;
-    return localStorage.getItem('fastrack_refresh_token');
+    return localStorage.getItem(SESSION_STORAGE_KEYS.refreshToken);
   }
 
   public setTokens(accessToken: string, refreshToken?: string) {
     if (typeof window === 'undefined') return;
-    localStorage.setItem('fastrack_access_token', accessToken);
+    localStorage.setItem(SESSION_STORAGE_KEYS.accessToken, accessToken);
     if (refreshToken) {
-      localStorage.setItem('fastrack_refresh_token', refreshToken);
+      localStorage.setItem(SESSION_STORAGE_KEYS.refreshToken, refreshToken);
     }
   }
 
-  public clearTokens() {
+  /**
+   * Removes tokens and every cached profile, so nothing from one user's
+   * school survives into the next sign-in on a shared device.
+   */
+  public clearSession() {
     if (typeof window === 'undefined') return;
-    localStorage.removeItem('fastrack_access_token');
-    localStorage.removeItem('fastrack_refresh_token');
-    localStorage.removeItem('fastrack_user');
+    Object.values(SESSION_STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
   }
 
-  private onTokenRefreshed(token: string) {
-    this.refreshSubscribers.forEach((cb) => cb(token));
-    this.refreshSubscribers = [];
-  }
-
-  private addRefreshSubscriber(cb: (token: string) => void) {
-    this.refreshSubscribers.push(cb);
+  private refreshOnce(): Promise<string | null> {
+    if (!this.refreshInFlight) {
+      this.refreshInFlight = this.refreshAccessToken().finally(() => {
+        this.refreshInFlight = null;
+      });
+    }
+    return this.refreshInFlight;
   }
 
   private async refreshAccessToken(): Promise<string | null> {
@@ -70,7 +79,7 @@ class ApiClient {
       });
 
       if (!response.ok) {
-        this.clearTokens();
+        this.clearSession();
         return null;
       }
 
@@ -84,12 +93,12 @@ class ApiClient {
       }
       return null;
     } catch {
-      this.clearTokens();
+      this.clearSession();
       return null;
     }
   }
 
-  public async request<T = unknown, M = any>(
+  public async request<T = unknown, M = unknown>(
     endpoint: string,
     options: RequestInit = {},
   ): Promise<ApiResponse<T, M>> {
@@ -114,31 +123,15 @@ class ApiClient {
       !endpoint.includes('/auth/login') &&
       !endpoint.includes('/auth/refresh')
     ) {
-      if (!this.isRefreshing) {
-        this.isRefreshing = true;
-        const newToken = await this.refreshAccessToken();
-        this.isRefreshing = false;
-
-        if (newToken) {
-          this.onTokenRefreshed(newToken);
-          headers['Authorization'] = `Bearer ${newToken}`;
-          response = await fetch(url, { ...options, headers });
-        } else {
-          if (
-            typeof window !== 'undefined' &&
-            window.location.pathname !== '/school-admin/login'
-          ) {
-            window.location.href = '/school-admin/login';
-          }
-          throw new ApiError(401, 'Session expired. Please log in again.');
+      const newToken = await this.refreshOnce();
+      if (!newToken) {
+        if (typeof window !== 'undefined' && window.location.pathname !== '/school-admin/login') {
+          window.location.href = '/school-admin/login';
         }
-      } else {
-        const retryToken = await new Promise<string>((resolve) => {
-          this.addRefreshSubscriber(resolve);
-        });
-        headers['Authorization'] = `Bearer ${retryToken}`;
-        response = await fetch(url, { ...options, headers });
+        throw new ApiError(401, 'Session expired. Please log in again.');
       }
+      headers['Authorization'] = `Bearer ${newToken}`;
+      response = await fetch(url, { ...options, headers });
     }
 
     const data = await response.json().catch(() => ({}));
@@ -153,11 +146,11 @@ class ApiClient {
     return data as ApiResponse<T, M>;
   }
 
-  public get<T = unknown, M = any>(endpoint: string, headers?: Record<string, string>) {
+  public get<T = unknown, M = unknown>(endpoint: string, headers?: Record<string, string>) {
     return this.request<T, M>(endpoint, { method: 'GET', headers });
   }
 
-  public post<T = unknown, M = any>(
+  public post<T = unknown, M = unknown>(
     endpoint: string,
     body?: unknown,
     headers?: Record<string, string>,
@@ -169,7 +162,7 @@ class ApiClient {
     });
   }
 
-  public put<T = unknown, M = any>(
+  public put<T = unknown, M = unknown>(
     endpoint: string,
     body?: unknown,
     headers?: Record<string, string>,
@@ -181,7 +174,7 @@ class ApiClient {
     });
   }
 
-  public patch<T = unknown, M = any>(
+  public patch<T = unknown, M = unknown>(
     endpoint: string,
     body?: unknown,
     headers?: Record<string, string>,
@@ -193,10 +186,7 @@ class ApiClient {
     });
   }
 
-  public delete<T = unknown, M = any>(
-    endpoint: string,
-    headers?: Record<string, string>,
-  ) {
+  public delete<T = unknown, M = unknown>(endpoint: string, headers?: Record<string, string>) {
     return this.request<T, M>(endpoint, { method: 'DELETE', headers });
   }
 }

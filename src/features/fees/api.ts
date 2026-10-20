@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { apiClient, ApiResponse, PageMeta } from '@/lib/api-client';
 import { toCedis, toPesewas, type Pesewas } from './money';
 
 // Amount fields below are whole pesewas; the API sends and receives cedis.
@@ -52,11 +52,52 @@ export interface Payment {
 
 export interface FeeStructure {
   id: string;
+  feeTypeId: string;
   feeTypeName: string;
+  classId: string;
   className?: string | null;
+  termId: string;
   termLabel?: string;
+  yearLabel?: string;
   amount: Pesewas;
+  /** ISO date (yyyy-mm-dd). */
+  dueDate: string;
+  penalty: Pesewas;
   isOptional: boolean;
+}
+
+export interface FeeType {
+  id: string;
+  name: string;
+  description?: string | null;
+  /** Charged every term rather than once. */
+  isRecurring: boolean;
+  isOptional: boolean;
+}
+
+/** Values of the backend's `DiscountType` enum. */
+export type DiscountType = 'percentage' | 'flat' | 'special';
+
+export const DISCOUNT_TYPES: { value: DiscountType; label: string }[] = [
+  { value: 'percentage', label: 'Percentage of the fee' },
+  { value: 'flat', label: 'Fixed amount' },
+  { value: 'special', label: 'Special concession (fixed amount)' },
+];
+
+export interface Discount {
+  id: string;
+  studentName?: string;
+  studentCode?: string | null;
+  className?: string;
+  /** Null when the discount applies to the whole bill. */
+  feeTypeName?: string | null;
+  /** Null when the discount applies every term. */
+  termLabel?: string | null;
+  discountType: DiscountType;
+  /** A percentage for `percentage`, otherwise pesewas. */
+  value: number;
+  reason?: string | null;
+  approvedByName?: string;
 }
 
 export interface SchoolClass {
@@ -107,6 +148,43 @@ export interface FeeStructureQuery {
   classId?: string | null;
 }
 
+export interface DiscountQuery {
+  page: number;
+  /** Enrolment id. */
+  studentId?: string | null;
+  termId?: string | null;
+}
+
+export interface FeeTypeInput {
+  name: string;
+  description?: string;
+  isRecurring: boolean;
+  isOptional: boolean;
+}
+
+export interface FeeStructureInput {
+  term: AcademicContext;
+  classIds: string[];
+  items: { feeTypeId: string; amount: Pesewas; dueDate: string; penalty: Pesewas }[];
+}
+
+export interface FeeStructureChange {
+  amount: Pesewas;
+  dueDate: string;
+  penalty: Pesewas;
+}
+
+export interface DiscountInput {
+  /** Enrolment id. */
+  studentId: string;
+  feeTypeId?: string;
+  termId?: string;
+  discountType: DiscountType;
+  /** A percentage for `percentage`, otherwise pesewas. */
+  value: number;
+  reason?: string;
+}
+
 export interface RecordPaymentRequest {
   studentId: string;
   invoiceId?: string;
@@ -148,6 +226,14 @@ const toPayment = (raw: Raw): Payment => ({
 const toFeeStructure = (raw: Raw): FeeStructure => ({
   ...(raw as unknown as FeeStructure),
   amount: toPesewas(raw.amount),
+  penalty: toPesewas(raw.penalty),
+});
+
+const isPercentage = (type: unknown) => type === 'percentage';
+
+const toDiscount = (raw: Raw): Discount => ({
+  ...(raw as unknown as Discount),
+  value: isPercentage(raw.discountType) ? Number(raw.discountValue) : toPesewas(raw.discountValue),
 });
 
 /** Rows per page in every fees table. */
@@ -159,14 +245,17 @@ function pageParams(page: number, filters: Record<string, string | null | undefi
   return params;
 }
 
-function toPage<T>(data: Page<Raw> | undefined, map: (raw: Raw) => T): Page<T> {
-  return { items: (data?.items ?? []).map(map), total: data?.total ?? 0 };
+/** A v2 list response: rows in `data`, pagination in `meta`. */
+function toPage<T>(res: ApiResponse<Raw[], PageMeta>, map: (raw: Raw) => T): Page<T> {
+  return { items: (res.data ?? []).map(map), total: res.meta?.total ?? 0 };
 }
 
 export const feesApi = {
   async listInvoices({ page, ...filters }: InvoiceQuery): Promise<Page<Invoice>> {
-    const res = await apiClient.get<Page<Raw>>(`/schools/me/invoices?${pageParams(page, filters)}`);
-    return toPage(res.data, toInvoice);
+    const res = await apiClient.get<Raw[], PageMeta>(
+      `/schools/me/invoices?${pageParams(page, filters)}`,
+    );
+    return toPage(res, toInvoice);
   },
   async getInvoice(id: string): Promise<Invoice> {
     const res = await apiClient.get<Raw>(`/schools/me/invoices/${encodeURIComponent(id)}`);
@@ -189,8 +278,10 @@ export const feesApi = {
     };
   },
   async listPayments({ page, ...filters }: PaymentQuery): Promise<Page<Payment>> {
-    const res = await apiClient.get<Page<Raw>>(`/schools/me/payments?${pageParams(page, filters)}`);
-    return toPage(res.data, toPayment);
+    const res = await apiClient.get<Raw[], PageMeta>(
+      `/schools/me/payments?${pageParams(page, filters)}`,
+    );
+    return toPage(res, toPayment);
   },
   async recordPayment({ amount, ...request }: RecordPaymentRequest): Promise<Payment | null> {
     const res = await apiClient.post<Raw[] | Raw>('/schools/me/payments', {
@@ -201,16 +292,93 @@ export const feesApi = {
     return created ? toPayment(created) : null;
   },
   async listFeeStructures({ page, ...filters }: FeeStructureQuery): Promise<Page<FeeStructure>> {
-    const res = await apiClient.get<Page<Raw>>(
+    const res = await apiClient.get<Raw[], PageMeta>(
       `/schools/me/fee-structures?${pageParams(page, filters)}`,
     );
-    return toPage(res.data, toFeeStructure);
+    return toPage(res, toFeeStructure);
+  },
+  async createFeeStructures({ term, classIds, items }: FeeStructureInput) {
+    const res = await apiClient.post<Raw[]>('/schools/me/fee-structures/batch', {
+      academicYearId: term.yearId,
+      academicTermId: term.termId,
+      classIds,
+      items: items.map((item) => ({
+        ...item,
+        amount: toCedis(item.amount),
+        penalty: toCedis(item.penalty),
+      })),
+    });
+    return (res.data ?? []).map(toFeeStructure);
+  },
+  async updateFeeStructure(id: string, change: FeeStructureChange) {
+    const res = await apiClient.patch<Raw>(`/schools/me/fee-structures/${encodeURIComponent(id)}`, {
+      ...change,
+      amount: toCedis(change.amount),
+      penalty: toCedis(change.penalty),
+    });
+    return toFeeStructure(res.data);
+  },
+  async deleteFeeStructure(id: string) {
+    await apiClient.delete(`/schools/me/fee-structures/${encodeURIComponent(id)}`);
+  },
+  async listFeeTypes() {
+    return (await apiClient.get<FeeType[]>('/schools/me/fee-types')).data ?? [];
+  },
+  async createFeeType(input: FeeTypeInput) {
+    return (await apiClient.post<FeeType>('/schools/me/fee-types', input)).data;
+  },
+  async updateFeeType(id: string, input: FeeTypeInput) {
+    const res = await apiClient.patch<FeeType>(
+      `/schools/me/fee-types/${encodeURIComponent(id)}`,
+      input,
+    );
+    return res.data;
+  },
+  /** Adds the backend's standard fee types (tuition, PTA and so on) to the school. */
+  async addDefaultFeeTypes() {
+    await apiClient.post('/schools/me/fee-types/seed-defaults');
+  },
+  async listDiscounts({ page, ...filters }: DiscountQuery): Promise<Page<Discount>> {
+    const res = await apiClient.get<Raw[], PageMeta>(
+      `/schools/me/discounts?${pageParams(page, filters)}`,
+    );
+    return toPage(res, toDiscount);
+  },
+  async createDiscount({ value, ...input }: DiscountInput) {
+    const res = await apiClient.post<Raw>('/schools/me/discounts', {
+      ...input,
+      discountValue: isPercentage(input.discountType) ? value : toCedis(value),
+    });
+    return toDiscount(res.data);
+  },
+  async deleteDiscount(id: string) {
+    await apiClient.delete(`/schools/me/discounts/${encodeURIComponent(id)}`);
   },
   async listClasses() {
     return (await apiClient.get<SchoolClass[]>('/schools/me/classes')).data ?? [];
   },
   async listStudentOptions() {
     return (await apiClient.get<StudentOption[]>('/schools/me/students?limit=100')).data ?? [];
+  },
+  /** Every term of every academic year, newest year first. */
+  async listTerms(): Promise<AcademicContext[]> {
+    const years =
+      (await apiClient.get<{ id: string; yearLabel: string }[]>('/schools/me/academic-years'))
+        .data ?? [];
+    const termsByYear = await Promise.all(
+      years.map(async (year) => {
+        const res = await apiClient.get<{ id: string; termLabel: string }[]>(
+          `/schools/me/academic-years/${encodeURIComponent(year.id)}/terms`,
+        );
+        return (res.data ?? []).map((term) => ({
+          yearId: year.id,
+          yearLabel: year.yearLabel,
+          termId: term.id,
+          termLabel: term.termLabel,
+        }));
+      }),
+    );
+    return termsByYear.flat();
   },
   /** The current year and term, or null when either is not set up. */
   async currentTerm(): Promise<AcademicContext | null> {

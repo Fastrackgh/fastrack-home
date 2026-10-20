@@ -125,19 +125,19 @@ export default function PlatformConsolePage() {
     setLoading(true);
     try {
       const [schoolsRes, analyticsRes, modulesRes] = await Promise.allSettled([
-        apiClient.get<{ items: SchoolItem[]; total: number }>('/super-admin/schools?limit=50'),
+        apiClient.get<SchoolItem[]>('/super-admin/schools?limit=50'),
         apiClient.get<PlatformAnalytics>('/super-admin/analytics/overview'),
-        apiClient.get<{ items: PlatformModule[] }>('/super-admin/modules?limit=50'),
+        apiClient.get<PlatformModule[]>('/super-admin/modules?limit=50'),
       ]);
 
       if (schoolsRes.status === 'fulfilled' && schoolsRes.value.data) {
-        setSchools(schoolsRes.value.data.items || []);
+        setSchools(schoolsRes.value.data || []);
       }
       if (analyticsRes.status === 'fulfilled' && analyticsRes.value.data) {
         setAnalytics(analyticsRes.value.data);
       }
       if (modulesRes.status === 'fulfilled' && modulesRes.value.data) {
-        setPlatformModules(modulesRes.value.data.items || []);
+        setPlatformModules(modulesRes.value.data || []);
       }
     } catch {
       notifications.show({

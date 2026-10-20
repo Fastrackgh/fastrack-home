@@ -16,6 +16,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { ContactInfoItem } from '@/components/molecules';
 import { SectionEyebrow } from '@/components/atoms';
 import { businessInfo } from '@/data/businessInfo';
+import { honeypotStyle, submitLead } from '@/lib/leads';
 import { Phone, Mail, MapPin, Navigation, Send, Check } from 'lucide-react';
 
 export const ContactSection: React.FC = () => {
@@ -28,10 +29,27 @@ export const ContactSection: React.FC = () => {
     message: '',
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [website, setWebsite] = useState('');
+
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!form.name || !form.email) return;
-    setSubmitted(true);
+    if (!form.name || !form.email || sending) return;
+    setSending(true);
+    setError(null);
+    try {
+      await submitLead({ kind: 'CONTACT', ...form, website });
+      setSubmitted(true);
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? `We could not send your request: ${err.message}`
+          : 'We could not send your request. Please try again or call us.',
+      );
+    } finally {
+      setSending(false);
+    }
   };
 
   return (
@@ -183,6 +201,16 @@ export const ContactSection: React.FC = () => {
                   </motion.div>
                 ) : (
                   <form onSubmit={handleSubmit}>
+                    <input
+                      type="text"
+                      name="website"
+                      tabIndex={-1}
+                      autoComplete="off"
+                      aria-hidden="true"
+                      value={website}
+                      onChange={(e) => setWebsite(e.target.value)}
+                      style={honeypotStyle}
+                    />
                     <Stack gap="md">
                       <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="md">
                         <TextInput
@@ -236,8 +264,14 @@ export const ContactSection: React.FC = () => {
                       />
 
                       <motion.div whileHover={{ scale: 1.02 }} whileTap={{ scale: 0.98 }}>
+                        {error && (
+                          <Text size="sm" c="red.7" role="alert" mb={4}>
+                            {error}
+                          </Text>
+                        )}
                         <Button
                           type="submit"
+                          loading={sending}
                           color="fastrackRed"
                           size="md"
                           radius="xl"

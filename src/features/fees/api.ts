@@ -11,7 +11,7 @@ export interface InvoiceLineItem {
   isOptional: boolean;
 }
 
-export type InvoiceStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERPAID';
+export type InvoiceStatus = 'UNPAID' | 'PARTIAL' | 'PAID' | 'OVERPAID' | 'CARRIED_FORWARD';
 
 export interface Invoice {
   id: string;
@@ -283,11 +283,16 @@ export const feesApi = {
     );
     return toPage(res, toPayment);
   },
-  async recordPayment({ amount, ...request }: RecordPaymentRequest): Promise<Payment | null> {
-    const res = await apiClient.post<Raw[] | Raw>('/schools/me/payments', {
-      ...request,
-      amount: toCedis(amount),
-    });
+  /** `idempotencyKey`: one per payment attempt, so a retried submit is not recorded twice. */
+  async recordPayment(
+    { amount, ...request }: RecordPaymentRequest,
+    idempotencyKey?: string,
+  ): Promise<Payment | null> {
+    const res = await apiClient.post<Raw[] | Raw>(
+      '/schools/me/payments',
+      { ...request, amount: toCedis(amount) },
+      idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+    );
     const created = Array.isArray(res.data) ? res.data[0] : res.data;
     return created ? toPayment(created) : null;
   },

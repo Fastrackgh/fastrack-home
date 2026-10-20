@@ -17,7 +17,7 @@ import {
 } from '@mantine/core';
 import { ExternalLink, ShieldCheck } from 'lucide-react';
 import type { Invoice } from './api';
-import { invoiceStatusColor } from './InvoicesTab';
+import { invoiceStatusColor, invoiceStatusLabel } from './InvoicesTab';
 import { formatGhs } from './money';
 
 export function InvoiceDrawer({
@@ -60,7 +60,7 @@ export function InvoiceDrawer({
                 </Text>
               </Box>
               <Badge color={invoiceStatusColor(invoice.status)} radius="sm" size="lg">
-                {invoice.status}
+                {invoiceStatusLabel(invoice.status)}
               </Badge>
             </Group>
           </Card>

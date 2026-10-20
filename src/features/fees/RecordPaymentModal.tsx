@@ -35,15 +35,26 @@ export function RecordPaymentModal({
   const [studentId, setStudentId] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
-  const [amount, setAmount] = useState<number | ''>('');
+  // `typed`: the user entered the amount, so a loaded balance must not replace it.
+  const [amountField, setAmountField] = useState<{ value: number | ''; typed: boolean }>({
+    value: '',
+    typed: false,
+  });
+  const amount = amountField.value;
+  // One key per payment attempt: a double-click or network retry of the same
+  // attempt is refused by the server (409) instead of recorded twice.
+  const [attemptKey, setAttemptKey] = useState(() => crypto.randomUUID());
   const [method, setMethod] = useState('MoMo');
   const [channel, setChannel] = useState('');
   const [reference, setReference] = useState('');
   const [saving, setSaving] = useState(false);
 
-  // The payment goes against the student's latest invoice; default to its balance.
+  // The payment goes against the student's latest invoice; default to its
+  // balance unless an amount was already typed.
   useEffect(() => {
     setInvoice(null);
+    setAttemptKey(crypto.randomUUID());
+    setAmountField((field) => (field.typed ? field : { value: '', typed: false }));
     if (!studentId) return;
     let current = true;
     setInvoiceLoading(true);
@@ -52,7 +63,11 @@ export function RecordPaymentModal({
       .then((latest) => {
         if (!current) return;
         setInvoice(latest);
-        setAmount(latest.balance > 0 ? toCedis(latest.balance) : '');
+        setAmountField((field) =>
+          field.typed
+            ? field
+            : { value: latest.balance > 0 ? toCedis(latest.balance) : '', typed: false },
+        );
       })
       .catch((err) => current && notifyLoadError("the student's balance", err))
       .finally(() => current && setInvoiceLoading(false));
@@ -68,6 +83,7 @@ export function RecordPaymentModal({
       notifications.show({ title: 'Error', message: 'Please select a student.', color: 'red' });
       return;
     }
+    if (saving) return;
     if (pesewas <= 0) {
       notifications.show({
         title: 'Error',
@@ -78,14 +94,17 @@ export function RecordPaymentModal({
     }
     setSaving(true);
     try {
-      const payment = await feesApi.recordPayment({
-        studentId,
-        invoiceId: invoice?.id,
-        amount: pesewas,
-        paymentMethod: method,
-        bankType: channel.trim() || undefined,
-        transactionReference: reference.trim() || undefined,
-      });
+      const payment = await feesApi.recordPayment(
+        {
+          studentId,
+          invoiceId: invoice?.id,
+          amount: pesewas,
+          paymentMethod: method,
+          bankType: channel.trim() || undefined,
+          transactionReference: reference.trim() || undefined,
+        },
+        attemptKey,
+      );
       notifications.show({
         title: 'Payment Recorded Successfully',
         message: `Receipt ${payment?.receiptNumber || ''} issued for ${formatGhs(pesewas)}`,
@@ -173,7 +192,19 @@ export function RecordPaymentModal({
             min={0.01}
             required
             value={amount}
-            onChange={(v) => setAmount(typeof v === 'number' ? v : '')}
+            onChange={(v) =>
+              setAmountField(
+                typeof v === 'number' ? { value: v, typed: true } : { value: '', typed: false },
+              )
+            }
+            description={
+              invoice &&
+              invoice.balance > 0 &&
+              amount !== '' &&
+              toPesewas(amount) !== invoice.balance
+                ? `Outstanding balance is ${formatGhs(invoice.balance)}`
+                : undefined
+            }
             radius="md"
             id="input-pay-amount"
           />

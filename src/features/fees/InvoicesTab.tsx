@@ -24,7 +24,12 @@ import { PAGE_SIZE, type Invoice, type InvoiceStatus } from './api';
 import { formatGhs } from './money';
 
 export const invoiceStatusColor = (status: string) =>
-  ({ PAID: 'green', PARTIAL: 'orange', OVERPAID: 'cyan' })[status] ?? 'red';
+  ({ PAID: 'green', PARTIAL: 'orange', OVERPAID: 'cyan', CARRIED_FORWARD: 'gray' })[status] ??
+  'red';
+
+/** CARRIED_FORWARD: the remaining balance now sits on the next term's bill. */
+export const invoiceStatusLabel = (status: string) =>
+  status === 'CARRIED_FORWARD' ? 'MOVED TO NEXT BILL' : status;
 
 const STATUS_FILTERS = ['All', 'UNPAID', 'PARTIAL', 'PAID'];
 
@@ -175,7 +180,7 @@ export function InvoicesTab({
                   </Table.Td>
                   <Table.Td>
                     <Badge variant="light" radius="sm" color={invoiceStatusColor(inv.status)}>
-                      {inv.status}
+                      {invoiceStatusLabel(inv.status)}
                     </Badge>
                   </Table.Td>
                   <Table.Td style={{ textAlign: 'right' }}>

@@ -20,7 +20,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { Check, Copy, Eye, Filter, Search, ShieldCheck } from 'lucide-react';
-import { INVOICES_PAGE_SIZE, type Invoice, type InvoiceStatus } from './api';
+import { PAGE_SIZE, type Invoice, type InvoiceStatus } from './api';
 import { formatGhs } from './money';
 
 export const invoiceStatusColor = (status: string) =>
@@ -55,7 +55,7 @@ export function InvoicesTab({
   // Any filter change returns to the first page.
   const filter = (change: Partial<InvoiceFilters>) =>
     onFiltersChange({ ...filters, ...change, page: 1 });
-  const pages = Math.ceil(total / INVOICES_PAGE_SIZE);
+  const pages = Math.ceil(total / PAGE_SIZE);
 
   return (
     <>

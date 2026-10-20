@@ -95,6 +95,18 @@ export interface InvoiceQuery {
   status?: InvoiceStatus;
 }
 
+export interface PaymentQuery {
+  page: number;
+  studentId?: string | null;
+  paymentMethod?: string | null;
+}
+
+export interface FeeStructureQuery {
+  page: number;
+  termId?: string | null;
+  classId?: string | null;
+}
+
 export interface RecordPaymentRequest {
   studentId: string;
   invoiceId?: string;
@@ -105,7 +117,7 @@ export interface RecordPaymentRequest {
 }
 
 type Raw = Record<string, unknown>;
-interface Page<T> {
+export interface Page<T> {
   items: T[];
   total: number;
 }
@@ -138,19 +150,23 @@ const toFeeStructure = (raw: Raw): FeeStructure => ({
   amount: toPesewas(raw.amount),
 });
 
-export const INVOICES_PAGE_SIZE = 20;
+/** Rows per page in every fees table. */
+export const PAGE_SIZE = 20;
+
+function pageParams(page: number, filters: Record<string, string | null | undefined>) {
+  const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
+  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
+  return params;
+}
+
+function toPage<T>(data: Page<Raw> | undefined, map: (raw: Raw) => T): Page<T> {
+  return { items: (data?.items ?? []).map(map), total: data?.total ?? 0 };
+}
 
 export const feesApi = {
-  async listInvoices(query: InvoiceQuery): Promise<Page<Invoice>> {
-    const params = new URLSearchParams({
-      page: String(query.page),
-      limit: String(INVOICES_PAGE_SIZE),
-    });
-    if (query.search) params.set('search', query.search);
-    if (query.classId) params.set('classId', query.classId);
-    if (query.status) params.set('status', query.status);
-    const res = await apiClient.get<Page<Raw>>(`/schools/me/invoices?${params}`);
-    return { items: (res.data?.items ?? []).map(toInvoice), total: res.data?.total ?? 0 };
+  async listInvoices({ page, ...filters }: InvoiceQuery): Promise<Page<Invoice>> {
+    const res = await apiClient.get<Page<Raw>>(`/schools/me/invoices?${pageParams(page, filters)}`);
+    return toPage(res.data, toInvoice);
   },
   async getInvoice(id: string): Promise<Invoice> {
     const res = await apiClient.get<Raw>(`/schools/me/invoices/${encodeURIComponent(id)}`);
@@ -172,9 +188,9 @@ export const feesApi = {
       totalFeePayable: toPesewas(res.data.totalFeePayable),
     };
   },
-  async listPayments(): Promise<Payment[]> {
-    const res = await apiClient.get<Page<Raw>>('/schools/me/payments?limit=50');
-    return (res.data?.items ?? []).map(toPayment);
+  async listPayments({ page, ...filters }: PaymentQuery): Promise<Page<Payment>> {
+    const res = await apiClient.get<Page<Raw>>(`/schools/me/payments?${pageParams(page, filters)}`);
+    return toPage(res.data, toPayment);
   },
   async recordPayment({ amount, ...request }: RecordPaymentRequest): Promise<Payment | null> {
     const res = await apiClient.post<Raw[] | Raw>('/schools/me/payments', {
@@ -184,9 +200,11 @@ export const feesApi = {
     const created = Array.isArray(res.data) ? res.data[0] : res.data;
     return created ? toPayment(created) : null;
   },
-  async listFeeStructures(): Promise<FeeStructure[]> {
-    const res = await apiClient.get<Page<Raw>>('/schools/me/fee-structures');
-    return (res.data?.items ?? []).map(toFeeStructure);
+  async listFeeStructures({ page, ...filters }: FeeStructureQuery): Promise<Page<FeeStructure>> {
+    const res = await apiClient.get<Page<Raw>>(
+      `/schools/me/fee-structures?${pageParams(page, filters)}`,
+    );
+    return toPage(res.data, toFeeStructure);
   },
   async listClasses() {
     return (await apiClient.get<SchoolClass[]>('/schools/me/classes')).data ?? [];

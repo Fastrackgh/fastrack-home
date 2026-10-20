@@ -11,6 +11,7 @@ import {
   type AcademicContext,
   type FeeStructure,
   type Invoice,
+  type Page,
   type Payment,
   type SchoolClass,
   type StudentOption,
@@ -20,10 +21,13 @@ import { GenerateInvoicesModal } from './GenerateInvoicesModal';
 import { InvoiceDrawer } from './InvoiceDrawer';
 import { InvoicesTab, type InvoiceFilters } from './InvoicesTab';
 import { notifyLoadError } from './notify';
-import { PaymentsTab } from './PaymentsTab';
+import { PaymentsTab, type PaymentFilters } from './PaymentsTab';
 import { ReceiptModal } from './ReceiptModal';
 import { RecordPaymentModal } from './RecordPaymentModal';
-import { StructuresTab } from './StructuresTab';
+import { StructuresTab, type FeeStructureFilters } from './StructuresTab';
+
+/** A tab's count, shown once its list has loaded so it never reads as zero. */
+const countOf = (page: Page<unknown> | null) => (page ? ` (${page.total})` : '');
 
 /** Invoices, payments and fee structures for the signed-in user's school. */
 export function FeesPage() {
@@ -51,9 +55,21 @@ export function FeesPage() {
   const [invoicesTotal, setInvoicesTotal] = useState(0);
   const [invoicesLoading, setInvoicesLoading] = useState(true);
 
-  const [payments, setPayments] = useState<Payment[]>([]);
+  const [paymentFilters, setPaymentFilters] = useState<PaymentFilters>({
+    studentId: null,
+    paymentMethod: null,
+    page: 1,
+  });
+  const [payments, setPayments] = useState<Page<Payment> | null>(null);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
-  const [structures, setStructures] = useState<FeeStructure[]>([]);
+
+  // termId starts empty and becomes the current term once it has loaded.
+  const [structureFilters, setStructureFilters] = useState<FeeStructureFilters>({
+    termId: null,
+    classId: null,
+    page: 1,
+  });
+  const [structures, setStructures] = useState<Page<FeeStructure> | null>(null);
   const [structuresLoading, setStructuresLoading] = useState(false);
 
   const [breakdown, setBreakdown] = useState<Invoice | null>(null);
@@ -71,7 +87,11 @@ export function FeesPage() {
       if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
       else notifyLoadError('classes', classesRes.reason);
       // No current term is a valid setup state; generating invoices explains it.
-      if (termRes.status === 'fulfilled') setTerm(termRes.value);
+      if (termRes.status === 'fulfilled') {
+        const current = termRes.value;
+        setTerm(current);
+        if (current) setStructureFilters((f) => ({ ...f, termId: current.termId }));
+      }
       if (studentsRes.status === 'fulfilled') setStudents(studentsRes.value);
       else notifyLoadError('students', studentsRes.reason);
     });
@@ -99,24 +119,24 @@ export function FeesPage() {
   const loadPayments = useCallback(async () => {
     setPaymentsLoading(true);
     try {
-      setPayments(await feesApi.listPayments());
+      setPayments(await feesApi.listPayments(paymentFilters));
     } catch (err) {
       notifyLoadError('payments', err);
     } finally {
       setPaymentsLoading(false);
     }
-  }, []);
+  }, [paymentFilters]);
 
   const loadStructures = useCallback(async () => {
     setStructuresLoading(true);
     try {
-      setStructures(await feesApi.listFeeStructures());
+      setStructures(await feesApi.listFeeStructures(structureFilters));
     } catch (err) {
       notifyLoadError('fee structures', err);
     } finally {
       setStructuresLoading(false);
     }
-  }, []);
+  }, [structureFilters]);
 
   useEffect(() => {
     loadInvoices();
@@ -130,6 +150,20 @@ export function FeesPage() {
   const classOptions = useMemo(
     () => classes.map((c) => ({ value: c.id, label: `${c.className} (${c.classCode})` })),
     [classes],
+  );
+  const termOptions = term
+    ? [{ value: term.termId, label: `${term.yearLabel} · ${term.termLabel}` }]
+    : [];
+  const studentOptions = useMemo(
+    () =>
+      students.map((s) => ({
+        // The enrolment id: the payments filter accepts only this, the other endpoints either id.
+        value: s.id,
+        label: [`${s.fullName} (${s.studentCode || 'no code'})`, s.className]
+          .filter(Boolean)
+          .join(' • '),
+      })),
+    [students],
   );
 
   // The list response has no line items, so the breakdown loads the full invoice.
@@ -209,12 +243,12 @@ export function FeesPage() {
             </Tabs.Tab>
             {may.readPayments && (
               <Tabs.Tab value="payments" leftSection={<Receipt size={16} />}>
-                Payments & Receipts ({payments.length})
+                Payments & Receipts{countOf(payments)}
               </Tabs.Tab>
             )}
             {may.readStructures && (
               <Tabs.Tab value="structures" leftSection={<CreditCard size={16} />}>
-                Fee Structures ({structures.length})
+                Fee Structures{countOf(structures)}
               </Tabs.Tab>
             )}
           </Tabs.List>
@@ -233,8 +267,12 @@ export function FeesPage() {
           {may.readPayments && (
             <Tabs.Panel value="payments">
               <PaymentsTab
-                payments={payments}
+                payments={payments?.items ?? []}
+                total={payments?.total ?? 0}
                 loading={paymentsLoading}
+                filters={paymentFilters}
+                onFiltersChange={setPaymentFilters}
+                studentOptions={studentOptions}
                 onRecordPayment={startPayment}
                 onShowReceipt={setReceipt}
               />
@@ -242,7 +280,15 @@ export function FeesPage() {
           )}
           {may.readStructures && (
             <Tabs.Panel value="structures">
-              <StructuresTab structures={structures} loading={structuresLoading} />
+              <StructuresTab
+                structures={structures?.items ?? []}
+                total={structures?.total ?? 0}
+                loading={structuresLoading}
+                filters={structureFilters}
+                onFiltersChange={setStructureFilters}
+                termOptions={termOptions}
+                classOptions={classOptions}
+              />
             </Tabs.Panel>
           )}
         </Tabs>
@@ -262,7 +308,7 @@ export function FeesPage() {
       />
       {paying && (
         <RecordPaymentModal
-          students={students}
+          studentOptions={studentOptions}
           onClose={() => setPaying(false)}
           onRecorded={(payment) => {
             setPaying(false);

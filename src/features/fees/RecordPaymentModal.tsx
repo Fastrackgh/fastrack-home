@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Box,
   Button,
@@ -18,17 +18,17 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { CheckCircle } from 'lucide-react';
-import { feesApi, PAYMENT_METHODS, type Invoice, type Payment, type StudentOption } from './api';
+import { feesApi, PAYMENT_METHODS, type Invoice, type Payment } from './api';
 import { formatGhs, toCedis, toPesewas } from './money';
 import { errorMessage, notifyLoadError } from './notify';
 
 /** Rendered only while open, so every payment starts from an empty form. */
 export function RecordPaymentModal({
-  students,
+  studentOptions,
   onClose,
   onRecorded,
 }: {
-  students: StudentOption[];
+  studentOptions: { value: string; label: string }[];
   onClose: () => void;
   onRecorded: (payment: Payment | null) => void;
 }) {
@@ -40,15 +40,6 @@ export function RecordPaymentModal({
   const [channel, setChannel] = useState('');
   const [reference, setReference] = useState('');
   const [saving, setSaving] = useState(false);
-
-  const studentOptions = useMemo(
-    () =>
-      students.map((s) => ({
-        value: s.studentId || s.id,
-        label: `${s.fullName} (${s.studentCode || 'No Code'}) • ${s.className || 'Class'}`,
-      })),
-    [students],
-  );
 
   // The payment goes against the student's latest invoice; default to its balance.
   useEffect(() => {

@@ -1,3 +1,5 @@
+import { loginPathFor } from '@/lib/rbac/routes';
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 /**
@@ -43,7 +45,11 @@ export const SESSION_STORAGE_KEYS = {
   refreshToken: 'fastrack_refresh_token',
   user: 'fastrack_user',
   school: 'fastrack_school',
+  parentActiveWard: 'fastrack_parent_active_ward',
 } as const;
+
+/** Prefix of the parent portal's offline copies of API reads (one key per read). */
+export const SESSION_CACHE_PREFIX = 'fastrack_cache:';
 
 class ApiClient {
   /** Shared by every request that hits a 401 while a refresh is in flight. */
@@ -74,6 +80,9 @@ class ApiClient {
   public clearSession() {
     if (typeof window === 'undefined') return;
     Object.values(SESSION_STORAGE_KEYS).forEach((key) => localStorage.removeItem(key));
+    Object.keys(localStorage)
+      .filter((key) => key.startsWith(SESSION_CACHE_PREFIX))
+      .forEach((key) => localStorage.removeItem(key));
   }
 
   private refreshOnce(): Promise<string | null> {
@@ -145,8 +154,9 @@ class ApiClient {
     ) {
       const newToken = await this.refreshOnce();
       if (!newToken) {
-        if (typeof window !== 'undefined' && window.location.pathname !== '/school-admin/login') {
-          window.location.href = '/school-admin/login';
+        if (typeof window !== 'undefined') {
+          const loginPath = loginPathFor(window.location.pathname);
+          if (window.location.pathname !== loginPath) window.location.href = loginPath;
         }
         throw new ApiError(401, 'Session expired. Please log in again.');
       }

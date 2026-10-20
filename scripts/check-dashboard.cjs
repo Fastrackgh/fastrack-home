@@ -286,10 +286,34 @@ check('each role reaches only its own pages', () => {
   assert.deepEqual(routes(teacher), ['dashboard', 'students', 'attendance']);
   assert.deepEqual(routes(accountOfficer), ['dashboard', 'students', 'fees']);
   assert.deepEqual(routes(secretary), ['dashboard', 'students', 'attendance', 'admissions']);
-  assert.deepEqual(routes(parent), ['dashboard']);
+  assert.deepEqual(routes(parent), [
+    'parentHome',
+    'parentWards',
+    'parentFees',
+    'parentReports',
+    'parentAttendance',
+    'parentMore',
+  ]);
   assert.deepEqual(routes(superAdmin), ['platform']);
   assert.equal(rbac.landingPathFor('SUPER_ADMIN'), '/school-admin/platform');
-  assert.equal(rbac.landingPathFor('PARENT'), '/school-admin/dashboard');
+  assert.equal(rbac.landingPathFor('PARENT'), '/parent');
+});
+check('parents live in the parent portal and staff stay out of it', () => {
+  assert.equal(rbac.canAccessPath(parent, '/school-admin/dashboard'), false);
+  assert.ok(rbac.canAccessPath(parent, '/parent'));
+  assert.ok(rbac.canAccessPath(parent, '/parent/fees/inv-1'));
+  // Receipts need the backend's payments:read, which this parent lacks.
+  assert.equal(rbac.canAccessPath(parent, '/parent/receipts/pay-1'), false);
+  assert.equal(rbac.canAccessPath(teacher, '/parent'), false);
+  assert.equal(rbac.canAccessPath(superAdmin, '/parent/wards'), false);
+  assert.equal(rbac.loginPathFor('/parent/fees'), '/parent/login');
+  assert.equal(rbac.loginPathFor('/school-admin/fees'), '/school-admin/login');
+  assert.equal(rbac.loginPathFor('/parentx'), '/school-admin/login');
+  assert.equal(rbac.safeRedirectTarget('/parent/fees?term=1', parent), '/parent/fees?term=1');
+  assert.equal(rbac.safeRedirectTarget('/parent/fees', teacher), null);
+  assert.equal(rbac.safeRedirectTarget('//evil.example/parent', parent), null);
+  assert.ok(rbac.can(parent, 'payments:make'));
+  assert.equal(rbac.can(accountOfficer, 'payments:make'), false);
 });
 check('staff without a school, signed-out visitors and unregistered pages are denied', () => {
   const noTenant = { ...accountOfficer, schoolId: null };

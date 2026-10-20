@@ -3,7 +3,7 @@
 import React, { useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import { Center, Loader } from '@mantine/core';
-import { canAccessPath, landingPathFor, LOGIN_PATH } from '@/lib/rbac';
+import { canAccessPath, landingPathFor, loginPathFor } from '@/lib/rbac';
 import { useAuth } from './auth-context';
 
 /**
@@ -21,7 +21,7 @@ export function RouteGuard({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (isLoading) return;
     if (!user) {
-      router.replace(`${LOGIN_PATH}?next=${encodeURIComponent(pathname)}`);
+      router.replace(`${loginPathFor(pathname)}?next=${encodeURIComponent(pathname)}`);
     } else if (!allowed) {
       router.replace(landingPathFor(user.role));
     }

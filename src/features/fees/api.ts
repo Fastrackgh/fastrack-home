@@ -1,4 +1,5 @@
-import { apiClient, ApiResponse, PageMeta } from '@/lib/api-client';
+import { apiClient, PageMeta } from '@/lib/api-client';
+import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { toCedis, toPesewas, type Pesewas } from './money';
 
 // Amount fields below are whole pesewas; the API sends and receives cedis.
@@ -194,13 +195,10 @@ export interface RecordPaymentRequest {
   transactionReference?: string;
 }
 
-type Raw = Record<string, unknown>;
-export interface Page<T> {
-  items: T[];
-  total: number;
-}
+export type { Page };
+export { PAGE_SIZE } from '@/lib/pagination';
 
-const toInvoice = (raw: Raw): Invoice => ({
+export const toInvoice = (raw: Raw): Invoice => ({
   ...(raw as unknown as Invoice),
   arrearsBf: toPesewas(raw.arrearsBf),
   totalFees: toPesewas(raw.totalFees),
@@ -216,7 +214,7 @@ const toInvoice = (raw: Raw): Invoice => ({
     : undefined,
 });
 
-const toPayment = (raw: Raw): Payment => ({
+export const toPayment = (raw: Raw): Payment => ({
   ...(raw as unknown as Payment),
   amountPaid: toPesewas(raw.amountPaid),
   previousBalance: toPesewas(raw.previousBalance),
@@ -235,20 +233,6 @@ const toDiscount = (raw: Raw): Discount => ({
   ...(raw as unknown as Discount),
   value: isPercentage(raw.discountType) ? Number(raw.discountValue) : toPesewas(raw.discountValue),
 });
-
-/** Rows per page in every fees table. */
-export const PAGE_SIZE = 20;
-
-function pageParams(page: number, filters: Record<string, string | null | undefined>) {
-  const params = new URLSearchParams({ page: String(page), limit: String(PAGE_SIZE) });
-  for (const [key, value] of Object.entries(filters)) if (value) params.set(key, value);
-  return params;
-}
-
-/** A v2 list response: rows in `data`, pagination in `meta`. */
-function toPage<T>(res: ApiResponse<Raw[], PageMeta>, map: (raw: Raw) => T): Page<T> {
-  return { items: (res.data ?? []).map(map), total: res.meta?.total ?? 0 };
-}
 
 export const feesApi = {
   async listInvoices({ page, ...filters }: InvoiceQuery): Promise<Page<Invoice>> {

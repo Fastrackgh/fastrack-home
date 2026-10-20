@@ -31,6 +31,8 @@ export const FEATURE_PERMISSIONS = [
   'messages:read',
   'messages:send',
   'data:export',
+  /** Paying a bill online from the parent portal. */
+  'payments:make',
 ] as const;
 
 export type FeaturePermission = (typeof FEATURE_PERMISSIONS)[number];
@@ -110,6 +112,7 @@ export const FEATURE_GRANTS: Record<Role, readonly FeaturePermission[]> = {
     'documents:read',
     'messages:read',
     'messages:send',
+    'payments:make',
   ],
 };
 

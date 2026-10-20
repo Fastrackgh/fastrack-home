@@ -3,7 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, SESSION_STORAGE_KEYS } from '@/lib/api-client';
-import { can as canWith, LOGIN_PATH, type AccessPermission } from '@/lib/rbac';
+import { can as canWith, loginPathFor, type AccessPermission } from '@/lib/rbac';
 import {
   parseAuthUser,
   parseEnabledModules,
@@ -21,9 +21,25 @@ interface AuthContextType {
     email: string,
     password: string,
   ) => Promise<{ user: AuthUser; school: SchoolProfile | null }>;
+  /** Creates a parent account (`POST /auth/register-parent`) and signs it in. */
+  registerParent: (input: ParentRegistration) => Promise<{ user: AuthUser }>;
   logout: () => void;
   refreshSchool: () => Promise<SchoolProfile | null>;
   can: (permission: AccessPermission) => boolean;
+}
+
+export interface ParentRegistration {
+  firstName: string;
+  lastName: string;
+  email: string;
+  password: string;
+  phone?: string;
+}
+
+interface LoginResponse {
+  accessToken: string;
+  refreshToken: string;
+  user: unknown;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -108,37 +124,53 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchModules().finally(() => setIsLoading(false));
   }, [fetchSchoolProfile, fetchModules]);
 
-  const login = async (email: string, password: string) => {
+  /**
+   * Starts a session from a login-shaped response, after dropping any previous
+   * user's data. Loading stays on until `finish` has loaded the rest of the session.
+   */
+  const signIn = async <R,>(
+    request: () => Promise<{ data: LoginResponse }>,
+    finish: (user: AuthUser) => Promise<R>,
+  ): Promise<R> => {
     setIsLoading(true);
     // Drop anything cached from a previous user before the new session starts.
     endSession();
     try {
-      const res = await apiClient.post<{
-        accessToken: string;
-        refreshToken: string;
-        user: unknown;
-      }>('/auth/login', { email, password });
+      const res = await request();
       const authUser = parseAuthUser(res.data.user);
       if (!authUser) throw new Error(UNRECOGNISED_ROLE_MESSAGE);
 
       apiClient.setTokens(res.data.accessToken, res.data.refreshToken);
       localStorage.setItem(SESSION_STORAGE_KEYS.user, JSON.stringify(authUser));
       setUser(authUser);
-
-      if (!authUser.schoolId) return { user: authUser, school: null };
-      const [schoolProfile, modules] = await Promise.all([
-        fetchSchoolProfile(authUser.schoolId),
-        fetchModules(),
-      ]);
-      return { user: { ...authUser, modules }, school: schoolProfile };
+      return await finish(authUser);
     } finally {
       setIsLoading(false);
     }
   };
 
+  const login = (email: string, password: string) =>
+    signIn(
+      () => apiClient.post<LoginResponse>('/auth/login', { email, password }),
+      async (authUser) => {
+        if (!authUser.schoolId) return { user: authUser, school: null };
+        const [schoolProfile, modules] = await Promise.all([
+          fetchSchoolProfile(authUser.schoolId),
+          fetchModules(),
+        ]);
+        return { user: { ...authUser, modules }, school: schoolProfile };
+      },
+    );
+
+  const registerParent = (input: ParentRegistration) =>
+    signIn(
+      () => apiClient.post<LoginResponse>('/auth/register-parent', input),
+      async (authUser) => ({ user: authUser }),
+    );
+
   const logout = () => {
     endSession();
-    router.replace(LOGIN_PATH);
+    router.replace(loginPathFor(window.location.pathname));
   };
 
   const refreshSchool = useCallback(
@@ -154,6 +186,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: user !== null,
         login,
+        registerParent,
         logout,
         refreshSchool,
         can: (permission) => canWith(user, permission),

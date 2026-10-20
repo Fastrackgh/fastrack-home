@@ -1,0 +1,23 @@
+{
+  "id": "/parent",
+  "name": "Fastrack Parent",
+  "short_name": "Fastrack",
+  "description": "Your children's fees, reports and attendance from their school, in one place.",
+  "start_url": "/parent",
+  "scope": "/parent",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#ffffff",
+  "theme_color": "#e01a2b",
+  "categories": ["education"],
+  "icons": [
+    { "src": "/parent-app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/parent-app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/parent-app/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/parent-app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Fees", "url": "/parent/fees", "icons": [{ "src": "/parent-app/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Reports", "url": "/parent/reports", "icons": [{ "src": "/parent-app/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

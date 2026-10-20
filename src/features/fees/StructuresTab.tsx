@@ -2,6 +2,7 @@
 
 import {
   Badge,
+  Button,
   Group,
   Loader,
   Pagination,
@@ -11,6 +12,7 @@ import {
   Table,
   Text,
 } from '@mantine/core';
+import { Pencil, PlusCircle, Trash2 } from 'lucide-react';
 import { PAGE_SIZE, type FeeStructure } from './api';
 import { formatGhs } from './money';
 
@@ -31,6 +33,9 @@ export function StructuresTab({
   onFiltersChange,
   termOptions,
   classOptions,
+  onAdd,
+  onEdit,
+  onRemove,
 }: {
   structures: FeeStructure[];
   total: number;
@@ -39,33 +44,52 @@ export function StructuresTab({
   onFiltersChange: (filters: FeeStructureFilters) => void;
   termOptions: { value: string; label: string }[];
   classOptions: { value: string; label: string }[];
+  /** The three actions are absent when the user may not manage fee structures. */
+  onAdd?: () => void;
+  onEdit?: (structure: FeeStructure) => void;
+  onRemove?: (structure: FeeStructure) => void;
 }) {
   // Any filter change returns to the first page.
   const filter = (change: Partial<FeeStructureFilters>) =>
     onFiltersChange({ ...filters, ...change, page: 1 });
   const pages = Math.ceil(total / PAGE_SIZE);
+  const manage = onEdit !== undefined && onRemove !== undefined;
+  const columns = manage ? 7 : 6;
 
   return (
     <>
-      <Group gap="sm" mb="md" wrap="wrap">
-        <Select
-          data={[...termOptions, { value: ALL, label: 'All terms' }]}
-          value={filters.termId ?? ALL}
-          onChange={(v) => filter({ termId: v === ALL ? null : v })}
-          allowDeselect={false}
-          radius="md"
-          w={220}
-          id="select-filter-structure-term"
-        />
-        <Select
-          data={[{ value: ALL, label: 'All classes' }, ...classOptions]}
-          value={filters.classId ?? ALL}
-          onChange={(v) => filter({ classId: v === ALL ? null : v })}
-          allowDeselect={false}
-          radius="md"
-          w={200}
-          id="select-filter-structure-class"
-        />
+      <Group justify="space-between" mb="md" wrap="wrap">
+        <Group gap="sm" wrap="wrap">
+          <Select
+            data={[...termOptions, { value: ALL, label: 'All terms' }]}
+            value={filters.termId ?? ALL}
+            onChange={(v) => filter({ termId: v === ALL ? null : v })}
+            allowDeselect={false}
+            radius="md"
+            w={220}
+            id="select-filter-structure-term"
+          />
+          <Select
+            data={[{ value: ALL, label: 'All classes' }, ...classOptions]}
+            value={filters.classId ?? ALL}
+            onChange={(v) => filter({ classId: v === ALL ? null : v })}
+            allowDeselect={false}
+            radius="md"
+            w={200}
+            id="select-filter-structure-class"
+          />
+        </Group>
+        {onAdd && (
+          <Button
+            leftSection={<PlusCircle size={16} />}
+            color="fastrackRed"
+            radius="md"
+            onClick={onAdd}
+            id="btn-add-structures"
+          >
+            Set fees
+          </Button>
+        )}
       </Group>
 
       <ScrollArea>
@@ -76,13 +100,15 @@ export function StructuresTab({
               <Table.Th>Class Cohort</Table.Th>
               <Table.Th>Academic Term</Table.Th>
               <Table.Th>Amount</Table.Th>
+              <Table.Th>Due</Table.Th>
               <Table.Th>Category</Table.Th>
+              {manage && <Table.Th style={{ textAlign: 'right' }}>Actions</Table.Th>}
             </Table.Tr>
           </Table.Thead>
           <Table.Tbody>
             {loading ? (
               <Table.Tr>
-                <Table.Td colSpan={5}>
+                <Table.Td colSpan={columns}>
                   <Stack align="center" py="xl">
                     <Loader size="sm" color="fastrackRed" />
                   </Stack>
@@ -90,7 +116,7 @@ export function StructuresTab({
               </Table.Tr>
             ) : structures.length === 0 ? (
               <Table.Tr>
-                <Table.Td colSpan={5}>
+                <Table.Td colSpan={columns}>
                   <Text size="sm" c="dimmed" ta="center" py="xl">
                     No fee structures match this term and class.
                   </Text>
@@ -106,17 +132,27 @@ export function StructuresTab({
                   </Table.Td>
                   <Table.Td>
                     <Badge variant="light" color="blue" radius="sm">
-                      {s.className || 'All School'}
+                      {s.className || '—'}
                     </Badge>
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c="dimmed">
-                      {s.termLabel || '—'}
+                      {[s.yearLabel, s.termLabel].filter(Boolean).join(' · ') || '—'}
                     </Text>
                   </Table.Td>
                   <Table.Td>
                     <Text fw={700} size="sm">
                       {formatGhs(s.amount)}
+                    </Text>
+                    {s.penalty > 0 ? (
+                      <Text size="xs" c="dimmed">
+                        {formatGhs(s.penalty)} if late
+                      </Text>
+                    ) : null}
+                  </Table.Td>
+                  <Table.Td>
+                    <Text size="sm" c="dimmed">
+                      {s.dueDate || '—'}
                     </Text>
                   </Table.Td>
                   <Table.Td>
@@ -124,6 +160,29 @@ export function StructuresTab({
                       {s.isOptional ? 'Optional / Elective' : 'Mandatory'}
                     </Badge>
                   </Table.Td>
+                  {manage && (
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      <Group gap={4} justify="flex-end" wrap="nowrap">
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          leftSection={<Pencil size={13} />}
+                          onClick={() => onEdit(s)}
+                        >
+                          Edit
+                        </Button>
+                        <Button
+                          size="xs"
+                          variant="subtle"
+                          color="red"
+                          leftSection={<Trash2 size={13} />}
+                          onClick={() => onRemove(s)}
+                        >
+                          Remove
+                        </Button>
+                      </Group>
+                    </Table.Td>
+                  )}
                 </Table.Tr>
               ))
             )}

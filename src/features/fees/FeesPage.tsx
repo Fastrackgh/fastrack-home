@@ -3,20 +3,30 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Button, Card, Tabs } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
-import { CreditCard, FileText, PlusCircle, Receipt, RefreshCw } from 'lucide-react';
+import {
+  BadgePercent,
+  CreditCard,
+  FileText,
+  PlusCircle,
+  Receipt,
+  RefreshCw,
+  Tags,
+} from 'lucide-react';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import {
   feesApi,
   type AcademicContext,
-  type FeeStructure,
+  type FeeType,
   type Invoice,
   type Page,
   type Payment,
   type SchoolClass,
   type StudentOption,
 } from './api';
+import { DiscountsPanel } from './DiscountsPanel';
 import { FeeMetrics } from './FeeMetrics';
+import { FeeTypesPanel } from './FeeTypesPanel';
 import { GenerateInvoicesModal } from './GenerateInvoicesModal';
 import { InvoiceDrawer } from './InvoiceDrawer';
 import { InvoicesTab, type InvoiceFilters } from './InvoicesTab';
@@ -24,12 +34,12 @@ import { notifyLoadError } from './notify';
 import { PaymentsTab, type PaymentFilters } from './PaymentsTab';
 import { ReceiptModal } from './ReceiptModal';
 import { RecordPaymentModal } from './RecordPaymentModal';
-import { StructuresTab, type FeeStructureFilters } from './StructuresTab';
+import { StructuresPanel } from './StructuresPanel';
 
 /** A tab's count, shown once its list has loaded so it never reads as zero. */
-const countOf = (page: Page<unknown> | null) => (page ? ` (${page.total})` : '');
+const countOf = (total: number | null | undefined) => (total == null ? '' : ` (${total})`);
 
-/** Invoices, payments and fee structures for the signed-in user's school. */
+/** Invoices, payments, and the fee setup for the signed-in user's school. */
 export function FeesPage() {
   const { can, school } = useAuth();
   const may = {
@@ -37,12 +47,20 @@ export function FeesPage() {
     collectPayments: can('payments:collect'),
     generateInvoices: can('invoices:generate'),
     readStructures: can('fee_structures:read'),
+    manageStructures: can('fee_structures:manage'),
+    readFeeTypes: can('fee_types:read'),
+    manageFeeTypes: can('fee_types:manage'),
+    readDiscounts: can('discounts:read'),
+    manageDiscounts: can('discounts:manage'),
   };
   const [activeTab, setActiveTab] = useState<string | null>('invoices');
 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [term, setTerm] = useState<AcademicContext | null>(null);
+  const [terms, setTerms] = useState<AcademicContext[]>([]);
   const [students, setStudents] = useState<StudentOption[]>([]);
+  const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
+  const [feeTypesLoading, setFeeTypesLoading] = useState(false);
 
   const [filters, setFilters] = useState<InvoiceFilters>({
     search: '',
@@ -63,14 +81,10 @@ export function FeesPage() {
   const [payments, setPayments] = useState<Page<Payment> | null>(null);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
 
-  // termId starts empty and becomes the current term once it has loaded.
-  const [structureFilters, setStructureFilters] = useState<FeeStructureFilters>({
-    termId: null,
-    classId: null,
-    page: 1,
-  });
-  const [structures, setStructures] = useState<Page<FeeStructure> | null>(null);
-  const [structuresLoading, setStructuresLoading] = useState(false);
+  // Totals reported by the self-loading setup tabs, for their tab labels.
+  const [structuresTotal, setStructuresTotal] = useState<number | null>(null);
+  const [discountsTotal, setDiscountsTotal] = useState<number | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
 
   const [breakdown, setBreakdown] = useState<Invoice | null>(null);
   const [breakdownLoading, setBreakdownLoading] = useState(false);
@@ -82,20 +96,35 @@ export function FeesPage() {
     Promise.allSettled([
       feesApi.listClasses(),
       feesApi.currentTerm(),
+      feesApi.listTerms(),
       feesApi.listStudentOptions(),
-    ]).then(([classesRes, termRes, studentsRes]) => {
+    ]).then(([classesRes, termRes, termsRes, studentsRes]) => {
       if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
       else notifyLoadError('classes', classesRes.reason);
       // No current term is a valid setup state; generating invoices explains it.
-      if (termRes.status === 'fulfilled') {
-        const current = termRes.value;
-        setTerm(current);
-        if (current) setStructureFilters((f) => ({ ...f, termId: current.termId }));
-      }
+      if (termRes.status === 'fulfilled') setTerm(termRes.value);
+      if (termsRes.status === 'fulfilled') setTerms(termsRes.value);
+      else notifyLoadError('academic terms', termsRes.reason);
       if (studentsRes.status === 'fulfilled') setStudents(studentsRes.value);
       else notifyLoadError('students', studentsRes.reason);
     });
   }, []);
+
+  const loadFeeTypes = useCallback(async () => {
+    setFeeTypesLoading(true);
+    try {
+      setFeeTypes(await feesApi.listFeeTypes());
+    } catch (err) {
+      notifyLoadError('fee types', err);
+    } finally {
+      setFeeTypesLoading(false);
+    }
+  }, []);
+
+  // The fee structure and discount forms need the fee types as well.
+  useEffect(() => {
+    if (may.readFeeTypes) loadFeeTypes();
+  }, [may.readFeeTypes, loadFeeTypes]);
 
   const { page, classId, status } = filters;
   const loadInvoices = useCallback(async () => {
@@ -127,33 +156,18 @@ export function FeesPage() {
     }
   }, [paymentFilters]);
 
-  const loadStructures = useCallback(async () => {
-    setStructuresLoading(true);
-    try {
-      setStructures(await feesApi.listFeeStructures(structureFilters));
-    } catch (err) {
-      notifyLoadError('fee structures', err);
-    } finally {
-      setStructuresLoading(false);
-    }
-  }, [structureFilters]);
-
   useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
 
   useEffect(() => {
     if (activeTab === 'payments' && may.readPayments) loadPayments();
-    if (activeTab === 'structures' && may.readStructures) loadStructures();
-  }, [activeTab, may.readPayments, may.readStructures, loadPayments, loadStructures]);
+  }, [activeTab, may.readPayments, loadPayments]);
 
   const classOptions = useMemo(
     () => classes.map((c) => ({ value: c.id, label: `${c.className} (${c.classCode})` })),
     [classes],
   );
-  const termOptions = term
-    ? [{ value: term.termId, label: `${term.yearLabel} · ${term.termLabel}` }]
-    : [];
   const studentOptions = useMemo(
     () =>
       students.map((s) => ({
@@ -182,7 +196,8 @@ export function FeesPage() {
   const refresh = () => {
     loadInvoices();
     if (may.readPayments) loadPayments();
-    if (may.readStructures) loadStructures();
+    if (may.readFeeTypes) loadFeeTypes();
+    setReloadKey((key) => key + 1);
   };
 
   const startPayment = may.collectPayments ? () => setPaying(true) : undefined;
@@ -193,8 +208,8 @@ export function FeesPage() {
         title="Fees & Billing"
         subtitle={
           term
-            ? `Invoices, payments and fee structures · ${term.yearLabel} · ${term.termLabel}`
-            : 'Invoices, payments and fee structures.'
+            ? `Invoices, payments and fee setup · ${term.yearLabel} · ${term.termLabel}`
+            : 'Invoices, payments and fee setup.'
         }
         actions={
           <>
@@ -243,12 +258,22 @@ export function FeesPage() {
             </Tabs.Tab>
             {may.readPayments && (
               <Tabs.Tab value="payments" leftSection={<Receipt size={16} />}>
-                Payments & Receipts{countOf(payments)}
+                Payments & Receipts{countOf(payments?.total)}
               </Tabs.Tab>
             )}
             {may.readStructures && (
               <Tabs.Tab value="structures" leftSection={<CreditCard size={16} />}>
-                Fee Structures{countOf(structures)}
+                Fee Structures{countOf(structuresTotal)}
+              </Tabs.Tab>
+            )}
+            {may.readFeeTypes && (
+              <Tabs.Tab value="fee-types" leftSection={<Tags size={16} />}>
+                Fee Types{countOf(feeTypesLoading ? null : feeTypes.length)}
+              </Tabs.Tab>
+            )}
+            {may.readDiscounts && (
+              <Tabs.Tab value="discounts" leftSection={<BadgePercent size={16} />}>
+                Discounts{countOf(discountsTotal)}
               </Tabs.Tab>
             )}
           </Tabs.List>
@@ -280,14 +305,39 @@ export function FeesPage() {
           )}
           {may.readStructures && (
             <Tabs.Panel value="structures">
-              <StructuresTab
-                structures={structures?.items ?? []}
-                total={structures?.total ?? 0}
-                loading={structuresLoading}
-                filters={structureFilters}
-                onFiltersChange={setStructureFilters}
-                termOptions={termOptions}
+              <StructuresPanel
+                active={activeTab === 'structures'}
+                reloadKey={reloadKey}
+                terms={terms}
+                currentTermId={term?.termId ?? null}
                 classOptions={classOptions}
+                feeTypes={feeTypes}
+                canManage={may.manageStructures}
+                onTotal={setStructuresTotal}
+              />
+            </Tabs.Panel>
+          )}
+          {may.readFeeTypes && (
+            <Tabs.Panel value="fee-types">
+              <FeeTypesPanel
+                feeTypes={feeTypes}
+                loading={feeTypesLoading}
+                canManage={may.manageFeeTypes}
+                onChanged={loadFeeTypes}
+              />
+            </Tabs.Panel>
+          )}
+          {may.readDiscounts && (
+            <Tabs.Panel value="discounts">
+              <DiscountsPanel
+                active={activeTab === 'discounts'}
+                reloadKey={reloadKey}
+                terms={terms}
+                currentTermId={term?.termId ?? null}
+                studentOptions={studentOptions}
+                feeTypes={feeTypes}
+                canManage={may.manageDiscounts}
+                onTotal={setDiscountsTotal}
               />
             </Tabs.Panel>
           )}

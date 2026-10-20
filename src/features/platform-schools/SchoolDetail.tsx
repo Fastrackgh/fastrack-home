@@ -45,7 +45,7 @@ import type {
   PlatformStudent,
   SchoolProfileUpdate,
 } from './model';
-import { TemplateEditor, documentTemplatesApi } from '@/features/document-templates';
+import { SchoolDesigns } from '@/features/document-templates';
 import styles from './SchoolDetail.module.css';
 
 const errorMessage = (error: unknown, fallback: string) =>
@@ -221,7 +221,7 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
               <ModulesTab schoolId={school.id} onChange={load} />
             </Tabs.Panel>
             <Tabs.Panel value="designs" pt="lg">
-              <TemplateEditor api={documentTemplatesApi(school.id, true)} canManage />
+              <SchoolDesigns schoolId={school.id} />
             </Tabs.Panel>
           </Tabs>
 

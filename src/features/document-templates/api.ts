@@ -18,6 +18,70 @@ export interface TemplateField {
   description: string;
 }
 
+export type PropType =
+  | 'text'
+  | 'multiline'
+  | 'richtext'
+  | 'toggle'
+  | 'select'
+  | 'multiselect'
+  | 'color'
+  | 'number'
+  | 'image'
+  | 'list'
+  | 'feeGroups';
+
+/** One editable property of a section; the builder draws its form from this. */
+export interface PropSchema {
+  key: string;
+  label: string;
+  type: PropType;
+  default: unknown;
+  help?: string;
+  options?: Array<{ value: string; label: string }>;
+  min?: number;
+  max?: number;
+  itemFields?: PropSchema[];
+}
+
+/** A section type of the visual builder. */
+export interface BlockSchema {
+  type: string;
+  label: string;
+  description: string;
+  icon: string;
+  container: boolean;
+  props: PropSchema[];
+}
+
+/** A field a text can show, e.g. the student's name. */
+export interface Placeholder {
+  path: string;
+  label: string;
+  format?: 'money' | 'date';
+}
+
+export interface LayoutBlock {
+  id: string;
+  type: string;
+  props: Record<string, unknown>;
+  hidden?: boolean;
+  children?: { left: LayoutBlock[]; right: LayoutBlock[] };
+}
+
+export interface DocumentLayout {
+  version: 1;
+  theme: Record<string, unknown>;
+  blocks: LayoutBlock[];
+}
+
+export interface StarterDesign {
+  key: string;
+  label: string;
+  description: string;
+  layout: DocumentLayout;
+}
+
 /** A kind's data contract, default design and sample data (`GET …/kinds`). */
 export interface DocumentKindInfo {
   kind: DocumentKind;
@@ -27,6 +91,10 @@ export interface DocumentKindInfo {
   defaultHtml: string;
   defaultCss: string;
   sample: unknown;
+  placeholders: Placeholder[];
+  blocks: BlockSchema[];
+  themeProps: PropSchema[];
+  starters: StarterDesign[];
 }
 
 export interface DocumentTemplate {
@@ -39,6 +107,9 @@ export interface DocumentTemplate {
   html: string;
   css: string;
   settings: Record<string, unknown>;
+  /** The visual design; null for code-mode templates. */
+  layout: DocumentLayout | null;
+  mode: 'visual' | 'code';
   contractVersion: number;
   basedOnId: string | null;
   publishedAt: string | null;
@@ -50,6 +121,13 @@ export interface TemplateParts {
   html: string;
   css: string;
   settings: Record<string, unknown>;
+}
+
+/** An image a school uploaded to place in its designs (public URL). */
+export interface DesignImage {
+  id: string;
+  url: string;
+  originalFilename: string | null;
 }
 
 /** An uploaded sample design (PDF or image) from `/media`. */
@@ -81,11 +159,20 @@ export function documentTemplatesApi(schoolId: string, asPlatform: boolean) {
       return (await apiClient.get<DocumentTemplate[]>(`${base}?${params}`)).data ?? [];
     },
     async create(
-      input: { kind: DocumentKind; name?: string; basedOnId?: string } & Partial<TemplateParts>,
+      input: {
+        kind: DocumentKind;
+        name?: string;
+        basedOnId?: string;
+        starter?: string;
+        layout?: DocumentLayout;
+      } & Partial<TemplateParts>,
     ) {
       return (await apiClient.post<DocumentTemplate>(base, input)).data;
     },
-    async update(id: string, input: { name?: string } & Partial<TemplateParts>) {
+    async update(
+      id: string,
+      input: { name?: string; layout?: DocumentLayout } & Partial<TemplateParts>,
+    ) {
       return (await apiClient.patch<DocumentTemplate>(one(id), input)).data;
     },
     async preview(kind: DocumentKind, parts: TemplateParts, invoiceId?: string) {
@@ -95,6 +182,50 @@ export function documentTemplatesApi(schoolId: string, asPlatform: boolean) {
         ...(invoiceId ? { invoiceId } : {}),
       });
       return res.data.html;
+    },
+    /** Renders a saved version (allowed for principals, even code-mode ones). */
+    async previewSaved(id: string, invoiceId?: string) {
+      const res = await apiClient.post<{ html: string }>(
+        `${one(id)}/preview`,
+        invoiceId ? { invoiceId } : {},
+      );
+      return res.data.html;
+    },
+    /** Renders an unsaved visual design (live builder preview). */
+    async previewLayout(kind: DocumentKind, layout: DocumentLayout, invoiceId?: string) {
+      const res = await apiClient.post<{ html: string }>(`${base}/preview`, {
+        kind,
+        layout,
+        ...(invoiceId ? { invoiceId } : {}),
+      });
+      return res.data.html;
+    },
+    /** Fastrack staff only: detach a draft from the visual builder. */
+    async convertToCode(id: string) {
+      return (await apiClient.post<DocumentTemplate>(`${one(id)}/convert-to-code`)).data;
+    },
+    async images() {
+      const params = new URLSearchParams({
+        ownerType: 'SCHOOL',
+        ownerId: schoolId,
+        purpose: 'TEMPLATE_ASSET',
+      });
+      return (await apiClient.get<DesignImage[]>(`/media?${params}`)).data ?? [];
+    },
+    async uploadImage(file: File) {
+      const form = new FormData();
+      form.append('purpose', 'TEMPLATE_ASSET');
+      form.append('ownerType', 'SCHOOL');
+      form.append('ownerId', schoolId);
+      form.append('file', file);
+      return (await apiClient.postForm<DesignImage>('/media', form)).data;
+    },
+    /** The school's fee types, for grouping fees in the fee table. */
+    async feeTypes() {
+      const path = asPlatform
+        ? `/super-admin/schools/${encodeURIComponent(schoolId)}/fee-types`
+        : '/schools/me/fee-types';
+      return (await apiClient.get<Array<{ id: string; name: string }>>(path)).data ?? [];
     },
     async publish(id: string) {
       return (await apiClient.post<DocumentTemplate>(`${one(id)}/publish`)).data;

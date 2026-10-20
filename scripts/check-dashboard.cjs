@@ -29,6 +29,7 @@ const rbac = load('src/lib/rbac/index.ts');
 const session = load('src/lib/auth/session.ts');
 const nav = load('src/features/workspace/navigation.ts');
 const money = load('src/features/fees/money.ts');
+const dates = load('src/features/calendar/dates.ts');
 
 // The permissions each role receives by default from the backend
 // (fastrack-backend/src/common/auth/role-permissions.matrix.ts), limited to
@@ -52,6 +53,8 @@ const backendDefaults = {
     'expenses:create',
     'timetable:read',
     'timetable:manage',
+    'calendar:read',
+    'calendar:manage',
   ],
   ACADEMIC_HEAD: [
     'students:read',
@@ -66,6 +69,8 @@ const backendDefaults = {
     'attendance:mark',
     'timetable:read',
     'timetable:manage',
+    'calendar:read',
+    'calendar:manage',
   ],
   ACCOUNT_OFFICER: [
     'students:read',
@@ -76,6 +81,7 @@ const backendDefaults = {
     'payments:collect',
     'discounts:manage',
     'expenses:create',
+    'calendar:read',
   ],
   SECRETARY: [
     'students:read',
@@ -86,9 +92,24 @@ const backendDefaults = {
     'staff:read',
     'attendance:read',
     'attendance:mark',
+    'calendar:read',
+    'calendar:manage',
   ],
-  TEACHER: ['students:read', 'attendance:read', 'attendance:mark', 'timetable:read'],
-  PARENT: ['students:read', 'attendance:read', 'invoices:read', 'payments:read', 'timetable:read'],
+  TEACHER: [
+    'students:read',
+    'attendance:read',
+    'attendance:mark',
+    'timetable:read',
+    'calendar:read',
+  ],
+  PARENT: [
+    'students:read',
+    'attendance:read',
+    'invoices:read',
+    'payments:read',
+    'timetable:read',
+    'calendar:read',
+  ],
 };
 const viewer = (role, permissions = backendDefaults[role]) => ({
   role,
@@ -375,7 +396,7 @@ check('staff open live pages for fees, students and attendance; one entry per pa
       ['Budgets & expenses', '/school-admin/dashboard/budgets'],
       ['Students', '/school-admin/students'],
       ['Payment plans', '/school-admin/dashboard/plans'],
-      ['School calendar', '/school-admin/dashboard/calendar'],
+      ['School calendar', '/school-admin/calendar'],
       ['Documents & archive', '/school-admin/dashboard/archive'],
     ],
   );
@@ -386,6 +407,23 @@ check('staff open live pages for fees, students and attendance; one entry per pa
     for (const area of ['finance', 'debts', 'enrollment', 'attendance'])
       assert.equal(m.previewAreas(viewer(role)).includes(area), false, `${role} ${area}`);
 });
+check(
+  'the live calendar opens for school staff with calendar:read; parents keep the preview',
+  () => {
+    for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD', 'TEACHER', 'ACCOUNT_OFFICER', 'SECRETARY'])
+      assert.ok(rbac.canAccessRoute(viewer(role), 'calendar'), role);
+    assert.equal(rbac.canAccessRoute(viewer('PARENT'), 'calendar'), false);
+    assert.equal(rbac.canAccessRoute(viewer('SUPER_ADMIN', []), 'calendar'), false);
+    const withoutRead = viewer(
+      'TEACHER',
+      backendDefaults.TEACHER.filter((p) => p !== 'calendar:read'),
+    );
+    assert.equal(rbac.canAccessRoute(withoutRead, 'calendar'), false);
+    assert.equal(m.canAccess(withoutRead, 'calendar'), false);
+    const family = nav.workspaceNavigation(viewer('PARENT')).map((i) => i.href);
+    assert.ok(family.includes('/school-admin/dashboard/calendar'));
+  },
+);
 check("parents keep the preview for their own children's fees and attendance", () => {
   const family = nav.workspaceNavigation(viewer('PARENT')).map((i) => i.href);
   assert.ok(family.includes('/school-admin/dashboard/finance'));
@@ -423,7 +461,7 @@ check("a school's disabled modules hide their pages and areas", () => {
   const hrefs = nav.workspaceNavigation(principal).map((i) => i.href);
   assert.equal(hrefs.includes('/school-admin/attendance'), false);
   assert.equal(hrefs.includes('/school-admin/dashboard/budgets'), false);
-  assert.ok(hrefs.includes('/school-admin/dashboard/calendar')); // no module: always on
+  assert.ok(hrefs.includes('/school-admin/calendar')); // no module: always on
   // Unknown modules (not loaded, or a parent) defer to the backend.
   assert.ok(rbac.canAccessRoute(viewer('PRINCIPAL'), 'attendance'));
   assert.deepEqual(
@@ -476,5 +514,20 @@ check('fee amounts are whole pesewas, so sums do not drift', () => {
   assert.equal(money.sumPesewas([1.1, 2.2, 3.3], money.toPesewas), 660);
   assert.equal(money.formatGhs(-30000), 'GHS -300.00');
   assert.equal(money.formatGhs(123456), 'GHS 1,234.56');
+});
+check('calendar months run Monday to Sunday and cross year ends', () => {
+  // February 2027 starts on a Monday and fills exactly four weeks.
+  const february = dates.monthWeeks('2027-02-01');
+  assert.equal(february.length, 4);
+  assert.deepEqual([february[0][0], february[3][6]], ['2027-02-01', '2027-02-28']);
+  // September 2026 starts on a Tuesday, so its grid opens on Monday 31 August.
+  assert.equal(dates.monthWeeks('2026-09-01')[0][0], '2026-08-31');
+  assert.deepEqual(dates.monthsBetween('2026-11-20', '2027-01-08'), [
+    '2026-11-01',
+    '2026-12-01',
+    '2027-01-01',
+  ]);
+  assert.equal(dates.isWeekend('2027-02-06'), true);
+  assert.equal(dates.isWeekend('2027-02-08'), false);
 });
 console.log(`${checks} dashboard and access checks passed.`);

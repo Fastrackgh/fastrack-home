@@ -45,6 +45,11 @@ export const APP_ROUTES = {
     label: 'Bill & report designs',
     rule: { audiences: ['staff'], permission: 'document_templates:read' },
   },
+  calendar: {
+    path: '/school-admin/calendar',
+    label: 'School calendar',
+    rule: { audiences: ['staff'], permission: 'calendar:read' },
+  },
   admissions: {
     path: '/school-admin/admissions',
     label: 'Online admissions',

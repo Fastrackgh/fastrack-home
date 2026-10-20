@@ -286,6 +286,7 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   attendance: 'attendance',
   staffing: 'staff',
   templates: 'templates',
+  calendar: 'calendar',
 };
 
 /** The live page that serves `area` for this viewer, if any. */

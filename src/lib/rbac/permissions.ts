@@ -19,6 +19,10 @@ export const PERMISSIONS = [
   'academic_terms:read',
   'academic_terms:manage',
 
+  // School calendar (events, closures)
+  'calendar:read',
+  'calendar:manage',
+
   // Classes, classrooms & departments
   'classes:read',
   'classes:manage',

@@ -1,0 +1,112 @@
+.scroller {
+  overflow-x: auto;
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(96px, 1fr));
+  min-width: 700px;
+  border-top: 1px solid var(--mantine-color-gray-2);
+  border-left: 1px solid var(--mantine-color-gray-2);
+}
+
+.weekday {
+  padding: 6px 8px;
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  color: var(--mantine-color-dimmed);
+  border-right: 1px solid var(--mantine-color-gray-2);
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+}
+
+.day {
+  min-height: 104px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  border-right: 1px solid var(--mantine-color-gray-2);
+  border-bottom: 1px solid var(--mantine-color-gray-2);
+  background: var(--mantine-color-body);
+}
+
+.day[data-weekend] {
+  background: var(--mantine-color-gray-0);
+}
+
+.day[data-off-term] {
+  background: var(--mantine-color-gray-1);
+}
+
+.day[data-outside] {
+  background: var(--mantine-color-gray-0);
+  color: var(--mantine-color-gray-5);
+}
+
+.dayNumber {
+  align-self: flex-start;
+  min-width: 24px;
+  padding: 0 6px;
+  border-radius: var(--mantine-radius-sm);
+  font-size: var(--mantine-font-size-xs);
+  font-weight: 600;
+  line-height: 22px;
+}
+
+button.dayNumber:hover {
+  background: var(--mantine-color-gray-2);
+}
+
+.day[data-today] .dayNumber {
+  background: var(--mantine-color-fastrackRed-6);
+  color: var(--mantine-color-white);
+}
+
+.chip {
+  display: block;
+  width: 100%;
+  padding: 1px 6px;
+  border-radius: var(--mantine-radius-sm);
+  font-size: 11px;
+  line-height: 18px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  background: var(--mantine-color-gray-1);
+  color: var(--mantine-color-gray-8);
+}
+
+.chip[data-color='red'] {
+  background: var(--mantine-color-red-1);
+  color: var(--mantine-color-red-9);
+}
+.chip[data-color='orange'] {
+  background: var(--mantine-color-orange-1);
+  color: var(--mantine-color-orange-9);
+}
+.chip[data-color='violet'] {
+  background: var(--mantine-color-violet-1);
+  color: var(--mantine-color-violet-9);
+}
+.chip[data-color='blue'] {
+  background: var(--mantine-color-blue-1);
+  color: var(--mantine-color-blue-9);
+}
+.chip[data-color='teal'] {
+  background: var(--mantine-color-teal-1);
+  color: var(--mantine-color-teal-9);
+}
+.chip[data-color='cyan'] {
+  background: var(--mantine-color-cyan-1);
+  color: var(--mantine-color-cyan-9);
+}
+
+.chip[data-status='POSTPONED'] {
+  opacity: 0.65;
+  font-style: italic;
+}
+
+.chip[data-status='CANCELLED'] {
+  opacity: 0.55;
+  text-decoration: line-through;
+}

@@ -27,6 +27,7 @@ import {
   Menu,
   MessageSquare,
   NotebookPen,
+  Palette,
   SlidersHorizontal,
   UserPlus,
   Users,
@@ -65,6 +66,7 @@ const icons: Record<NavItem['id'], typeof Users> = {
   calendar: CalendarRange,
   archive: Archive,
   questions: FileQuestion,
+  templates: Palette,
 };
 
 /** The school's current academic year and term, when the school has them set. */

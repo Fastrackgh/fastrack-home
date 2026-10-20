@@ -40,6 +40,11 @@ export const APP_ROUTES = {
     label: 'Staff',
     rule: { audiences: ['staff'], permission: 'staff:read' },
   },
+  templates: {
+    path: '/school-admin/templates',
+    label: 'Bill & report designs',
+    rule: { audiences: ['staff'], permission: 'document_templates:read' },
+  },
   admissions: {
     path: '/school-admin/admissions',
     label: 'Online admissions',

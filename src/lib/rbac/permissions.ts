@@ -27,6 +27,10 @@ export const PERMISSIONS = [
   'departments:read',
   'departments:manage',
 
+  // Parent-facing document templates (bills, terminal reports)
+  'document_templates:read',
+  'document_templates:manage',
+
   // Staff
   'staff:read',
   'staff:manage',

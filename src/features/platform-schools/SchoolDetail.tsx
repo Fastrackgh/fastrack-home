@@ -24,6 +24,7 @@ import {
   ArrowLeft,
   Building2,
   Edit3,
+  FileText,
   Globe,
   Mail,
   MapPin,
@@ -44,6 +45,7 @@ import type {
   PlatformStudent,
   SchoolProfileUpdate,
 } from './model';
+import { TemplateEditor, documentTemplatesApi } from '@/features/document-templates';
 import styles from './SchoolDetail.module.css';
 
 const errorMessage = (error: unknown, fallback: string) =>
@@ -202,6 +204,9 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
               <Tabs.Tab value="modules" leftSection={<Settings2 size={14} />}>
                 Modules
               </Tabs.Tab>
+              <Tabs.Tab value="designs" leftSection={<FileText size={14} />}>
+                Designs
+              </Tabs.Tab>
             </Tabs.List>
             <Tabs.Panel value="overview" pt="lg">
               <OverviewTab school={school} />
@@ -214,6 +219,9 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
             </Tabs.Panel>
             <Tabs.Panel value="modules" pt="lg">
               <ModulesTab schoolId={school.id} onChange={load} />
+            </Tabs.Panel>
+            <Tabs.Panel value="designs" pt="lg">
+              <TemplateEditor api={documentTemplatesApi(school.id, true)} canManage />
             </Tabs.Panel>
           </Tabs>
 

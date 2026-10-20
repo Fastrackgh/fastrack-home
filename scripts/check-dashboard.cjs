@@ -28,6 +28,7 @@ const m = load('src/features/dashboard/model.ts');
 const rbac = load('src/lib/rbac/index.ts');
 const session = load('src/lib/auth/session.ts');
 const nav = load('src/features/workspace/navigation.ts');
+const money = load('src/features/fees/money.ts');
 
 // The permissions each role receives by default from the backend
 // (fastrack-backend/src/common/auth/role-permissions.matrix.ts), limited to
@@ -466,5 +467,14 @@ check('product answers of 19 October 2026 shape navigation and actions', () => {
   assert.ok(rbac.can(viewer('PRINCIPAL'), 'question_bank:manage'));
   for (const role of ['ACCOUNT_OFFICER', 'PRINCIPAL', 'SECRETARY', 'ACADEMIC_HEAD', 'TEACHER'])
     assert.equal(m.previewAreas(viewer(role)).includes('staffing'), false, role);
+});
+check('fee amounts are whole pesewas, so sums do not drift', () => {
+  assert.equal(money.toPesewas(0.1) + money.toPesewas(0.2), money.toPesewas(0.3));
+  assert.equal(money.toPesewas('1400.00'), 140000);
+  assert.equal(money.toPesewas(null), 0);
+  assert.equal(money.toCedis(money.toPesewas(19.99)), 19.99);
+  assert.equal(money.sumPesewas([1.1, 2.2, 3.3], money.toPesewas), 660);
+  assert.equal(money.formatGhs(-30000), 'GHS -300.00');
+  assert.equal(money.formatGhs(123456), 'GHS 1,234.56');
 });
 console.log(`${checks} dashboard and access checks passed.`);

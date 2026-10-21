@@ -259,6 +259,7 @@ Everything else was done through the UI.
 | Open `/school-admin/templates` | ✅ **QA-057 fixed** (no 500). Clear empty state: "Parents currently get Fastrack's standard fee bill… 1) upload a sample, 2) start a new design, 3) adjust, then Publish." |
 | Start a new design | ✅ Three starters (Classic bill recommended, Simple grouped fees, Compact). Classic opens as "v1 · Draft" with sections, page settings and a live preview. |
 | "Show a real bill (invoice id)" with `INV/BIS-001/2026/0033` | ❌ **QA-226**: only the internal database UUID works. The invoice number staff can see fails with the raw "invoiceId must be a UUID". ❌ 🔁 QA-070: the error **stays** after the field is cleared. |
+| Builder preview header | ❌ **QA-231** (spotted by the reviewer after the run): the preview shows "FASTRACK INTERNATIONAL SCHOOL", `FIS/STD/2026/014`, "East Legon, Accra" and `bursar@fastrack.school`, a hard-coded sample from another (real) school, with no logo. Bismark's own name, logo and contacts never appear while designing. |
 | Rename to a 130-character name | ❌ 🔁 QA-070c: the server rejects it ("shorter than or equal to 120 characters"), but the UI shows nothing new; only the old preview error is still visible. |
 | Change the main colour, rename, Publish | ✅ "This version is live and can't be changed. Use Edit a copy to make changes." |
 | Edit a copy (v2) → change text size to 16 → switch to v1 within 1 s → back to v2 | ❌ 🔁 **QA-065**: the edit was **silently lost** (v2 still shows 11), no save was sent, and there was no unsaved-changes warning. |

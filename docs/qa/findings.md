@@ -23,9 +23,9 @@
 |---|---|
 | Critical | 8 |
 | High | 31 |
-| Medium | 58 |
+| Medium | 59 |
 | Low | 22 |
-| **Total** | **119** |
+| **Total** | **120** |
 
 | ID | Sev | Cat | Side | Status | Title |
 |---|---|---|---|---|---|
@@ -126,6 +126,7 @@
 | QA-226 | Medium | UX | FE | Browser ✔ | Design preview needs the invoice UUID, not its number |
 | QA-228 | Medium | FLOW | BE | Browser ✔ | Published design not used on public bill links |
 | QA-229 | Medium | FLOW | Both | Browser ✔ | Paystack rejects some parent emails; raw error; no fallback |
+| QA-231 | Medium | UX/trust | BE | Browser ✔ Code ✔ | The design preview shows another school ("Fastrack International School") instead of the user's own |
 | QA-043 | Low | FLOW | BE | Code ✔ | Discounts stack to 100%, silently overwrite, and don't re-price issued invoices |
 | QA-046 | Low | SEC | BE | Code ✔ | Super Admin permissions never checked; no rank check on invites; `isActive` field duplicates the endpoints |
 | QA-047 | Low | SEC/data | BE | Code ✔ / Live ✔ | Config hygiene: seed passwords, secret reuse, DB TLS, email case, `$argon2` bypass, PII in logs, current-term flag |
@@ -927,6 +928,7 @@ A new school (BIS-001) was set up and run through every built feature in the web
 | QA-225 | Medium | BE | The attendance register and term totals list pupils by their **current** class whatever the date, so after promotion the past and current registers show next year's class. | Resolve the roster from enrolment history for the date or term. |
 | QA-226 | Medium | FE | The design builder's "Show a real bill (invoice id)" needs the internal UUID. The invoice number is rejected with "invoiceId must be a UUID". | Accept the invoice number, or offer a searchable picker. |
 | QA-228 | Medium | BE | A published bill design is used in the parent app's printable bill but **not** on the public bill link sent by SMS or email, which still uses the default design. | Render public links through the same document renderer. |
+| QA-231 | Medium | BE | Every school's bill and report designer previews a hard-coded sample from "**Fastrack International School**" (code FIS, East Legon, `accounts@fastrack.school`, no logo) instead of its own name, logo and contacts (`documents/copies/invoice.bill/invoice.bill.sample.ts`, `exam.report/exam.report.sample.ts:52`, used by `document-templates.service.ts:434`). FIS-001 is a real school in the database, so it looks like a data leak, and the school can't check its own header or logo while designing (QA-226 blocks the real-bill preview). Published bills are unaffected. | Build the sample from the signed-in school's profile (name, code, logo, address, contacts, a real class and fee types), or default to its latest real bill. |
 | QA-229 | Medium | Both | Paystack checkout uses the parent's login email. If Paystack rejects it, the parent sees the raw "Invalid Email Address Passed" and can't pay online. | Validate the email at sign-up, fall back to a school or placeholder email, and show friendly errors. |
 
 ### Low

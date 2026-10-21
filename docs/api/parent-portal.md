@@ -69,7 +69,7 @@ Backend rules:
 
 ## Optional services (bus, feeding, ...)
 
-**Built** on `feat/parent-fees` (`src/modules/finance/optional-fee-requests`). Parents can't change a bill. Optional fees are billed from each enrolment's `fee_preferences`, which only staff set, so a parent **asks** and a Principal or Account Officer approves or declines. An approved change applies to the next bill the school generates. Bills already issued stay as they are. Amounts are in cedis on the wire.
+**Built** and merged to backend `main` (`src/modules/finance/optional-fee-requests`). Deploy from `main`: `feat/parent-fees` lacks fix `08c9ee3`, so the staff list returns 500 there (QA-060). Parents can't change a bill. Optional fees are billed from each enrolment's `fee_preferences`, which only staff set, so a parent **asks** and a Principal or Account Officer approves or declines. An approved change applies to the next bill the school generates. Bills already issued stay as they are. Amounts are in cedis on the wire.
 
 | Method | Path | Body | Returns |
 | --- | --- | --- | --- |

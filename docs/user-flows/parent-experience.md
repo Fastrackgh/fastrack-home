@@ -5,7 +5,14 @@
 - signing in
 - listing, linking (code plus OTP) and unlinking children
 
-Fees, online payment, reports, attendance and the ward profile are built against the proposed contract in [docs/api/parent-portal.md](../api/parent-portal.md). Until the backend ships those endpoints, those screens show "This is not available yet…". To see them on sample data, set `NEXT_PUBLIC_PARENT_API_MOCK=1`.
+As of 21 October 2026 these are live against the backend too (checked on localhost):
+- the ward profile, with guardians on file, boarding status and the school's contacts
+- fees, bills, payments and receipts, plus online checkout (needs `PAYSTACK_SECRET_KEY`, which isn't set locally)
+- optional-service requests
+- attendance (see [attendance.md](./attendance.md))
+- the school calendar ("Coming up this term" on Home)
+
+**Reports** still have no backend (they need a grading domain). The screen says "Terminal reports coming soon", and the Latest report tile on Home is hidden. `parentAreaReady` in `src/features/parent/api.ts` turns the screen back on once the endpoints ship. To see every screen on sample data, set `NEXT_PUBLIC_PARENT_API_MOCK=1`.
 
 Code: `src/features/parent/*`, with routes in `src/app/parent/*`.
 
@@ -61,13 +68,14 @@ sequenceDiagram
 
 | Tab | Route | Contents |
 | --- | --- | --- |
-| Home | `/parent` | Child card; tiles for fees owed, this month's attendance and the latest report; other children; install card |
+| Home | `/parent` | Child card; tiles for fees owed, this month's attendance and the latest report (hidden until reports ship); "Coming up this term" (next three events that aren't cancelled, with a postponed badge, needs `calendar:read`); other children; install card |
 | Fees | `/parent/fees` | Bills (filter by term, outstanding total) and Payments |
 | | `/parent/fees/[invoiceId]` | Breakdown, Pay now, printable bill |
 | | `/parent/receipts/[paymentId]` | Receipt and printable receipt |
-| Reports | `/parent/reports` | Terminal reports |
+| Reports | `/parent/reports` | Terminal reports ("coming soon" on the live API) |
 | | `/parent/reports/[reportId]` | Subject table and remarks; the report card in the school's design |
-| Attendance | `/parent/attendance` | Month calendar coloured by mark, plus a summary |
+| Attendance | `/parent/attendance` | Month calendar coloured by mark (present, late, half day, absent, excused); hover shows the arrival time and note; summary and the count of unmarked days |
+| My children | `/parent/wards/[studentId]` | Profile: code, birth date, class, boarding status, admission date, guardians on file, school contacts |
 | More | `/parent/more` | Profile, my children, link a child, install, appearance, sign out |
 
 The child switcher sits in the header. The choice is kept in `fastrack_parent_active_ward`. Detail pages go back to their list when the parent switches child.

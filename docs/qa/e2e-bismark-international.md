@@ -294,6 +294,13 @@ Everything else was done through the UI.
 | 390 px and 768 px on Fees, Students, Staff, Calendar and Service requests | ✅ No sideways scroll. |
 | Sample-data pages | ❌ 🔁 QA-034: every role's Overview, and most menu items (Gradebook, Timetable, Academic performance, Payment plans, Budgets, Meal menu, Gallery, Question bank…), show invented data in a live school. |
 
+## Follow-up review questions (after the run)
+
+| Question | Answer |
+|---|---|
+| Is there anything that identifies the invoices created in one billing run? | ❌ **QA-232**: no. Each invoice has its own `id`, number, access token and signature, but no run ID. In BIS-001 the 7 runs can only be guessed from type, title, term and the second they were issued. |
+| How are teachers assigned to classes? | School setup → Classes → Edit → **Class teacher** (Principal or Academic Head; the teacher must have activated their account). That's the only assignment. ❌ **QA-233**: no subject teachers. ❌ **QA-234**: one teacher per class. ❌ **QA-235**: no per-term history. 🔁 QA-016: assignment doesn't limit what teachers see. 🔁 QA-208: identical names in the picker. |
+
 ## Ledger reconciliation (end of run)
 
 | Check | Count | GHS |

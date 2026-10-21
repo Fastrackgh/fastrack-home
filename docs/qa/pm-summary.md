@@ -1,6 +1,6 @@
 # Fastrack EduSuite: PM and QA summary
 
-20 Oct 2026. Full detail: [findings.md](./findings.md) (120 findings; QA-060 to QA-088 and QA-200 to QA-231 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
+20 Oct 2026. Full detail: [findings.md](./findings.md) (124 findings; QA-060 to QA-088 and QA-200 to QA-235 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
 ## Verdict
 
@@ -97,7 +97,7 @@ The frontend has no tests of flows, only access-rule checks.
 
 ## 21 October end-to-end run: Bismark International School
 
-A brand-new school was set up from nothing and taken through every built feature in the web frontend, in a visible browser. It covered provisioning, staff, students, parents and linking, fees, discounts, payments, extra bills, two term rollovers, promotion and exits, the calendar, attendance, bill designs, the parent app and a Paystack payment. Log: [e2e-bismark-international.md](./e2e-bismark-international.md). New findings: QA-200 to QA-231 (3 Critical, 8 High, 19 Medium, 2 Low).
+A brand-new school was set up from nothing and taken through every built feature in the web frontend, in a visible browser. It covered provisioning, staff, students, parents and linking, fees, discounts, payments, extra bills, two term rollovers, promotion and exits, the calendar, attendance, bill designs, the parent app and a Paystack payment. Log: [e2e-bismark-international.md](./e2e-bismark-international.md). New findings: QA-200 to QA-235 (3 Critical, 8 High, 21 Medium, 4 Low).
 
 **Good news:** the money is right. At the end of the run, payments, invoices and student accounts reconcile to the pesewa (GHS 8,870.50 paid; GHS 35,789.50 open). This held across partial, exact, over- and under-payments, discounts, corrections, extra bills, two rollovers, promotion and an online payment. Several earlier findings are fixed in the browser: QA-002, QA-003, QA-009, QA-028, QA-032, QA-036, QA-055 and QA-057.
 
@@ -120,6 +120,9 @@ A brand-new school was set up from nothing and taken through every built feature
   - The admission form skips Health & Safety (QA-210).
   - Promotion is one pupil at a time with no class order (QA-207).
   - Login fails if a phone capitalises the email (QA-201).
+- **Structure gaps found in review:**
+  - Billing runs have no ID, so a mistaken run can't be undone or audited as a unit (QA-232).
+  - Only class teachers can be assigned; subject teachers have no link to classes (QA-233). There's one teacher per class (QA-234) and no per-term history (QA-235).
 - **Cashier flow:**
   - KPI cards don't update (QA-217).
   - Extra bills can't be paid on their own (QA-221).

@@ -23,9 +23,9 @@
 |---|---|
 | Critical | 8 |
 | High | 31 |
-| Medium | 59 |
-| Low | 22 |
-| **Total** | **120** |
+| Medium | 61 |
+| Low | 24 |
+| **Total** | **124** |
 
 | ID | Sev | Cat | Side | Status | Title |
 |---|---|---|---|---|---|
@@ -127,6 +127,8 @@
 | QA-228 | Medium | FLOW | BE | Browser ✔ | Published design not used on public bill links |
 | QA-229 | Medium | FLOW | Both | Browser ✔ | Paystack rejects some parent emails; raw error; no fallback |
 | QA-231 | Medium | UX/trust | BE | Browser ✔ Code ✔ | The design preview shows another school ("Fastrack International School") instead of the user's own |
+| QA-232 | Medium | FLOW/audit | Both | Code ✔ (DB) | Invoices from one billing run share no run ID: runs can't be undone, audited or re-sent as a unit |
+| QA-233 | Medium | FLOW | Both | Code ✔ | Subject teachers can't be assigned (`staff_subjects` and `timetable_slots` exist but have no API or UI) |
 | QA-043 | Low | FLOW | BE | Code ✔ | Discounts stack to 100%, silently overwrite, and don't re-price issued invoices |
 | QA-046 | Low | SEC | BE | Code ✔ | Super Admin permissions never checked; no rank check on invites; `isActive` field duplicates the endpoints |
 | QA-047 | Low | SEC/data | BE | Code ✔ / Live ✔ | Config hygiene: seed passwords, secret reuse, DB TLS, email case, `$argon2` bypass, PII in logs, current-term flag |
@@ -149,6 +151,8 @@
 | QA-088 | Low | FLOW/UX | Both | Code ✔ | Invite page and lead-form edge cases |
 | QA-205 | Low | DOC | BE | Code ✔ | Reset email says 30 minutes; the link lasts 60 |
 | QA-230 | Low | UX | FE | Browser ✔ | Parent "Coming up" shows 3 events and leaves out the PTA meeting |
+| QA-234 | Low | FLOW | Both | Code ✔ | Only one class teacher per class (no assistant or co-teacher) |
+| QA-235 | Low | FLOW/data | BE | Code ✔ | Changing a class teacher overwrites it; no history of who taught the class each term |
 
 ---
 
@@ -929,6 +933,8 @@ A new school (BIS-001) was set up and run through every built feature in the web
 | QA-226 | Medium | FE | The design builder's "Show a real bill (invoice id)" needs the internal UUID. The invoice number is rejected with "invoiceId must be a UUID". | Accept the invoice number, or offer a searchable picker. |
 | QA-228 | Medium | BE | A published bill design is used in the parent app's printable bill but **not** on the public bill link sent by SMS or email, which still uses the default design. | Render public links through the same document renderer. |
 | QA-231 | Medium | BE | Every school's bill and report designer previews a hard-coded sample from "**Fastrack International School**" (code FIS, East Legon, `accounts@fastrack.school`, no logo) instead of its own name, logo and contacts (`documents/copies/invoice.bill/invoice.bill.sample.ts`, `exam.report/exam.report.sample.ts:52`, used by `document-templates.service.ts:434`). FIS-001 is a real school in the database, so it looks like a data leak, and the school can't check its own header or logo while designing (QA-226 blocks the real-bill preview). Published bills are unaffected. | Build the sample from the signed-in school's profile (name, code, logo, address, contacts, a real class and fee types), or default to its latest real bill. |
+| QA-232 | Medium | Both | Nothing ties together the invoices created by one billing run. `student_fees_invoices` has no run or batch column, and there's no runs table. Runs can only be guessed by grouping type, title, term and `issued_at` to the second (BIS-001: 7 inferred runs, 0001–0042), which breaks for same-second runs. Background-run job IDs live only in Redis and expire (see QA-011). Corrections re-sign the bill, so `signed_by` no longer shows who ran it (0004 and 0007 now show the Principal). "Send bill links" broadcasts aren't recorded either. **Effect:** a mistaken run (wrong amount or class, the duplicate PTA levy of QA-062) can't be undone as a unit, there's no answer to "who billed this and when", and reminders or reprints can't target a run. | Add an `invoice_runs` table (type, term, scope, title, fee type, amount, created by and when, counts created and skipped, total, job ID) and a `run_id` on each invoice. Add a runs list in Fees & Billing with "Undo run" (only while unpaid) and "Send links for this run". Record broadcasts too. |
+| QA-233 | Medium | Both | Only a class (homeroom) teacher can be set, in School setup → Classes → Edit → Class teacher (`classes.homeroom_staff_id`). The tables `staff_subjects` and `timetable_slots` (class, subject, staff, term, day and time) exist, but only analytics reads them. There's no endpoint or screen, and the "Timetable" and "Faculty & workload" pages show sample data. A subject teacher (for example, maths for Basic 2 and Basic 3) has no link to any class, so they can't take attendance or (later) enter scores for those classes. | Add subject and teaching assignments (class × subject × teacher × term) with API and UI, and use them for attendance rights, gradebook access and the timetable. Scope teachers' student lists by these assignments (QA-016). |
 | QA-229 | Medium | Both | Paystack checkout uses the parent's login email. If Paystack rejects it, the parent sees the raw "Invalid Email Address Passed" and can't pay online. | Validate the email at sign-up, fall back to a school or placeholder email, and show friendly errors. |
 
 ### Low
@@ -936,6 +942,8 @@ A new school (BIS-001) was set up and run through every built feature in the web
 | ID | Sev | Side | Finding | Fix |
 |---|---|---|---|---|
 | QA-205 | Low | BE | The reset email says the link "will expire in 30 minutes". The real TTL is 60 minutes (`PASSWORD_RESET_TTL_SECONDS`), and the app says "one hour". | Use the constant in the copy. |
+| QA-234 | Low | Both | A class has a single `homeroom_staff_id`, so there's no assistant or co-teacher (common in KG and lower primary), and a second adult can't mark that class's register. | Allow several class teachers with a role (lead or assistant). |
+| QA-235 | Low | BE | Changing the class teacher overwrites `homeroom_staff_id` with no history, so there's no record of who taught the class in an earlier term. Terminal reports ("Class teacher's remarks") and audits need this. | Keep class-teacher assignments per term (from and to dates) and read historical ones for past terms. |
 | QA-230 | Low | FE | Parent home "Coming up this term" shows only the first three events (no year), leaves out the parents' PTA meeting, and there's no parent calendar page. | Prioritise events for parents and closures, show the year, and link to a full list. |
 
 Smaller observations from the run, not given IDs:

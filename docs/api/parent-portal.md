@@ -67,6 +67,19 @@ Backend rules:
 3. **Verify** returns `pending` until the transaction settles. The UI polls for about 30 seconds and then offers "Check again".
 4. **Disabling.** A school can turn online payment off: set `canPayOnline: false` on the invoice and return 403 from checkout.
 
+## Optional services (bus, feeding, ...)
+
+**Built** on `feat/parent-fees` (`src/modules/finance/optional-fee-requests`). Parents can't change a bill. Optional fees are billed from each enrolment's `fee_preferences`, which only staff set, so a parent **asks** and a Principal or Account Officer approves or declines. An approved change applies to the next bill the school generates. Bills already issued stay as they are. Amounts are in cedis on the wire.
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/parents/me/wards/:studentId/optional-services` | – | `{termLabel, className, canRequest, services: [{feeTypeId, name, description, amount \| null, enrolled, pendingRequest}]}`. `amount` is this term's price for the ward's class; a per-child price wins. |
+| GET | `/parents/me/wards/:studentId/optional-fee-requests` | – | `[{id, feeTypeId, feeTypeName, action, status, parentNote, staffNote, createdAt, decidedAt, isMine}]`, newest first |
+| POST | `/parents/me/wards/:studentId/optional-fee-requests` | `{feeTypeId, action: 'OPT_IN' \| 'OPT_OUT', note?}` | the request. 404 if it isn't an optional fee of the ward's school; 409 if one is already waiting or nothing would change; 403 while the school is suspended. |
+| POST | `/parents/me/wards/:studentId/optional-fee-requests/:requestId/cancel` | – | the request. Only the parent who asked; 409 once decided. |
+
+Staff review them at `/school-admin/fees/requests` (`GET /schools/me/optional-fee-requests?status`, `GET …/pending-count`, `POST …/:id/approve`, `POST …/:id/decline` with `{note?}`; PRINCIPAL and ACCOUNT_OFFICER with `student_fee_preferences:manage`).
+
 ## Reports
 
 | Method | Path | Response `data` |

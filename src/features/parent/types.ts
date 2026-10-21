@@ -167,3 +167,43 @@ export interface AttendanceRecord {
     schoolDays: number;
   };
 }
+
+/** Start (`OPT_IN`) or stop (`OPT_OUT`) an optional service such as the school bus. */
+export type OptionalFeeRequestAction = 'OPT_IN' | 'OPT_OUT';
+export type OptionalFeeRequestStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELLED';
+
+/** A parent's ask to change an optional service; the school approves or declines it. */
+export interface OptionalFeeRequest {
+  id: string;
+  feeTypeId: string;
+  feeTypeName: string;
+  action: OptionalFeeRequestAction;
+  status: OptionalFeeRequestStatus;
+  parentNote: string | null;
+  /** The school's reply, mainly when it declines. */
+  staffNote: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  /** Made by the signed-in parent (only they can cancel it). */
+  isMine: boolean;
+}
+
+/** An optional fee the ward's school offers (bus, feeding, extra classes...). */
+export interface OptionalService {
+  feeTypeId: string;
+  name: string;
+  description: string | null;
+  /** This term's price for the ward's class; null when the school hasn't priced it. */
+  amount: Pesewas | null;
+  /** The ward takes it now. */
+  enrolled: boolean;
+  pendingRequest: OptionalFeeRequest | null;
+}
+
+export interface WardOptionalServices {
+  termLabel: string | null;
+  className: string | null;
+  /** False while the school isn't taking requests (e.g. suspended). */
+  canRequest: boolean;
+  services: OptionalService[];
+}

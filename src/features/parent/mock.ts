@@ -7,6 +7,8 @@ import type {
   AcademicTerm,
   AttendanceDay,
   AttendanceMark,
+  OptionalFeeRequest,
+  OptionalService,
   ParentInvoice,
   ParentPayment,
   TermReport,
@@ -88,11 +90,31 @@ const FEES: { name: string; amount: Pesewas; optional?: boolean }[] = [
   { name: 'Feeding', amount: 40000, optional: true },
 ];
 
+/** Optional services the sample school offers; Extra classes has no price yet. */
+const SERVICES: { feeTypeId: string; name: string; description: string; amount: Pesewas | null }[] =
+  [
+    { feeTypeId: 'feeding', name: 'Feeding', description: 'Lunch every school day', amount: 40000 },
+    {
+      feeTypeId: 'bus',
+      name: 'School bus',
+      description: 'Morning pick-up and afternoon drop-off',
+      amount: 45000,
+    },
+    {
+      feeTypeId: 'extra-classes',
+      name: 'Extra classes',
+      description: 'After-school lessons, Monday to Thursday',
+      amount: null,
+    },
+  ];
+
 interface MockState {
   linked: string[];
   /** Pesewas paid online this session, per invoice id. */
   paid: Record<string, Pesewas>;
   payments: ParentPayment[];
+  /** Optional-service requests, per ward. Staff never decide them in the sample. */
+  requests?: Record<string, OptionalFeeRequest[]>;
 }
 
 const STATE_KEY = 'fastrack_parent_mock';
@@ -472,6 +494,70 @@ export const mockParentApi: ParentApi = {
        <table><tr><th>Subject</th><th class="right">Class (30)</th><th class="right">Exam (70)</th><th class="right">Total</th><th>Grade</th><th>Remark</th></tr>${rows}</table>
        <p><strong>Class teacher:</strong> ${report.teacherRemark}</p><p><strong>Head teacher:</strong> ${report.headRemark}</p>`,
     );
+  },
+  async listOptionalServices(studentId) {
+    linkedWard(studentId);
+    const requests = readState().requests?.[studentId] ?? [];
+    const services: OptionalService[] = SERVICES.map((service) => ({
+      ...service,
+      // Every sample ward takes feeding (it is on their bills).
+      enrolled: service.feeTypeId === 'feeding',
+      pendingRequest:
+        requests.find((r) => r.feeTypeId === service.feeTypeId && r.status === 'PENDING') ?? null,
+    }));
+    return wait({
+      termLabel: TERMS.find((term) => term.isCurrent)?.label ?? null,
+      className: linkedWard(studentId).currentClass?.name ?? null,
+      canRequest: true,
+      services,
+    });
+  },
+  async listOptionalFeeRequests(studentId) {
+    linkedWard(studentId);
+    return wait(readState().requests?.[studentId] ?? []);
+  },
+  async requestOptionalService(studentId, { feeTypeId, action, note }) {
+    linkedWard(studentId);
+    const service = SERVICES.find((s) => s.feeTypeId === feeTypeId);
+    if (!service) throw notFound();
+    const state = readState();
+    const requests = state.requests?.[studentId] ?? [];
+    if (requests.some((r) => r.feeTypeId === feeTypeId && r.status === 'PENDING')) {
+      throw new ApiError(409, 'A request for this service is already waiting for the school');
+    }
+    const request: OptionalFeeRequest = {
+      id: `req-${Date.now()}`,
+      feeTypeId,
+      feeTypeName: service.name,
+      action,
+      status: 'PENDING',
+      parentNote: note?.trim() || null,
+      staffNote: null,
+      createdAt: new Date().toISOString(),
+      decidedAt: null,
+      isMine: true,
+    };
+    writeState({ ...state, requests: { ...state.requests, [studentId]: [request, ...requests] } });
+    return wait(request);
+  },
+  async cancelOptionalFeeRequest(studentId, requestId) {
+    linkedWard(studentId);
+    const state = readState();
+    const requests = state.requests?.[studentId] ?? [];
+    const request = requests.find((r) => r.id === requestId);
+    if (!request) throw notFound();
+    if (request.status !== 'PENDING') {
+      throw new ApiError(409, 'This request has already been decided');
+    }
+    const cancelled = { ...request, status: 'CANCELLED' as const };
+    writeState({
+      ...state,
+      requests: {
+        ...state.requests,
+        [studentId]: requests.map((r) => (r.id === requestId ? cancelled : r)),
+      },
+    });
+    return wait(cancelled);
   },
   async attendance(studentId, { from, to }) {
     linkedWard(studentId);

@@ -15,7 +15,7 @@ import {
   Text,
   UnstyledButton,
 } from '@mantine/core';
-import { ChevronRight, Receipt, Wallet } from 'lucide-react';
+import { Bus, ChevronRight, Receipt, Wallet } from 'lucide-react';
 import { formatGhs, sumPesewas } from '@/features/fees/money';
 import { PAGE_SIZE } from '@/lib/pagination';
 import { useAuth } from '@/lib/auth';
@@ -24,6 +24,7 @@ import { EmptyState, PageTitle, QueryView, WithWard } from '../components';
 import { formatDate, invoiceStatus, percent, wardName } from '../format';
 import type { ParentInvoice, ParentPayment, Ward } from '../types';
 import { useParentQuery } from '../useParentQuery';
+import { OptionalServices } from './OptionalServices';
 
 export function FeesPage() {
   return <WithWard>{(ward) => <WardFees key={ward.studentId} ward={ward} />}</WithWard>;
@@ -34,7 +35,7 @@ function WardFees({ ward }: { ward: Ward }) {
   const [tab, setTab] = useState<string | null>('bills');
   return (
     <>
-      <PageTitle title="Fees" subtitle={`Bills and payments for ${wardName(ward)}`} />
+      <PageTitle title="Fees" subtitle={`Bills, payments and services for ${wardName(ward)}`} />
       <Tabs value={tab} onChange={setTab} color="fastrackRed" keepMounted={false}>
         <Tabs.List grow mb="md">
           <Tabs.Tab value="bills" leftSection={<Wallet size={16} />}>
@@ -45,12 +46,18 @@ function WardFees({ ward }: { ward: Ward }) {
               Payments
             </Tabs.Tab>
           )}
+          <Tabs.Tab value="services" leftSection={<Bus size={16} />}>
+            Services
+          </Tabs.Tab>
         </Tabs.List>
         <Tabs.Panel value="bills">
           <Bills ward={ward} />
         </Tabs.Panel>
         <Tabs.Panel value="payments">
           <Payments ward={ward} />
+        </Tabs.Panel>
+        <Tabs.Panel value="services">
+          <OptionalServices ward={ward} />
         </Tabs.Panel>
       </Tabs>
     </>

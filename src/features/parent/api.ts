@@ -9,22 +9,25 @@ import type {
   CheckoutRequest,
   CheckoutSession,
   LinkChallenge,
+  OptionalFeeRequest,
+  OptionalFeeRequestAction,
   ParentInvoice,
   ParentPayment,
   PaymentVerification,
   ResentChallenge,
   TermReport,
   Ward,
+  WardOptionalServices,
   WardProfile,
 } from './types';
 
 /*
  * Every read is scoped to one linked ward: `/parents/me/wards/:studentId/...`.
  * The backend checks the parent-ward link and the ward's school modules, since a
- * parent has no school of their own (QA-026). Only the ward list, linking and
- * unlinking exist on the backend today; the rest is the contract in
- * docs/api/parent-portal.md. Set NEXT_PUBLIC_PARENT_API_MOCK=1 to run the
- * portal on sample data until it ships.
+ * parent has no school of their own (QA-026). Wards, fees, payments and
+ * optional services exist on the backend; reports, attendance and the full
+ * ward profile are still the contract in docs/api/parent-portal.md. Set
+ * NEXT_PUBLIC_PARENT_API_MOCK=1 to run the portal on sample data.
  */
 
 export interface InvoiceListQuery {
@@ -56,6 +59,13 @@ export interface ParentApi {
   getReport(studentId: string, reportId: string): Promise<TermReport>;
   reportDocument(studentId: string, reportId: string): Promise<string>;
   attendance(studentId: string, range: { from: string; to: string }): Promise<AttendanceRecord>;
+  listOptionalServices(studentId: string): Promise<WardOptionalServices>;
+  listOptionalFeeRequests(studentId: string): Promise<OptionalFeeRequest[]>;
+  requestOptionalService(
+    studentId: string,
+    request: { feeTypeId: string; action: OptionalFeeRequestAction; note?: string },
+  ): Promise<OptionalFeeRequest>;
+  cancelOptionalFeeRequest(studentId: string, requestId: string): Promise<OptionalFeeRequest>;
 }
 
 const ward = (studentId: string) => `/parents/me/wards/${encodeURIComponent(studentId)}`;
@@ -168,6 +178,36 @@ const liveParentApi: ParentApi = {
   async attendance(studentId, range) {
     const res = await apiClient.get<AttendanceRecord>(
       `${ward(studentId)}/attendance?${new URLSearchParams(range)}`,
+    );
+    return res.data;
+  },
+  async listOptionalServices(studentId) {
+    const res = await apiClient.get<Raw>(`${ward(studentId)}/optional-services`);
+    const services = (res.data.services as Raw[] | undefined) ?? [];
+    return {
+      ...(res.data as unknown as WardOptionalServices),
+      services: services.map((service) => ({
+        ...(service as unknown as WardOptionalServices['services'][number]),
+        amount: service.amount === null ? null : toPesewas(service.amount),
+      })),
+    };
+  },
+  async listOptionalFeeRequests(studentId) {
+    const res = await apiClient.get<OptionalFeeRequest[]>(
+      `${ward(studentId)}/optional-fee-requests`,
+    );
+    return res.data ?? [];
+  },
+  async requestOptionalService(studentId, request) {
+    const res = await apiClient.post<OptionalFeeRequest>(
+      `${ward(studentId)}/optional-fee-requests`,
+      request,
+    );
+    return res.data;
+  },
+  async cancelOptionalFeeRequest(studentId, requestId) {
+    const res = await apiClient.post<OptionalFeeRequest>(
+      `${ward(studentId)}/optional-fee-requests/${id(requestId)}/cancel`,
     );
     return res.data;
   },

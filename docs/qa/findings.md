@@ -21,11 +21,11 @@
 
 | Severity | Count |
 |---|---|
-| Critical | 5 |
-| High | 23 |
-| Medium | 40 |
-| Low | 20 |
-| **Total** | **88** |
+| Critical | 8 |
+| High | 31 |
+| Medium | 58 |
+| Low | 22 |
+| **Total** | **119** |
 
 | ID | Sev | Cat | Side | Status | Title |
 |---|---|---|---|---|---|
@@ -34,6 +34,9 @@
 | QA-003 | Critical | SEC | Both | Live ✔ Browser ✔ | Suspending a school has no effect; the UI reports success |
 | QA-015 | Critical | FLOW | Both | Browser ✔ | Invited staff can never get in: the invite links to a page the frontend doesn't have — **partly fixed** (41eeb3b; see QA-088) |
 | QA-020 | Critical | FLOW | FE | Browser ✔ | Waitlist and contact forms send nothing; every lead is lost — **mostly fixed** (41eeb3b) |
+| QA-204 | Critical | FLOW | FE | Browser ✔ | Invite link page crashes (no AuthProvider): no invited user can activate an account |
+| QA-206 | Critical | EDGE/data | BE | Browser ✔ | Setting the current year/term returns 500 and leaves two current years/terms |
+| QA-212 | Critical | FLOW | FE | Browser ✔ | Parent sign-up crashes on the first keystroke |
 | QA-004 | High | SEC/EDGE | Both | Live ✔ | Payments can be double-submitted; a client-chosen receipt number causes a 500 — FE half **fixed** (41eeb3b); rest in QA-086 |
 | QA-005 | High | SEC | BE | Live ✔ | AdminJS is mounted in production, never rate-limited, and can edit the ledger directly |
 | QA-006 | High | SEC | BE | Code ✔ | Notification client logs OTPs and invite tokens and serves them on a LAN port |
@@ -57,6 +60,14 @@
 | QA-064 | High | EDGE/data | FE | Code ✔ | Design builder can save the previous design onto the version just opened |
 | QA-065 | High | EDGE/data | FE | Code ✔ | Design edits in the last 1.2 s are lost on switch or leave; no unsaved-changes guard |
 | QA-066 | High | FLOW | FE | Code ✔ | Publish can push an older design than the one on screen |
+| QA-201 | High | SEC/UX | BE | Browser ✔ | Emails are case- and space-sensitive: capitalised login fails; duplicate accounts per mailbox |
+| QA-207 | High | FLOW | Both | Browser ✔ | Classes have no order; promotion is one pupil at a time with no next-class suggestion |
+| QA-208 | High | FLOW | Both | Browser ✔ | Revoking an invite locks that person out for good (Reactivate gives an account with no password) |
+| QA-210 | High | FLOW/data | FE | Browser ✔ | Admission "Next" submits early: Health & Safety unreachable; no guardian required |
+| QA-211 | High | FLOW | FE | Browser ✔ | Guardian contacts can't be viewed or corrected after admission, so parents may never link |
+| QA-214 | High | SEC | Both | Browser ✔ | Staff unlink doesn't stick: the parent relinks immediately (safeguarding) |
+| QA-222 | High | Money/UX | FE | Browser ✔ | Parent app "paid of" total counts carried bills again every term |
+| QA-227 | High | Money/SEC | BE | Browser ✔ | An old "tamper-proof" public bill changes later (live class and balance) |
 | QA-011 | Medium | SEC | BE | Live ✔ | Invoice job status can be read across schools (sequential ids) |
 | QA-012 | Medium | SEC | BE | Live ✔ | No security headers; Swagger public; CORS `*` with credentials; unset `NODE_ENV` runs production as dev |
 | QA-014 | Medium | SEC | BE | Live ✔ | User enumeration through register-parent, login timing and ward-link errors |
@@ -97,6 +108,24 @@
 | QA-084 | Medium | Money/data | BE | Code ✔ | Renaming a fee type changes invoices already issued |
 | QA-085 | Medium | Money | BE | Code ✔ | Structure penalty and due date ignored; bill prints a hard-coded 10% penalty |
 | QA-086 | Medium | Money/EDGE | FE | Code ✔ | A cash payment can still be recorded twice after a timeout or closed modal |
+| QA-200 | Medium | EDGE | BE | Browser ✔ | School codes case-sensitive and untrimmed |
+| QA-202 | Medium | FLOW | Both | Browser ✔ | Pending principal invite invisible to Super Admin; two principal invites can be open |
+| QA-203 | Medium | FLOW | BE | Browser ✔ | Plain-text email links broken (`token&#x3D;`) |
+| QA-209 | Medium | EDGE | Both | Browser ✔ | Future birth date accepted at admission |
+| QA-213 | Medium | UX | FE | Browser ✔ | Ward-link OTP errors flattened; no "start again" after lockout |
+| QA-215 | Medium | Money | BE | Browser ✔ | GHS 0 invoice marked UNPAID and sent to parents |
+| QA-216 | Medium | Money/FLOW | Both | Browser ✔ | One MoMo transfer can't cover several siblings |
+| QA-217 | Medium | UX | FE | Browser ✔ | Fees KPI cards stale after payments and Refresh |
+| QA-218 | Medium | FLOW | BE | Browser ✔ | Only one extra bill per fee type per term |
+| QA-219 | Medium | UX/Money | BE | Browser ✔ | Public bill labels this term's extra bills "Bal B/f" |
+| QA-220 | Medium | Money | BE | Browser ✔ | Credit not applied to new extra bills |
+| QA-221 | Medium | Money/FLOW | FE | Browser ✔ | Extra bills can't be paid on their own |
+| QA-223 | Medium | EDGE | Both | Browser ✔ | Promotion accepts a past, already-billed term |
+| QA-224 | Medium | FLOW | Both | Browser ✔ | Exit dialog hides the outstanding balance |
+| QA-225 | Medium | EDGE | BE | Browser ✔ | Attendance roster uses current class for past dates |
+| QA-226 | Medium | UX | FE | Browser ✔ | Design preview needs the invoice UUID, not its number |
+| QA-228 | Medium | FLOW | BE | Browser ✔ | Published design not used on public bill links |
+| QA-229 | Medium | FLOW | Both | Browser ✔ | Paystack rejects some parent emails; raw error; no fallback |
 | QA-043 | Low | FLOW | BE | Code ✔ | Discounts stack to 100%, silently overwrite, and don't re-price issued invoices |
 | QA-046 | Low | SEC | BE | Code ✔ | Super Admin permissions never checked; no rank check on invites; `isActive` field duplicates the endpoints |
 | QA-047 | Low | SEC/data | BE | Code ✔ / Live ✔ | Config hygiene: seed passwords, secret reuse, DB TLS, email case, `$argon2` bypass, PII in logs, current-term flag |
@@ -117,6 +146,8 @@
 | QA-083 | Low | UX/FLOW | Both | Code ✔ | Smaller optional-request gaps (issued bills, price, races, paging) |
 | QA-087 | Low | EDGE/UX | Both | Code ✔ | Smaller fee-setup gaps (module gating, duplicates, huge amounts, lists) |
 | QA-088 | Low | FLOW/UX | Both | Code ✔ | Invite page and lead-form edge cases |
+| QA-205 | Low | DOC | BE | Code ✔ | Reset email says 30 minutes; the link lasts 60 |
+| QA-230 | Low | UX | FE | Browser ✔ | Parent "Coming up" shows 3 events and leaves out the PTA meeting |
 
 ---
 
@@ -726,6 +757,196 @@ The backend handles these correctly:
   - Use the returned tokens for sign-in.
   - Give network errors their own error state with a retry button.
   - Give the honeypot a field name that autofill won't fill, and flag suspected spam instead of dropping it.
+
+## End-to-end UI run: Bismark International School (21 October 2026)
+
+A new school (BIS-001) was set up and run through every built feature in the web frontend, in a visible browser. Step-by-step log: [e2e-bismark-international.md](./e2e-bismark-international.md).
+- **Backend:** `main`, rebuilt at 18:40.
+- **Frontend:** `feat/rbac-workspace` working tree.
+- **Screenshots:** [screenshots/](./screenshots/) (`bis-*.png`).
+
+**Status key:** "Browser ✔" means reproduced by clicking through the UI. "Code ✔" means the cause was confirmed in code.
+
+### Status of earlier findings seen in this run
+
+| ID | Now |
+|---|---|
+| QA-002 | **Looks fixed.** Two rollovers carried arrears exactly once, and invoices and accounts reconcile. |
+| QA-003 | **Fixed.** Suspended schools are refused at login and mid-session (403). |
+| QA-007 | **Partly fixed.** The backend refuses to resend a revoked invite. The UI still shows Resend (see QA-208). |
+| QA-008 | Still open. A sign-in in another tab silently swaps the identity of an open tab. |
+| QA-009 | **Fixed.** Sign out calls `/auth/logout`, and the old refresh token gets 401. |
+| QA-015 | **Not fixed at runtime.** The page exists but crashes (QA-204). |
+| QA-016 | **Improved.** Guardian phones are hidden from teachers, but they still see every class and medical notes. |
+| QA-028 | **Fixed.** The toast reads "Successfully generated 10 term invoice(s)…". |
+| QA-032 | **Fixed.** No invented admission defaults. |
+| QA-036 | **Fixed.** All staff roles are listed, editable and can be deactivated (the Principal isn't listed). |
+| QA-055 | **Fixed** (confirmed in the browser). |
+| QA-057 | **Fixed.** The designs page loads. |
+| QA-058 | **Fixed.** The calendar works for staff. |
+
+### Critical
+
+#### QA-204: Invite links crash; no invited user can activate an account
+- **Side / status:** FE / Browser ✔ Code ✔ · **Severity:** Critical
+- **Repro:** open the invite link `/auth/setup-password?token=…` from any invite email.
+- **Actual:** "Application error: a client-side exception". The console says `useAuth must be used within an AuthProvider`.
+- **Cause:**
+  - `src/app/auth/setup-password/page.tsx` calls `useAuth()`.
+  - `AuthProvider` is mounted only in `src/app/school-admin/layout.tsx` and `src/app/parent/layout.tsx`.
+  - The committed page from `41eeb3b` has the same call, so the QA-015 fix never worked at runtime.
+- **Impact:** a new school can't onboard its principal or any staff through the product.
+- **Fix:** wrap `/auth/*` in `AuthProvider` (an `src/app/auth/layout.tsx`), or use the `LoginResponse` that `POST /auth/setup-password` already returns (QA-088). Add an e2e test.
+
+#### QA-206: Making a year or term current returns 500 and leaves two current years or terms
+- **Side / status:** BE / Browser ✔ Code ✔ · **Severity:** Critical
+- **Repro:** add a year or term with "This is the current…" ticked, or edit one to tick it.
+- **Actual:** "Could not save · Internal server error". The backend log shows `missing FROM-clause entry for table "academicyear"` (and `"academicterm"`).
+- **Effect:**
+  - The row is saved with `is_current = true`, but the other years or terms are never cleared.
+  - Rolling over to Term 2 left **Term 1 and Term 2 both current**.
+  - Moving to 2027/28 left **two current years and two current terms**.
+  - Billing silently follows one of them.
+- **Cause:**
+  - `BaseRepository.createQueryBuilder()` (`infrastructure/database/repositories/base.repository.ts:156-176`) appends `"<EntityName>.school_id = :__tenantSchoolId"`.
+  - `AcademicYearRepository.setCurrent` (`academic-year.repository.ts:47-58`) and `AcademicTermRepository` (`academic-term.repository.ts:84-95`) build alias-less `UPDATE`s, so that alias doesn't exist.
+  - `refresh-token.repository.ts:30,58` uses the same pattern, but in-app password change and logout worked in this run.
+- **Workaround seen:** tick the new one (ignore the 500), then untick the old one.
+- **Fix:**
+  - Give the `UPDATE`s an alias, or use `repository.update({ school: { id } }, …)`.
+  - Do both writes in one transaction.
+  - Add a contract test for set-current under tenant context.
+
+#### QA-212: Parent sign-up crashes on the first keystroke
+- **Side / status:** FE / Browser ✔ Code ✔ · **Severity:** Critical
+- **Repro:** open `/parent/register` and type a letter in First name.
+- **Actual:** "Application error". The console says `Cannot read properties of null (reading 'value')`.
+- **Cause:** `src/features/parent/auth/ParentAuth.tsx:210` (committed: `:200`) reads `e.currentTarget.value` inside a `setForm(current => …)` updater. React runs the updater after the event, when `currentTarget` is null.
+- **Impact:** no parent can create an account, so the whole parent product is unreachable.
+- **Fix:** read the value first, `const v = e.currentTarget.value; setForm(c => ({ ...c, [field]: v }))`. Add an e2e test that types into the form.
+
+### High
+
+#### QA-201: Email addresses are case- and space-sensitive everywhere
+- **Side / status:** BE / Browser ✔ · **Severity:** High
+- **Login:** `Head@fastrack.school` with the right password gets "Invalid credentials" (`user.repository.ts:67-81` matches exactly). Phones capitalise the first letter by default.
+- **Trailing space:** a trailing space gets "email must be an email".
+- **Duplicates:** assigning principal `HEAD@Fastrack.school` created a **second account and a pending invite for another school's principal's mailbox**.
+- **Fix:**
+  - Lower-case and trim on write and lookup.
+  - Add a unique index on `lower(email)`.
+  - Migrate the existing rows.
+
+#### QA-207: Classes have no order; promotion is one pupil at a time
+- **Side / status:** Both / Browser ✔ · **Severity:** High (real-world workload)
+- **Evidence:**
+  - The class form has only code, name, department and teacher.
+  - Lists sort alphabetically ("Basic 1… Basic 3, KG 2").
+  - "Move to another class" suggests nothing and offers every class.
+  - Promoting 8 pupils took 8 separate drawer flows (about 8 clicks each), with no confirmation.
+- **Fix:**
+  - A `level` or `sequence` on classes (or on departments plus classes).
+  - A "Promote class" or "Promote school" screen that maps each class to the next, with exceptions for repeaters and leavers.
+  - Graduation of the top class.
+
+#### QA-208: Revoking an invite locks that person out for good
+- **Side / status:** Both / Browser ✔ · **Severity:** High
+- **Repro:** revoke a pending staff invite.
+- **What follows:**
+  - The person appears as INACTIVE with "Reactivate".
+  - Reactivate makes an ACTIVE account **with no password**.
+  - Resend is refused ("Invitation has been revoked").
+  - A new invite says "Email already registered".
+  - Forgot-password skips accounts without a password.
+- **Only workaround:** a different email address. The class-teacher picker then shows two identical names.
+- **Fix:**
+  - Don't create the user until the invite is accepted, or delete the shell user on revoke.
+  - Allow a fresh invite for a never-activated account.
+  - Hide Reactivate and Resend for revoked, never-activated rows.
+
+#### QA-210: Admission skips Health & Safety and allows no guardian
+- **Side / status:** FE / Browser ✔ Code ✔ · **Severity:** High
+- **Repro:** fill steps 1–3 and click "Next Step" on Guardians.
+- **Actual:** the student is admitted immediately and step 4 (blood group, allergies, emergency contact) is never shown. Pressing Enter in any field submits too.
+- **Cause:** the Next `<Button>` sits inside the `<form>` without `type="button"` (`students/page.tsx:1244-1253`).
+- **Related:** a student with **no** mother, father or emergency contact was accepted.
+- **Fix:**
+  - Add `type="button"` to the Next button.
+  - Require at least one guardian contact.
+  - Make the emergency contact mandatory or explicitly skipped.
+
+#### QA-211: Guardian contacts can't be viewed or corrected after admission
+- **Side / status:** FE / Browser ✔ Code ✔ · **Severity:** High
+- **Evidence:** mother and father name, phone and email exist only in the admission form (`students/page.tsx`). The student drawer has no guardian-contact fields, and there's no "link parent" action for staff.
+- **Impact:** parent linking sends the OTP to "the contact on record". A typo, a missing contact or a changed number means that parent can **never** link, and the school can't fix it.
+- **Fix:** an editable Guardians section in the drawer (with an audit trail), and a staff "link parent" action (the API `POST me/students/:id/parents` exists).
+
+#### QA-214: Unlinking a parent doesn't stick (safeguarding)
+- **Side / status:** Both / Browser ✔ · **Severity:** High
+- **Repro:** staff unlink the father, and he links himself again straight away with a new OTP.
+- **Cause:** his contact is still on record (QA-211), and there's no block list.
+- **Impact:** custody disputes and court orders can't be honoured.
+- **Fix:**
+  - Unlink can also remove or flag that contact.
+  - A "blocked from linking" list per student.
+  - Notify the remaining guardians.
+
+#### QA-222: Parent app's "paid of" total counts carried bills again every term
+- **Side / status:** FE / Browser ✔ · **Severity:** High (money shown to parents)
+- **Repro:** after rollovers, Esi's Fees page says "GHS 0.50 paid of **GHS 4,489.50**", then "of **GHS 9,119.00**". Her real total billed is GHS 2,870, then 4,630.
+- **Cause:** the sum adds every bill's payable, including bills whose balance was moved into the next bill.
+- **Fix:** total only invoices that aren't carried forward (or use the account's `total_billed`).
+
+#### QA-227: An old "sealed" bill link changes after it was sent
+- **Side / status:** BE / Browser ✔ · **Severity:** High
+- **Repro:** open the Term 1 public bill link from an earlier SMS after promotion and the next term's billing.
+- **Actual:** the header still says "TERM 1 2026/27" with Term 1's fee lines, but "ClassID: BASIC 1" (her current class; she was billed as KG 2), "Bal B/f 3,130.00" and "TOTAL FEES DUE 4,629.50" (her current all-time balance). All of it sits under "DIGITALLY SIGNED & SEALED · Tamper-Proof & Verified".
+- **Fix:**
+  - Render public bills from the invoice's signed snapshot (`snapshot_data`).
+  - Label carried-forward bills "Moved to INV/…".
+  - Never mix in live account balances.
+
+### Medium
+
+| ID | Sev | Side | Finding | Fix |
+|---|---|---|---|---|
+| QA-200 | Medium | BE | School codes are compared exactly. The unique index on `schools.code` is case-sensitive and untrimmed, so `fis-001` or `FIS-001 ` would be a second school. Parents type this code. | Normalise to upper case and trim; unique on `upper(code)`. |
+| QA-202 | Medium | Both | After the Super Admin assigns a principal, the school still says "Principal: Not assigned". The pending invite isn't shown and can't be resent or revoked there, and a second principal invite was accepted while the first was open (two PRINCIPAL invites pending). | Show the pending invite with Resend and Revoke. Allow one open principal invite per school. |
+| QA-203 | Medium | BE | The plain-text part of the invite and reset emails contains `setup-password?token&#x3D;…` (HTML-escaped), a broken link in text-only clients. | Don't HTML-escape the text template. |
+| QA-209 | Medium | Both | Birth date in the future (2030) accepted at admission and saved. | Validate the birth date (past; a reasonable age range for the class). |
+| QA-213 | Medium | FE | Ward-link errors are all shown as "We could not link… check the code" or "That code is not right… send a new one". This hides "2 attempts remaining", "Maximum attempts reached, start over" and "already linked to your account". "Send a new code" after a lockout fails. | Map backend messages to clear copy. After a lockout, offer "Start again". |
+| QA-215 | Medium | BE | An invoice whose discounts bring it to GHS 0 is created as **UNPAID**. It appears in arrears views and got a "view your bill" SMS. | Mark GHS 0 invoices PAID or "No fees due", and exclude them from reminders. |
+| QA-216 | Medium | Both | One MoMo transaction ID can be used only once, so a parent who pays several siblings in one transfer can't be recorded (the second child gets 409). | "Split one payment across siblings", or scope the reference check to (reference, student). |
+| QA-217 | Medium | FE | The Fees KPI cards don't update after recording payments, and the page's **Refresh** button doesn't update them. They showed "Collected GHS 0.00 · 0%" with GHS 5,800.50 collected, until a full browser reload. | Re-fetch `invoices/summary` after payments and on Refresh. |
+| QA-218 | Medium | BE | Only one extra bill per fee type, per student, per term. A second excursion in the same term is refused, so each event needs a new fee type (and fee types can't be deleted). | Key the duplicate check on title or batch, or allow an "allow another" override. |
+| QA-219 | Medium | BE | The public bill shows this term's extra bills as "**Bal B/f**" (balance brought forward), as if old debt. | List extra bills by title, and keep "Bal B/f" for previous-term arrears. |
+| QA-220 | Medium | BE | Credit isn't applied to new extra bills. Students in credit (−500, −200, −100) still have the GHS 120 excursion UNPAID and were sent SMS. | Apply account credit to new invoices (term and supplementary), or show "covered by credit". |
+| QA-221 | Medium | FE | Record Payment always targets the latest **term** invoice and has no bill picker, so an extra bill (excursion, science kit) can't be paid on its own. It stays UNPAID until rolled into arrears. | Let the cashier pick the bill(s), or allocate oldest-first across open bills. |
+| QA-223 | Medium | Both | "Move to another class" accepts a **past, already-billed term**. Kwame was moved to Basic 2 "from 2026/27 Term 2", which he was billed for as Basic 1, with no warning. | Restrict to current or future terms, or warn and offer to re-bill. |
+| QA-224 | Medium | Both | Recording an exit doesn't show or warn about the outstanding balance (Ama Serwaa 1,270, Kofi 1,570, Adwoa 680), and there's no view of leavers' debts. | Show the balance in the exit dialog. Add a "leavers with balances" report. |
+| QA-225 | Medium | BE | The attendance register and term totals list pupils by their **current** class whatever the date, so after promotion the past and current registers show next year's class. | Resolve the roster from enrolment history for the date or term. |
+| QA-226 | Medium | FE | The design builder's "Show a real bill (invoice id)" needs the internal UUID. The invoice number is rejected with "invoiceId must be a UUID". | Accept the invoice number, or offer a searchable picker. |
+| QA-228 | Medium | BE | A published bill design is used in the parent app's printable bill but **not** on the public bill link sent by SMS or email, which still uses the default design. | Render public links through the same document renderer. |
+| QA-229 | Medium | Both | Paystack checkout uses the parent's login email. If Paystack rejects it, the parent sees the raw "Invalid Email Address Passed" and can't pay online. | Validate the email at sign-up, fall back to a school or placeholder email, and show friendly errors. |
+
+### Low
+
+| ID | Sev | Side | Finding | Fix |
+|---|---|---|---|---|
+| QA-205 | Low | BE | The reset email says the link "will expire in 30 minutes". The real TTL is 60 minutes (`PASSWORD_RESET_TTL_SECONDS`), and the app says "one hour". | Use the constant in the copy. |
+| QA-230 | Low | FE | Parent home "Coming up this term" shows only the first three events (no year), leaves out the parents' PTA meeting, and there's no parent calendar page. | Prioritise events for parents and closures, show the year, and link to a full list. |
+
+Smaller observations from the run, not given IDs:
+- Raw validator or internal wording: "SCHOOL_LOGO", "Term sequence already exists".
+- Terms outside their year are blocked with no message.
+- The website was saved without a scheme.
+- No toast when switching optional fees.
+- The MoMo "Channel / Network" picker is empty.
+- The bill breakdown has no due date or penalty.
+- Cancelled online payments show no message.
+- The calendar's future-date message gives the wrong reason.
+- One phone number can link several parent accounts without notice.
+- Promotion history shows no year.
 
 ## Re-check of the backend's existing `endpoint-audit-issues.md`
 

@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import {
+  Alert,
   Badge,
   Button,
   Card,
@@ -53,11 +54,15 @@ export function CalendarPage() {
   const [month, setMonth] = useState<string | null>(null);
   const [editor, setEditor] = useState<Editor>(null);
   const [removing, setRemoving] = useState<SchoolEvent | null>(null);
+  /** Set when loading failed, so a failure never reads as an empty calendar. */
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const term = terms.find((t) => t.termId === termId) ?? null;
   const months = useMemo(() => (term ? monthsBetween(term.startDate, term.endDate) : []), [term]);
 
-  useEffect(() => {
+  const loadSetup = useCallback(() => {
+    setLoadError(null);
+    setLoading(true);
     Promise.all([calendarApi.listTerms(), calendarApi.currentTermId(), calendarApi.listClasses()])
       .then(([allTerms, currentId, allClasses]) => {
         setTerms(allTerms);
@@ -66,14 +71,14 @@ export function CalendarPage() {
         if (!currentId && allTerms.length === 0) setLoading(false);
       })
       .catch((err) => {
-        notifications.show({
-          title: 'Could not load the calendar',
-          message: errorMessage(err, 'Try refreshing the page.'),
-          color: 'red',
-        });
+        setLoadError(errorMessage(err, 'Could not load the calendar.'));
         setLoading(false);
       });
   }, []);
+
+  useEffect(() => {
+    loadSetup();
+  }, [loadSetup]);
 
   // Open each term on today's month when it falls inside the term, else its first month.
   useEffect(() => {
@@ -85,6 +90,7 @@ export function CalendarPage() {
   const load = useCallback(async () => {
     if (!termId) return;
     setLoading(true);
+    setLoadError(null);
     try {
       const [termEvents, termDays] = await Promise.all([
         calendarApi.listEvents(termId, classId),
@@ -93,11 +99,7 @@ export function CalendarPage() {
       setEvents(termEvents);
       setDays(termDays);
     } catch (err) {
-      notifications.show({
-        title: 'Could not load the calendar',
-        message: errorMessage(err, 'Try refreshing the page.'),
-        color: 'red',
-      });
+      setLoadError(errorMessage(err, 'Could not load the calendar.'));
     } finally {
       setLoading(false);
     }
@@ -154,7 +156,21 @@ export function CalendarPage() {
         }
       />
 
-      {!loading && terms.length === 0 ? (
+      {loadError ? (
+        <Alert color="red" title="Unable to load the calendar">
+          <Stack gap="xs" align="flex-start">
+            <Text size="sm">{loadError}</Text>
+            <Button
+              size="xs"
+              variant="light"
+              color="red"
+              onClick={() => (terms.length ? load() : loadSetup())}
+            >
+              Try again
+            </Button>
+          </Stack>
+        </Alert>
+      ) : !loading && terms.length === 0 ? (
         <Card withBorder radius="lg" p="xl">
           <Text c="dimmed" ta="center">
             This school has no academic terms yet. Once a term is set up, its calendar appears here.

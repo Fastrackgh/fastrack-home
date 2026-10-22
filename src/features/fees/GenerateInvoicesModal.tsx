@@ -16,7 +16,6 @@ import {
 import { notifications } from '@mantine/notifications';
 import { CheckCircle, Clock } from 'lucide-react';
 import { feesApi, type AcademicContext } from './api';
-import { formatGhs } from './money';
 import { errorMessage } from './notify';
 
 export function GenerateInvoicesModal({
@@ -53,8 +52,10 @@ export function GenerateInvoicesModal({
         dueDate: dueDate || undefined,
       });
       notifications.show({
-        title: 'Invoices Generated Successfully',
-        message: `Generated ${result.count} student invoices totaling ${formatGhs(result.totalFeePayable)}`,
+        title: result.generatedCount > 0 ? 'Invoices generated' : 'No new invoices',
+        message:
+          result.message ||
+          `Generated ${result.generatedCount}, skipped ${result.skippedCount} that already had one.`,
         color: 'green',
         icon: <CheckCircle size={18} />,
         autoClose: 5000,

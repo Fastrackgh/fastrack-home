@@ -6,7 +6,7 @@ import { feesApi, type AcademicContext, type Discount, type FeeType, type Page }
 import { ConfirmModal } from './ConfirmModal';
 import { DiscountModal } from './DiscountModal';
 import { discountLabel, DiscountsTab, type DiscountFilters } from './DiscountsTab';
-import { notifyLoadError } from './notify';
+import { errorMessage } from './notify';
 
 /** The Discounts tab: loads while `active`, and owns its filters and forms. */
 export function DiscountsPanel({
@@ -32,17 +32,19 @@ export function DiscountsPanel({
   const [filters, setFilters] = useState<DiscountFilters>({ studentId: null, page: 1 });
   const [discounts, setDiscounts] = useState<Page<Discount> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [removing, setRemoving] = useState<Discount | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const page = await feesApi.listDiscounts(filters);
       setDiscounts(page);
       onTotal(page.total);
     } catch (err) {
-      notifyLoadError('discounts', err);
+      setError(errorMessage(err, 'Could not load the discounts.'));
     } finally {
       setLoading(false);
     }
@@ -58,6 +60,8 @@ export function DiscountsPanel({
         discounts={discounts?.items ?? []}
         total={discounts?.total ?? 0}
         loading={loading}
+        error={error}
+        onRetry={load}
         filters={filters}
         onFiltersChange={setFilters}
         studentOptions={studentOptions}

@@ -13,6 +13,7 @@ import {
   Text,
 } from '@mantine/core';
 import { Printer, Receipt } from 'lucide-react';
+import { LoadErrorRow } from './LoadErrorRow';
 import { PAGE_SIZE, PAYMENT_METHODS, type Payment } from './api';
 import { formatGhs } from './money';
 
@@ -26,6 +27,8 @@ export function PaymentsTab({
   payments,
   total,
   loading,
+  error = null,
+  onRetry,
   filters,
   onFiltersChange,
   studentOptions,
@@ -35,6 +38,9 @@ export function PaymentsTab({
   payments: Payment[];
   total: number;
   loading: boolean;
+  /** Set when the list failed to load; shown instead of the empty state. */
+  error?: string | null;
+  onRetry?: () => void;
   filters: PaymentFilters;
   onFiltersChange: (filters: PaymentFilters) => void;
   studentOptions: { value: string; label: string }[];
@@ -109,6 +115,8 @@ export function PaymentsTab({
                   </Stack>
                 </Table.Td>
               </Table.Tr>
+            ) : error ? (
+              <LoadErrorRow colSpan={8} message={error} onRetry={onRetry} />
             ) : payments.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={8}>

@@ -15,21 +15,50 @@ import {
   Text,
   Title,
 } from '@mantine/core';
-import { ExternalLink, ShieldCheck } from 'lucide-react';
-import type { Invoice } from './api';
+import { useState } from 'react';
+import { notifications } from '@mantine/notifications';
+import { ExternalLink, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { feesApi, type Invoice } from './api';
 import { invoiceStatusColor, invoiceStatusLabel } from './InvoicesTab';
 import { formatGhs } from './money';
+import { errorMessage } from './notify';
 
 export function InvoiceDrawer({
   invoice,
   loading,
   onClose,
+  canSendLink = false,
+  onModify,
 }: {
   invoice: Invoice | null;
   /** True while the line items are still loading. */
   loading: boolean;
   onClose: () => void;
+  /** Texts or emails the parent this bill's link. */
+  canSendLink?: boolean;
+  /** Opens the correction form; only the Principal may correct a bill. */
+  onModify?: (invoice: Invoice) => void;
 }) {
+  const [sending, setSending] = useState(false);
+  const sendLink = async (target: Invoice) => {
+    setSending(true);
+    try {
+      const result = await feesApi.sendInvoiceLink(target.id);
+      notifications.show({
+        title: 'Bill link sent',
+        message: result.message || target.invoiceNumber,
+        color: 'green',
+      });
+    } catch (err) {
+      notifications.show({
+        title: 'Could not send the bill link',
+        message: errorMessage(err, 'Try again.'),
+        color: 'red',
+      });
+    } finally {
+      setSending(false);
+    }
+  };
   return (
     <Drawer
       opened={invoice !== null}
@@ -151,6 +180,34 @@ export function InvoiceDrawer({
               </Text>
             </Alert>
           ) : null}
+
+          {(canSendLink || onModify) && (
+            <Group grow>
+              {canSendLink && (
+                <Button
+                  variant="light"
+                  color="fastrackRed"
+                  leftSection={<Send size={16} />}
+                  radius="md"
+                  loading={sending}
+                  onClick={() => sendLink(invoice)}
+                >
+                  Send link to parent
+                </Button>
+              )}
+              {onModify && (
+                <Button
+                  variant="default"
+                  leftSection={<PencilLine size={16} />}
+                  radius="md"
+                  disabled={loading || !invoice.lineItems?.length}
+                  onClick={() => onModify(invoice)}
+                >
+                  Correct bill
+                </Button>
+              )}
+            </Group>
+          )}
 
           {invoice.viewUrl ? (
             <Button

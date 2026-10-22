@@ -7,7 +7,7 @@ import { ConfirmModal } from './ConfirmModal';
 import { EditFeeStructureModal } from './EditFeeStructureModal';
 import { FeeStructureModal } from './FeeStructureModal';
 import { formatGhs } from './money';
-import { notifyLoadError } from './notify';
+import { errorMessage } from './notify';
 import { StructuresTab, type FeeStructureFilters } from './StructuresTab';
 
 /** The Fee Structures tab: loads while `active`, and owns its filters and forms. */
@@ -38,6 +38,7 @@ export function StructuresPanel({
   });
   const [structures, setStructures] = useState<Page<FeeStructure> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<FeeStructure | null>(null);
   const [removing, setRemoving] = useState<FeeStructure | null>(null);
@@ -49,12 +50,13 @@ export function StructuresPanel({
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const page = await feesApi.listFeeStructures(filters);
       setStructures(page);
       onTotal(page.total);
     } catch (err) {
-      notifyLoadError('fee structures', err);
+      setError(errorMessage(err, 'Could not load the fee structures.'));
     } finally {
       setLoading(false);
     }
@@ -75,6 +77,8 @@ export function StructuresPanel({
         structures={structures?.items ?? []}
         total={structures?.total ?? 0}
         loading={loading}
+        error={error}
+        onRetry={load}
         filters={filters}
         onFiltersChange={setFilters}
         termOptions={termOptions}

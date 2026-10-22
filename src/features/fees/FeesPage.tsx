@@ -1,24 +1,31 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Tabs } from '@mantine/core';
+import { Badge, Button, Card, Menu, Tabs } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
   BadgePercent,
+  ChevronDown,
   CreditCard,
+  FilePlus2,
   FileText,
+  Inbox,
   PlusCircle,
   Receipt,
   RefreshCw,
+  Send,
   Tags,
 } from 'lucide-react';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
+import { APP_ROUTES } from '@/lib/rbac';
 import {
   feesApi,
   type AcademicContext,
   type FeeType,
   type Invoice,
+  type InvoiceSummary,
   type Page,
   type Payment,
   type SchoolClass,
@@ -28,9 +35,13 @@ import { DiscountsPanel } from './DiscountsPanel';
 import { FeeMetrics } from './FeeMetrics';
 import { FeeTypesPanel } from './FeeTypesPanel';
 import { GenerateInvoicesModal } from './GenerateInvoicesModal';
+import { optionalFeeRequestsApi } from '@/features/optional-fee-requests/api';
+import { BroadcastLinksModal } from './BroadcastLinksModal';
 import { InvoiceDrawer } from './InvoiceDrawer';
+import { ModifyInvoiceModal } from './ModifyInvoiceModal';
+import { SupplementaryInvoiceModal } from './SupplementaryInvoiceModal';
 import { InvoicesTab, type InvoiceFilters } from './InvoicesTab';
-import { notifyLoadError } from './notify';
+import { errorMessage, notifyLoadError } from './notify';
 import { PaymentsTab, type PaymentFilters } from './PaymentsTab';
 import { ReceiptModal } from './ReceiptModal';
 import { RecordPaymentModal } from './RecordPaymentModal';
@@ -41,11 +52,14 @@ const countOf = (total: number | null | undefined) => (total == null ? '' : ` ($
 
 /** Invoices, payments, and the fee setup for the signed-in user's school. */
 export function FeesPage() {
-  const { can, school } = useAuth();
+  const { can, school, user } = useAuth();
   const may = {
     readPayments: can('payments:read'),
     collectPayments: can('payments:collect'),
     generateInvoices: can('invoices:generate'),
+    // The backend lets only the Principal correct an issued bill.
+    correctInvoices: can('invoices:generate') && user?.role === 'PRINCIPAL',
+    reviewServiceRequests: can('student_fee_preferences:manage'),
     readStructures: can('fee_structures:read'),
     manageStructures: can('fee_structures:manage'),
     readFeeTypes: can('fee_types:read'),
@@ -61,6 +75,7 @@ export function FeesPage() {
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
   const [feeTypesLoading, setFeeTypesLoading] = useState(false);
+  const [feeTypesError, setFeeTypesError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<InvoiceFilters>({
     search: '',
@@ -72,6 +87,8 @@ export function FeesPage() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoicesTotal, setInvoicesTotal] = useState(0);
   const [invoicesLoading, setInvoicesLoading] = useState(true);
+  const [invoicesError, setInvoicesError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<InvoiceSummary | null>(null);
 
   const [paymentFilters, setPaymentFilters] = useState<PaymentFilters>({
     studentId: null,
@@ -80,6 +97,7 @@ export function FeesPage() {
   });
   const [payments, setPayments] = useState<Page<Payment> | null>(null);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
 
   // Totals reported by the self-loading setup tabs, for their tab labels.
   const [structuresTotal, setStructuresTotal] = useState<number | null>(null);
@@ -89,6 +107,20 @@ export function FeesPage() {
   const [breakdown, setBreakdown] = useState<Invoice | null>(null);
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [extraBill, setExtraBill] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [correcting, setCorrecting] = useState<Invoice | null>(null);
+  /** Parents' optional-service requests awaiting a decision; null until known. */
+  const [pendingRequests, setPendingRequests] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!may.reviewServiceRequests) return;
+    // A hint on a button: when the count can't load, the button still works.
+    optionalFeeRequestsApi
+      .pendingCount()
+      .then(setPendingRequests)
+      .catch(() => setPendingRequests(null));
+  }, [may.reviewServiceRequests]);
   const [paying, setPaying] = useState(false);
   const [receipt, setReceipt] = useState<Payment | null>(null);
 
@@ -112,10 +144,11 @@ export function FeesPage() {
 
   const loadFeeTypes = useCallback(async () => {
     setFeeTypesLoading(true);
+    setFeeTypesError(null);
     try {
       setFeeTypes(await feesApi.listFeeTypes());
     } catch (err) {
-      notifyLoadError('fee types', err);
+      setFeeTypesError(errorMessage(err, 'Could not load the fee types.'));
     } finally {
       setFeeTypesLoading(false);
     }
@@ -129,6 +162,7 @@ export function FeesPage() {
   const { page, classId, status } = filters;
   const loadInvoices = useCallback(async () => {
     setInvoicesLoading(true);
+    setInvoicesError(null);
     try {
       const result = await feesApi.listInvoices({
         page,
@@ -139,7 +173,7 @@ export function FeesPage() {
       setInvoices(result.items);
       setInvoicesTotal(result.total);
     } catch (err) {
-      notifyLoadError('invoices', err);
+      setInvoicesError(errorMessage(err, 'Could not load the invoices.'));
     } finally {
       setInvoicesLoading(false);
     }
@@ -147,10 +181,11 @@ export function FeesPage() {
 
   const loadPayments = useCallback(async () => {
     setPaymentsLoading(true);
+    setPaymentsError(null);
     try {
       setPayments(await feesApi.listPayments(paymentFilters));
     } catch (err) {
-      notifyLoadError('payments', err);
+      setPaymentsError(errorMessage(err, 'Could not load the payments.'));
     } finally {
       setPaymentsLoading(false);
     }
@@ -159,6 +194,18 @@ export function FeesPage() {
   useEffect(() => {
     loadInvoices();
   }, [loadInvoices]);
+
+  // The cards cover the same invoices as the table's filters, across every page.
+  useEffect(() => {
+    let current = true;
+    feesApi
+      .invoiceSummary({ search, classId, status: status ?? undefined })
+      .then((result) => current && setSummary(result))
+      .catch(() => current && setSummary(null));
+    return () => {
+      current = false;
+    };
+  }, [search, classId, status, invoicesTotal]);
 
   useEffect(() => {
     if (activeTab === 'payments' && may.readPayments) loadPayments();
@@ -222,6 +269,24 @@ export function FeesPage() {
             >
               Refresh
             </Button>
+            {may.reviewServiceRequests && (
+              <Button
+                component={Link}
+                href={APP_ROUTES.optionalFeeRequests.path}
+                variant="default"
+                radius="md"
+                leftSection={<Inbox size={16} />}
+                rightSection={
+                  pendingRequests ? (
+                    <Badge size="sm" color="fastrackRed" circle={pendingRequests < 10}>
+                      {pendingRequests}
+                    </Badge>
+                  ) : undefined
+                }
+              >
+                Service requests
+              </Button>
+            )}
             {startPayment && (
               <Button
                 leftSection={<Receipt size={16} />}
@@ -244,11 +309,31 @@ export function FeesPage() {
                 Generate Term Invoices
               </Button>
             )}
+            {may.generateInvoices && (
+              <Menu position="bottom-end" radius="md" shadow="md">
+                <Menu.Target>
+                  <Button variant="default" radius="md" rightSection={<ChevronDown size={14} />}>
+                    More billing
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<FilePlus2 size={14} />}
+                    onClick={() => setExtraBill(true)}
+                  >
+                    Extra bill (exam, excursion…)
+                  </Menu.Item>
+                  <Menu.Item leftSection={<Send size={14} />} onClick={() => setBroadcasting(true)}>
+                    Send bill links to parents
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            )}
           </>
         }
       />
 
-      <FeeMetrics invoices={invoices} />
+      <FeeMetrics invoices={invoices} summary={summary} />
 
       <Card withBorder radius="lg" p="lg" style={{ borderColor: '#e8edf3' }}>
         <Tabs value={activeTab} onChange={setActiveTab} color="fastrackRed">
@@ -283,6 +368,8 @@ export function FeesPage() {
               invoices={invoices}
               total={invoicesTotal}
               loading={invoicesLoading}
+              error={invoicesError}
+              onRetry={loadInvoices}
               filters={filters}
               onFiltersChange={setFilters}
               classOptions={classOptions}
@@ -295,6 +382,8 @@ export function FeesPage() {
                 payments={payments?.items ?? []}
                 total={payments?.total ?? 0}
                 loading={paymentsLoading}
+                error={paymentsError}
+                onRetry={loadPayments}
                 filters={paymentFilters}
                 onFiltersChange={setPaymentFilters}
                 studentOptions={studentOptions}
@@ -322,6 +411,8 @@ export function FeesPage() {
               <FeeTypesPanel
                 feeTypes={feeTypes}
                 loading={feeTypesLoading}
+                error={feeTypesError}
+                onRetry={loadFeeTypes}
                 canManage={may.manageFeeTypes}
                 onChanged={loadFeeTypes}
               />
@@ -348,7 +439,42 @@ export function FeesPage() {
         invoice={breakdown}
         loading={breakdownLoading}
         onClose={() => setBreakdown(null)}
+        canSendLink={may.generateInvoices}
+        onModify={may.correctInvoices ? setCorrecting : undefined}
       />
+      {correcting && (
+        <ModifyInvoiceModal
+          invoice={correcting}
+          onClose={() => setCorrecting(null)}
+          onSaved={(updated) => {
+            setCorrecting(null);
+            setBreakdown(updated);
+            loadInvoices();
+          }}
+        />
+      )}
+      {extraBill && (
+        <SupplementaryInvoiceModal
+          terms={terms}
+          currentTermId={term?.termId ?? null}
+          feeTypes={feeTypes}
+          classOptions={classOptions}
+          studentOptions={studentOptions}
+          onClose={() => setExtraBill(false)}
+          onGenerated={() => {
+            setExtraBill(false);
+            loadInvoices();
+          }}
+        />
+      )}
+      {broadcasting && (
+        <BroadcastLinksModal
+          terms={terms}
+          currentTermId={term?.termId ?? null}
+          classOptions={classOptions}
+          onClose={() => setBroadcasting(false)}
+        />
+      )}
       <GenerateInvoicesModal
         opened={generating}
         onClose={() => setGenerating(false)}

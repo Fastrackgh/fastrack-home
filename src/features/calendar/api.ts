@@ -1,3 +1,4 @@
+import { setupApi } from '@/features/school-setup/api';
 import { ApiError, apiClient } from '@/lib/api-client';
 
 /** Values of the backend's `SchoolEventType` enum. */
@@ -172,8 +173,9 @@ export const calendarApi = {
       throw err;
     }
   },
-  async listClasses() {
-    return (await apiClient.get<SchoolClass[]>('/schools/me/classes')).data ?? [];
+  /** Every class (the list endpoint pages, at most 100 a page). */
+  async listClasses(): Promise<SchoolClass[]> {
+    return setupApi.allClasses();
   },
 };
 

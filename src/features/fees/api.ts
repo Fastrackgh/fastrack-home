@@ -1,3 +1,4 @@
+import { setupApi } from '@/features/school-setup/api';
 import { apiClient, PageMeta } from '@/lib/api-client';
 import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { toCedis, toPesewas, type Pesewas } from './money';
@@ -234,12 +235,66 @@ const toDiscount = (raw: Raw): Discount => ({
   value: isPercentage(raw.discountType) ? Number(raw.discountValue) : toPesewas(raw.discountValue),
 });
 
+/** School-wide totals for the invoices matching a filter (`GET /schools/me/invoices/summary`). */
+export interface InvoiceSummary {
+  invoiceCount: number;
+  billed: Pesewas;
+  collected: Pesewas;
+  outstanding: Pesewas;
+  overpaid: Pesewas;
+  /** Collected ÷ (collected + outstanding), as a percentage to one decimal. */
+  collectionRate: number;
+}
+
+export interface GenerateResult {
+  generatedCount: number;
+  skippedCount: number;
+  message: string;
+}
+
+export interface SupplementaryRequest {
+  academicTermId: string;
+  title: string;
+  feeTypeId: string;
+  classId?: string;
+  studentId?: string;
+  /** Leave out to use the class's fee structure amount. */
+  amount?: Pesewas;
+  dueDate?: string;
+}
+
+export interface BroadcastRequest {
+  academicTermId?: string;
+  classId?: string;
+  channel?: 'SMS' | 'EMAIL' | 'BOTH';
+}
+
+export interface ModifyRequest {
+  reason: string;
+  lineItems: { feeTypeId: string; amount: Pesewas; description?: string }[];
+}
+
 export const feesApi = {
   async listInvoices({ page, ...filters }: InvoiceQuery): Promise<Page<Invoice>> {
     const res = await apiClient.get<Raw[], PageMeta>(
       `/schools/me/invoices?${pageParams(page, filters)}`,
     );
     return toPage(res, toInvoice);
+  },
+  /** Totals over every matching invoice, not just one page. */
+  async invoiceSummary(filters: Omit<InvoiceQuery, 'page'>): Promise<InvoiceSummary> {
+    const query = pageParams(1, filters);
+    query.delete('page');
+    query.delete('limit');
+    const raw = (await apiClient.get<Raw>(`/schools/me/invoices/summary?${query}`)).data ?? {};
+    return {
+      invoiceCount: Number(raw.invoiceCount ?? 0),
+      billed: toPesewas(raw.totalBilled),
+      collected: toPesewas(raw.totalCollected),
+      outstanding: toPesewas(raw.outstanding),
+      overpaid: toPesewas(raw.overpaid),
+      collectionRate: Number(raw.collectionRate ?? 0),
+    };
   },
   async getInvoice(id: string): Promise<Invoice> {
     const res = await apiClient.get<Raw>(`/schools/me/invoices/${encodeURIComponent(id)}`);
@@ -252,14 +307,43 @@ export const feesApi = {
     return toInvoice(res.data);
   },
   async generateInvoices(request: { academicTermId: string; classId?: string; dueDate?: string }) {
-    const res = await apiClient.post<{ totalInvoicesGenerated: number; totalFeePayable: number }>(
-      '/schools/me/invoices/generate',
+    const res = await apiClient.post<GenerateResult>('/schools/me/invoices/generate', request);
+    return res.data;
+  },
+  /** A one-off bill (e.g. mock exam fee) for one student, one class or the whole school. */
+  async generateSupplementary(request: SupplementaryRequest) {
+    const { amount, ...rest } = request;
+    const res = await apiClient.post<GenerateResult>('/schools/me/invoices/supplementary', {
+      ...rest,
+      ...(amount !== undefined ? { amount: toCedis(amount) } : {}),
+    });
+    return res.data;
+  },
+  /** Texts or emails the parent the bill's view link. */
+  async sendInvoiceLink(id: string) {
+    const res = await apiClient.post<{ success: boolean; message: string }>(
+      `/schools/me/invoices/${encodeURIComponent(id)}/send-link`,
+    );
+    return res.data;
+  },
+  /** Queues bill links to every matching parent. */
+  async broadcastInvoiceLinks(request: BroadcastRequest) {
+    const res = await apiClient.post<{ queuedCount: number; message: string }>(
+      '/schools/me/invoices/broadcast-links',
       request,
     );
-    return {
-      count: res.data.totalInvoicesGenerated,
-      totalFeePayable: toPesewas(res.data.totalFeePayable),
-    };
+    return res.data;
+  },
+  /** Changes a bill's amounts; the reason is kept in the audit log. */
+  async modifyInvoice(id: string, request: ModifyRequest) {
+    const res = await apiClient.patch<Raw>(
+      `/schools/me/invoices/${encodeURIComponent(id)}/modify`,
+      {
+        reason: request.reason,
+        lineItems: request.lineItems.map((item) => ({ ...item, amount: toCedis(item.amount) })),
+      },
+    );
+    return toInvoice(res.data);
   },
   async listPayments({ page, ...filters }: PaymentQuery): Promise<Page<Payment>> {
     const res = await apiClient.get<Raw[], PageMeta>(
@@ -343,8 +427,9 @@ export const feesApi = {
   async deleteDiscount(id: string) {
     await apiClient.delete(`/schools/me/discounts/${encodeURIComponent(id)}`);
   },
-  async listClasses() {
-    return (await apiClient.get<SchoolClass[]>('/schools/me/classes')).data ?? [];
+  /** Every class (the list endpoint pages, at most 100 a page). */
+  async listClasses(): Promise<SchoolClass[]> {
+    return setupApi.allClasses();
   },
   async listStudentOptions() {
     return (await apiClient.get<StudentOption[]>('/schools/me/students?limit=100')).data ?? [];

@@ -13,6 +13,7 @@ import {
   Text,
 } from '@mantine/core';
 import { BadgePercent, PlusCircle, Trash2 } from 'lucide-react';
+import { LoadErrorRow } from './LoadErrorRow';
 import { PAGE_SIZE, type Discount } from './api';
 import { formatGhs } from './money';
 
@@ -28,6 +29,8 @@ export function DiscountsTab({
   discounts,
   total,
   loading,
+  error = null,
+  onRetry,
   filters,
   onFiltersChange,
   studentOptions,
@@ -37,6 +40,9 @@ export function DiscountsTab({
   discounts: Discount[];
   total: number;
   loading: boolean;
+  /** Set when the list failed to load; shown instead of the empty state. */
+  error?: string | null;
+  onRetry?: () => void;
   filters: DiscountFilters;
   onFiltersChange: (filters: DiscountFilters) => void;
   studentOptions: { value: string; label: string }[];
@@ -95,6 +101,8 @@ export function DiscountsTab({
                   </Stack>
                 </Table.Td>
               </Table.Tr>
+            ) : error ? (
+              <LoadErrorRow colSpan={columns} message={error} onRetry={onRetry} />
             ) : discounts.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={columns}>

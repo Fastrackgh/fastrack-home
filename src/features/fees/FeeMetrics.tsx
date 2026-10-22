@@ -3,15 +3,32 @@
 import type { ReactNode } from 'react';
 import { Box, Card, Group, SimpleGrid, Text } from '@mantine/core';
 import { DollarSign, FileText, TrendingUp, Wallet } from 'lucide-react';
-import type { Invoice } from './api';
+import type { Invoice, InvoiceSummary } from './api';
 import { formatGhs, sumPesewas } from './money';
 
-/** Totals of the invoices currently listed (one page), not of the whole school. */
-export function FeeMetrics({ invoices }: { invoices: Invoice[] }) {
-  const billed = sumPesewas(invoices, (inv) => inv.feePayable);
-  const collected = sumPesewas(invoices, (inv) => inv.totalPayment);
-  const outstanding = sumPesewas(invoices, (inv) => inv.balance);
-  const rate = billed > 0 ? Math.round((collected / billed) * 100) : 0;
+/**
+ * Totals of every invoice matching the table's filters, from the backend
+ * summary. Until a backend offers it, falls back to the page on screen and
+ * says so.
+ */
+export function FeeMetrics({
+  invoices,
+  summary,
+}: {
+  invoices: Invoice[];
+  summary: InvoiceSummary | null;
+}) {
+  const billed = summary?.billed ?? sumPesewas(invoices, (inv) => inv.feePayable);
+  const collected = summary?.collected ?? sumPesewas(invoices, (inv) => inv.totalPayment);
+  const outstanding = summary?.outstanding ?? sumPesewas(invoices, (inv) => inv.balance);
+  const rate = summary
+    ? summary.collectionRate
+    : billed > 0
+      ? Math.round((collected / billed) * 100)
+      : 0;
+  const scope = summary
+    ? `Across all ${summary.invoiceCount} matching invoices`
+    : `Across the ${invoices.length} invoices shown`;
 
   return (
     <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md" mb="xl">
@@ -20,7 +37,7 @@ export function FeeMetrics({ invoices }: { invoices: Invoice[] }) {
         icon={<FileText size={20} color="#3b82f6" />}
         tint="rgba(59, 130, 246, 0.1)"
         value={formatGhs(billed)}
-        note={`Across the ${invoices.length} invoices shown`}
+        note={scope}
       />
       <MetricCard
         label="Total Collected"
@@ -44,7 +61,7 @@ export function FeeMetrics({ invoices }: { invoices: Invoice[] }) {
         icon={<TrendingUp size={20} color="#a855f7" />}
         tint="rgba(168, 85, 247, 0.1)"
         value={`${rate}%`}
-        note="Of the invoices shown"
+        note={summary ? 'Of everything due' : 'Of the invoices shown'}
       />
     </SimpleGrid>
   );

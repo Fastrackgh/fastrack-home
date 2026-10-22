@@ -20,6 +20,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { Check, Copy, Eye, Filter, Search, ShieldCheck } from 'lucide-react';
+import { LoadErrorRow } from './LoadErrorRow';
 import { PAGE_SIZE, type Invoice, type InvoiceStatus } from './api';
 import { formatGhs } from './money';
 
@@ -44,6 +45,8 @@ export function InvoicesTab({
   invoices,
   total,
   loading,
+  error = null,
+  onRetry,
   filters,
   onFiltersChange,
   classOptions,
@@ -52,6 +55,9 @@ export function InvoicesTab({
   invoices: Invoice[];
   total: number;
   loading: boolean;
+  /** Set when the list failed to load; shown instead of the empty state. */
+  error?: string | null;
+  onRetry?: () => void;
   filters: InvoiceFilters;
   onFiltersChange: (filters: InvoiceFilters) => void;
   classOptions: { value: string; label: string }[];
@@ -120,6 +126,8 @@ export function InvoicesTab({
                   </Stack>
                 </Table.Td>
               </Table.Tr>
+            ) : error ? (
+              <LoadErrorRow colSpan={8} message={error} onRetry={onRetry} />
             ) : invoices.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={8}>

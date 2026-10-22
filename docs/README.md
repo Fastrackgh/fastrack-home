@@ -43,7 +43,7 @@ Each flow has a Mermaid diagram, its loading, empty, error and success states, i
 | Document | What it covers |
 | --- | --- |
 | [qa/pm-summary.md](./qa/pm-summary.md) | Verdict, top risks, friction themes, frontend/backend disagreements, roadmap (start here) |
-| [qa/findings.md](./qa/findings.md) | All 124 findings (QA-001 to QA-088, QA-200 to QA-235) with severity, evidence, reproduction steps and fixes |
+| [qa/findings.md](./qa/findings.md) | All 126 findings (QA-001 to QA-088, QA-200 to QA-237) with severity, evidence, reproduction steps and fixes |
 | [qa/e2e-bismark-international.md](./qa/e2e-bismark-international.md) | 21 Oct end-to-end UI run: a new school (BIS-001) set up and taken through every feature, step by step, with a ledger reconciliation |
 | [qa/test-matrix.md](./qa/test-matrix.md) | Role × route/endpoint, security, money and lifecycle scenarios with results |
 | [qa/live-test-log.md](./qa/live-test-log.md) | How the live run was set up, every request made and response received, and the browser walk-through ([scripts](./qa/browser-walkthrough/), [screenshots](./qa/screenshots/)) |
@@ -57,7 +57,7 @@ See [qa/pm-summary.md](./qa/pm-summary.md). The five Critical findings are:
 1. **QA-001:** concurrent payments lose credits on the invoice and the fee account (reproduced live).
 2. **QA-002:** carried-forward arrears are counted twice (reproduced live).
 3. **QA-003:** suspending a school has no effect (reproduced live).
-4. **QA-015:** invited staff can't accept their invitation, because the frontend has no setup-password page. *Partly fixed in 41eeb3b.*
+4. **QA-015:** invited staff can't accept their invitation, because the frontend has no setup-password page. *Fixed: page in 41eeb3b; crash fixed 22 Oct (QA-204).*
 5. **QA-020:** waitlist and contact forms send nothing. *Mostly fixed in 41eeb3b.*
 
 The browser walk-through also found **QA-055** (High): the Record Payment form can replace the amount the cashier typed with the full balance, so a GHS 50 payment was recorded as GHS 1,450. *Fixed in 41eeb3b.*

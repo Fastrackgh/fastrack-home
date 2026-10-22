@@ -7,7 +7,7 @@
 
 As of 21 October 2026 these are live against the backend too (checked on localhost):
 - the ward profile, with guardians on file, boarding status and the school's contacts
-- fees, bills, payments and receipts, plus online checkout (needs `PAYSTACK_SECRET_KEY`, which isn't set locally)
+- fees, bills, payments and receipts, plus online checkout (needs `PAYSTACK_SECRET_KEY`; the local backend has a test key since 21 Oct. The webhook can't reach localhost, so locally a payment is confirmed when the return page calls `GET /parents/me/payments/verify`)
 - optional-service requests
 - attendance (see [attendance.md](./attendance.md))
 - the school calendar ("Coming up this term" on Home)

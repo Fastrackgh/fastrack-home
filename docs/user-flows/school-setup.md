@@ -1,5 +1,7 @@
 # Flow: School setup (Principal / Academic Head)
 
+> **Updated 22 Oct 2026 (QA-206).** Setting a year or term current no longer returns 500 or leaves two current. The backend clears the old one in the same transaction, and unique indexes allow one current year and one current term per school (backend `bcb2e0b`, branch `fix/set-current-year-term`, not on `main` yet). Re-tested in the browser on BIS-001. Still open: QA-236 (a current year doesn't move the term) and QA-237 (the current term can be unticked to leave none).
+
 Code:
 - `src/features/school-setup/*` (`SetupPage`, `SchoolProfilePanel`, `YearsPanel` + `DatesModal`, `DepartmentsPanel` + `DepartmentModal`, `ClassesPanel` + `ClassModal`, `api.ts`)
 - Route `/school-admin/setup` (`src/app/school-admin/(app)/(school)/setup/page.tsx`), registered as `APP_ROUTES.setup` in `src/lib/rbac/routes.ts`
@@ -86,7 +88,7 @@ flowchart TD
 | Year edit | Same | Doesn't check that existing terms still fit inside the new dates |
 | Term number | `NumberInput` 1–6, default next free number; an empty value is sent as `0` | `IsInt`, `Min(1)`, unique within the year; no maximum |
 | Term dates | Required, end ≥ start, inside the year | `IsDateString` only: no bounds, overlap or order-vs-number check (see QA-018) |
-| Current year / term | Switch in the edit form | One current per school. A current term forces its year current; **a current year does not move or clear the current term** |
+| Current year / term | Switch in the edit form | One current per school, enforced by unique indexes since QA-206. A current term forces its year current; **a current year does not move or clear the current term** (QA-236). Unticking the current term leaves none (QA-237). |
 | Department code | Required, trimmed, upper-cased, ≤30 | `IsNotEmpty`, ≤30, unique per school (upper-cased) |
 | Department name | Required, trimmed, ≤100 | ≤100; duplicates allowed |
 | Display order | ≥0, blank → 0 | `Min(0)` |
@@ -104,7 +106,9 @@ flowchart TD
 
 - **QA-033 is partly resolved.** Years, terms, departments, classes and the school profile can now be set up in the UI; the Principal can be assigned from the platform console; the checklist links to Fees and Staff. Still missing: deleting a mistaken year, term or class (no backend route either); bulk class entry; a fee step that checks structures, not just fee types; any ordering guidance (fees need classes and terms).
 - **Term and year dates aren't consistent (QA-018).** Overlapping terms, terms out of order, overlapping years, and year edits that leave terms outside the year are all accepted.
-- **Current year and current term can disagree.** Making another year current, or unticking "current" on a year, leaves the current term in the old year.
+- **Current year and current term can disagree (QA-236).** Making another year current, or unticking "current" on a year, leaves the current term in the old year. Confirmed in the browser 22 Oct.
+- **The current term can be unticked, leaving none (QA-237).** It saves with "Term updated" and no warning.
+- *Fixed 22 Oct (QA-206):* saving "current" used to return "Internal server error" and leave two current years or terms.
 - **Errors look like progress.** A failed checklist read removes the step; a failed teacher read empties the pickers silently.
 - Class teachers who are inactive, or outside the first 100 teachers, show as "Assigned" without a name.
 - "Invite your staff" counts only active teachers, so pending invitations and non-teaching staff don't tick it.

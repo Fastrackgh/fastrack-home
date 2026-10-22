@@ -1,6 +1,6 @@
 # Fastrack EduSuite: PM and QA summary
 
-20 Oct 2026. Full detail: [findings.md](./findings.md) (124 findings; QA-060 to QA-088 and QA-200 to QA-235 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
+20 Oct 2026. Full detail: [findings.md](./findings.md) (126 findings; QA-060 to QA-088 and QA-200 to QA-237 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
 ## Verdict
 
@@ -102,15 +102,15 @@ A brand-new school was set up from nothing and taken through every built feature
 **Good news:** the money is right. At the end of the run, payments, invoices and student accounts reconcile to the pesewa (GHS 8,870.50 paid; GHS 35,789.50 open). This held across partial, exact, over- and under-payments, discounts, corrections, extra bills, two rollovers, promotion and an online payment. Several earlier findings are fixed in the browser: QA-002, QA-003, QA-009, QA-028, QA-032, QA-036, QA-055 and QA-057.
 
 **Blockers for a real school (fix before onboarding anyone):**
-1. **QA-204:** invite links crash. No principal or staff member can activate an account (the QA-015 fix never worked at runtime).
-2. **QA-212:** parent sign-up crashes on the first keystroke. No parent can join.
-3. **QA-206:** making a year or term current returns 500 and leaves **two current terms** (and two current years). Every rollover hits this.
+1. **QA-204:** invite links crash. No principal or staff member can activate an account (the QA-015 fix never worked at runtime). **Fixed 22 Oct** and re-tested in the browser.
+2. **QA-212:** parent sign-up crashes on the first keystroke. No parent can join. **Fixed 22 Oct** and re-tested in the browser.
+3. **QA-206:** making a year or term current returns 500 and leaves **two current terms** (and two current years). Every rollover hits this. **Fixed 22 Oct** (backend bcb2e0b); re-tested by API. Re-tested in the browser on BIS-001 22 Oct: switching terms works. Two edge cases remain: making a year current doesn't move the term (QA-236), and the current term can be unticked to leave none (QA-237).
 
 **High-risk in real use:**
 - **Linking families:**
   - Guardian contacts can't be corrected after admission (QA-211).
   - Unlinking a parent doesn't stick, which is a safeguarding problem (QA-214).
-  - A revoked invite locks a staff member out for good (QA-208).
+  - A revoked invite locks a staff member out for good (QA-208). **Fixed 22 Oct:** "Resend invite" now works for anyone who never set a password.
 - **What parents see about money:**
   - The parent app's "paid of" total inflates every term (QA-222).
   - Old "tamper-proof" bill links change later (QA-227).

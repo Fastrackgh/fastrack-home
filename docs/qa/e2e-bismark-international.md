@@ -47,7 +47,7 @@ Everything else was done through the UI.
 
 | Step | Result |
 |---|---|
-| Open the invite link (`/auth/setup-password?token=…`) | ❌ **QA-204 (Critical)**: "Application error: a client-side exception". The page calls `useAuth()`, but `AuthProvider` is mounted only under `/school-admin` and `/parent`. The committed `41eeb3b` page has the same call, so the QA-015 fix never worked at runtime. **No invited user can activate an account through the app.** |
+| Open the invite link (`/auth/setup-password?token=…`) | ❌ **QA-204 (Critical)**: "Application error: a client-side exception". The page calls `useAuth()`, but `AuthProvider` is mounted only under `/school-admin` and `/parent`. The committed `41eeb3b` page has the same call, so the QA-015 fix never worked at runtime. **No invited user can activate an account through the app.** **Re-test 22 Oct: fixed**; the link opens, and setup signs in once and lands on the dashboard (see QA-204 in findings). |
 | Workaround used for the rest of the run | The backend's own dev page `/api/dev/setup-password?token=…` (interactive form) was used to activate the account. |
 | Weak password `abc` | ✅ Blocked: minimum 8 characters. |
 | Activate with a strong password | ✅ 200. Signed in. |
@@ -90,7 +90,7 @@ Everything else was done through the UI.
 | Accept the invites | ⚠️ Done through the backend (QA-204 blocks the app page). |
 | Staff directory | ✅ **QA-036 looks fixed**: Academic Head, Account Officer, Secretary and Teachers are all listed, with Edit and Deactivate. |
 | Revoke Akosua's pending invite, then use her link | ✅ 400 "Invitation has been revoked". |
-| Revoked invitee in the directory | ❌ **QA-208**: shown as **INACTIVE with "Reactivate"**. Reactivate makes the account ACTIVE with **no password**, so she can't sign in. Resend is refused, a fresh invite says "Email already registered", and forgot-password skips accounts with no password. **Once revoked, a person can never be re-invited on that email.** The class-teacher picker then lists two identical "Akosua Frimpong" entries. |
+| Revoked invitee in the directory | ❌ **QA-208**: shown as **INACTIVE with "Reactivate"**. Reactivate makes the account ACTIVE with **no password**, so she can't sign in. Resend is refused, a fresh invite says "Email already registered", and forgot-password skips accounts with no password. **Once revoked, a person can never be re-invited on that email.** The class-teacher picker then lists two identical "Akosua Frimpong" entries. **Re-test 22 Oct: fixed**; the row shows "Not set up" with "Resend invite", Activate is refused for accounts with no password, and a resent invite lets the person in (see QA-208). |
 | Re-invite on a different email | ✅ Works (`akosua.f@bis.test`). |
 | Academic Head's Invite dialog | ❌ 🔁 QA-013: offers Account Officer and Academic Head. |
 | Role menus and URL access | ✅ Each role lands on Overview, and blocked pages redirect. 🔁 QA-051 and QA-016: pages reachable only by typing the URL: Account Officer → Staff, Secretary → Attendance, Teacher → Students, Academic Head → Admissions. ⚠️ Most menu items are sample-data areas (Gradebook, Timetable, Question bank, Meal menu, Gallery…). |
@@ -116,7 +116,7 @@ Everything else was done through the UI.
 | Step | Result |
 |---|---|
 | `/parent` while signed out | ✅ Goes to `/parent/login`. Clean mobile layout. |
-| `/parent/register`: type the first letter of the first name | ❌ **QA-212 (Critical)**: "Application error". `ParentAuth.tsx:210` reads `e.currentTarget.value` inside a `setForm(current => …)` updater, where `currentTarget` is already null. The committed code has the same bug (line 200). **No parent can create an account.** |
+| `/parent/register`: type the first letter of the first name | ❌ **QA-212 (Critical)**: "Application error". `ParentAuth.tsx:210` reads `e.currentTarget.value` inside a `setForm(current => …)` updater, where `currentTarget` is already null. The committed code has the same bug (line 200). **No parent can create an account.** **Re-test 22 Oct: fixed** (another session): `set()` now reads the value before `setForm`; all six fields keep their values with no page errors in Chrome. Submitting was not re-tested. |
 | Workaround used | Parents registered through `POST /auth/register-parent` (the same call the form makes). Everything after that was done in the UI. |
 | Parent sign-in | ✅ The home screen asks "Link your child" and offers an install-the-app prompt. |
 | Link: unknown code, child with no contact on record, child whose contacts belong to someone else | ✅ The same generic message for all three (nothing leaks). ⚠️ For a genuine parent whose contact is missing, the message ("check the code") points the wrong way, and the school can't fix the contact (QA-211). |
@@ -217,7 +217,7 @@ Everything else was done through the UI.
 
 | Step | Result |
 |---|---|
-| Mark 2027/28 and its Term 1 as current | ❌ 🔁 **QA-206**: two "Internal server error" saves. The school ends up with **two current years and two current terms**. Fixed by unticking 2026/27 and its Term 2. |
+| Mark 2027/28 and its Term 1 as current | **Re-test 22 Oct: fixed**: switching to 2026/27 Term 2 and back saved with no error and kept exactly one current term and year (see QA-206; new edge cases QA-236, QA-237). Original result: ❌ 🔁 **QA-206**: two "Internal server error" saves. The school ends up with **two current years and two current terms**. Fixed by unticking 2026/27 and its Term 2. |
 | Skipping Term 3 | ⚠️ No warning that 2026/27 Term 3 was never billed. |
 | Student → Class & status → Move to another class | ✅ The current class is excluded. "From term" defaults to the current term. ❌ 🔁 **QA-207**: no suggested next class, the stray `kg2` class is offered, and there is **no bulk or class-wide promotion**. It takes about 8 clicks per pupil, so a 400-pupil school needs thousands of clicks each September. ⚠️ No confirmation step. |
 | Promote 8 pupils (KG 2 → B1, B1 → B2, B2 → B3) | ✅ Each "Class changed". ⚠️ The history table shows "KG 2 · Term 1 · 2026-10-21" and "Basic 1 · Term 1 · 2026-10-21", with **no year**, so the two rows can't be told apart, and the "from" date is today, not the term start. |

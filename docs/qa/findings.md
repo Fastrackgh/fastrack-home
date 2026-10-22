@@ -23,20 +23,20 @@
 |---|---|
 | Critical | 8 |
 | High | 31 |
-| Medium | 61 |
+| Medium | 63 |
 | Low | 24 |
-| **Total** | **124** |
+| **Total** | **126** |
 
 | ID | Sev | Cat | Side | Status | Title |
 |---|---|---|---|---|---|
 | QA-001 | Critical | SEC/EDGE | BE | Live ✔ | Concurrent payments lose credits on the invoice and fee account |
 | QA-002 | Critical | FLOW | BE | Live ✔ | Carried-forward arrears are counted twice; a paid-up student's bill still shows a debt |
 | QA-003 | Critical | SEC | Both | Live ✔ Browser ✔ | Suspending a school has no effect; the UI reports success |
-| QA-015 | Critical | FLOW | Both | Browser ✔ | Invited staff can never get in: the invite links to a page the frontend doesn't have — **partly fixed** (41eeb3b; see QA-088) |
+| QA-015 | Critical | FLOW | Both | Browser ✔ | Invited staff can never get in: the invite links to a page the frontend doesn't have — **fixed** (page in 41eeb3b; crash fixed 22 Oct, QA-204) |
 | QA-020 | Critical | FLOW | FE | Browser ✔ | Waitlist and contact forms send nothing; every lead is lost — **mostly fixed** (41eeb3b) |
-| QA-204 | Critical | FLOW | FE | Browser ✔ | Invite link page crashes (no AuthProvider): no invited user can activate an account |
-| QA-206 | Critical | EDGE/data | BE | Browser ✔ | Setting the current year/term returns 500 and leaves two current years/terms |
-| QA-212 | Critical | FLOW | FE | Browser ✔ | Parent sign-up crashes on the first keystroke |
+| QA-204 | Critical | FLOW | FE | Browser ✔ | Invite link page crashes (no AuthProvider): no invited user can activate an account — **fixed** (22 Oct) |
+| QA-206 | Critical | EDGE/data | BE | **Fixed** 22 Oct (backend bcb2e0b) | Setting the current year/term returns 500 and leaves two current years/terms |
+| QA-212 | Critical | FLOW | FE | **Fixed** 22 Oct | Parent sign-up crashes on the first keystroke |
 | QA-004 | High | SEC/EDGE | Both | Live ✔ | Payments can be double-submitted; a client-chosen receipt number causes a 500 — FE half **fixed** (41eeb3b); rest in QA-086 |
 | QA-005 | High | SEC | BE | Live ✔ | AdminJS is mounted in production, never rate-limited, and can edit the ledger directly |
 | QA-006 | High | SEC | BE | Code ✔ | Notification client logs OTPs and invite tokens and serves them on a LAN port |
@@ -62,7 +62,7 @@
 | QA-066 | High | FLOW | FE | Code ✔ | Publish can push an older design than the one on screen |
 | QA-201 | High | SEC/UX | BE | Browser ✔ | Emails are case- and space-sensitive: capitalised login fails; duplicate accounts per mailbox |
 | QA-207 | High | FLOW | Both | Browser ✔ | Classes have no order; promotion is one pupil at a time with no next-class suggestion |
-| QA-208 | High | FLOW | Both | Browser ✔ | Revoking an invite locks that person out for good (Reactivate gives an account with no password) |
+| QA-208 | High | FLOW | Both | Browser ✔ | Revoking an invite locks that person out for good (Reactivate gives an account with no password) — **fixed** (22 Oct; backend `fix/reinvite-unset-accounts`) |
 | QA-210 | High | FLOW/data | FE | Browser ✔ | Admission "Next" submits early: Health & Safety unreachable; no guardian required |
 | QA-211 | High | FLOW | FE | Browser ✔ | Guardian contacts can't be viewed or corrected after admission, so parents may never link |
 | QA-214 | High | SEC | Both | Browser ✔ | Staff unlink doesn't stick: the parent relinks immediately (safeguarding) |
@@ -129,6 +129,8 @@
 | QA-231 | Medium | UX/trust | BE | Browser ✔ Code ✔ | The design preview shows another school ("Fastrack International School") instead of the user's own |
 | QA-232 | Medium | FLOW/audit | Both | Code ✔ (DB) | Invoices from one billing run share no run ID: runs can't be undone, audited or re-sent as a unit |
 | QA-233 | Medium | FLOW | Both | Code ✔ | Subject teachers can't be assigned (`staff_subjects` and `timetable_slots` exist but have no API or UI) |
+| QA-236 | Medium | EDGE/data | BE | Browser ✔ | Making a year current leaves the current term in another year |
+| QA-237 | Medium | EDGE | Both | Browser ✔ | Unticking the current term leaves the school with no current term, silently |
 | QA-043 | Low | FLOW | BE | Code ✔ | Discounts stack to 100%, silently overwrite, and don't re-price issued invoices |
 | QA-046 | Low | SEC | BE | Code ✔ | Super Admin permissions never checked; no rank check on invites; `isActive` field duplicates the endpoints |
 | QA-047 | Low | SEC/data | BE | Code ✔ / Live ✔ | Config hygiene: seed passwords, secret reuse, DB TLS, email case, `$argon2` bypass, PII in logs, current-term flag |
@@ -148,7 +150,7 @@
 | QA-082 | Low | FLOW | BE | Code ✔ | Optional-service requests that should no longer be possible (orphaned, leavers, forced fees) |
 | QA-083 | Low | UX/FLOW | Both | Code ✔ | Smaller optional-request gaps (issued bills, price, races, paging) |
 | QA-087 | Low | EDGE/UX | Both | Code ✔ | Smaller fee-setup gaps (module gating, duplicates, huge amounts, lists) |
-| QA-088 | Low | FLOW/UX | Both | Code ✔ | Invite page and lead-form edge cases |
+| QA-088 | Low | FLOW/UX | Both | Code ✔ | Invite page and lead-form edge cases — invite double sign-in **fixed** (22 Oct) |
 | QA-205 | Low | DOC | BE | Code ✔ | Reset email says 30 minutes; the link lasts 60 |
 | QA-230 | Low | UX | FE | Browser ✔ | Parent "Coming up" shows 3 events and leaves out the PTA meeting |
 | QA-234 | Low | FLOW | Both | Code ✔ | Only one class teacher per class (no assistant or co-teacher) |
@@ -524,7 +526,7 @@ FE paths are relative to `src/features/<feature>/` unless shown in full. Nothing
 | ID | Now | Evidence |
 |---|---|---|
 | QA-004 | **Frontend half fixed.** One `Idempotency-Key` per payment attempt and an in-flight guard (`fees/RecordPaymentModal.tsx:46,56,86`). The backend honours the key: 409 on a repeat, backed by the unique index `UQ_PAYMENTS_SCHOOL_IDEMPOTENCY_KEY`. What's left is QA-086. | 41eeb3b |
-| QA-015 | **Partly fixed.** `/auth/setup-password` verifies the invite, sets the password and signs in. The working-tree version imports the untracked `src/app/auth/AuthShell.tsx`, so committing the page alone breaks the build. Edge cases are in QA-088. | 41eeb3b |
+| QA-015 | **Fixed** (22 Oct, with QA-204). Before that: **partly fixed.** `/auth/setup-password` verifies the invite, sets the password and signs in. The working-tree version imports the untracked `src/app/auth/AuthShell.tsx`, so committing the page alone breaks the build. Edge cases are in QA-088. | 41eeb3b |
 | QA-020 | **Mostly fixed.** The forms post to the backend's `POST /public/leads`, which is throttled and stores leads in `marketing_leads`. The waitlist success message still promises "login credentials" (`WaitlistForm.tsx:112`). | 41eeb3b |
 | QA-027 | **In progress.** The backend has forgot-password, reset-password verification and reset-password on `main`. The frontend pages and the "Forgot password?" link exist only as uncommitted work. | working tree |
 | QA-030 | Also applies to the discount student picker (`fees/api.ts:431-433`, `limit=100`). | Code ✔ |
@@ -755,7 +757,7 @@ The backend handles these correctly:
 
 #### QA-088: Invite page and lead-form edge cases
 - **Side / status:** Both / Code ✔ (the honeypot is Suspected) · **Severity:** Low
-- **Invite sign-in can get stuck.** The invite page ignores the tokens returned by `POST /setup-password` and signs in a second time (`src/app/auth/setup-password/page.tsx:97,103`). If that sign-in fails (a suspended school, for example), pressing again gives "already accepted", and nothing points the user to the login page.
+- **Invite sign-in can get stuck — fixed 22 Oct (QA-204):** the page now signs in from the `setup-password` response. Before that, the invite page ignored the tokens returned by `POST /setup-password` and signs in a second time (`src/app/auth/setup-password/page.tsx:97,103`). If that sign-in fails (a suspended school, for example), pressing again gives "already accepted", and nothing points the user to the login page.
 - **A network error looks like a bad link.** One during invite or reset verification shows "Invitation not valid" (`setup-password/page.tsx:71-77,134-138`).
 - **Autofill can silently drop leads.** The honeypot field is named `website`, so browser autofill can fill it. The backend then drops the lead but still returns 202.
 - **Fix:**
@@ -778,10 +780,10 @@ A new school (BIS-001) was set up and run through every built feature in the web
 |---|---|
 | QA-002 | **Looks fixed.** Two rollovers carried arrears exactly once, and invoices and accounts reconcile. |
 | QA-003 | **Fixed.** Suspended schools are refused at login and mid-session (403). |
-| QA-007 | **Partly fixed.** The backend refuses to resend a revoked invite. The UI still shows Resend (see QA-208). |
+| QA-007 | **Partly fixed.** The backend refused to resend a revoked invite. **Changed 22 Oct (QA-208):** a revoked invite can be reopened again, but only for an account that never set a password, and only by someone who may reactivate that role. |
 | QA-008 | Still open. A sign-in in another tab silently swaps the identity of an open tab. |
 | QA-009 | **Fixed.** Sign out calls `/auth/logout`, and the old refresh token gets 401. |
-| QA-015 | **Not fixed at runtime.** The page exists but crashes (QA-204). |
+| QA-015 | **Not fixed at runtime** during the run: the page crashed (QA-204). **Fixed 22 Oct** and re-tested in the browser. |
 | QA-016 | **Improved.** Guardian phones are hidden from teachers, but they still see every class and medical notes. |
 | QA-028 | **Fixed.** The toast reads "Successfully generated 10 term invoice(s)…". |
 | QA-032 | **Fixed.** No invented admission defaults. |
@@ -792,8 +794,8 @@ A new school (BIS-001) was set up and run through every built feature in the web
 
 ### Critical
 
-#### QA-204: Invite links crash; no invited user can activate an account
-- **Side / status:** FE / Browser ✔ Code ✔ · **Severity:** Critical
+#### QA-204: Invite links crash; no invited user can activate an account — **Fixed** (22 Oct)
+- **Side / status:** FE / Browser ✔ Code ✔ · **Fixed and re-tested in the browser** · **Severity:** Critical
 - **Repro:** open the invite link `/auth/setup-password?token=…` from any invite email.
 - **Actual:** "Application error: a client-side exception". The console says `useAuth must be used within an AuthProvider`.
 - **Cause:**
@@ -802,8 +804,18 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - The committed page from `41eeb3b` has the same call, so the QA-015 fix never worked at runtime.
 - **Impact:** a new school can't onboard its principal or any staff through the product.
 - **Fix:** wrap `/auth/*` in `AuthProvider` (an `src/app/auth/layout.tsx`), or use the `LoginResponse` that `POST /auth/setup-password` already returns (QA-088). Add an e2e test.
+- **Fixed 22 Oct (both parts):**
+  - New `src/app/auth/layout.tsx` mounts `AuthProvider` for every `/auth/*` page. `AuthProvider` never redirects, so signed-out visitors stay on the page.
+  - New `acceptInvite(token, password)` in `src/lib/auth/auth-context.tsx` starts the session from the `setup-password` response. The page no longer calls `login()` a second time.
+- **Re-test (22 Oct, BIS-001, browser):** the principal invited a teacher (kofi.boateng@bis.test) from Staff → Invite user, and the link from the email preview was opened in a signed-out tab.
+  - A tampered token shows "Invitation not valid · Invitation not found or invalid link".
+  - The real link shows the form. A short password gives "Use at least 8 characters", and mismatched passwords give "The two passwords do not match".
+  - A valid password shows "Password set · Your account is ready" and lands on the teacher's dashboard. The network shows one `POST /auth/setup-password` and no `/auth/login`.
+  - Database: 1 refresh token, 1 login record, invitation `ACCEPTED`, user active.
+  - Opening the link again shows "Invitation has already been accepted".
+  - `/auth/forgot-password` and `/auth/reset-password` still load with no page errors.
 
-#### QA-206: Making a year or term current returns 500 and leaves two current years or terms
+#### QA-206: Making a year or term current returns 500 and leaves two current years or terms — **Fixed**
 - **Side / status:** BE / Browser ✔ Code ✔ · **Severity:** Critical
 - **Repro:** add a year or term with "This is the current…" ticked, or edit one to tick it.
 - **Actual:** "Could not save · Internal server error". The backend log shows `missing FROM-clause entry for table "academicyear"` (and `"academicterm"`).
@@ -821,14 +833,28 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - Give the `UPDATE`s an alias, or use `repository.update({ school: { id } }, …)`.
   - Do both writes in one transaction.
   - Add a contract test for set-current under tenant context.
+- **Fixed 22 Oct** in backend bcb2e0b (not on `main` yet; see "Where the fix lives" below):
+  - Setting a year or term current clears the old one in the same transaction. Making a term current also makes its year current.
+  - Unique indexes `UQ_ACADEMIC_YEARS_SCHOOL_CURRENT` and `UQ_ACADEMIC_TERMS_SCHOOL_CURRENT` now allow only one current year and one current term per school.
+  - Re-tested by API on FIS-001: `PATCH` of the current term and the current year with `isCurrent: true` returned 200 with `isCurrent: true` (both returned 500 before). Each school in the dev database has exactly one current year and one current term.
+  - Not re-tested: switching to a different term. FIS-001 was left on Term 2 until the school decides which term is current.
+  - The frontend had no workaround to remove: the dates form just sends `isCurrent`.
+- **Browser re-test 22 Oct (BIS-001, Principal, School setup → Years & terms):**
+  - Ticked "current" on 2026/27 Term 2 (current was 2027/28 Term 1): "Term updated · Saved", **no 500**. The badges moved at once; the database had exactly one current term (2026/27 Term 2) and the year followed (2026/27).
+  - Ticked "current" on the 2027/28 year: saved, one current year. The current term stayed in 2026/27 (new **QA-236**).
+  - Unticked the current term: saved, leaving no current term (new **QA-237**).
+  - Ticked 2027/28 Term 1: one current term and one current year again. BIS-001 is back where it started.
+  - All four saves returned 200; no "Internal server error" anywhere.
+- **Where the fix lives:** `bcb2e0b` is on backend branches `fix/set-current-year-term` and `fix/reinvite-unset-accounts`, **not on `main`** yet. The running dev server has it and the migration `OneCurrentYearAndTermPerSchool1792600000300` is applied.
 
-#### QA-212: Parent sign-up crashes on the first keystroke
+#### QA-212: Parent sign-up crashes on the first keystroke — **Fixed**
 - **Side / status:** FE / Browser ✔ Code ✔ · **Severity:** Critical
 - **Repro:** open `/parent/register` and type a letter in First name.
 - **Actual:** "Application error". The console says `Cannot read properties of null (reading 'value')`.
 - **Cause:** `src/features/parent/auth/ParentAuth.tsx:210` (committed: `:200`) reads `e.currentTarget.value` inside a `setForm(current => …)` updater. React runs the updater after the event, when `currentTarget` is null.
 - **Impact:** no parent can create an account, so the whole parent product is unreachable.
 - **Fix:** read the value first, `const v = e.currentTarget.value; setForm(c => ({ ...c, [field]: v }))`. Add an e2e test that types into the form.
+- **Fixed 22 Oct** (uncommitted): `set()` now reads `e.currentTarget.value` before calling `setForm`. Checked in headless Chrome: all six fields keep what is typed and there are no page errors; with the old line put back, the same check crashes. The same pattern appears nowhere else in `src/`. No automated browser test was added: the project has no browser test tool yet.
 
 ### High
 
@@ -868,6 +894,23 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - Don't create the user until the invite is accepted, or delete the shell user on revoke.
   - Allow a fresh invite for a never-activated account.
   - Hide Reactivate and Resend for revoked, never-activated rows.
+- **Seen again 22 Oct by the reviewer:** they invited a teacher (Jesse Baki), revoked the invite, saw "Inactive" on the staff list, pressed Reactivate, and the teacher still couldn't sign in. Two more problems surfaced:
+  - The staff list called a never-set-up invitee "Inactive", which reads like a deactivated account and invites Reactivate.
+  - Reactivate switched on an account with no password, which nobody can sign in to.
+- **Fixed 22 Oct** (backend branch `fix/reinvite-unset-accounts`, frontend working tree):
+  - **Resend works for any account without a password**, even after a revoke or after it was wrongly activated (`invitations.service.ts` `resend`). Reopening a *revoked* invite needs the same rank as reactivating that role (`assertCanReopen`, using `ADMINISTRABLE_ROLES.deactivate`), so an Academic Head can't reopen an Account Officer's invite.
+  - **Accepting** an invite is refused only when the account already has a password; an active account with no password can still be set up.
+  - **Activate refuses accounts without a password:** 400 "<name> hasn't set up their account yet. Resend their invitation instead." (`staff.service.ts` `assertSetUp`, for both `/activate` and `PATCH` with `isActive`).
+  - **Staff API returns `accountSetUp`** (`StaffResponseDto`, from `UserRepository.findIdsWithoutPassword`).
+  - **A second invite to the same email** now says "Email already registered. This person has not set up their account yet, so resend their invitation instead." when the account has no password.
+  - **Staff page:** never-set-up people show an orange **Not set up** badge with **Resend invite** (it resends their latest open invitation) instead of Reactivate or Deactivate (`src/features/staff/StaffPage.tsx`).
+  - Tests: 4 new or changed unit tests in `invitations.service.spec.ts`. Identity and academics suites pass (225 tests).
+- **Re-test (22 Oct, BIS-001, browser):**
+  - Jesse Baki and the old revoked "Akosua Frimpong" both showed **Not set up · Resend invite**.
+  - Through the API: deactivating Akosua Frimpong's unused account returned 200, then activating it returned **400** with the message above.
+  - Resend invite on Jesse's row gave "Invitation resent"; the invitation went back to PENDING with a new 48-hour expiry, and a new email was sent.
+  - Jesse opened the new link, set a password and landed on the teacher dashboard. The staff row now reads **Active**.
+- **Still open:** the shell user is still created at invite time, so the class-teacher picker can show two identical names when a school re-invites on a different email.
 
 #### QA-210: Admission skips Health & Safety and allows no guardian
 - **Side / status:** FE / Browser ✔ Code ✔ · **Severity:** High
@@ -935,6 +978,8 @@ A new school (BIS-001) was set up and run through every built feature in the web
 | QA-231 | Medium | BE | Every school's bill and report designer previews a hard-coded sample from "**Fastrack International School**" (code FIS, East Legon, `accounts@fastrack.school`, no logo) instead of its own name, logo and contacts (`documents/copies/invoice.bill/invoice.bill.sample.ts`, `exam.report/exam.report.sample.ts:52`, used by `document-templates.service.ts:434`). FIS-001 is a real school in the database, so it looks like a data leak, and the school can't check its own header or logo while designing (QA-226 blocks the real-bill preview). Published bills are unaffected. | Build the sample from the signed-in school's profile (name, code, logo, address, contacts, a real class and fee types), or default to its latest real bill. |
 | QA-232 | Medium | Both | Nothing ties together the invoices created by one billing run. `student_fees_invoices` has no run or batch column, and there's no runs table. Runs can only be guessed by grouping type, title, term and `issued_at` to the second (BIS-001: 7 inferred runs, 0001–0042), which breaks for same-second runs. Background-run job IDs live only in Redis and expire (see QA-011). Corrections re-sign the bill, so `signed_by` no longer shows who ran it (0004 and 0007 now show the Principal). "Send bill links" broadcasts aren't recorded either. **Effect:** a mistaken run (wrong amount or class, the duplicate PTA levy of QA-062) can't be undone as a unit, there's no answer to "who billed this and when", and reminders or reprints can't target a run. | Add an `invoice_runs` table (type, term, scope, title, fee type, amount, created by and when, counts created and skipped, total, job ID) and a `run_id` on each invoice. Add a runs list in Fees & Billing with "Undo run" (only while unpaid) and "Send links for this run". Record broadcasts too. |
 | QA-233 | Medium | Both | Only a class (homeroom) teacher can be set, in School setup → Classes → Edit → Class teacher (`classes.homeroom_staff_id`). The tables `staff_subjects` and `timetable_slots` (class, subject, staff, term, day and time) exist, but only analytics reads them. There's no endpoint or screen, and the "Timetable" and "Faculty & workload" pages show sample data. A subject teacher (for example, maths for Basic 2 and Basic 3) has no link to any class, so they can't take attendance or (later) enter scores for those classes. | Add subject and teaching assignments (class × subject × teacher × term) with API and UI, and use them for attendance rights, gradebook access and the timetable. Scope teachers' student lists by these assignments (QA-016). |
+| QA-236 | Medium | BE | Found in the QA-206 re-test (22 Oct). With 2026/27 Term 2 current, ticking "This is the current academic year" on 2027/28 saved fine, but the current **term** stayed 2026/27 Term 2. The school then had current year 2027/28 and a current term from 2026/27. Making a term current already moves the year, but not the other way round. | When a year becomes current, either make its first (or date-matching) term current too, or refuse with "Pick the current term in this year". Show a warning when the current term isn't in the current year. |
+| QA-237 | Medium | Both | Found in the QA-206 re-test (22 Oct). Unticking "This is the current term" on the current term saved with "Term updated" and left the school with **no current term** (the year stayed current). Billing, attendance and the calendar then fall back to dates or show nothing, with no warning. | Don't allow unticking the only current term; the way to change it is to tick another term. Or show a banner "No current term set" on setup and fees. |
 | QA-229 | Medium | Both | Paystack checkout uses the parent's login email. If Paystack rejects it, the parent sees the raw "Invalid Email Address Passed" and can't pay online. | Validate the email at sign-up, fall back to a school or placeholder email, and show friendly errors. |
 
 ### Low

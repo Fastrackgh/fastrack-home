@@ -49,8 +49,20 @@ interface ClassAttendance {
 }
 
 const attendanceBreakdown: ClassAttendance[] = [
-  { className: 'Classes 1 - 3', category: 'Lower Primary', present: 420, total: 430, rate: '97.7%' },
-  { className: 'Classes 4 - 6', category: 'Upper Primary', present: 485, total: 492, rate: '98.6%' },
+  {
+    className: 'Classes 1 - 3',
+    category: 'Lower Primary',
+    present: 420,
+    total: 430,
+    rate: '97.7%',
+  },
+  {
+    className: 'Classes 4 - 6',
+    category: 'Upper Primary',
+    present: 485,
+    total: 492,
+    rate: '98.6%',
+  },
   { className: 'JHS 1 - 3', category: 'Junior High', present: 365, total: 370, rate: '98.6%' },
   { className: 'SHS 1 - 3', category: 'Senior High', present: 188, total: 190, rate: '98.9%' },
 ];
@@ -66,11 +78,31 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
   };
 
   const navItems = [
-    { id: 'overview', label: 'Overview', fullLabel: 'Dashboard Overview', icon: <Layers size={16} /> },
-    { id: 'admissions', label: 'Admissions', fullLabel: 'Admissions & Grades', icon: <Users size={16} /> },
-    { id: 'fees', label: 'Fees & MoMo', fullLabel: 'Fees & MoMo Gateway', icon: <CreditCard size={16} /> },
+    {
+      id: 'overview',
+      label: 'Overview',
+      fullLabel: 'Dashboard Overview',
+      icon: <Layers size={16} />,
+    },
+    {
+      id: 'admissions',
+      label: 'Admissions',
+      fullLabel: 'Admissions & Grades',
+      icon: <Users size={16} />,
+    },
+    {
+      id: 'fees',
+      label: 'Fees & MoMo',
+      fullLabel: 'Fees & MoMo Gateway',
+      icon: <CreditCard size={16} />,
+    },
     { id: 'sms', label: 'Bulk SMS', fullLabel: 'Bulk SMS Broadcasts', icon: <Send size={16} /> },
-    { id: 'payroll', label: 'Payroll & HR', fullLabel: 'Staff Payroll & HR', icon: <Building2 size={16} /> },
+    {
+      id: 'payroll',
+      label: 'Payroll & HR',
+      fullLabel: 'Staff Payroll & HR',
+      icon: <Building2 size={16} />,
+    },
   ];
 
   return (
@@ -220,9 +252,9 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
               style={{
                 padding: '6px 12px',
                 borderRadius: '999px',
-                background: isActive ? '#0f172a' : '#ffffff',
-                color: isActive ? '#ffffff' : '#475569',
-                border: isActive ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                background: isActive ? '#fff1f2' : '#ffffff',
+                color: isActive ? '#0f172a' : '#475569',
+                border: isActive ? '1px solid rgba(224, 26, 43, 0.25)' : '1px solid #e2e8f0',
                 fontSize: '0.75rem',
                 fontWeight: isActive ? 700 : 500,
                 display: 'inline-flex',
@@ -232,7 +264,7 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                 transition: 'all 0.15s ease',
               }}
             >
-              <Box style={{ color: isActive ? '#f97316' : '#64748b' }}>{item.icon}</Box>
+              <Box style={{ color: isActive ? '#e01a2b' : '#64748b' }}>{item.icon}</Box>
               <span>{item.label}</span>
             </UnstyledButton>
           );
@@ -306,7 +338,11 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                         />
                       )}
                       <Box style={{ color: isActive ? '#f97316' : '#64748b' }}>{item.icon}</Box>
-                      <Text size="xs" fw={isActive ? 700 : 500} style={{ color: 'inherit', lineHeight: 1.2 }}>
+                      <Text
+                        size="xs"
+                        fw={isActive ? 700 : 500}
+                        style={{ color: 'inherit', lineHeight: 1.2 }}
+                      >
                         {item.fullLabel}
                       </Text>
                     </UnstyledButton>
@@ -371,7 +407,10 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                       size="md"
                       fw={800}
                       c="dark"
-                      style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1rem, 1.6vw, 1.2rem)' }}
+                      style={{
+                        fontFamily: 'var(--font-heading)',
+                        fontSize: 'clamp(1rem, 1.6vw, 1.2rem)',
+                      }}
                     >
                       School Operations Dashboard
                     </Text>
@@ -387,8 +426,9 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                         style={{
                           padding: '6px 12px',
                           borderRadius: '6px',
-                          background: '#0f172a',
-                          color: '#ffffff',
+                          background: '#fff1f2',
+                          color: '#0f172a',
+                          border: '1px solid rgba(224, 26, 43, 0.18)',
                           fontSize: '0.75rem',
                           fontWeight: 600,
                           cursor: 'pointer',
@@ -455,7 +495,12 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                           <Users size={15} color="#2563eb" />
                         </Box>
                       </Group>
-                      <Text size="xl" fw={800} c="dark" style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.2 }}>
+                      <Text
+                        size="xl"
+                        fw={800}
+                        c="dark"
+                        style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.2 }}
+                      >
                         1,482
                       </Text>
                       <Group gap={4} mt={4}>
@@ -496,7 +541,12 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                           <CreditCard size={15} color="#e01a2b" />
                         </Box>
                       </Group>
-                      <Text size="xl" fw={800} c="dark" style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.2 }}>
+                      <Text
+                        size="xl"
+                        fw={800}
+                        c="dark"
+                        style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.2 }}
+                      >
                         GH₵ 648,250
                       </Text>
                       <Group gap={4} mt={4}>
@@ -520,7 +570,12 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                       }}
                     >
                       <Group justify="space-between" align="flex-start" mb={4}>
-                        <Text size="xs" c="dimmed" fw={700} style={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                        <Text
+                          size="xs"
+                          c="dimmed"
+                          fw={700}
+                          style={{ textTransform: 'uppercase', letterSpacing: '0.04em' }}
+                        >
                           Total Bal
                         </Text>
                         <Box
@@ -537,11 +592,21 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                           <Wallet size={15} color="#f97316" />
                         </Box>
                       </Group>
-                      <Text size="xl" fw={800} c="dark" style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.2 }}>
+                      <Text
+                        size="xl"
+                        fw={800}
+                        c="dark"
+                        style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.2 }}
+                      >
                         GH₵ 39,750
                       </Text>
                       <Group gap={4} mt={4}>
-                        <Badge size="xs" variant="light" color="orange" style={{ fontSize: '9px', height: 16 }}>
+                        <Badge
+                          size="xs"
+                          variant="light"
+                          color="orange"
+                          style={{ fontSize: '9px', height: 16 }}
+                        >
                           Outstanding Receivables
                         </Badge>
                       </Group>
@@ -598,7 +663,12 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                               <CheckCircle2 size={15} color="#16a34a" />
                             </Box>
                           </Group>
-                          <Text size="xl" fw={800} c="dark" style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.2 }}>
+                          <Text
+                            size="xl"
+                            fw={800}
+                            c="dark"
+                            style={{ fontFamily: 'var(--font-heading)', lineHeight: 1.2 }}
+                          >
                             98.4%
                           </Text>
                           <Group gap={4} mt={4}>
@@ -625,7 +695,15 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                     >
                       <Stack gap={8}>
                         <Group justify="space-between" align="center">
-                          <Text size="xs" fw={700} style={{ color: '#fdba74', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                          <Text
+                            size="xs"
+                            fw={700}
+                            style={{
+                              color: '#fdba74',
+                              textTransform: 'uppercase',
+                              letterSpacing: '0.04em',
+                            }}
+                          >
                             Class Attendance Breakdown
                           </Text>
                           <Badge size="xs" color="green" variant="filled">
@@ -701,7 +779,12 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
 
                     {/* SVG Area Chart */}
                     <Box style={{ height: '130px', width: '100%', position: 'relative' }}>
-                      <svg width="100%" height="100%" viewBox="0 0 400 120" preserveAspectRatio="none">
+                      <svg
+                        width="100%"
+                        height="100%"
+                        viewBox="0 0 400 120"
+                        preserveAspectRatio="none"
+                      >
                         <defs>
                           <linearGradient id="fastrackOrangeGrad" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="0%" stopColor="#f97316" stopOpacity="0.35" />
@@ -723,7 +806,14 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                         />
                         <circle cx="160" cy="55" r="4" fill="#f97316" />
                         <circle cx="320" cy="30" r="4" fill="#f97316" />
-                        <circle cx="400" cy="20" r="5" fill="#f97316" stroke="#ffffff" strokeWidth="2" />
+                        <circle
+                          cx="400"
+                          cy="20"
+                          r="5"
+                          fill="#f97316"
+                          stroke="#ffffff"
+                          strokeWidth="2"
+                        />
                       </svg>
                     </Box>
 
@@ -795,18 +885,31 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                         >
                           <Box
                             p="xs"
-                            style={{ borderRadius: '8px', background: '#ffffff', border: '1px solid #e2e8f0' }}
+                            style={{
+                              borderRadius: '8px',
+                              background: '#ffffff',
+                              border: '1px solid #e2e8f0',
+                            }}
                           >
                             <Group justify="space-between" align="flex-start" wrap="nowrap">
                               <Box>
                                 <Text size="xs" fw={700} c="dark" style={{ lineHeight: 1.2 }}>
                                   {item.title}
                                 </Text>
-                                <Text size="10px" c="dimmed" style={{ lineHeight: 1.2, marginTop: 2 }}>
+                                <Text
+                                  size="10px"
+                                  c="dimmed"
+                                  style={{ lineHeight: 1.2, marginTop: 2 }}
+                                >
                                   {item.sub}
                                 </Text>
                               </Box>
-                              <Badge size="xs" variant="light" color={item.color} style={{ fontSize: '8px' }}>
+                              <Badge
+                                size="xs"
+                                variant="light"
+                                color={item.color}
+                                style={{ fontSize: '8px' }}
+                              >
                                 {item.badge}
                               </Badge>
                             </Group>
@@ -844,10 +947,38 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
 
                 <Stack gap="xs">
                   {[
-                    { id: 'STU-2024-001', name: 'Ama Owusu-Ansah', class: 'Class 6A (Primary)', gpa: '3.92 (Grade 1)', fee: 'Fully Paid', status: 'Enrolled' },
-                    { id: 'STU-2024-002', name: 'Kwame Boateng', class: 'JHS 2 (Junior High)', gpa: '3.78 (Grade 1)', fee: 'GH₵ 450 Bal', status: 'Enrolled' },
-                    { id: 'STU-2024-003', name: 'Abena Serwaa', class: 'SHS 1 Science', gpa: '4.00 (Grade 1)', fee: 'Fully Paid', status: 'New Admission' },
-                    { id: 'STU-2024-004', name: 'Emmanuel Tetteh', class: 'Class 4B (Primary)', gpa: '3.65 (Grade 2)', fee: 'Fully Paid', status: 'Enrolled' },
+                    {
+                      id: 'STU-2024-001',
+                      name: 'Ama Owusu-Ansah',
+                      class: 'Class 6A (Primary)',
+                      gpa: '3.92 (Grade 1)',
+                      fee: 'Fully Paid',
+                      status: 'Enrolled',
+                    },
+                    {
+                      id: 'STU-2024-002',
+                      name: 'Kwame Boateng',
+                      class: 'JHS 2 (Junior High)',
+                      gpa: '3.78 (Grade 1)',
+                      fee: 'GH₵ 450 Bal',
+                      status: 'Enrolled',
+                    },
+                    {
+                      id: 'STU-2024-003',
+                      name: 'Abena Serwaa',
+                      class: 'SHS 1 Science',
+                      gpa: '4.00 (Grade 1)',
+                      fee: 'Fully Paid',
+                      status: 'New Admission',
+                    },
+                    {
+                      id: 'STU-2024-004',
+                      name: 'Emmanuel Tetteh',
+                      class: 'Class 4B (Primary)',
+                      gpa: '3.65 (Grade 2)',
+                      fee: 'Fully Paid',
+                      status: 'Enrolled',
+                    },
                   ].map((stu, idx) => (
                     <motion.div
                       key={idx}
@@ -891,7 +1022,11 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                               {stu.fee}
                             </Text>
                           </Box>
-                          <Badge size="xs" variant="light" color={stu.status.includes('New') ? 'blue' : 'green'}>
+                          <Badge
+                            size="xs"
+                            variant="light"
+                            color={stu.status.includes('New') ? 'blue' : 'green'}
+                          >
                             {stu.status}
                           </Badge>
                         </Group>
@@ -926,7 +1061,14 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                 </Group>
 
                 <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm" mb="md">
-                  <Box p="md" style={{ borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <Box
+                    p="md"
+                    style={{
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
                     <Text size="xs" c="dimmed">
                       MTN Mobile Money
                     </Text>
@@ -937,7 +1079,14 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                       64% of total receipts
                     </Text>
                   </Box>
-                  <Box p="md" style={{ borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <Box
+                    p="md"
+                    style={{
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
                     <Text size="xs" c="dimmed">
                       Telecel Cash
                     </Text>
@@ -948,7 +1097,14 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                       22% of total receipts
                     </Text>
                   </Box>
-                  <Box p="md" style={{ borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <Box
+                    p="md"
+                    style={{
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
                     <Text size="xs" c="dimmed">
                       Direct Bank Deposit
                     </Text>
@@ -961,7 +1117,14 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                   </Box>
                 </SimpleGrid>
 
-                <Box p="md" style={{ borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                <Box
+                  p="md"
+                  style={{
+                    borderRadius: '8px',
+                    background: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                  }}
+                >
                   <Group justify="space-between" mb="xs" wrap="wrap" gap="xs">
                     <Text size="xs" fw={700}>
                       Term 2 Overall Fee Target Reconciliation
@@ -999,16 +1162,31 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                 </Group>
 
                 <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="sm">
-                  <Box p="md" style={{ borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <Box
+                    p="md"
+                    style={{
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
                     <Text size="xs" fw={700} mb="xs">
                       Live SMS Dispatch Demo
                     </Text>
-                    <Box p="sm" style={{ borderRadius: '8px', background: '#ffffff', border: '1px solid #cbd5e1' }}>
+                    <Box
+                      p="sm"
+                      style={{
+                        borderRadius: '8px',
+                        background: '#ffffff',
+                        border: '1px solid #cbd5e1',
+                      }}
+                    >
                       <Text size="xs" fw={600} c="dark">
                         Sender ID: FASTRACK-SCH
                       </Text>
                       <Text size="xs" c="dimmed" mt={4}>
-                        &ldquo;Dear Parent, Terminal 2 GPA reports for Kofi Mensah are now live on the portal. Fee balance: GH₵ 0.00. Thank you.&rdquo;
+                        &ldquo;Dear Parent, Terminal 2 GPA reports for Kofi Mensah are now live on
+                        the portal. Fee balance: GH₵ 0.00. Thank you.&rdquo;
                       </Text>
                     </Box>
                     <Group justify="space-between" mt="sm">
@@ -1021,7 +1199,14 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                     </Group>
                   </Box>
 
-                  <Box p="md" style={{ borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <Box
+                    p="md"
+                    style={{
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
                     <Text size="xs" fw={700} mb="xs">
                       Campaign Broadcast Types
                     </Text>
@@ -1060,7 +1245,8 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                       Staff Payroll, HR & Statutory Filing
                     </Text>
                     <Text size="xs" c="dimmed">
-                      Automated GRA PAYE, SSNIT Tier 1 & 2 schedules, and direct staff bank disbursement files
+                      Automated GRA PAYE, SSNIT Tier 1 & 2 schedules, and direct staff bank
+                      disbursement files
                     </Text>
                   </Box>
                   <Badge size="sm" color="green" variant="light">
@@ -1069,7 +1255,14 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                 </Group>
 
                 <SimpleGrid cols={{ base: 1, sm: 3 }} spacing="sm" mb="md">
-                  <Box p="md" style={{ borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <Box
+                    p="md"
+                    style={{
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
                     <Text size="xs" c="dimmed">
                       Monthly Net Payroll
                     </Text>
@@ -1080,7 +1273,14 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                       48 Teaching & Admin Staff
                     </Text>
                   </Box>
-                  <Box p="md" style={{ borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <Box
+                    p="md"
+                    style={{
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
                     <Text size="xs" c="dimmed">
                       GRA PAYE Tax Schedule
                     </Text>
@@ -1091,7 +1291,14 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
                       Monthly Deduction Filed
                     </Text>
                   </Box>
-                  <Box p="md" style={{ borderRadius: '8px', background: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                  <Box
+                    p="md"
+                    style={{
+                      borderRadius: '8px',
+                      background: '#f8fafc',
+                      border: '1px solid #e2e8f0',
+                    }}
+                  >
                     <Text size="xs" c="dimmed">
                       SSNIT Tier 1 & 2
                     </Text>
@@ -1106,9 +1313,27 @@ export const DashboardPreview: React.FC<DashboardPreviewProps> = ({ fullWidth = 
 
                 <Stack gap="xs">
                   {[
-                    { name: 'Dr. Michael Asare', role: 'Headmaster / Administrator', net: 'GH₵ 8,500.00', status: 'Disbursed', bank: 'GCB Bank' },
-                    { name: 'Grace Quaye', role: 'Head of Mathematics (JHS)', net: 'GH₵ 4,200.00', status: 'Disbursed', bank: 'Ecobank' },
-                    { name: 'Samuel Owusu', role: 'Senior Science Master', net: 'GH₵ 4,100.00', status: 'Disbursed', bank: 'Stanbic Bank' },
+                    {
+                      name: 'Dr. Michael Asare',
+                      role: 'Headmaster / Administrator',
+                      net: 'GH₵ 8,500.00',
+                      status: 'Disbursed',
+                      bank: 'GCB Bank',
+                    },
+                    {
+                      name: 'Grace Quaye',
+                      role: 'Head of Mathematics (JHS)',
+                      net: 'GH₵ 4,200.00',
+                      status: 'Disbursed',
+                      bank: 'Ecobank',
+                    },
+                    {
+                      name: 'Samuel Owusu',
+                      role: 'Senior Science Master',
+                      net: 'GH₵ 4,100.00',
+                      status: 'Disbursed',
+                      bank: 'Stanbic Bank',
+                    },
                   ].map((staff, i) => (
                     <motion.div key={i} whileHover={{ x: 3 }}>
                       <Box

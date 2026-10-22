@@ -101,7 +101,7 @@ export const PartnershipSection: React.FC = () => {
       component="section"
       py={{ base: 64, md: 104 }}
       style={{
-        background: '#ffffff',
+        background: '#f8fafc',
       }}
     >
       <Container size="xl">
@@ -151,8 +151,8 @@ export const PartnershipSection: React.FC = () => {
                 fontSize: 'clamp(0.9rem, 1.2vw, 1.05rem)',
               }}
             >
-              Four layers of protection safeguard your school records, student grades, and financial transactions.
-              Zero compromises on privacy.
+              Four layers of protection safeguard your school records, student grades, and financial
+              transactions. Zero compromises on privacy.
             </Text>
           </Stack>
         </motion.div>
@@ -164,7 +164,11 @@ export const PartnershipSection: React.FC = () => {
           whileInView="visible"
           viewport={{ once: true, margin: '-40px' }}
         >
-          <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing={{ base: 'md', md: 'lg' }} mb={{ base: 36, md: 64 }}>
+          <SimpleGrid
+            cols={{ base: 1, sm: 2, md: 4 }}
+            spacing={{ base: 'md', md: 'lg' }}
+            mb={{ base: 36, md: 64 }}
+          >
             {securityLayers.map((layer, idx) => {
               const Icon = layer.icon;
               return (
@@ -250,23 +254,23 @@ export const PartnershipSection: React.FC = () => {
             style={{
               padding: 'clamp(24px, 4vw, 44px)',
               borderRadius: '24px',
-              background: 'linear-gradient(145deg, #0b0f17 0%, #1e293b 100%)',
-              border: '1px solid rgba(255, 255, 255, 0.1)',
-              boxShadow: '0 20px 50px rgba(0, 0, 0, 0.25)',
+              background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+              border: '1px solid #e2e8f0',
+              boxShadow: '0 20px 50px rgba(15, 23, 42, 0.06)',
               position: 'relative',
               overflow: 'hidden',
             }}
           >
             {/* Header */}
             <Stack align="center" gap="md" mb={{ base: 24, md: 36 }}>
-              <SectionEyebrow label="Granular Role-Based Permissions" onDark />
+              <SectionEyebrow label="Granular Role-Based Permissions" />
 
               <h3
                 style={{
                   fontFamily: 'var(--font-heading)',
                   fontSize: 'clamp(1.3rem, 2.5vw, 1.85rem)',
                   fontWeight: 700,
-                  color: '#ffffff',
+                  color: '#0f172a',
                   margin: 0,
                   textAlign: 'center',
                   lineHeight: 1.25,
@@ -293,8 +297,8 @@ export const PartnershipSection: React.FC = () => {
                       style={{
                         padding: 'clamp(16px, 2.5vw, 24px) clamp(12px, 2vw, 18px)',
                         borderRadius: '16px',
-                        background: 'rgba(255, 255, 255, 0.05)',
-                        border: '1px solid rgba(255, 255, 255, 0.08)',
+                        background: '#ffffff',
+                        border: '1px solid #e2e8f0',
                         textAlign: 'center',
                         height: '100%',
                         display: 'flex',
@@ -304,12 +308,12 @@ export const PartnershipSection: React.FC = () => {
                         transition: 'all 0.2s ease',
                       }}
                       onMouseEnter={(e) => {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.2)';
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.08)';
+                        e.currentTarget.style.borderColor = item.color;
+                        e.currentTarget.style.boxShadow = `0 12px 26px -14px ${item.color}55`;
                       }}
                       onMouseLeave={(e) => {
-                        e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.08)';
-                        e.currentTarget.style.background = 'rgba(255, 255, 255, 0.05)';
+                        e.currentTarget.style.borderColor = '#e2e8f0';
+                        e.currentTarget.style.boxShadow = 'none';
                       }}
                     >
                       <Box
@@ -332,7 +336,7 @@ export const PartnershipSection: React.FC = () => {
                         size="sm"
                         fw={700}
                         style={{
-                          color: '#ffffff',
+                          color: '#0f172a',
                           fontSize: '0.92rem',
                           lineHeight: 1.3,
                           marginBottom: 6,
@@ -347,7 +351,7 @@ export const PartnershipSection: React.FC = () => {
                           size="xs"
                           fw={600}
                           style={{
-                            color: item.color,
+                            color: '#475569',
                             fontSize: '0.8rem',
                             lineHeight: 1.2,
                           }}
@@ -366,4 +370,3 @@ export const PartnershipSection: React.FC = () => {
     </Box>
   );
 };
-

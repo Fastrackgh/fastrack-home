@@ -66,7 +66,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   } else if (variantStyle === 'dark') {
     customStyle = {
       ...customStyle,
-      background: '#0b0f17',
+      background: '#0f172a',
       color: '#ffffff',
       boxShadow: '0 8px 16px -12px rgba(11, 15, 23, 0.35)',
     };

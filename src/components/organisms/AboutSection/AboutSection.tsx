@@ -89,7 +89,8 @@ export const AboutSection: React.FC = () => {
                 fontSize: 'clamp(0.9rem, 1.2vw, 1.05rem)',
               }}
             >
-              Delivering simple, dependable, and high-impact software solutions tailored for Ghanaian educational institutions and corporate enterprises since 2014.
+              Delivering simple, dependable, and high-impact software solutions tailored for
+              Ghanaian educational institutions and corporate enterprises since 2014.
             </Text>
           </Stack>
         </motion.div>
@@ -115,10 +116,12 @@ export const AboutSection: React.FC = () => {
                     position: 'relative',
                     padding: '9px 20px',
                     borderRadius: '999px',
-                    background: isActive ? '#0b0f17' : '#ffffff',
-                    color: isActive ? '#ffffff' : '#475569',
-                    border: isActive ? '1px solid #0b0f17' : '1px solid #e2e8f0',
-                    boxShadow: isActive ? '0 4px 14px rgba(11, 15, 23, 0.2)' : '0 1px 3px rgba(0,0,0,0.02)',
+                    background: isActive ? '#fff1f2' : '#ffffff',
+                    color: isActive ? '#0f172a' : '#475569',
+                    border: isActive ? '1px solid rgba(224, 26, 43, 0.25)' : '1px solid #e2e8f0',
+                    boxShadow: isActive
+                      ? '0 4px 14px rgba(224, 26, 43, 0.12)'
+                      : '0 1px 3px rgba(0,0,0,0.02)',
                     fontWeight: isActive ? 700 : 500,
                     fontSize: 'clamp(0.8rem, 1.1vw, 0.9rem)',
                     display: 'inline-flex',
@@ -129,7 +132,12 @@ export const AboutSection: React.FC = () => {
                     cursor: 'pointer',
                   }}
                 >
-                  <Box style={{ color: isActive ? '#e01a2b' : '#64748b', transition: 'color 0.25s ease' }}>
+                  <Box
+                    style={{
+                      color: isActive ? '#e01a2b' : '#64748b',
+                      transition: 'color 0.25s ease',
+                    }}
+                  >
                     {tab.icon}
                   </Box>
                   {tab.label}
@@ -166,7 +174,12 @@ export const AboutSection: React.FC = () => {
                     <Text
                       fw={800}
                       c="dark"
-                      style={{ fontFamily: 'var(--font-heading)', fontSize: 'clamp(1.7rem, 2.8vw, 2.3rem)', lineHeight: 1.15, letterSpacing: '-0.025em' }}
+                      style={{
+                        fontFamily: 'var(--font-heading)',
+                        fontSize: 'clamp(1.7rem, 2.8vw, 2.3rem)',
+                        lineHeight: 1.15,
+                        letterSpacing: '-0.025em',
+                      }}
                     >
                       Founded in Mallam – Accra in 2014
                     </Text>
@@ -174,13 +187,31 @@ export const AboutSection: React.FC = () => {
                       {businessInfo.about}
                     </Text>
                     <Group gap="xs" pt="xs" wrap="wrap">
-                      <Badge size="lg" variant="light" color="gray" radius="sm" style={{ fontWeight: 600, textTransform: 'none' }}>
+                      <Badge
+                        size="lg"
+                        variant="light"
+                        color="gray"
+                        radius="sm"
+                        style={{ fontWeight: 600, textTransform: 'none' }}
+                      >
                         100% Ghanaian Owned
                       </Badge>
-                      <Badge size="lg" variant="light" color="gray" radius="sm" style={{ fontWeight: 600, textTransform: 'none' }}>
+                      <Badge
+                        size="lg"
+                        variant="light"
+                        color="gray"
+                        radius="sm"
+                        style={{ fontWeight: 600, textTransform: 'none' }}
+                      >
                         Accra Technical Support
                       </Badge>
-                      <Badge size="lg" variant="light" color="fastrackRed" radius="sm" style={{ fontWeight: 700, textTransform: 'none' }}>
+                      <Badge
+                        size="lg"
+                        variant="light"
+                        color="fastrackRed"
+                        radius="sm"
+                        style={{ fontWeight: 700, textTransform: 'none' }}
+                      >
                         Tel: {businessInfo.phone}
                       </Badge>
                     </Group>
@@ -230,7 +261,9 @@ export const AboutSection: React.FC = () => {
                       &ldquo;{businessInfo.mission}&rdquo;
                     </Text>
                     <Text size="md" c="dimmed" style={{ lineHeight: 1.65, fontSize: '0.94rem' }}>
-                      We eliminate software frustration by ensuring every system we build is easy to adopt, lightning-fast to navigate, and rock-solid in financial and academic auditing.
+                      We eliminate software frustration by ensuring every system we build is easy to
+                      adopt, lightning-fast to navigate, and rock-solid in financial and academic
+                      auditing.
                     </Text>
                   </Stack>
 
@@ -263,7 +296,11 @@ export const AboutSection: React.FC = () => {
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 style={{ padding: 'clamp(24px, 4vw, 48px)' }}
               >
-                <SimpleGrid cols={{ base: 1, md: 2 }} spacing={{ base: 24, md: 44 }} style={{ alignItems: 'center' }}>
+                <SimpleGrid
+                  cols={{ base: 1, md: 2 }}
+                  spacing={{ base: 24, md: 44 }}
+                  style={{ alignItems: 'center' }}
+                >
                   <Stack gap="md">
                     <SectionEyebrow label="Our Long-Term Vision" align="left" color="#2563eb" />
                     <Text
@@ -278,15 +315,28 @@ export const AboutSection: React.FC = () => {
                       &ldquo;{businessInfo.vision}&rdquo;
                     </Text>
                     <Text size="md" c="dimmed" style={{ lineHeight: 1.65, fontSize: '0.94rem' }}>
-                      Empowering every school, business, and enterprise across Ghana and the West African sub-region with accessible, world-class digital tools.
+                      Empowering every school, business, and enterprise across Ghana and the West
+                      African sub-region with accessible, world-class digital tools.
                     </Text>
                   </Stack>
 
                   <Stack gap="sm">
                     {[
-                      { title: 'Regional Expansion', desc: 'Scaling dependable educational ERP across Ghana and West Africa.', icon: <Globe size={18} color="#e01a2b" /> },
-                      { title: 'Mobile-First Experience', desc: 'Seamless portal access for parents, teachers, and proprietors on any device.', icon: <Zap size={18} color="#e01a2b" /> },
-                      { title: 'Continuous Software Evolution', desc: 'Regular feature rollouts based directly on feedback from Ghanaian headmasters and bursars.', icon: <Target size={18} color="#e01a2b" /> },
+                      {
+                        title: 'Regional Expansion',
+                        desc: 'Scaling dependable educational ERP across Ghana and West Africa.',
+                        icon: <Globe size={18} color="#e01a2b" />,
+                      },
+                      {
+                        title: 'Mobile-First Experience',
+                        desc: 'Seamless portal access for parents, teachers, and proprietors on any device.',
+                        icon: <Zap size={18} color="#e01a2b" />,
+                      },
+                      {
+                        title: 'Continuous Software Evolution',
+                        desc: 'Regular feature rollouts based directly on feedback from Ghanaian headmasters and bursars.',
+                        icon: <Target size={18} color="#e01a2b" />,
+                      },
                     ].map((item, i) => (
                       <Box
                         key={i}
@@ -330,20 +380,46 @@ export const AboutSection: React.FC = () => {
                     <Box mb={12} style={{ display: 'flex', justifyContent: 'center' }}>
                       <SectionEyebrow label="Operating Principles" />
                     </Box>
-                    <Text size="xl" fw={800} c="dark" style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem' }}>
+                    <Text
+                      size="xl"
+                      fw={800}
+                      c="dark"
+                      style={{ fontFamily: 'var(--font-heading)', fontSize: '1.5rem' }}
+                    >
                       Our 4 Core Operating Values
                     </Text>
                     <Text size="sm" c="dimmed" mt={4}>
-                      These principles define how we build products, support schools, and work with clients every day.
+                      These principles define how we build products, support schools, and work with
+                      clients every day.
                     </Text>
                   </Box>
 
                   <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing={{ base: 'sm', md: 'md' }}>
                     {[
-                      { name: 'Excellence', desc: 'Uncompromising commitment to high software quality, clean code, and zero downtime.', icon: <Award size={22} color="#e01a2b" />, bg: 'rgba(224, 26, 43, 0.1)' },
-                      { name: 'Integrity', desc: 'Honest billing, transparent audits, and bank-grade data security with zero hidden fees.', icon: <ShieldCheck size={22} color="#e01a2b" />, bg: 'rgba(224, 26, 43, 0.1)' },
-                      { name: 'Innovation', desc: 'Continually engineering modern features that solve real-world administrative challenges.', icon: <Zap size={22} color="#16a34a" />, bg: 'rgba(22, 163, 74, 0.1)' },
-                      { name: 'Teamwork', desc: 'Collaborating closely with school owners, bursars, and teachers as a long-term partner.', icon: <Users size={22} color="#2563eb" />, bg: 'rgba(37, 99, 235, 0.1)' },
+                      {
+                        name: 'Excellence',
+                        desc: 'Uncompromising commitment to high software quality, clean code, and zero downtime.',
+                        icon: <Award size={22} color="#e01a2b" />,
+                        bg: 'rgba(224, 26, 43, 0.1)',
+                      },
+                      {
+                        name: 'Integrity',
+                        desc: 'Honest billing, transparent audits, and bank-grade data security with zero hidden fees.',
+                        icon: <ShieldCheck size={22} color="#e01a2b" />,
+                        bg: 'rgba(224, 26, 43, 0.1)',
+                      },
+                      {
+                        name: 'Innovation',
+                        desc: 'Continually engineering modern features that solve real-world administrative challenges.',
+                        icon: <Zap size={22} color="#16a34a" />,
+                        bg: 'rgba(22, 163, 74, 0.1)',
+                      },
+                      {
+                        name: 'Teamwork',
+                        desc: 'Collaborating closely with school owners, bursars, and teachers as a long-term partner.',
+                        icon: <Users size={22} color="#2563eb" />,
+                        bg: 'rgba(37, 99, 235, 0.1)',
+                      },
                     ].map((val, i) => (
                       <Box
                         key={i}
@@ -373,20 +449,10 @@ export const AboutSection: React.FC = () => {
                         >
                           {val.icon}
                         </Box>
-                        <Text
-                          size="md"
-                          fw={700}
-                          c="dark"
-                          mb={4}
-                          style={{ fontSize: '1.05rem' }}
-                        >
+                        <Text size="md" fw={700} c="dark" mb={4} style={{ fontSize: '1.05rem' }}>
                           {val.name}
                         </Text>
-                        <Text
-                          size="xs"
-                          c="dimmed"
-                          style={{ lineHeight: 1.5, fontSize: '0.82rem' }}
-                        >
+                        <Text size="xs" c="dimmed" style={{ lineHeight: 1.5, fontSize: '0.82rem' }}>
                           {val.desc}
                         </Text>
                       </Box>
@@ -401,4 +467,3 @@ export const AboutSection: React.FC = () => {
     </Box>
   );
 };
-

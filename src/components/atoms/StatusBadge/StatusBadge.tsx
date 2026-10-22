@@ -22,9 +22,9 @@ export const StatusBadge: React.FC<StatusBadgeProps> = ({
     color = '#475569';
     border = '1px solid #e2e8f0';
   } else if (variantStyle === 'neip') {
-    bg = '#0f172a';
-    color = '#ffffff';
-    border = '1px solid #334155';
+    bg = '#f8fafc';
+    color = '#0f172a';
+    border = '1px solid #e2e8f0';
   }
 
   return (

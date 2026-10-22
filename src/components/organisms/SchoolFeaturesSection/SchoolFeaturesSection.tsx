@@ -30,8 +30,7 @@ import {
 export const SchoolFeaturesSection: React.FC = () => {
   const [activeModuleId, setActiveModuleId] = useState<string>(schoolModules[0].id);
 
-  const activeModule =
-    schoolModules.find((m) => m.id === activeModuleId) || schoolModules[0];
+  const activeModule = schoolModules.find((m) => m.id === activeModuleId) || schoolModules[0];
 
   const getIcon = (id: string, size = 20) => {
     switch (id) {
@@ -113,7 +112,8 @@ export const SchoolFeaturesSection: React.FC = () => {
                 fontSize: 'clamp(0.9rem, 1.2vw, 1.05rem)',
               }}
             >
-              Six deeply integrated modules that automate your school&apos;s entire workflow — from initial admissions to terminal grading and staff payroll.
+              Six deeply integrated modules that automate your school&apos;s entire workflow — from
+              initial admissions to terminal grading and staff payroll.
             </Text>
           </Stack>
         </motion.div>
@@ -139,9 +139,9 @@ export const SchoolFeaturesSection: React.FC = () => {
                 style={{
                   padding: '9px 16px',
                   borderRadius: '999px',
-                  background: isActive ? '#0f172a' : '#f8fafc',
-                  color: isActive ? '#ffffff' : '#334155',
-                  border: isActive ? '1px solid #0f172a' : '1px solid #e2e8f0',
+                  background: isActive ? '#fff1f2' : '#f8fafc',
+                  color: isActive ? '#0f172a' : '#334155',
+                  border: isActive ? '1px solid rgba(224, 26, 43, 0.25)' : '1px solid #e2e8f0',
                   fontSize: '0.82rem',
                   fontWeight: isActive ? 700 : 500,
                   display: 'inline-flex',
@@ -149,7 +149,7 @@ export const SchoolFeaturesSection: React.FC = () => {
                   gap: 8,
                   flexShrink: 0,
                   transition: 'all 0.2s ease',
-                  boxShadow: isActive ? '0 4px 12px rgba(15,23,42,0.15)' : 'none',
+                  boxShadow: isActive ? '0 4px 12px rgba(224,26,43,0.08)' : 'none',
                 }}
               >
                 <Box style={{ color: isActive ? '#e01a2b' : '#64748b' }}>{getIcon(mod.id, 16)}</Box>
@@ -190,10 +190,12 @@ export const SchoolFeaturesSection: React.FC = () => {
                         padding: '14px 18px',
                         borderRadius: '14px',
                         cursor: 'pointer',
-                        background: isActive ? '#0b0f17' : '#ffffff',
-                        border: isActive ? '1px solid #1e293b' : '1px solid #e2e8f0',
+                        background: isActive ? '#fff1f2' : '#ffffff',
+                        border: isActive
+                          ? '1px solid rgba(224, 26, 43, 0.25)'
+                          : '1px solid #e2e8f0',
                         boxShadow: isActive
-                          ? '0 12px 28px -6px rgba(11, 15, 23, 0.25)'
+                          ? '0 12px 28px -6px rgba(224, 26, 43, 0.12)'
                           : '0 2px 6px rgba(0,0,0,0.02)',
                         transition: 'all 0.25s ease',
                         display: 'flex',
@@ -226,7 +228,7 @@ export const SchoolFeaturesSection: React.FC = () => {
                           size="sm"
                           fw={700}
                           style={{
-                            color: isActive ? '#ffffff' : '#0f172a',
+                            color: '#0f172a',
                             lineHeight: 1.3,
                             fontSize: '0.92rem',
                           }}
@@ -239,7 +241,9 @@ export const SchoolFeaturesSection: React.FC = () => {
                           style={{
                             background: isActive ? 'rgba(255,255,255,0.08)' : '#f1f5f9',
                             color: isActive ? '#f9b8c0' : '#64748b',
-                            border: isActive ? '1px solid rgba(255,255,255,0.12)' : '1px solid #e2e8f0',
+                            border: isActive
+                              ? '1px solid rgba(255,255,255,0.12)'
+                              : '1px solid #e2e8f0',
                             textTransform: 'none',
                             fontWeight: 600,
                             marginTop: 4,
@@ -275,9 +279,9 @@ export const SchoolFeaturesSection: React.FC = () => {
                 transition={{ duration: 0.3, ease: 'easeOut' }}
                 style={{
                   borderRadius: '20px',
-                  background: 'linear-gradient(145deg, #0b0f17 0%, #1e293b 100%)',
-                  border: '1px solid rgba(255,255,255,0.1)',
-                  boxShadow: '0 20px 50px rgba(0,0,0,0.22)',
+                  background: 'linear-gradient(145deg, #ffffff 0%, #f8fafc 100%)',
+                  border: '1px solid #e2e8f0',
+                  boxShadow: '0 20px 50px rgba(15, 23, 42, 0.08)',
                   overflow: 'hidden',
                 }}
               >
@@ -311,17 +315,18 @@ export const SchoolFeaturesSection: React.FC = () => {
                       <Badge
                         size="sm"
                         style={{
-                          background: 'rgba(255,255,255,0.08)',
-                          color: '#f9b8c0',
-                          border: '1px solid rgba(255,255,255,0.15)',
+                          background: '#fff1f2',
+                          color: '#b91c1c',
+                          border: '1px solid rgba(224,26,43,0.18)',
                           textTransform: 'none',
                           fontWeight: 600,
                         }}
                       >
                         {activeModule.badge}
                       </Badge>
-                      <Text size="xs" style={{ color: 'rgba(255,255,255,0.5)', marginTop: 4 }}>
-                        {activeModule.metricLabel}: <strong style={{ color: '#f9b8c0' }}>{activeModule.metricValue}</strong>
+                      <Text size="xs" style={{ color: '#64748b', marginTop: 4 }}>
+                        {activeModule.metricLabel}:{' '}
+                        <strong style={{ color: '#e01a2b' }}>{activeModule.metricValue}</strong>
                       </Text>
                     </Box>
                   </Group>
@@ -331,7 +336,7 @@ export const SchoolFeaturesSection: React.FC = () => {
                       fontFamily: 'var(--font-heading)',
                       fontWeight: 800,
                       fontSize: 'clamp(1.3rem, 2.2vw, 1.75rem)',
-                      color: '#ffffff',
+                      color: '#0f172a',
                       lineHeight: 1.25,
                       marginTop: 18,
                       marginBottom: 8,
@@ -343,7 +348,7 @@ export const SchoolFeaturesSection: React.FC = () => {
                   <Text
                     size="sm"
                     style={{
-                      color: 'rgba(255,255,255,0.7)',
+                      color: '#475569',
                       lineHeight: 1.65,
                       fontSize: 'clamp(0.88rem, 1.1vw, 0.98rem)',
                     }}
@@ -360,7 +365,7 @@ export const SchoolFeaturesSection: React.FC = () => {
                     style={{
                       textTransform: 'uppercase',
                       letterSpacing: '0.08em',
-                      color: 'rgba(255,255,255,0.4)',
+                      color: '#64748b',
                       marginBottom: 16,
                     }}
                   >
@@ -395,7 +400,7 @@ export const SchoolFeaturesSection: React.FC = () => {
                           <Text
                             size="xs"
                             style={{
-                              color: 'rgba(255,255,255,0.85)',
+                              color: '#334155',
                               lineHeight: 1.5,
                               fontWeight: 500,
                               fontSize: '0.86rem',
@@ -413,7 +418,7 @@ export const SchoolFeaturesSection: React.FC = () => {
                 <Box
                   style={{
                     padding: '16px clamp(20px, 3.5vw, 32px)',
-                    borderTop: '1px solid rgba(255,255,255,0.08)',
+                    borderTop: '1px solid #e2e8f0',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
@@ -421,7 +426,7 @@ export const SchoolFeaturesSection: React.FC = () => {
                     flexWrap: 'wrap',
                   }}
                 >
-                  <Text size="xs" style={{ color: 'rgba(255,255,255,0.45)' }}>
+                  <Text size="xs" style={{ color: '#64748b' }}>
                     Module {activeIdx + 1} of {schoolModules.length} • Fastrack EduSuite Cloud
                   </Text>
 
@@ -463,4 +468,3 @@ export const SchoolFeaturesSection: React.FC = () => {
     </Box>
   );
 };
-

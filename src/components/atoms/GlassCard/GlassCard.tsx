@@ -37,10 +37,10 @@ export const GlassCard: React.FC<GlassCardProps> = ({
   } else if (variantStyle === 'dark') {
     customStyle = {
       ...customStyle,
-      background: '#0f172a',
-      border: '1px solid #1e293b',
-      boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)',
-      color: '#ffffff',
+      background: '#ffffff',
+      border: '1px solid #e2e8f0',
+      boxShadow: '0 4px 6px -1px rgba(15, 23, 42, 0.08)',
+      color: '#0f172a',
     };
   } else if (variantStyle === 'dashboard') {
     customStyle = {

@@ -12,11 +12,11 @@ export const CTASection: React.FC = () => {
       component="section"
       py={{ base: 64, md: 104 }}
       style={{
-        background: 'linear-gradient(145deg, #0b0f17 0%, #1a2233 100%)',
-        color: '#ffffff',
+        background: 'linear-gradient(145deg, #fff7f7 0%, #f8fafc 100%)',
+        color: '#0f172a',
         position: 'relative',
         overflow: 'hidden',
-        borderTop: '1px solid rgba(255, 255, 255, 0.08)',
+        borderTop: '1px solid rgba(226, 232, 240, 0.9)',
       }}
     >
       {/* Subtle ambient light glow */}
@@ -29,7 +29,8 @@ export const CTASection: React.FC = () => {
           width: '500px',
           height: '300px',
           borderRadius: '50%',
-          background: 'radial-gradient(circle, rgba(224, 26, 43, 0.14) 0%, rgba(168, 13, 26, 0.06) 50%, transparent 70%)',
+          background:
+            'radial-gradient(circle, rgba(224, 26, 43, 0.14) 0%, rgba(168, 13, 26, 0.06) 50%, transparent 70%)',
           filter: 'blur(60px)',
           pointerEvents: 'none',
         }}
@@ -53,7 +54,7 @@ export const CTASection: React.FC = () => {
                 lineHeight: 1.15,
                 letterSpacing: '-0.03em',
                 textAlign: 'center',
-                color: '#ffffff',
+                color: '#0f172a',
                 maxWidth: '680px',
                 margin: 0,
               }}
@@ -64,13 +65,14 @@ export const CTASection: React.FC = () => {
             <Text
               size="md"
               style={{
-                color: '#cbd5e1',
+                color: '#475569',
                 maxWidth: 560,
                 lineHeight: 1.6,
                 fontSize: 'clamp(0.9rem, 1.2vw, 1.05rem)',
               }}
             >
-              Join forward-thinking school administrators across Ghana modernizing admissions, terminal grading, tuition reconciliation, and parent alerts.
+              Join forward-thinking school administrators across Ghana modernizing admissions,
+              terminal grading, tuition reconciliation, and parent alerts.
             </Text>
 
             <Group gap="md" mt="sm" justify="center">
@@ -100,4 +102,3 @@ export const CTASection: React.FC = () => {
     </Box>
   );
 };
-

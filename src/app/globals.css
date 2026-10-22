@@ -6,12 +6,12 @@
   --fastrack-red-hover: #c81423;
   --fastrack-red-subtle: #fef2f3;
   --fastrack-red-glow: rgba(224, 26, 43, 0.15);
-  
+
   --fastrack-orange: #f97316;
   --fastrack-orange-hover: #ea580c;
   --fastrack-orange-subtle: #fff7ed;
   --fastrack-orange-glow: rgba(249, 115, 22, 0.15);
-  
+
   --obsidian-black: #0b0f17;
   --obsidian-surface: #0f172a;
   --obsidian-card: #1e293b;
@@ -30,18 +30,31 @@
 html {
   scroll-behavior: smooth;
   font-family: var(--font-inter);
-  color: var(--slate-900);
+  color-scheme: light;
   background-color: #ffffff;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+}
+
+html[data-mantine-color-scheme='dark'] {
+  color-scheme: dark;
+  background-color: #0b0f17;
+}
+
+html[data-mantine-color-scheme='dark'] body {
+  background: #0b0f17;
+  color: #f8fafc;
 }
 
 body {
   margin: 0;
   padding: 0;
   overflow-x: hidden;
-  background: #ffffff;
-  color: var(--slate-900);
+  background: var(--mantine-color-body);
+  color: var(--mantine-color-text);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 }
 
 * {
@@ -113,15 +126,21 @@ body {
 }
 
 .shadow-subtle {
-  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04), 0 1px 2px -1px rgba(0, 0, 0, 0.04);
+  box-shadow:
+    0 1px 3px 0 rgba(0, 0, 0, 0.04),
+    0 1px 2px -1px rgba(0, 0, 0, 0.04);
 }
 
 .shadow-md-clean {
-  box-shadow: 0 4px 12px -2px rgba(15, 23, 42, 0.06), 0 2px 4px -2px rgba(15, 23, 42, 0.04);
+  box-shadow:
+    0 4px 12px -2px rgba(15, 23, 42, 0.06),
+    0 2px 4px -2px rgba(15, 23, 42, 0.04);
 }
 
 .shadow-lg-clean {
-  box-shadow: 0 12px 24px -4px rgba(15, 23, 42, 0.06), 0 4px 8px -4px rgba(15, 23, 42, 0.03);
+  box-shadow:
+    0 12px 24px -4px rgba(15, 23, 42, 0.06),
+    0 4px 8px -4px rgba(15, 23, 42, 0.03);
 }
 
 .shadow-glow-orange {
@@ -133,14 +152,30 @@ body {
 }
 
 @media print {
-  body:has([data-print-preview]) * { visibility: hidden; }
-  body [data-print-preview], body [data-print-preview] * { visibility: visible; }
-  [data-print-preview] { position: absolute; inset: 0; width: 100%; color: #111; background: white; }
-  [data-print-preview] button, [data-print-preview] input { display: none !important; }
+  body:has([data-print-preview]) * {
+    visibility: hidden;
+  }
+  body [data-print-preview],
+  body [data-print-preview] * {
+    visibility: visible;
+  }
+  [data-print-preview] {
+    position: absolute;
+    inset: 0;
+    width: 100%;
+    color: #111;
+    background: white;
+  }
+  [data-print-preview] button,
+  [data-print-preview] input {
+    display: none !important;
+  }
 }
 
 .dashboard-shadow {
-  box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.12), 0 0 0 1px rgba(15, 23, 42, 0.06);
+  box-shadow:
+    0 25px 50px -12px rgba(15, 23, 42, 0.12),
+    0 0 0 1px rgba(15, 23, 42, 0.06);
 }
 
 /* Custom smooth scrollbars */

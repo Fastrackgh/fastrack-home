@@ -3,9 +3,8 @@ import type { Metadata } from 'next';
 import { Sora, Manrope } from 'next/font/google';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
-import { ColorSchemeScript, MantineProvider } from '@mantine/core';
-import { Notifications } from '@mantine/notifications';
-import { theme } from '@/theme/theme';
+import { ColorSchemeScript } from '@mantine/core';
+import { MantineThemeProvider } from '@/components/providers/MantineThemeProvider';
 import './globals.css';
 
 const headingFont = Sora({
@@ -48,21 +47,18 @@ export const metadata: Metadata = {
   },
 };
 
-export default function RootLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="en" suppressHydrationWarning className={`${headingFont.variable} ${bodyFont.variable}`}>
+    <html
+      lang="en"
+      suppressHydrationWarning
+      className={`${headingFont.variable} ${bodyFont.variable}`}
+    >
       <head>
         <ColorSchemeScript defaultColorScheme="light" />
       </head>
       <body>
-        <MantineProvider theme={theme} defaultColorScheme="light">
-          <Notifications position="top-right" zIndex={1000} />
-          {children}
-        </MantineProvider>
+        <MantineThemeProvider>{children}</MantineThemeProvider>
       </body>
     </html>
   );

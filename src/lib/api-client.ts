@@ -1,5 +1,3 @@
-import { loginPathFor } from '@/lib/rbac/routes';
-
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
 
 /**
@@ -51,8 +49,24 @@ export const SESSION_STORAGE_KEYS = {
 /** Prefix of the parent portal's offline copies of API reads (one key per read). */
 export const SESSION_CACHE_PREFIX = 'fastrack_cache:';
 
+/**
+ * Fired on `window` when the server has ended the session (the refresh token
+ * was rejected). The auth provider signs the tab out; nothing reloads, so
+ * the page can send the user to sign in and back.
+ */
+export const SESSION_ENDED_EVENT = 'fastrack:session-ended';
+
+/** Status used for "the server could not be reached" (offline, DNS, 5xx, 429). */
+export const NETWORK_ERROR_STATUS = 0;
+
+const UNREACHABLE_MESSAGE =
+  "Can't reach Fastrack right now. Check your connection and try again — you're still signed in.";
+
+/** Name of the browser lock that lets one tab at a time refresh the session. */
+const REFRESH_LOCK = 'fastrack-session-refresh';
+
 class ApiClient {
-  /** Shared by every request that hits a 401 while a refresh is in flight. */
+  /** Shared by every request in this tab that hits a 401 while a refresh is in flight. */
   private refreshInFlight: Promise<string | null> | null = null;
 
   public getAccessToken(): string | null {
@@ -85,44 +99,85 @@ class ApiClient {
       .forEach((key) => localStorage.removeItem(key));
   }
 
-  private refreshOnce(): Promise<string | null> {
+  /**
+   * A fresh access token after `rejected` got a 401, or null when the server
+   * has ended the session. Throws a network `ApiError` when the server can't
+   * be reached; the session is kept so the next request can try again.
+   */
+  private refreshOnce(rejected: string | null): Promise<string | null> {
     if (!this.refreshInFlight) {
-      this.refreshInFlight = this.refreshAccessToken().finally(() => {
-        this.refreshInFlight = null;
-      });
+      this.refreshInFlight = this.withRefreshLock(() => this.refreshAccessToken(rejected)).finally(
+        () => {
+          this.refreshInFlight = null;
+        },
+      );
     }
     return this.refreshInFlight;
   }
 
-  private async refreshAccessToken(): Promise<string | null> {
+  /**
+   * Tabs share one stored session, so only one of them refreshes at a time
+   * (Web Locks). The others wait, then find the new token already stored.
+   */
+  private withRefreshLock<T>(fn: () => Promise<T>): Promise<T> {
+    if (typeof navigator !== 'undefined' && navigator.locks?.request) {
+      return navigator.locks.request(REFRESH_LOCK, fn) as Promise<T>;
+    }
+    return fn();
+  }
+
+  private async refreshAccessToken(rejected: string | null): Promise<string | null> {
+    // Another tab refreshed while this one waited for the lock.
+    const current = this.getAccessToken();
+    if (current && current !== rejected) return current;
+
     const refreshToken = this.getRefreshToken();
     if (!refreshToken) return null;
 
+    let response: Response;
     try {
-      const response = await fetch(`${API_BASE_URL}/auth/refresh`, {
+      response = await fetch(`${API_BASE_URL}/auth/refresh`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-Api-Contract': API_CONTRACT_VERSION },
         body: JSON.stringify({ refreshToken }),
       });
-
-      if (!response.ok) {
-        this.clearSession();
-        return null;
-      }
-
-      const json = await response.json();
-      const newAccessToken = json.data?.accessToken;
-      const newRefreshToken = json.data?.refreshToken;
-
-      if (newAccessToken) {
-        this.setTokens(newAccessToken, newRefreshToken);
-        return newAccessToken;
-      }
-      return null;
     } catch {
-      this.clearSession();
+      throw new ApiError(NETWORK_ERROR_STATUS, UNREACHABLE_MESSAGE);
+    }
+
+    // Only the server saying no ends the session; outages and rate limits don't.
+    if (response.status === 401 || response.status === 403) {
+      this.endSession();
       return null;
     }
+    if (!response.ok) throw new ApiError(NETWORK_ERROR_STATUS, UNREACHABLE_MESSAGE);
+
+    const json = await response.json().catch(() => ({}));
+    const newAccessToken = json.data?.accessToken;
+    if (!newAccessToken) throw new ApiError(NETWORK_ERROR_STATUS, UNREACHABLE_MESSAGE);
+    this.setTokens(newAccessToken, json.data?.refreshToken);
+    return newAccessToken;
+  }
+
+  /** Clears the stored session and tells the app (every tab sees the storage change). */
+  private endSession() {
+    this.clearSession();
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event(SESSION_ENDED_EVENT));
+  }
+
+  /**
+   * Ends this sign-in on the server too, so the refresh token stops working
+   * everywhere (best effort: signing out never waits on the network).
+   */
+  public revokeSession() {
+    const refreshToken = this.getRefreshToken();
+    if (!refreshToken) return;
+    fetch(`${API_BASE_URL}/auth/logout`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ refreshToken }),
+      keepalive: true,
+    }).catch(() => undefined);
   }
 
   public async request<T = unknown, M = unknown>(
@@ -142,26 +197,27 @@ class ApiClient {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
-    let response = await fetch(url, {
-      ...options,
-      headers,
-    });
+    const send = async () => {
+      try {
+        return await fetch(url, { ...options, headers });
+      } catch {
+        throw new ApiError(NETWORK_ERROR_STATUS, UNREACHABLE_MESSAGE);
+      }
+    };
+    let response = await send();
 
     if (
       response.status === 401 &&
+      token &&
       !endpoint.includes('/auth/login') &&
       !endpoint.includes('/auth/refresh')
     ) {
-      const newToken = await this.refreshOnce();
+      const newToken = await this.refreshOnce(token);
       if (!newToken) {
-        if (typeof window !== 'undefined') {
-          const loginPath = loginPathFor(window.location.pathname);
-          if (window.location.pathname !== loginPath) window.location.href = loginPath;
-        }
-        throw new ApiError(401, 'Session expired. Please log in again.');
+        throw new ApiError(401, 'Your session has ended. Please sign in again.');
       }
       headers['Authorization'] = `Bearer ${newToken}`;
-      response = await fetch(url, { ...options, headers });
+      response = await send();
     }
 
     const data = await response.json().catch(() => ({}));

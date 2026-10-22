@@ -1,8 +1,8 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiClient, SESSION_STORAGE_KEYS } from '@/lib/api-client';
+import { apiClient, SESSION_ENDED_EVENT, SESSION_STORAGE_KEYS } from '@/lib/api-client';
 import { can as canWith, loginPathFor, type AccessPermission } from '@/lib/rbac';
 import {
   parseAuthUser,
@@ -19,6 +19,11 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (
     email: string,
+    password: string,
+  ) => Promise<{ user: AuthUser; school: SchoolProfile | null }>;
+  /** Accepts a staff invitation (`POST /auth/setup-password`) and signs it in. */
+  acceptInvite: (
+    token: string,
     password: string,
   ) => Promise<{ user: AuthUser; school: SchoolProfile | null }>;
   /** Creates a parent account (`POST /auth/register-parent`) and signs it in. */
@@ -124,6 +129,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     fetchModules().finally(() => setIsLoading(false));
   }, [fetchSchoolProfile, fetchModules]);
 
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  // The server ended the session (refresh rejected): sign this tab out
+  // without a reload; RouteGuard sends the user to sign in and back.
+  useEffect(() => {
+    const onEnded = () => {
+      setUser(null);
+      setSchool(null);
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, onEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
+  }, []);
+
+  // Tabs share one stored session. When another tab signs out, follow it;
+  // when another tab signs in as someone else, reload so this tab can't keep
+  // showing one person while acting as another. (The signing-in tab already
+  // cleared the previous user's caches.)
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== SESSION_STORAGE_KEYS.user && event.key !== null) return;
+      const next = event.key === null ? null : event.newValue;
+      if (!next) {
+        setUser(null);
+        setSchool(null);
+        return;
+      }
+      let nextId: string | undefined;
+      try {
+        nextId = parseAuthUser(JSON.parse(next))?.id;
+      } catch {
+        nextId = undefined;
+      }
+      const current = userRef.current;
+      if (current && nextId !== current.id) window.location.reload();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
+
   /**
    * Starts a session from a login-shaped response, after dropping any previous
    * user's data. Loading stays on until `finish` has loaded the rest of the session.
@@ -149,17 +196,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  /** Loads a school user's profile and modules once their session has started. */
+  const loadSchoolSession = async (authUser: AuthUser) => {
+    if (!authUser.schoolId) return { user: authUser, school: null };
+    const [schoolProfile, modules] = await Promise.all([
+      fetchSchoolProfile(authUser.schoolId),
+      fetchModules(),
+    ]);
+    return { user: { ...authUser, modules }, school: schoolProfile };
+  };
+
   const login = (email: string, password: string) =>
     signIn(
       () => apiClient.post<LoginResponse>('/auth/login', { email, password }),
-      async (authUser) => {
-        if (!authUser.schoolId) return { user: authUser, school: null };
-        const [schoolProfile, modules] = await Promise.all([
-          fetchSchoolProfile(authUser.schoolId),
-          fetchModules(),
-        ]);
-        return { user: { ...authUser, modules }, school: schoolProfile };
-      },
+      loadSchoolSession,
+    );
+
+  // The setup response is already a sign-in, so no second login is needed.
+  const acceptInvite = (token: string, password: string) =>
+    signIn(
+      () => apiClient.post<LoginResponse>('/auth/setup-password', { token, password }),
+      loadSchoolSession,
     );
 
   const registerParent = (input: ParentRegistration) =>
@@ -169,6 +226,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
   const logout = () => {
+    apiClient.revokeSession();
     endSession();
     router.replace(loginPathFor(window.location.pathname));
   };
@@ -186,6 +244,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: user !== null,
         login,
+        acceptInvite,
         registerParent,
         logout,
         refreshSchool,

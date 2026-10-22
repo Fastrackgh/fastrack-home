@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
+  Anchor,
   Box,
   Button,
   Group,
@@ -301,6 +303,15 @@ export default function SchoolAdminLoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.currentTarget.value)}
                   />
+                  <Anchor
+                    component={Link}
+                    href="/auth/forgot-password"
+                    size="sm"
+                    ta="right"
+                    mt={-8}
+                  >
+                    Forgot password?
+                  </Anchor>
 
                   <Button
                     type="submit"

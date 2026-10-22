@@ -150,6 +150,16 @@ export function ParentLogin() {
             value={password}
             onChange={(e) => setPassword(e.currentTarget.value)}
           />
+          <Anchor
+            component={Link}
+            href="/auth/forgot-password?portal=parent"
+            size="sm"
+            c="fastrackRed"
+            ta="right"
+            mt={-8}
+          >
+            Forgot password?
+          </Anchor>
           <Button
             type="submit"
             size="md"
@@ -196,8 +206,11 @@ export function ParentRegister() {
 
   if (leaving && !submitting) return <Pending />;
 
-  const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) =>
-    setForm((current) => ({ ...current, [field]: e.currentTarget.value }));
+  // Read the value now: React clears currentTarget before the updater runs (QA-212).
+  const set = (field: keyof typeof form) => (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { value } = e.currentTarget;
+    setForm((current) => ({ ...current, [field]: value }));
+  };
 
   const passwordError =
     form.password && form.password.length < MIN_PASSWORD

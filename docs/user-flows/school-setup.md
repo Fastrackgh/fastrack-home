@@ -1,6 +1,6 @@
 # Flow: School setup (Principal / Academic Head)
 
-> **Updated 22 Oct 2026 (QA-206).** Setting a year or term current no longer returns 500 or leaves two current. The backend clears the old one in the same transaction, and unique indexes allow one current year and one current term per school (backend `bcb2e0b`, branch `fix/set-current-year-term`, not on `main` yet). Re-tested in the browser on BIS-001. Still open: QA-236 (a current year doesn't move the term) and QA-237 (the current term can be unticked to leave none).
+> **Updated 22 Oct 2026 (QA-206).** Setting a year or term current no longer returns 500 or leaves two current. The backend clears the old one in the same transaction, and unique indexes allow one current year and one current term per school (backend `bcb2e0b`, on `main`). Re-tested in the browser on BIS-001. Still open: QA-236 (a current year doesn't move the term) and QA-237 (the current term can be unticked to leave none).
 
 Code:
 - `src/features/school-setup/*` (`SetupPage`, `SchoolProfilePanel`, `YearsPanel` + `DatesModal`, `DepartmentsPanel` + `DepartmentModal`, `ClassesPanel` + `ClassModal`, `api.ts`)

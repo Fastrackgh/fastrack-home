@@ -62,7 +62,7 @@
 | QA-066 | High | FLOW | FE | Code ✔ | Publish can push an older design than the one on screen |
 | QA-201 | High | SEC/UX | BE | Browser ✔ | Emails are case- and space-sensitive: capitalised login fails; duplicate accounts per mailbox |
 | QA-207 | High | FLOW | Both | Browser ✔ | Classes have no order; promotion is one pupil at a time with no next-class suggestion |
-| QA-208 | High | FLOW | Both | Browser ✔ | Revoking an invite locks that person out for good (Reactivate gives an account with no password) — **fixed** (22 Oct; backend `fix/reinvite-unset-accounts`) |
+| QA-208 | High | FLOW | Both | Browser ✔ | Revoking an invite locks that person out for good (Reactivate gives an account with no password) — **fixed** (22 Oct; backend `e14ddfc` on `main`) |
 | QA-210 | High | FLOW/data | FE | Browser ✔ | Admission "Next" submits early: Health & Safety unreachable; no guardian required |
 | QA-211 | High | FLOW | FE | Browser ✔ | Guardian contacts can't be viewed or corrected after admission, so parents may never link |
 | QA-214 | High | SEC | Both | Browser ✔ | Staff unlink doesn't stick: the parent relinks immediately (safeguarding) |
@@ -833,7 +833,7 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - Give the `UPDATE`s an alias, or use `repository.update({ school: { id } }, …)`.
   - Do both writes in one transaction.
   - Add a contract test for set-current under tenant context.
-- **Fixed 22 Oct** in backend bcb2e0b (not on `main` yet; see "Where the fix lives" below):
+- **Fixed 22 Oct** in backend `bcb2e0b`, now on `main`:
   - Setting a year or term current clears the old one in the same transaction. Making a term current also makes its year current.
   - Unique indexes `UQ_ACADEMIC_YEARS_SCHOOL_CURRENT` and `UQ_ACADEMIC_TERMS_SCHOOL_CURRENT` now allow only one current year and one current term per school.
   - Re-tested by API on FIS-001: `PATCH` of the current term and the current year with `isCurrent: true` returned 200 with `isCurrent: true` (both returned 500 before). Each school in the dev database has exactly one current year and one current term.
@@ -845,7 +845,7 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - Unticked the current term: saved, leaving no current term (new **QA-237**).
   - Ticked 2027/28 Term 1: one current term and one current year again. BIS-001 is back where it started.
   - All four saves returned 200; no "Internal server error" anywhere.
-- **Where the fix lives:** `bcb2e0b` is on backend branches `fix/set-current-year-term` and `fix/reinvite-unset-accounts`, **not on `main`** yet. The running dev server has it and the migration `OneCurrentYearAndTermPerSchool1792600000300` is applied.
+- **Where the fix lives:** `bcb2e0b`, on backend `main` (pushed 22 Oct). The running dev server has it and the migration `OneCurrentYearAndTermPerSchool1792600000300` is applied.
 
 #### QA-212: Parent sign-up crashes on the first keystroke — **Fixed**
 - **Side / status:** FE / Browser ✔ Code ✔ · **Severity:** Critical
@@ -897,7 +897,7 @@ A new school (BIS-001) was set up and run through every built feature in the web
 - **Seen again 22 Oct by the reviewer:** they invited a teacher (Jesse Baki), revoked the invite, saw "Inactive" on the staff list, pressed Reactivate, and the teacher still couldn't sign in. Two more problems surfaced:
   - The staff list called a never-set-up invitee "Inactive", which reads like a deactivated account and invites Reactivate.
   - Reactivate switched on an account with no password, which nobody can sign in to.
-- **Fixed 22 Oct** (backend branch `fix/reinvite-unset-accounts`, frontend working tree):
+- **Fixed 22 Oct** (backend `e14ddfc` on `main`; frontend `e8ea8b9` on `feat/rbac-workspace`):
   - **Resend works for any account without a password**, even after a revoke or after it was wrongly activated (`invitations.service.ts` `resend`). Reopening a *revoked* invite needs the same rank as reactivating that role (`assertCanReopen`, using `ADMINISTRABLE_ROLES.deactivate`), so an Academic Head can't reopen an Account Officer's invite.
   - **Accepting** an invite is refused only when the account already has a password; an active account with no password can still be set up.
   - **Activate refuses accounts without a password:** 400 "<name> hasn't set up their account yet. Resend their invitation instead." (`staff.service.ts` `assertSetUp`, for both `/activate` and `PATCH` with `isActive`).

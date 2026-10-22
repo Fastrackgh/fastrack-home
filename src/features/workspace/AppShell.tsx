@@ -3,7 +3,17 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ActionIcon, Avatar, Badge, Drawer, Group, Modal, Stack, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Avatar,
+  Badge,
+  Drawer,
+  Group,
+  Modal,
+  Stack,
+  Text,
+  UnstyledButton,
+} from '@mantine/core';
 import {
   Archive,
   Baby,
@@ -28,6 +38,7 @@ import {
   MessageSquare,
   NotebookPen,
   Palette,
+  Settings2,
   SlidersHorizontal,
   UserPlus,
   Users,
@@ -37,7 +48,7 @@ import {
 import { BrandLogo } from '@/components/atoms';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
-import { ROLE_LABELS, dataScopeOf } from '@/lib/rbac';
+import { APP_ROUTES, ROLE_LABELS, dataScopeOf, findRoute } from '@/lib/rbac';
 import { activeNavItem, workspaceNavigation, type NavItem } from './navigation';
 import { useViewer } from './useViewer';
 import styles from './AppShell.module.css';
@@ -67,6 +78,7 @@ const icons: Record<NavItem['id'], typeof Users> = {
   archive: Archive,
   questions: FileQuestion,
   templates: Palette,
+  setup: Settings2,
 };
 
 /** The school's current academic year and term, when the school has them set. */
@@ -200,7 +212,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Text>
             <ChevronRight size={13} color="#a8b0ba" />
             <Text size="sm" fw={600}>
-              {active?.label}
+              {active?.label ?? findRoute(pathname)?.label}
             </Text>
           </Group>
           <Group gap="md">
@@ -216,17 +228,26 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {session.year} · {session.term}
               </Badge>
             )}
-            <Avatar radius="xl" size={34} color="red">
-              {initials}
-            </Avatar>
-            <div className={styles.desktopOnly}>
-              <Text size="xs" fw={700}>
-                {user.firstName} {user.lastName}
-              </Text>
-              <Text size="10px" c="dimmed">
-                {ROLE_LABELS[viewer.role]}
-              </Text>
-            </div>
+            <UnstyledButton
+              component={Link}
+              href={APP_ROUTES.account.path}
+              aria-label="My account"
+              title="My account"
+            >
+              <Group gap="sm" wrap="nowrap">
+                <Avatar radius="xl" size={34} color="red">
+                  {initials}
+                </Avatar>
+                <div className={styles.desktopOnly}>
+                  <Text size="xs" fw={700}>
+                    {user.firstName} {user.lastName}
+                  </Text>
+                  <Text size="10px" c="dimmed">
+                    {ROLE_LABELS[viewer.role]}
+                  </Text>
+                </div>
+              </Group>
+            </UnstyledButton>
             <ActionIcon variant="subtle" color="gray" aria-label="Sign out" onClick={logout}>
               <LogOut size={17} />
             </ActionIcon>

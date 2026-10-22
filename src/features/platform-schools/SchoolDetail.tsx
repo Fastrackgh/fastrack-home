@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   Card,
+  FileButton,
   Group,
   Loader,
   Modal,
@@ -46,6 +47,7 @@ import type {
   SchoolProfileUpdate,
 } from './model';
 import { SchoolDesigns } from '@/features/document-templates';
+import { AssignPrincipalModal } from './AssignPrincipalModal';
 import styles from './SchoolDetail.module.css';
 
 const errorMessage = (error: unknown, fallback: string) =>
@@ -209,7 +211,7 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
               </Tabs.Tab>
             </Tabs.List>
             <Tabs.Panel value="overview" pt="lg">
-              <OverviewTab school={school} />
+              <OverviewTab school={school} onChanged={load} />
             </Tabs.Panel>
             <Tabs.Panel value="students" pt="lg">
               <StudentsTab schoolId={school.id} />
@@ -241,8 +243,36 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
   );
 }
 
-function OverviewTab({ school }: { school: PlatformSchool }) {
+function OverviewTab({ school, onChanged }: { school: PlatformSchool; onChanged: () => void }) {
   const head = school.schoolHead;
+  const [assigning, setAssigning] = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
+
+  const uploadLogo = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      notifications.show({
+        color: 'red',
+        title: 'That image is too large',
+        message: 'Use a logo under 2 MB.',
+      });
+      return;
+    }
+    setLogoBusy(true);
+    try {
+      await api.uploadLogo(school.id, file);
+      notifications.show({ color: 'green', title: 'Logo updated', message: school.name });
+      onChanged();
+    } catch (e) {
+      notifications.show({
+        color: 'red',
+        title: 'Could not upload the logo',
+        message: errorMessage(e, 'Try another image.'),
+      });
+    } finally {
+      setLogoBusy(false);
+    }
+  };
   const contact: [typeof Mail, string | null][] = [
     [Mail, school.email],
     [Phone, school.phone],
@@ -283,11 +313,44 @@ function OverviewTab({ school }: { school: PlatformSchool }) {
             </div>
           </Group>
         ) : (
-          <Text c="dimmed" size="sm">
-            Not assigned
-          </Text>
+          <Stack gap="sm" align="flex-start">
+            <Text c="dimmed" size="sm">
+              Not assigned. The school can&apos;t sign in until it has a principal.
+            </Text>
+            <Button size="xs" color="fastrackRed" onClick={() => setAssigning(true)}>
+              Assign principal
+            </Button>
+          </Stack>
         )}
       </Card>
+      <Card withBorder radius="md" padding="lg">
+        <Text fw={800} mb="md">
+          Logo
+        </Text>
+        <Group gap="md">
+          <Avatar src={school.logoUrl ?? undefined} size={64} radius="md" color="gray">
+            <School size={28} />
+          </Avatar>
+          <FileButton onChange={uploadLogo} accept="image/png,image/jpeg,image/webp">
+            {(props) => (
+              <Button {...props} size="xs" variant="light" color="fastrackRed" loading={logoBusy}>
+                {school.logoUrl ? 'Replace logo' : 'Upload logo'}
+              </Button>
+            )}
+          </FileButton>
+        </Group>
+      </Card>
+      {assigning && (
+        <AssignPrincipalModal
+          schoolId={school.id}
+          schoolName={school.name}
+          onClose={() => setAssigning(false)}
+          onAssigned={() => {
+            setAssigning(false);
+            onChanged();
+          }}
+        />
+      )}
     </div>
   );
 }

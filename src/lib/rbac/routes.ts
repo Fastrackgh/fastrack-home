@@ -39,10 +39,29 @@ export const APP_ROUTES = {
     label: 'Fees & Billing',
     rule: { audiences: ['staff'], permission: 'invoices:read', module: 'fees' },
   },
+  optionalFeeRequests: {
+    path: '/school-admin/fees/requests',
+    label: 'Service requests',
+    rule: {
+      audiences: ['staff'],
+      permission: 'student_fee_preferences:manage',
+      module: 'fees',
+    },
+  },
   staff: {
     path: '/school-admin/staff',
     label: 'Staff',
     rule: { audiences: ['staff'], permission: 'staff:read' },
+  },
+  setup: {
+    path: '/school-admin/setup',
+    label: 'School setup',
+    rule: { audiences: ['staff'], permission: 'classes:manage' },
+  },
+  account: {
+    path: '/school-admin/account',
+    label: 'My account',
+    rule: { audiences: ['staff'] },
   },
   templates: {
     path: '/school-admin/templates',

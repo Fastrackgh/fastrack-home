@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
   ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
@@ -30,6 +31,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
+  BarChart3,
   Building2,
   CheckCircle2,
   CreditCard,
@@ -45,10 +47,14 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  UserCog,
   Users,
   XCircle,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { AnalyticsPanel } from '@/features/platform/AnalyticsPanel';
+import { LoginAuditPanel } from '@/features/platform/LoginAuditPanel';
+import { PlatformUsersPanel } from '@/features/platform/PlatformUsersPanel';
 import { apiClient } from '@/lib/api-client';
 import type { ModuleEntitlement } from '@/features/platform-schools/model';
 
@@ -90,11 +96,24 @@ interface PlatformModule {
   isCore: boolean;
 }
 
+/** Every school, a full page at a time (the list endpoint returns at most 100). */
+async function listAllSchools(): Promise<SchoolItem[]> {
+  const rows: SchoolItem[] = [];
+  for (let page = 1; ; page++) {
+    const res = await apiClient.get<SchoolItem[], { hasNext?: boolean }>(
+      `/super-admin/schools?page=${page}&limit=100`,
+    );
+    rows.push(...(res.data ?? []));
+    if (!res.meta?.hasNext) return rows;
+  }
+}
+
 export default function PlatformConsolePage() {
   const { user, logout } = useAuth();
 
   const [activeTab, setActiveTab] = useState<string | null>('schools');
   const [loading, setLoading] = useState(true);
+  const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [platformModules, setPlatformModules] = useState<PlatformModule[]>([]);
@@ -125,14 +144,19 @@ export default function PlatformConsolePage() {
     setLoading(true);
     try {
       const [schoolsRes, analyticsRes, modulesRes] = await Promise.allSettled([
-        apiClient.get<SchoolItem[]>('/super-admin/schools?limit=50'),
+        listAllSchools(),
         apiClient.get<PlatformAnalytics>('/super-admin/analytics/overview'),
         apiClient.get<PlatformModule[]>('/super-admin/modules?limit=50'),
       ]);
 
-      if (schoolsRes.status === 'fulfilled' && schoolsRes.value.data) {
-        setSchools(schoolsRes.value.data || []);
-      }
+      if (schoolsRes.status === 'fulfilled') setSchools(schoolsRes.value);
+      setSchoolsError(
+        schoolsRes.status === 'rejected'
+          ? schoolsRes.reason instanceof Error
+            ? schoolsRes.reason.message
+            : 'Could not load the schools.'
+          : null,
+      );
       if (analyticsRes.status === 'fulfilled' && analyticsRes.value.data) {
         setAnalytics(analyticsRes.value.data);
       }
@@ -532,13 +556,22 @@ export default function PlatformConsolePage() {
           style={{ background: '#ffffff', borderColor: '#e2e8f0' }}
           p="lg"
         >
-          <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
             <Tabs.List mb="lg">
               <Tabs.Tab value="schools" leftSection={<Building2 size={16} />}>
                 Tenant Schools ({filteredSchools.length})
               </Tabs.Tab>
               <Tabs.Tab value="modules" leftSection={<Layers size={16} />}>
                 Platform Modules ({platformModules.length})
+              </Tabs.Tab>
+              <Tabs.Tab value="analytics" leftSection={<BarChart3 size={16} />}>
+                Analytics
+              </Tabs.Tab>
+              <Tabs.Tab value="users" leftSection={<UserCog size={16} />}>
+                Platform users
+              </Tabs.Tab>
+              <Tabs.Tab value="logins" leftSection={<ShieldCheck size={16} />}>
+                Sign-in log
               </Tabs.Tab>
             </Tabs.List>
 
@@ -587,7 +620,25 @@ export default function PlatformConsolePage() {
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
-                        {filteredSchools.length === 0 ? (
+                        {schoolsError ? (
+                          <Table.Tr>
+                            <Table.Td colSpan={6}>
+                              <Alert color="red" title="Unable to load schools" my="md">
+                                <Stack gap="xs" align="flex-start">
+                                  <Text size="sm">{schoolsError}</Text>
+                                  <Button
+                                    size="xs"
+                                    variant="light"
+                                    color="red"
+                                    onClick={loadPlatformData}
+                                  >
+                                    Try again
+                                  </Button>
+                                </Stack>
+                              </Alert>
+                            </Table.Td>
+                          </Table.Tr>
+                        ) : filteredSchools.length === 0 ? (
                           <Table.Tr>
                             <Table.Td
                               colSpan={6}
@@ -752,6 +803,15 @@ export default function PlatformConsolePage() {
                   ))}
                 </SimpleGrid>
               </Stack>
+            </Tabs.Panel>
+            <Tabs.Panel value="analytics">
+              <AnalyticsPanel />
+            </Tabs.Panel>
+            <Tabs.Panel value="users">
+              <PlatformUsersPanel />
+            </Tabs.Panel>
+            <Tabs.Panel value="logins">
+              <LoginAuditPanel />
             </Tabs.Panel>
           </Tabs>
         </Paper>

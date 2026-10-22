@@ -18,6 +18,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { MailPlus, RefreshCw } from 'lucide-react';
+import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS } from '@/lib/rbac';
@@ -27,7 +28,9 @@ import {
   type InvitableRole,
   type Invitation,
   type StaffMember,
+  canManageMember,
 } from './api';
+import { EditStaffModal } from './EditStaffModal';
 
 const errorMessage = (error: unknown, fallback: string) =>
   error instanceof Error ? error.message : fallback;
@@ -41,12 +44,14 @@ const statusColor: Record<Invitation['status'], string> = {
 
 /** The school's teaching staff and, for those who manage staff, invitations. */
 export function StaffPage() {
-  const { can } = useAuth();
+  const { can, user } = useAuth();
   const mayManage = can('staff:manage');
   const [staff, setStaff] = useState<StaffMember[] | null>(null);
   const [invitations, setInvitations] = useState<Invitation[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [inviting, setInviting] = useState(false);
+  const [editing, setEditing] = useState<StaffMember | null>(null);
+  const [deactivating, setDeactivating] = useState<StaffMember | null>(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -66,6 +71,15 @@ export function StaffPage() {
     load();
   }, [load]);
 
+  /** The latest open invitation for someone who hasn't set up their account. */
+  const openInviteFor = (member: StaffMember) =>
+    invitations
+      ?.filter(
+        (inv) =>
+          inv.status !== 'ACCEPTED' && inv.email.toLowerCase() === member.email.toLowerCase(),
+      )
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))[0];
+
   const act = async (label: string, run: () => Promise<void>) => {
     try {
       await run();
@@ -84,7 +98,7 @@ export function StaffPage() {
     <>
       <PageHeader
         title="Staff"
-        subtitle="Teaching staff, and invitations for new school users."
+        subtitle="Your school's staff, and invitations for new school users."
         actions={
           <>
             <Button variant="default" leftSection={<RefreshCw size={15} />} onClick={load}>
@@ -104,19 +118,26 @@ export function StaffPage() {
       />
       {error ? (
         <Alert color="red" title="Unable to load staff">
-          {error}
+          <Stack gap="xs" align="flex-start">
+            <Text size="sm">{error}</Text>
+            <Button size="xs" variant="light" color="red" onClick={load}>
+              Try again
+            </Button>
+          </Stack>
         </Alert>
       ) : (
         <Stack gap="lg">
-          <Section title="Teaching staff" loading={staff === null}>
+          <Section title="Staff" loading={staff === null}>
             <Table.ScrollContainer minWidth={700}>
               <Table verticalSpacing="sm" highlightOnHover>
                 <Table.Thead>
                   <Table.Tr>
                     <Table.Th>Name</Table.Th>
+                    <Table.Th>Role</Table.Th>
                     <Table.Th>Position</Table.Th>
                     <Table.Th>Contact</Table.Th>
                     <Table.Th>Status</Table.Th>
+                    {mayManage && <Table.Th />}
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
@@ -131,6 +152,9 @@ export function StaffPage() {
                         </Text>
                       </Table.Td>
                       <Table.Td>
+                        {ROLE_LABELS[p.role as keyof typeof ROLE_LABELS] ?? p.role}
+                      </Table.Td>
+                      <Table.Td>
                         {[p.position, p.department].filter(Boolean).join(' · ') || '—'}
                       </Table.Td>
                       <Table.Td>
@@ -140,16 +164,75 @@ export function StaffPage() {
                         </Text>
                       </Table.Td>
                       <Table.Td>
-                        <Badge variant="light" color={p.isActive ? 'teal' : 'gray'}>
-                          {p.isActive ? 'Active' : 'Inactive'}
-                        </Badge>
+                        {p.accountSetUp === false ? (
+                          <Badge variant="light" color="orange">
+                            Not set up
+                          </Badge>
+                        ) : (
+                          <Badge variant="light" color={p.isActive ? 'teal' : 'gray'}>
+                            {p.isActive ? 'Active' : 'Inactive'}
+                          </Badge>
+                        )}
                       </Table.Td>
+                      {mayManage && (
+                        <Table.Td>
+                          {canManageMember(user, p) && (
+                            <Group gap="xs" justify="flex-end" wrap="nowrap">
+                              <Button
+                                size="compact-xs"
+                                variant="subtle"
+                                onClick={() => setEditing(p)}
+                              >
+                                Edit
+                              </Button>
+                              {p.accountSetUp === false ? (
+                                // No password yet: they get in through a fresh invitation, not reactivation.
+                                openInviteFor(p) && (
+                                  <Button
+                                    size="compact-xs"
+                                    variant="subtle"
+                                    onClick={() =>
+                                      act('Invitation resent', () =>
+                                        staffApi.resend(openInviteFor(p)!.id),
+                                      )
+                                    }
+                                  >
+                                    Resend invite
+                                  </Button>
+                                )
+                              ) : p.isActive ? (
+                                <Button
+                                  size="compact-xs"
+                                  variant="subtle"
+                                  color="red"
+                                  onClick={() => setDeactivating(p)}
+                                >
+                                  Deactivate
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="compact-xs"
+                                  variant="subtle"
+                                  color="teal"
+                                  onClick={() =>
+                                    act('Staff member reactivated', () =>
+                                      staffApi.setActive(p.id, true),
+                                    )
+                                  }
+                                >
+                                  Reactivate
+                                </Button>
+                              )}
+                            </Group>
+                          )}
+                        </Table.Td>
+                      )}
                     </Table.Tr>
                   ))}
                 </Table.Tbody>
               </Table>
             </Table.ScrollContainer>
-            {staff?.length === 0 && <Empty text="No teaching staff yet." />}
+            {staff?.length === 0 && <Empty text="No staff yet." />}
           </Section>
 
           {mayManage && (
@@ -219,6 +302,35 @@ export function StaffPage() {
             </Section>
           )}
         </Stack>
+      )}
+      {editing && (
+        <EditStaffModal
+          member={editing}
+          onClose={() => setEditing(null)}
+          onSaved={async () => {
+            setEditing(null);
+            await load();
+          }}
+        />
+      )}
+      {deactivating && (
+        <ConfirmModal
+          title={`Deactivate ${deactivating.firstName} ${deactivating.lastName}?`}
+          confirmLabel="Deactivate"
+          onClose={() => setDeactivating(null)}
+          onConfirm={async () => {
+            await staffApi.setActive(deactivating.id, false);
+            notifications.show({
+              color: 'teal',
+              title: 'Staff member deactivated',
+              message: deactivating.email,
+            });
+            await load();
+          }}
+        >
+          They will no longer be able to sign in. Their records and class history are kept, and you
+          can reactivate them later.
+        </ConfirmModal>
       )}
       {inviting && (
         <InviteModal

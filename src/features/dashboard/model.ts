@@ -36,7 +36,8 @@ export type Area =
   | 'plans'
   | 'admissions'
   | 'grading'
-  | 'templates';
+  | 'templates'
+  | 'setup';
 export interface Metric {
   label: string;
   value: string;
@@ -122,6 +123,7 @@ export const roleConfig: Record<
       'archive',
       'questions',
       'templates',
+      'setup',
     ],
     featured: ['enrollment', 'performance', 'attendance', 'communication'],
     fullWorkspaces: ['reports'],
@@ -144,6 +146,7 @@ export const roleConfig: Record<
       'communication',
       'schedule',
       'grading',
+      'setup',
     ],
     featured: ['performance', 'faculty', 'reports', 'enrollment'],
     fullWorkspaces: ['reports', 'schedule'],
@@ -229,6 +232,7 @@ export const areaLabels: Record<Area, string> = {
   admissions: 'Online admissions',
   grading: 'Grading configuration',
   templates: 'Bill & report designs',
+  setup: 'School setup',
 };
 /** The permission needed to open each area, on top of it being in the viewer's layout. */
 export const areaPermission: Record<Area, AccessPermission> = {
@@ -248,6 +252,7 @@ export const areaPermission: Record<Area, AccessPermission> = {
   gradebook: 'marks:enter',
   grading: 'grading:manage',
   templates: 'document_templates:read',
+  setup: 'classes:manage',
   schedule: 'timetable:read',
   questions: 'question_bank:read',
   communication: 'messages:read',
@@ -287,6 +292,7 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   staffing: 'staff',
   templates: 'templates',
   calendar: 'calendar',
+  setup: 'setup',
 };
 
 /** The live page that serves `area` for this viewer, if any. */

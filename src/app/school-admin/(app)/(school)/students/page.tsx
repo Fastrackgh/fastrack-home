@@ -41,6 +41,8 @@ import {
   Users,
   UserX,
 } from 'lucide-react';
+import { setupApi } from '@/features/school-setup/api';
+import { StudentDrawer } from '@/features/students/StudentDrawer';
 import { PageHeader } from '@/features/workspace';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
@@ -94,19 +96,19 @@ const initialFormData = {
   firstName: '',
   surname: '',
   otherName: '',
-  gender: 'Male',
+  gender: '',
   birthDate: '',
   nationalId: '',
-  nationality: 'Ghanaian',
-  religion: 'Christian',
+  nationality: '',
+  religion: '',
   residence: '',
   digitalAddress: '',
 
   // Step 2: Academic Placement
   classId: '',
-  department: 'Primary',
+  department: '',
   previousSchool: '',
-  boardingStatus: 'Day',
+  boardingStatus: '',
   transportRoute: 'None (Self Transport)',
   entranceExamScore: '',
   entranceExamNotes: '',
@@ -122,12 +124,12 @@ const initialFormData = {
   fatherOccupation: '',
 
   // Step 4: Health & Emergency
-  bloodGroup: 'O+',
-  genotype: 'AA',
+  bloodGroup: '',
+  genotype: '',
   allergiesMedicalNotes: '',
   emergencyContactName: '',
   emergencyContactPhone: '',
-  emergencyContactRelationship: 'Mother',
+  emergencyContactRelationship: '',
 };
 
 export default function StudentsPage() {
@@ -150,6 +152,8 @@ export default function StudentsPage() {
   const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
+  const [listError, setListError] = useState<string | null>(null);
+  const [openStudentId, setOpenStudentId] = useState<string | null>(null);
 
   // Admit Student Modal & Stepper state
   const [admitOpened, { open: openAdmit, close: closeAdmit }] = useDisclosure(false);
@@ -164,14 +168,12 @@ export default function StudentsPage() {
     async function loadPrerequisites() {
       try {
         const [classesRes, yearRes, termRes] = await Promise.allSettled([
-          apiClient.get<SchoolClass[]>('/schools/me/classes'),
+          setupApi.allClasses(),
           apiClient.get<{ id: string; yearLabel: string }>('/schools/me/academic-years/current'),
           apiClient.get<{ id: string; termLabel: string }>('/schools/me/academic-terms/current'),
         ]);
 
-        if (classesRes.status === 'fulfilled' && classesRes.value.data) {
-          setClasses(classesRes.value.data);
-        }
+        if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
 
         const year = yearRes.status === 'fulfilled' ? yearRes.value.data : null;
         const term = termRes.status === 'fulfilled' ? termRes.value.data : null;
@@ -194,6 +196,7 @@ export default function StudentsPage() {
   // Fetch students with filtering & pagination
   const fetchStudents = useCallback(async () => {
     setIsLoading(true);
+    setListError(null);
     try {
       const params = new URLSearchParams();
       params.append('page', String(page));
@@ -221,11 +224,7 @@ export default function StudentsPage() {
         setMeta(res.meta);
       }
     } catch (err: unknown) {
-      notifications.show({
-        title: 'Error',
-        message: err instanceof Error ? err.message : 'Could not fetch students list.',
-        color: 'red',
-      });
+      setListError(err instanceof Error ? err.message : 'Could not load the students.');
     } finally {
       setIsLoading(false);
     }
@@ -289,12 +288,12 @@ export default function StudentsPage() {
       const payload: Record<string, unknown> = {
         firstName: formData.firstName.trim(),
         surname: formData.surname.trim(),
-        gender: formData.gender,
         admissionAcademicYearId: academicContext.yearId,
         admissionTermId: academicContext.termId,
         admissionClassId: formData.classId,
       };
 
+      if (formData.gender) payload.gender = formData.gender;
       if (formData.otherName.trim()) payload.otherName = formData.otherName.trim();
       if (formData.birthDate) payload.birthDate = formData.birthDate;
       if (formData.nationalId.trim()) payload.nationalId = formData.nationalId.trim();
@@ -588,6 +587,19 @@ export default function StudentsPage() {
                     </Stack>
                   </Table.Td>
                 </Table.Tr>
+              ) : listError ? (
+                <Table.Tr>
+                  <Table.Td colSpan={7}>
+                    <Alert color="red" title="Unable to load students" my="md">
+                      <Stack gap="xs" align="flex-start">
+                        <Text size="sm">{listError}</Text>
+                        <Button size="xs" variant="light" color="red" onClick={fetchStudents}>
+                          Try again
+                        </Button>
+                      </Stack>
+                    </Alert>
+                  </Table.Td>
+                </Table.Tr>
               ) : students.length === 0 ? (
                 <Table.Tr>
                   <Table.Td colSpan={7}>
@@ -604,7 +616,12 @@ export default function StudentsPage() {
                   const initials =
                     `${student.firstName?.[0] || ''}${student.surname?.[0] || ''}`.toUpperCase();
                   return (
-                    <Table.Tr key={student.id} id={`row-student-${student.studentCode}`}>
+                    <Table.Tr
+                      key={student.id}
+                      id={`row-student-${student.studentCode}`}
+                      onClick={() => setOpenStudentId(student.id)}
+                      style={{ cursor: 'pointer' }}
+                    >
                       <Table.Td>
                         <Group gap="sm" wrap="nowrap">
                           <Avatar radius="xl" size={32} color="fastrackRed">
@@ -687,6 +704,12 @@ export default function StudentsPage() {
           />
         </Group>
       </Card>
+
+      <StudentDrawer
+        studentId={openStudentId}
+        onClose={() => setOpenStudentId(null)}
+        onChanged={fetchStudents}
+      />
 
       {/* 4-Step Comprehensive Student Admission Stepper Modal */}
       <Modal
@@ -789,8 +812,8 @@ export default function StudentsPage() {
                       <Select
                         label="Gender"
                         data={['Male', 'Female']}
-                        value={formData.gender}
-                        onChange={(v) => setFormData({ ...formData, gender: v || 'Male' })}
+                        value={formData.gender || null}
+                        onChange={(v) => setFormData({ ...formData, gender: v ?? '' })}
                         radius="md"
                         id="modal-gender"
                       />
@@ -835,8 +858,8 @@ export default function StudentsPage() {
                       <Select
                         label="Religion"
                         data={['Christian', 'Muslim', 'Traditional', 'Other']}
-                        value={formData.religion}
-                        onChange={(v) => setFormData({ ...formData, religion: v || 'Christian' })}
+                        value={formData.religion || null}
+                        onChange={(v) => setFormData({ ...formData, religion: v ?? '' })}
                         radius="md"
                         id="modal-religion"
                       />
@@ -907,8 +930,8 @@ export default function StudentsPage() {
                           'Senior High (General Arts)',
                           'Senior High (Business)',
                         ]}
-                        value={formData.department}
-                        onChange={(v) => setFormData({ ...formData, department: v || 'Primary' })}
+                        value={formData.department || null}
+                        onChange={(v) => setFormData({ ...formData, department: v ?? '' })}
                         radius="md"
                         id="modal-department"
                       />
@@ -929,8 +952,8 @@ export default function StudentsPage() {
                       <Select
                         label="Boarding Status"
                         data={['Day', 'Boarding']}
-                        value={formData.boardingStatus}
-                        onChange={(v) => setFormData({ ...formData, boardingStatus: v || 'Day' })}
+                        value={formData.boardingStatus || null}
+                        onChange={(v) => setFormData({ ...formData, boardingStatus: v ?? '' })}
                         radius="md"
                         id="modal-boarding-status"
                       />
@@ -1107,8 +1130,8 @@ export default function StudentsPage() {
                       <Select
                         label="Blood Group"
                         data={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']}
-                        value={formData.bloodGroup}
-                        onChange={(v) => setFormData({ ...formData, bloodGroup: v || 'O+' })}
+                        value={formData.bloodGroup || null}
+                        onChange={(v) => setFormData({ ...formData, bloodGroup: v ?? '' })}
                         radius="md"
                         id="modal-blood-group"
                       />
@@ -1117,8 +1140,8 @@ export default function StudentsPage() {
                       <Select
                         label="Genotype"
                         data={['AA', 'AS', 'SS', 'AC']}
-                        value={formData.genotype}
-                        onChange={(v) => setFormData({ ...formData, genotype: v || 'AA' })}
+                        value={formData.genotype || null}
+                        onChange={(v) => setFormData({ ...formData, genotype: v ?? '' })}
                         radius="md"
                         id="modal-genotype"
                       />
@@ -1181,9 +1204,9 @@ export default function StudentsPage() {
                           'Guardian',
                           'Family Friend',
                         ]}
-                        value={formData.emergencyContactRelationship}
+                        value={formData.emergencyContactRelationship || null}
                         onChange={(v) =>
-                          setFormData({ ...formData, emergencyContactRelationship: v || 'Uncle' })
+                          setFormData({ ...formData, emergencyContactRelationship: v ?? '' })
                         }
                         radius="md"
                         id="modal-emergency-relationship"

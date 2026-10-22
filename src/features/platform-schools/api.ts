@@ -18,6 +18,18 @@ export const platformSchoolsApi = {
   async updateSchool(schoolId: string, update: SchoolProfileUpdate) {
     await apiClient.patch(schoolPath(schoolId), update);
   },
+  /** Invites the school's principal; refused when it already has an active one. */
+  async assignPrincipal(
+    schoolId: string,
+    head: { firstName: string; lastName: string; email: string; phone?: string },
+  ) {
+    await apiClient.post(`${schoolPath(schoolId)}/school-head`, head);
+  },
+  async uploadLogo(schoolId: string, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    await apiClient.request(`${schoolPath(schoolId)}/logo`, { method: 'PUT', body: form });
+  },
   async setActive(schoolId: string, active: boolean) {
     await apiClient.patch(`${schoolPath(schoolId)}/${active ? 'activate' : 'deactivate'}`, {});
   },

@@ -36,6 +36,7 @@ const dates = load('src/features/calendar/dates.ts');
 // the keys the dashboard checks.
 const backendDefaults = {
   PRINCIPAL: [
+    'student_fee_preferences:manage',
     'students:read',
     'students:create',
     'students:update',
@@ -55,6 +56,11 @@ const backendDefaults = {
     'timetable:manage',
     'calendar:read',
     'calendar:manage',
+    'school_profile:manage',
+    'academic_years:manage',
+    'academic_terms:manage',
+    'classes:manage',
+    'departments:manage',
   ],
   ACADEMIC_HEAD: [
     'students:read',
@@ -71,8 +77,13 @@ const backendDefaults = {
     'timetable:manage',
     'calendar:read',
     'calendar:manage',
+    'academic_years:manage',
+    'academic_terms:manage',
+    'classes:manage',
+    'departments:manage',
   ],
   ACCOUNT_OFFICER: [
+    'student_fee_preferences:manage',
     'students:read',
     'enrollment:read',
     'staff:read',
@@ -283,9 +294,15 @@ const superAdmin = subject('SUPER_ADMIN', ['schools:read', 'schools:manage'], nu
 const routes = (s) => Object.keys(rbac.APP_ROUTES).filter((key) => rbac.canAccessRoute(s, key));
 
 check('each role reaches only its own pages', () => {
-  assert.deepEqual(routes(teacher), ['dashboard', 'students', 'attendance']);
-  assert.deepEqual(routes(accountOfficer), ['dashboard', 'students', 'fees']);
-  assert.deepEqual(routes(secretary), ['dashboard', 'students', 'attendance', 'admissions']);
+  assert.deepEqual(routes(teacher), ['dashboard', 'students', 'attendance', 'account']);
+  assert.deepEqual(routes(accountOfficer), ['dashboard', 'students', 'fees', 'account']);
+  assert.deepEqual(routes(secretary), [
+    'dashboard',
+    'students',
+    'attendance',
+    'account',
+    'admissions',
+  ]);
   assert.deepEqual(routes(parent), [
     'parentHome',
     'parentWards',
@@ -448,6 +465,25 @@ check(
     assert.ok(family.includes('/school-admin/dashboard/calendar'));
   },
 );
+check('school setup is for the Principal and Academic Head only, never parents or the platform', () => {
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD']) {
+    assert.ok(rbac.canAccessRoute(viewer(role), 'setup'), role);
+    const items = nav.workspaceNavigation(viewer(role)).map((i) => i.href);
+    assert.ok(items.includes('/school-admin/setup'), role);
+  }
+  for (const role of ['TEACHER', 'ACCOUNT_OFFICER', 'SECRETARY', 'PARENT']) {
+    assert.equal(rbac.canAccessRoute(viewer(role), 'setup'), false, role);
+    const items = nav.workspaceNavigation(viewer(role)).map((i) => i.href);
+    assert.equal(items.includes('/school-admin/setup'), false, role);
+  }
+  assert.equal(rbac.canAccessRoute(viewer('SUPER_ADMIN', []), 'setup'), false);
+  const withoutManage = viewer(
+    'ACADEMIC_HEAD',
+    backendDefaults.ACADEMIC_HEAD.filter((p) => p !== 'classes:manage'),
+  );
+  assert.equal(rbac.canAccessRoute(withoutManage, 'setup'), false);
+  assert.equal(m.canAccess(withoutManage, 'setup'), false);
+});
 check("parents keep the preview for their own children's fees and attendance", () => {
   const family = nav.workspaceNavigation(viewer('PARENT')).map((i) => i.href);
   assert.ok(family.includes('/school-admin/dashboard/finance'));
@@ -553,5 +589,14 @@ check('calendar months run Monday to Sunday and cross year ends', () => {
   ]);
   assert.equal(dates.isWeekend('2027-02-06'), true);
   assert.equal(dates.isWeekend('2027-02-08'), false);
+});
+check('only fee staff review parents\' optional-service requests', () => {
+  const path = '/school-admin/fees/requests';
+  // Its own rule guards it, not the wider Fees & Billing rule.
+  assert.equal(rbac.findRoute(path).path, path);
+  for (const role of ['PRINCIPAL', 'ACCOUNT_OFFICER'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['fees'] }, path), role);
+  for (const role of ['TEACHER', 'SECRETARY', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['fees'] }, path), false, role);
 });
 console.log(`${checks} dashboard and access checks passed.`);

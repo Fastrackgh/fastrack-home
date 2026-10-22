@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   'modules:manage',
   'school_modules:read',
   'school_modules:manage',
+  'school_profile:manage',
 
   // Academic calendar
   'academic_years:read',
@@ -45,6 +46,7 @@ export const PERMISSIONS = [
   'students:update',
   'students:delete',
   'students:exit',
+  'student_fee_preferences:manage',
   'enrollment:read',
   'enrollment:manage',
 

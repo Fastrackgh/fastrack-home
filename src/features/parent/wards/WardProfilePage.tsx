@@ -65,7 +65,7 @@ export function WardProfilePage({ studentId }: { studentId: string }) {
                 <Detail label="Date of birth" value={formatDate(ward.birthDate)} />
                 <Detail label="Gender" value={ward.gender} />
                 <Detail label="Department" value={ward.currentClass?.department} />
-                <Detail label="House" value={ward.house} />
+                <Detail label="Boarding" value={ward.boardingStatus} />
                 <Detail label="Admitted" value={formatDate(ward.admissionDate)} />
                 <Detail label="Your relationship" value={ward.relationship} />
               </SimpleGrid>

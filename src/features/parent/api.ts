@@ -17,6 +17,7 @@ import type {
   ResentChallenge,
   TermReport,
   Ward,
+  WardCalendar,
   WardOptionalServices,
   WardProfile,
 } from './types';
@@ -24,9 +25,8 @@ import type {
 /*
  * Every read is scoped to one linked ward: `/parents/me/wards/:studentId/...`.
  * The backend checks the parent-ward link and the ward's school modules, since a
- * parent has no school of their own (QA-026). Wards, fees, payments and
- * optional services exist on the backend; reports, attendance and the full
- * ward profile are still the contract in docs/api/parent-portal.md. Set
+ * parent has no school of their own (QA-026). Everything but reports exists on
+ * the backend; reports are still the contract in docs/api/parent-portal.md. Set
  * NEXT_PUBLIC_PARENT_API_MOCK=1 to run the portal on sample data.
  */
 
@@ -59,6 +59,8 @@ export interface ParentApi {
   getReport(studentId: string, reportId: string): Promise<TermReport>;
   reportDocument(studentId: string, reportId: string): Promise<string>;
   attendance(studentId: string, range: { from: string; to: string }): Promise<AttendanceRecord>;
+  /** Defaults to the current term of the ward's school. */
+  calendar(studentId: string, termId?: string | null): Promise<WardCalendar>;
   listOptionalServices(studentId: string): Promise<WardOptionalServices>;
   listOptionalFeeRequests(studentId: string): Promise<OptionalFeeRequest[]>;
   requestOptionalService(
@@ -181,6 +183,11 @@ const liveParentApi: ParentApi = {
     );
     return res.data;
   },
+  async calendar(studentId, termId) {
+    const query = termId ? `?${new URLSearchParams({ termId })}` : '';
+    const res = await apiClient.get<WardCalendar>(`${ward(studentId)}/calendar${query}`);
+    return { events: res.data.events ?? [], schoolDays: res.data.schoolDays };
+  },
   async listOptionalServices(studentId) {
     const res = await apiClient.get<Raw>(`${ward(studentId)}/optional-services`);
     const services = (res.data.services as Raw[] | undefined) ?? [];
@@ -214,5 +221,15 @@ const liveParentApi: ParentApi = {
 };
 
 export const isParentApiMocked = process.env.NEXT_PUBLIC_PARENT_API_MOCK === '1';
+
+/**
+ * Portal areas whose backend endpoints exist. Reports need the grading domain,
+ * so that screen says "coming soon" instead of failing; only the sample data
+ * has them. Flip it once the endpoints ship.
+ */
+export const parentAreaReady = {
+  reports: isParentApiMocked,
+  attendance: true,
+};
 
 export const parentApi: ParentApi = isParentApiMocked ? mockParentApi : liveParentApi;

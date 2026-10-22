@@ -17,8 +17,8 @@ import {
 } from '@mantine/core';
 import { ArrowLeft, ChevronRight, FileText } from 'lucide-react';
 import { useLeaveOnWardChange } from '../ActiveWardProvider';
-import { parentApi } from '../api';
-import { EmptyState, PageTitle, QueryView, WithWard } from '../components';
+import { parentApi, parentAreaReady } from '../api';
+import { ComingSoon, EmptyState, PageTitle, QueryView, WithWard } from '../components';
 import { DocumentModal } from '../DocumentFrame';
 import { formatDate, wardName } from '../format';
 import type { TermReport, Ward } from '../types';
@@ -35,6 +35,14 @@ export const gradeColor = (grade?: string | null) =>
   ({ A: 'green', B: 'teal', C: 'blue', D: 'orange' })[grade?.charAt(0) ?? ''] ?? 'red';
 
 export function ReportsPage() {
+  if (!parentAreaReady.reports) {
+    return (
+      <>
+        <PageTitle title="Reports" />
+        <ComingSoon icon={<FileText size={22} />} area="Terminal reports" />
+      </>
+    );
+  }
   return <WithWard>{(ward) => <WardReports key={ward.studentId} ward={ward} />}</WithWard>;
 }
 
@@ -138,7 +146,11 @@ export function ReportView({ reportId }: { reportId: string }) {
       >
         <ArrowLeft size={14} /> Reports
       </Anchor>
-      <WithWard>{(ward) => <WardReport ward={ward} reportId={reportId} />}</WithWard>
+      {parentAreaReady.reports ? (
+        <WithWard>{(ward) => <WardReport ward={ward} reportId={reportId} />}</WithWard>
+      ) : (
+        <ComingSoon icon={<FileText size={22} />} area="Terminal reports" />
+      )}
     </>
   );
 }

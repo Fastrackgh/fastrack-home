@@ -77,6 +77,17 @@ export function EmptyState({
   );
 }
 
+/** For a portal area the school system doesn't offer yet (see `parentAreaReady`). */
+export function ComingSoon({ icon, area }: { icon: React.ReactNode; area: string }) {
+  return (
+    <EmptyState
+      icon={icon}
+      title={`${area} coming soon`}
+      message={`${area} will appear here once your school's system supports them.`}
+    />
+  );
+}
+
 /** Why a read failed, in words a parent can act on. */
 export function readFailure(error: unknown): string {
   if (error instanceof ApiError && error.statusCode === 404) {

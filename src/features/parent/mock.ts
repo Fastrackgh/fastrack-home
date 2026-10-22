@@ -13,6 +13,7 @@ import type {
   ParentPayment,
   TermReport,
   Ward,
+  WardCalendar,
   WardProfile,
 } from './types';
 
@@ -354,7 +355,7 @@ export const mockParentApi: ParentApi = {
     return wait({
       ...ward,
       admissionDate: `20${ward.studentCode?.slice(6, 8) ?? '24'}-09-08`,
-      house: ward.firstName === 'Kwesi' ? 'Aggrey House' : 'Nkrumah House',
+      boardingStatus: ward.firstName === 'Kwesi' ? 'Boarding' : 'Day',
       guardians: [
         {
           name: 'Mercy Osei',
@@ -573,8 +574,55 @@ export const mockParentApi: ParentApi = {
         present: count('present'),
         absent: count('absent'),
         late: count('late'),
+        halfDay: count('half_day'),
         excused: count('excused'),
         schoolDays: days.length,
+        unmarked: 0,
+      },
+    });
+  },
+  async calendar(studentId, termId) {
+    const ward = linkedWard(studentId);
+    const term = TERMS.find((t) => t.id === termId) ?? TERMS.find((t) => t.isCurrent)!;
+    const today = todayIso();
+    const event = (
+      days: number,
+      type: WardCalendar['events'][number]['type'],
+      title: string,
+      length = 1,
+    ): WardCalendar['events'][number] => ({
+      id: `event-${term.id}-${days}`,
+      termId: term.id,
+      termLabel: term.label,
+      yearLabel: term.yearLabel,
+      type,
+      title,
+      description: null,
+      startDate: addDays(today, days),
+      endDate: addDays(today, days + length - 1),
+      startTime: null,
+      endTime: null,
+      location: null,
+      audience: 'WHOLE_SCHOOL',
+      classId: null,
+      className: null,
+      status: 'ACTIVE',
+    });
+    const events = [
+      event(-12, 'PTA_MEETING', 'PTA general meeting'),
+      event(6, 'MID_TERM_BREAK', 'Mid-term break', 3),
+      event(20, 'SPORTS_DAY', `${ward.school.name} sports day`),
+      event(41, 'EXAMINATION', 'End-of-term examinations', 5),
+    ];
+    return wait({
+      events,
+      schoolDays: {
+        termId: term.id,
+        startDate: addDays(today, -40),
+        endDate: addDays(today, 50),
+        weekdays: 65,
+        closedDays: 3,
+        schoolDays: 62,
       },
     });
   },

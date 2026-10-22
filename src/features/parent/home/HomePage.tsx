@@ -14,13 +14,14 @@ import {
   Title,
   UnstyledButton,
 } from '@mantine/core';
-import { CalendarCheck, ChevronRight, FileText, Wallet } from 'lucide-react';
+import { CalendarCheck, CalendarDays, ChevronRight, FileText, Wallet } from 'lucide-react';
 import { formatGhs, sumPesewas } from '@/features/fees/money';
 import { useAuth } from '@/lib/auth';
 import { canAccessRoute } from '@/lib/rbac';
-import { monthOf, todayIso } from '@/features/calendar/dates';
+import { typeInfo, type SchoolEvent } from '@/features/calendar/api';
+import { formatSpan, monthOf, todayIso } from '@/features/calendar/dates';
 import { useActiveWard } from '../ActiveWardProvider';
-import { parentApi } from '../api';
+import { parentApi, parentAreaReady } from '../api';
 import { attendanceRate, monthRange } from '../attendance/AttendancePage';
 import { WithWard } from '../components';
 import { wardInitials, wardName, wardPlacement, wardStatusColor, wardStatusLabel } from '../format';
@@ -103,14 +104,66 @@ function Tile<T>({
   );
 }
 
+/** The next few events on the ward's calendar that haven't finished or been cancelled. */
+function ComingUp({ events }: { events: SchoolEvent[] }) {
+  const today = todayIso();
+  const upcoming = events
+    .filter((event) => event.endDate >= today && event.status !== 'CANCELLED')
+    .sort((a, b) => a.startDate.localeCompare(b.startDate))
+    .slice(0, 3);
+  return (
+    <Card withBorder radius="lg" padding="md">
+      <Group gap={6} mb="sm" c="dimmed">
+        <CalendarDays size={14} />
+        <Text size="xs" fw={600} tt="uppercase">
+          Coming up this term
+        </Text>
+      </Group>
+      {upcoming.length === 0 ? (
+        <Text size="sm" c="dimmed">
+          Nothing else on the school calendar this term.
+        </Text>
+      ) : (
+        <Stack gap="sm">
+          {upcoming.map((event) => (
+            <Group key={event.id} wrap="nowrap" align="flex-start" justify="space-between">
+              <div style={{ minWidth: 0 }}>
+                <Text size="sm" fw={600}>
+                  {event.title}
+                </Text>
+                <Text size="xs" c="dimmed">
+                  {formatSpan(event.startDate, event.endDate)}
+                  {event.startTime && `, ${event.startTime}`}
+                  {event.location && ` · ${event.location}`}
+                </Text>
+              </div>
+              <Group gap={6} wrap="nowrap">
+                {event.status === 'POSTPONED' && (
+                  <Badge variant="light" color="yellow">
+                    Postponed
+                  </Badge>
+                )}
+                <Badge variant="light" color={typeInfo(event.type).color}>
+                  {typeInfo(event.type).label}
+                </Badge>
+              </Group>
+            </Group>
+          ))}
+        </Stack>
+      )}
+    </Card>
+  );
+}
+
 function WardSummary({ ward }: { ward: Ward }) {
-  const { user } = useAuth();
+  const { user, can } = useAuth();
   const { wards, selectWard } = useActiveWard();
   const id = ward.studentId;
   const month = monthOf(todayIso());
   const showFees = canAccessRoute(user, 'parentFees');
-  const showReports = canAccessRoute(user, 'parentReports');
-  const showAttendance = canAccessRoute(user, 'parentAttendance');
+  const showReports = parentAreaReady.reports && canAccessRoute(user, 'parentReports');
+  const showAttendance = parentAreaReady.attendance && canAccessRoute(user, 'parentAttendance');
+  const showCalendar = can('calendar:read');
 
   // Share the list pages' offline copies, so the tiles match what those pages show.
   const invoices = useParentQuery(showFees ? `invoices:${id}:all:1` : null, () =>
@@ -121,6 +174,9 @@ function WardSummary({ ward }: { ward: Ward }) {
   );
   const attendance = useParentQuery(showAttendance ? `attendance:${id}:${month}` : null, () =>
     parentApi.attendance(id, monthRange(month)),
+  );
+  const calendar = useParentQuery(showCalendar ? `calendar:${id}:current` : null, () =>
+    parentApi.calendar(id),
   );
   const others = wards.filter((w) => w.studentId !== id);
 
@@ -145,7 +201,13 @@ function WardSummary({ ward }: { ward: Ward }) {
         </Group>
       </Card>
 
-      <SimpleGrid cols={{ base: 1, xs: 3 }} spacing="sm">
+      <SimpleGrid
+        cols={{
+          base: 1,
+          xs: Math.max([showFees, showAttendance, showReports].filter(Boolean).length, 1),
+        }}
+        spacing="sm"
+      >
         {showFees && (
           <Tile
             href="/parent/fees"
@@ -202,6 +264,8 @@ function WardSummary({ ward }: { ward: Ward }) {
           />
         )}
       </SimpleGrid>
+
+      {calendar.data && <ComingUp events={calendar.data.events} />}
 
       {others.length > 0 && (
         <div>

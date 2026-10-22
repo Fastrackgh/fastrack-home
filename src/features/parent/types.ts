@@ -1,3 +1,4 @@
+import type { SchoolDays, SchoolEvent } from '@/features/calendar/api';
 import type { Invoice, Payment } from '@/features/fees/api';
 import type { Pesewas } from '@/features/fees/money';
 
@@ -33,7 +34,8 @@ export interface Guardian {
 export interface WardProfile extends Ward {
   photoUrl?: string | null;
   admissionDate?: string | null;
-  house?: string | null;
+  /** "Day" or "Boarding", as the school records it. */
+  boardingStatus?: string | null;
   guardians: Guardian[];
   school: Ward['school'] & {
     logoUrl?: string | null;
@@ -147,24 +149,30 @@ export interface TermReport {
   nextTermBegins?: string | null;
 }
 
-export type AttendanceMark = 'present' | 'absent' | 'late' | 'excused';
+export type AttendanceMark = 'present' | 'absent' | 'late' | 'half_day' | 'excused';
 
 export interface AttendanceDay {
   /** ISO date (yyyy-mm-dd). */
   date: string;
   status: AttendanceMark;
+  /** HH:MM, when the register recorded one. */
+  arrivalTime?: string | null;
   note?: string | null;
 }
 
 export interface AttendanceRecord {
+  /** Marked days only; an unmarked school day isn't listed. */
   days: AttendanceDay[];
   summary: {
     present: number;
     absent: number;
     late: number;
+    halfDay: number;
     excused: number;
-    /** Days the school was open in the range. */
+    /** Days the school was open in the range, up to today. */
     schoolDays: number;
+    /** Open days the register hasn't been marked for yet. */
+    unmarked: number;
   };
 }
 
@@ -206,4 +214,10 @@ export interface WardOptionalServices {
   /** False while the school isn't taking requests (e.g. suspended). */
   canRequest: boolean;
   services: OptionalService[];
+}
+
+/** `GET /parents/me/wards/:studentId/calendar`: the ward's events for one term (never staff-only ones). */
+export interface WardCalendar {
+  events: SchoolEvent[];
+  schoolDays: SchoolDays;
 }

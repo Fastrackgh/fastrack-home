@@ -23,9 +23,9 @@
 |---|---|
 | Critical | 8 |
 | High | 31 |
-| Medium | 66 |
+| Medium | 67 |
 | Low | 26 |
-| **Total** | **131** |
+| **Total** | **132** |
 
 | ID | Sev | Cat | Side | Status | Title |
 |---|---|---|---|---|---|
@@ -66,7 +66,7 @@
 | QA-210 | High | FLOW/data | FE | Browser ✔ | Admission "Next" submits early: Health & Safety unreachable; no guardian required |
 | QA-211 | High | FLOW | FE | Browser ✔ | Guardian contacts can't be viewed or corrected after admission, so parents may never link — **fixed** (23 Oct; BE `a89ee57`, FE `0fd3b0d`) |
 | QA-214 | High | SEC | Both | Browser ✔ | Staff unlink doesn't stick: the parent relinks immediately (safeguarding) — **fixed** (23 Oct; shared-contact gap QA-240 also fixed) |
-| QA-222 | High | Money/UX | FE | Browser ✔ | Parent app "paid of" total counts carried bills again every term |
+| QA-222 | High | Money/UX | FE | Browser ✔ | Parent app "paid of" total counts carried bills again every term — **fixed** (23 Oct; FE `b945bd8`, BE `25eb632`) |
 | QA-227 | High | Money/SEC | BE | Browser ✔ | An old "tamper-proof" public bill changes later (live class and balance) |
 | QA-011 | Medium | SEC | BE | Live ✔ | Invoice job status can be read across schools (sequential ids) |
 | QA-012 | Medium | SEC | BE | Live ✔ | No security headers; Swagger public; CORS `*` with credentials; unset `NODE_ENV` runs production as dev |
@@ -134,6 +134,7 @@
 | QA-238 | Medium | FLOW/audit | FE | Browser ✔ | Guardian change history always shows "No changes recorded yet" (reads `items`, API v2 returns a list) — **fixed** (23 Oct, FE `b0ac515`) |
 | QA-239 | Medium | FLOW | FE | Browser ✔ | Staff signed in before an update lose new permissions until they sign out (contacts "hidden" yet shown, no editing) — **fixed** (23 Oct, FE `b0ac515`) |
 | QA-240 | Medium | SEC | BE | Browser ✔ | Blocking a parent leaves their other linked account with the same phone in place — **fixed** (23 Oct, BE `cece817` + FE warning `b0ac515`) |
+| QA-243 | Medium | Money/data | BE | DB ✔ | FIS-001 Efua Ansah: a bill shows GHS 8,400 paid against GHS 2,000 of payments, and only GHS 300 of its credit moved to the next bill — **fixed** (23 Oct; BE `5deed77`, `f8944de`, on `main`) |
 | QA-043 | Low | FLOW | BE | Code ✔ | Discounts stack to 100%, silently overwrite, and don't re-price issued invoices |
 | QA-046 | Low | SEC | BE | Code ✔ | Super Admin permissions never checked; no rank check on invites; `isActive` field duplicates the endpoints |
 | QA-047 | Low | SEC/data | BE | Code ✔ / Live ✔ | Config hygiene: seed passwords, secret reuse, DB TLS, email case, `$argon2` bypass, PII in logs, current-term flag |
@@ -962,6 +963,14 @@ A new school (BIS-001) was set up and run through every built feature in the web
 - **Repro:** after rollovers, Esi's Fees page says "GHS 0.50 paid of **GHS 4,489.50**", then "of **GHS 9,119.00**". Her real total billed is GHS 2,870, then 4,630.
 - **Cause:** the sum adds every bill's payable, including bills whose balance was moved into the next bill.
 - **Fix:** total only invoices that aren't carried forward (or use the account's `total_billed`).
+- **Re-test 23 Oct (browser, parent Grace → Esi Adjei): fixed.** The card now reads `GET /parents/me/wards/:id/invoices/summary` for the selected term:
+  - All terms: GHS 4,629.50 outstanding, "GHS 0.50 paid of GHS 4,630.00" (1,620 + 1,250 + 1,760), with no carry notes.
+  - Term 1 2026/27: GHS 0.00, "GHS 0.50 paid of GHS 1,620.00", "GHS 1,619.50 moved to a later bill".
+  - Term 2 2026/27: GHS 0.00, "GHS 0.00 paid of GHS 1,250.00", "Includes GHS 1,619.50 brought forward…", "GHS 2,869.50 moved to a later bill".
+  - Term 1 2027/28 (current): GHS 4,629.50, "GHS 0.00 paid of GHS 1,760.00", "Includes GHS 2,869.50 brought forward from earlier bills".
+  - Term 3 2026/27: no bills, so the page shows "No bills yet" and no card.
+  - **FIS-001, after the carry-forward repair (migration 1792600000500):** parent.ansah → Kofi Ansah shows GHS 3,600.00 outstanding, "GHS 0.00 paid of GHS 3,600.00" for all terms (it was 5,250), with no brought-forward note. Term 1 2026/27: GHS 0.00, "0 of 1,650", "GHS 1,650.00 moved to a later bill". Term 2 2026/27 (current): GHS 3,600.00, "0 of 1,950", "Includes GHS 1,650.00 brought forward". A separate data issue on another FIS-001 ward is QA-243.
+  - The carry chain adds up: 1,619.50 + 1,250 = 2,869.50, and 2,869.50 + 1,760 = 4,629.50. No API errors. Screenshots: `bis-q222-esi-all.png`, `bis-q222-esi-2026t1.png`.
 
 #### QA-227: An old "sealed" bill link changes after it was sent
 - **Side / status:** BE / Browser ✔ · **Severity:** High
@@ -1001,6 +1010,7 @@ A new school (BIS-001) was set up and run through every built feature in the web
 | QA-238 | Medium | FE | Found in the QA-211 re-test (23 Oct). Guardians tab → Change history → Show always says "No changes recorded yet". The audit rows exist (`audit_logs`), and `GET me/students/:id/history` returns them, but with `X-Api-Contract: 2` the data is a plain list, while `studentsApi.history` (`src/features/students/api.ts:215-218`) reads `page.items`. So staff can't see who changed a contact, which was the point of QA-211's audit trail. | Read the list (`data` is the array; paging in `meta`), like other v2 lists. Add a test against the v2 shape. <br>Re-test 23 Oct (browser): **fixed** (FE `b0ac515`). The panel lists the entries, e.g. "Changed guardian contacts · Ama Boateng · Mother's email: Grace.Adjei@bis.test → grace.adjei@bis.test". Screenshot: `bis-h1-qa238-history.png`. |
 | QA-239 | Medium | FE | Found in the QA-211 re-test (23 Oct). The Principal's session from before the update showed "Phone numbers and emails are hidden for your role" with every field read-only, while the real phone and email were shown in those fields. `parseAuthUser` (`src/lib/auth/session.ts:43`) drops permission keys the frontend didn't know at sign-in, and token refresh never re-reads the user, so `students:read_sensitive` stayed missing until sign-out. Refresh tokens last up to 14 days, so after every release that adds a permission key, staff lose that feature until they sign in again. | Re-read the user (or `/auth/me`) after a refresh and on app load, instead of trusting the stored copy. Or keep unknown keys and only filter them when checking. <br>Re-test 23 Oct (browser): **fixed** (FE `b0ac515`). With `students:read_sensitive` removed from the stored session, a reload called `/auth/profile`, put the key back, and the Guardians tab was editable with no "hidden" alert. |
 | QA-240 | Medium | BE | Found in the QA-214 re-test (23 Oct). Nana Tetteh had two linked accounts for her father: samuel.tetteh@bis.test and samuel.tetteh.bis@example.org, both with phone 024 777 0002. Unlinking and blocking the first stored a block covering that phone, but the second account stayed linked and nothing pointed it out. A blocked person can keep seeing the child through another account. | When blocking, list other linked accounts that share the blocked phone or email and offer to unlink them too, or unlink them in the same step. <br>Re-test 23 Oct (browser): **fixed** (BE `cece817`, FE `b0ac515`). The unlink dialog warns "Another account uses the same phone or email and will be unlinked and blocked too". Confirming unlinked both Samuel accounts, and one block covers `phone:247770002` and both emails. The second account's relink was refused with the neutral message. Polish (FE `a2c39cf`, checked in the browser): the warning now reads "…blocked too: Samuel Tetteh (samuel.tetteh.bis@example.org)". Screenshots: `bis-h1-qa240-warning.png`, `bis-h2-qa240-blocked.png`. |
+| QA-243 | Medium | BE | Found in the QA-222 re-test on FIS-001 (23 Oct), flagged by the guardian-contacts session. Efua Ansah (school_student `5ebd4e59`, parent rita.ansah@gmail.com): supplementary bill INV/FIS-001/2026/0013 is GHS 100 with `total_payment` 8,400 and `balance` −8,300. Its only payment is GHS 2,000 (MAN-RCT-0046), and no online payments exist. The next bill (0019) brought forward only −300 of credit, and 0013 is not marked carried forward. The fee account says `total_paid` 2,000 and `total_billed` 3,900, although the payments add up to GHS 3,600 (1,600 + 2,000). The figures disagree three ways, so the parent and staff views may each show a different balance. It may be left over from earlier payment tests (QA-004/QA-086), but nothing in the app detects or repairs it. The browser view wasn't checked, because there is no test password for rita.ansah@gmail.com. | Decide the true credit (2,000 − 100 = 1,900 by the payments), then repair 0013, 0019 and the account. Add a reconciliation check that `invoice.total_payment` = the sum of its live payments, and that the account totals match the invoices. <br>Re-test 23 Oct: **fixed**.<br>• **Data:** Efua's bills are repaired. Bill 0013 shows paid 2,000, balance 0, with 1,900 carried forward. The new term bill 0039 brings forward −1,900 and keeps its balance of −200; before the fix it was clamped to 0. Extra bill 0040 is 500. The account shows billed 3,900, paid 3,600 (= 1,600 + 2,000) and balance 300 (= −200 + 500), so all three figures agree.<br>• **Ledger check:** `GET /super-admin/system/ledger-check` as Super Admin returns `consistent: true` for all schools, for BIS-001 and for FIS-001. The Account Officer gets 403.<br>• **Receipt numbers:** as the Account Officer on BIS-001, recording a payment with receipt "RCT/BIS-001/2026/0001", "  rct/bis-001/2026/0001  " or "Rct/Bis-001/2026/0001" gets 409 "Receipt number RCT/BIS-001/2026/0001 is already used by another payment in this school…" and creates no payment. The unique index `UQ_PAYMENTS_SCHOOL_RECEIPT_NORMALISED` on `(school_id, upper(trim(receipt_number)))` is in place. The staff payment form has no receipt field, so this was tested through the API.<br>• **Not checked:** what Efua's parent sees, because there is no test password for rita.ansah@gmail.com. |
 | QA-229 | Medium | Both | Paystack checkout uses the parent's login email. If Paystack rejects it, the parent sees the raw "Invalid Email Address Passed" and can't pay online. | Validate the email at sign-up, fall back to a school or placeholder email, and show friendly errors. |
 
 ### Low

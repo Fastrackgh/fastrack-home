@@ -273,7 +273,7 @@ Everything else was done through the UI.
 | Step | Result |
 |---|---|
 | Parent bill detail | ✅ Clear breakdown, "Arrears from last term", balance, "Pay now". |
-| Bills summary | ❌ 🔁 **QA-222**: "GHS 0.50 paid **of GHS 9,119.00**" for Esi, whose real total billed is GHS 4,630. Every carried-forward bill is counted again each term. |
+| Bills summary | **Re-test 23 Oct: fixed** ("GHS 0.50 paid of GHS 4,630.00", per-term carry notes). Original: ❌ 🔁 **QA-222**: "GHS 0.50 paid **of GHS 9,119.00**" for Esi, whose real total billed is GHS 4,630. Every carried-forward bill is counted again each term. |
 | Pay now → dialog | ✅ Part or full amount, Mobile Money or Card, explains the redirect. |
 | Pay with the account email `grace.adjei@bis.test` | ❌ **QA-229**: Paystack refuses with **"Invalid Email Address Passed"**, shown raw in the dialog. Checkout always sends the parent's login email. Any parent whose email Paystack rejects (typos, unusual domains) can never pay online, and there's no phone-only option. (Partly a test-data artefact: `.test` domains.) |
 | New parent with a normal email, links Nana by **phone** | ✅ Linked. ⚠️ One phone number has now linked two parent accounts to the same child with no notice to the first. |

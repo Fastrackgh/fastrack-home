@@ -1,6 +1,6 @@
 # Fastrack EduSuite: PM and QA summary
 
-20 Oct 2026. Full detail: [findings.md](./findings.md) (131 findings; QA-060 to QA-088 and QA-200 to QA-242 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
+20 Oct 2026. Full detail: [findings.md](./findings.md) (132 findings; QA-060 to QA-088 and QA-200 to QA-243 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
 ## Verdict
 
@@ -112,7 +112,7 @@ A brand-new school was set up from nothing and taken through every built feature
   - Unlinking a parent doesn't stick, which is a safeguarding problem (QA-214). **Fixed 23 Oct** with a block list that also covers other accounts on the same phone or email (QA-240 fixed).
   - A revoked invite locks a staff member out for good (QA-208). **Fixed 22 Oct:** "Resend invite" now works for anyone who never set a password.
 - **What parents see about money:**
-  - The parent app's "paid of" total inflates every term (QA-222).
+  - The parent app's "paid of" total inflates every term (QA-222). **Fixed 23 Oct**: totals come from the backend per term, with brought-forward and moved-to-later-bill notes.
   - Old "tamper-proof" bill links change later (QA-227).
   - "Bal B/f" mislabels this term's extra bills (QA-219).
   - GHS 0 bills are marked unpaid (QA-215).

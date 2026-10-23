@@ -146,11 +146,19 @@ function Bills({ ward }: { ward: Ward }) {
 
 function OutstandingCard({ summary }: { summary: ParentInvoiceSummary }) {
   const { totalBilled, totalPaid, outstanding, overpaid, broughtForward, carriedForward } = summary;
+  // A bill can hold a credit while another still owes (QA-243), so the headline
+  // nets the two and the notes explain what was netted.
+  const net = outstanding - overpaid;
+  const inCredit = net < 0;
   const notes = [
     broughtForward > 0 &&
       `Includes ${formatGhs(broughtForward)} brought forward from earlier bills`,
     carriedForward > 0 && `${formatGhs(carriedForward)} moved to a later bill`,
-    overpaid > 0 && `${formatGhs(overpaid)} paid in advance, held as credit`,
+    overpaid > 0 &&
+      outstanding > 0 &&
+      (inCredit
+        ? `After ${formatGhs(outstanding)} still owed on another bill`
+        : `After ${formatGhs(overpaid)} credit from an earlier bill`),
   ].filter((note): note is string => Boolean(note));
   return (
     <Paper
@@ -159,10 +167,10 @@ function OutstandingCard({ summary }: { summary: ParentInvoiceSummary }) {
       style={{ background: 'linear-gradient(135deg, #e01a2b 0%, #9f0f1c 100%)', color: 'white' }}
     >
       <Text size="sm" opacity={0.85}>
-        Outstanding
+        {inCredit ? 'In credit' : 'Outstanding'}
       </Text>
       <Text fz={30} fw={800} style={{ fontFamily: 'var(--font-heading)' }}>
-        {formatGhs(outstanding)}
+        {formatGhs(Math.abs(net))}
       </Text>
       <Progress
         value={Math.min(percent(totalPaid, totalBilled) ?? 0, 100)}

@@ -42,6 +42,7 @@ export const PERMISSIONS = [
 
   // Students & enrollment
   'students:read',
+  'students:read_sensitive',
   'students:create',
   'students:update',
   'students:delete',

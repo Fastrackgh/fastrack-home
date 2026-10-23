@@ -12,13 +12,11 @@ import {
   Loader,
   Stack,
   Switch,
-  Table,
   Tabs,
   Text,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Trash2, Upload } from 'lucide-react';
-import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import { feesApi, type FeeType } from '@/features/fees/api';
 import { useAuth } from '@/lib/auth';
 import {
@@ -26,10 +24,10 @@ import {
   errorMessage,
   studentsApi,
   type FeePreference,
-  type LinkedParent,
   type StudentDetail,
 } from './api';
 import { EnrolmentTab } from './EnrolmentTab';
+import { GuardiansTab } from './GuardiansTab';
 import { ProfileTab } from './ProfileTab';
 
 const MAX_PHOTO_BYTES = 2 * 1024 * 1024;
@@ -214,7 +212,13 @@ export function StudentDrawer({
               />
             </Tabs.Panel>
             <Tabs.Panel value="guardians">
-              <GuardiansTab student={student} canUnlink={canUpdate} onChanged={load} />
+              <GuardiansTab
+                key={student.id}
+                student={student}
+                canEdit={canUpdate}
+                canReadSensitive={can('students:read_sensitive')}
+                onChanged={load}
+              />
             </Tabs.Panel>
             {can('student_fee_preferences:manage') && (
               <Tabs.Panel value="fees">
@@ -225,79 +229,6 @@ export function StudentDrawer({
         </Stack>
       )}
     </Drawer>
-  );
-}
-
-/** Parent accounts linked to the student, who see their bills and reports in the parent app. */
-function GuardiansTab({
-  student,
-  canUnlink,
-  onChanged,
-}: {
-  student: StudentDetail;
-  canUnlink: boolean;
-  onChanged: () => void;
-}) {
-  const [removing, setRemoving] = useState<LinkedParent | null>(null);
-  return (
-    <Stack gap="sm">
-      <Text size="sm" c="dimmed">
-        Parents link themselves in the parent app with the student ID and a code sent to the contact
-        on record. Unlink anyone who should no longer see this student.
-      </Text>
-      {student.parents.length === 0 ? (
-        <Text size="sm" c="dimmed">
-          No parent account is linked yet.
-        </Text>
-      ) : (
-        <Table verticalSpacing="xs">
-          <Table.Tbody>
-            {student.parents.map((p) => (
-              <Table.Tr key={p.parentId}>
-                <Table.Td>
-                  <Text size="sm" fw={600}>
-                    {p.fullName}
-                  </Text>
-                  <Text size="xs" c="dimmed">
-                    {[p.relationship, p.email, p.phone].filter(Boolean).join(' · ')}
-                  </Text>
-                </Table.Td>
-                <Table.Td ta="right">
-                  {canUnlink && (
-                    <Button
-                      size="compact-xs"
-                      variant="subtle"
-                      color="red"
-                      onClick={() => setRemoving(p)}
-                    >
-                      Unlink
-                    </Button>
-                  )}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
-      )}
-      {removing && (
-        <ConfirmModal
-          title={`Unlink ${removing.fullName}?`}
-          confirmLabel="Unlink parent"
-          onClose={() => setRemoving(null)}
-          onConfirm={async () => {
-            await studentsApi.unlinkParent(student.id, removing.parentId);
-            notifications.show({
-              title: 'Parent unlinked',
-              message: removing.fullName,
-              color: 'green',
-            });
-            onChanged();
-          }}
-        >
-          They will no longer see {student.fullName}&apos;s bills, receipts or reports.
-        </ConfirmModal>
-      )}
-    </Stack>
   );
 }
 

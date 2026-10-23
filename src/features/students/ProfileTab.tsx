@@ -17,7 +17,7 @@ import { PROFILE_FIELDS, errorMessage, studentsApi, type Profile, type StudentDe
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const GENOTYPES = ['AA', 'AS', 'AC', 'SS', 'SC'];
 
-/** The student's personal, health and emergency details; editable with `students:update`. */
+/** The student's personal and health details; editable with `students:update`. Contacts live in the Guardians tab. */
 export function ProfileTab({
   student,
   canEdit,
@@ -105,13 +105,6 @@ export function ProfileTab({
         minRows={2}
         radius="md"
       />
-
-      <Divider label="Emergency contact" labelPosition="left" />
-      <SimpleGrid cols={{ base: 1, sm: 3 }}>
-        {text('emergencyContactName', 'Name', { maxLength: 255 })}
-        {text('emergencyContactPhone', 'Phone', { maxLength: 50 })}
-        {text('emergencyContactRelationship', 'Relationship', { maxLength: 50 })}
-      </SimpleGrid>
 
       {canEdit && (
         <Group justify="flex-end">

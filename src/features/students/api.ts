@@ -27,6 +27,29 @@ export interface LinkedParent {
   email: string;
   phone: string | null;
   relationship: string | null;
+  /** False once the parent's phone/email no longer matches a guardian contact. */
+  contactOnRecord: boolean;
+}
+
+/** A parent this school stopped from linking to the student again. */
+export interface LinkBlock {
+  id: string;
+  parentId: string | null;
+  parentName: string | null;
+  reason: string | null;
+  blockedAt: string;
+  blockedBy: string | null;
+}
+
+/** One entry of the student's audit trail (guardian edits, links, blocks). */
+export interface HistoryEntry {
+  id: string;
+  action: string;
+  changes: Record<string, { from: unknown; to: unknown }> | null;
+  metadata: Record<string, unknown> | null;
+  actorName: string | null;
+  actorRole: string | null;
+  createdAt: string;
 }
 
 export interface Enrollment {
@@ -57,13 +80,28 @@ export const PROFILE_FIELDS = [
   'bloodGroup',
   'genotype',
   'allergiesMedicalNotes',
+] as const;
+
+export type ProfileField = (typeof PROFILE_FIELDS)[number];
+export type Profile = Record<ProfileField, string>;
+
+/** Guardian and emergency contacts; parents link through the phone/email here. */
+export const GUARDIAN_FIELDS = [
+  'motherName',
+  'motherContact',
+  'motherEmail',
+  'motherOccupation',
+  'fatherName',
+  'fatherContact',
+  'fatherEmail',
+  'fatherOccupation',
   'emergencyContactName',
   'emergencyContactPhone',
   'emergencyContactRelationship',
 ] as const;
 
-export type ProfileField = (typeof PROFILE_FIELDS)[number];
-export type Profile = Record<ProfileField, string>;
+export type GuardianField = (typeof GUARDIAN_FIELDS)[number];
+export type Guardians = Record<GuardianField, string>;
 
 export interface StudentDetail {
   /** The enrolment id: what every `/schools/me/students/:id` route takes. */
@@ -75,7 +113,9 @@ export interface StudentDetail {
   classId: string | null;
   className: string | null;
   profile: Profile;
+  guardians: Guardians;
   parents: LinkedParent[];
+  linkBlocks: LinkBlock[];
   history: Enrollment[];
 }
 
@@ -100,7 +140,11 @@ function toDetail(raw: Raw): StudentDetail {
         str(raw[field]).slice(0, field === 'birthDate' ? 10 : undefined),
       ]),
     ) as Profile,
+    guardians: Object.fromEntries(
+      GUARDIAN_FIELDS.map((field) => [field, str(raw[field])]),
+    ) as Guardians,
     parents: ((raw.parents as LinkedParent[]) ?? []).map((p) => ({ ...p })),
+    linkBlocks: ((raw.linkBlocks as LinkBlock[]) ?? []).map((b) => ({ ...b })),
     history: ((raw.enrollmentHistory as Raw[]) ?? []).map((e) => ({
       id: String(e.id),
       className: str(e.className),
@@ -118,7 +162,7 @@ export const studentsApi = {
    * Sends only the fields that changed. A cleared text field is sent empty to
    * blank it; names, gender and the birth date can't be blanked.
    */
-  async update(studentId: string, change: Partial<Profile>) {
+  async update(studentId: string, change: Partial<Profile & Guardians>) {
     const body = Object.fromEntries(
       Object.entries(change)
         .map(([key, value]) => [key, (value ?? '').trim()])
@@ -146,8 +190,32 @@ export const studentsApi = {
   ) {
     await apiClient.post(`${base(studentId)}/exit`, input);
   },
-  async unlinkParent(studentId: string, parentId: string) {
-    await apiClient.delete(`${base(studentId)}/parents/${id(parentId)}`);
+  /**
+   * Unlinks a parent; with `preventRelink` they (and anyone on their phone or
+   * email) can't link again until the block is lifted.
+   */
+  async unlinkParent(
+    studentId: string,
+    parentId: string,
+    options: { preventRelink?: boolean; reason?: string } = {},
+  ) {
+    const query = new URLSearchParams();
+    if (options.preventRelink) query.set('preventRelink', 'true');
+    if (options.preventRelink && options.reason?.trim()) query.set('reason', options.reason.trim());
+    const suffix = query.toString() ? `?${query.toString()}` : '';
+    await apiClient.delete(`${base(studentId)}/parents/${id(parentId)}${suffix}`);
+  },
+  /** Links the parent account using the mother's or father's contact on record. */
+  async linkFromGuardian(studentId: string, guardian: 'mother' | 'father') {
+    await apiClient.post(`${base(studentId)}/parents/from-guardian`, { guardian });
+  },
+  async liftBlock(studentId: string, blockId: string) {
+    await apiClient.delete(`${base(studentId)}/parent-blocks/${id(blockId)}`);
+  },
+  async history(studentId: string) {
+    const page = (await apiClient.get<{ items?: HistoryEntry[] }>(`${base(studentId)}/history?limit=50`))
+      .data;
+    return page?.items ?? [];
   },
   async feePreferences(studentId: string) {
     return (

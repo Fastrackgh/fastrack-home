@@ -341,6 +341,9 @@ export function GuardiansTab({
   );
 }
 
+/** Name and email, so two accounts of one person can be told apart. */
+const accountLabel = (p: LinkedParent) => (p.email ? `${p.fullName} (${p.email})` : p.fullName);
+
 /** Unlink, optionally stopping the parent from linking again (custody disputes, court orders). */
 function UnlinkModal({
   student,
@@ -366,7 +369,7 @@ function UnlinkModal({
         title: preventRelink ? 'Parent unlinked and blocked' : 'Parent unlinked',
         message:
           preventRelink && sharing.length > 0
-            ? [parent, ...sharing].map((p) => p.fullName).join(', ')
+            ? [parent, ...sharing].map(accountLabel).join(', ')
             : parent.fullName,
         color: 'green',
       });
@@ -412,7 +415,7 @@ function UnlinkModal({
           <Alert color="orange" variant="light" radius="md">
             {sharing.length === 1 ? 'Another account uses' : `${sharing.length} other accounts use`}{' '}
             the same phone or email and will be unlinked and blocked too:{' '}
-            {sharing.map((p) => p.fullName).join(', ')}.
+            {sharing.map(accountLabel).join(', ')}.
           </Alert>
         )}
         <Group justify="flex-end">

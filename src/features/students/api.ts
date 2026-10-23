@@ -31,6 +31,38 @@ export interface LinkedParent {
   contactOnRecord: boolean;
 }
 
+const contactKeys = (p: Pick<LinkedParent, 'phone' | 'email'>) => {
+  const digits = (p.phone ?? '').replace(/\D/g, '');
+  const email = p.email.trim().toLowerCase();
+  return [
+    ...(digits.length >= 9 ? [`phone:${digits.slice(-9)}`] : []),
+    ...(email.includes('@') ? [`email:${email}`] : []),
+  ];
+};
+
+/**
+ * The other linked accounts a relink block on `parent` also unlinks: those on
+ * the same phone (last 9 digits) or email, followed through shared contacts.
+ * Mirrors the backend (QA-240).
+ */
+export function accountsSharingContact(parent: LinkedParent, linked: LinkedParent[]) {
+  const keys = new Set(contactKeys(parent));
+  const sharing: LinkedParent[] = [];
+  let pending = linked.filter((p) => p.parentId !== parent.parentId);
+  for (let grew = true; grew;) {
+    grew = false;
+    pending = pending.filter((p) => {
+      const own = contactKeys(p);
+      if (!own.some((k) => keys.has(k))) return true;
+      own.forEach((k) => keys.add(k));
+      sharing.push(p);
+      grew = true;
+      return false;
+    });
+  }
+  return sharing;
+}
+
 /** A parent this school stopped from linking to the student again. */
 export interface LinkBlock {
   id: string;
@@ -212,10 +244,10 @@ export const studentsApi = {
   async liftBlock(studentId: string, blockId: string) {
     await apiClient.delete(`${base(studentId)}/parent-blocks/${id(blockId)}`);
   },
+  /** Newest first. A v2 list response, so the entries are `data` itself (QA-238). */
   async history(studentId: string) {
-    const page = (await apiClient.get<{ items?: HistoryEntry[] }>(`${base(studentId)}/history?limit=50`))
-      .data;
-    return page?.items ?? [];
+    const res = await apiClient.get<HistoryEntry[]>(`${base(studentId)}/history?limit=50`);
+    return Array.isArray(res.data) ? res.data : [];
   },
   async feePreferences(studentId: string) {
     return (

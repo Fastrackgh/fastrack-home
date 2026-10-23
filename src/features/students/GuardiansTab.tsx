@@ -22,6 +22,7 @@ import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import {
   GUARDIAN_FIELDS,
   errorMessage,
+  accountsSharingContact,
   studentsApi,
   type Guardians,
   type HistoryEntry,
@@ -173,8 +174,8 @@ export function GuardiansTab({
   return (
     <Stack gap="md">
       <Text size="sm" c="dimmed">
-        Parents link themselves in the parent app with the student ID and a code sent to the phone or
-        email below, so keep these correct. Every change is recorded.
+        Parents link themselves in the parent app with the student ID and a code sent to the phone
+        or email below, so keep these correct. Every change is recorded.
       </Text>
       {!canReadSensitive && (
         <Alert color="gray" variant="light">
@@ -324,7 +325,11 @@ export function GuardiansTab({
           onClose={() => setLifting(null)}
           onConfirm={async () => {
             await studentsApi.liftBlock(student.id, lifting.id);
-            notifications.show({ title: 'Block lifted', message: student.fullName, color: 'green' });
+            notifications.show({
+              title: 'Block lifted',
+              message: student.fullName,
+              color: 'green',
+            });
             onChanged();
           }}
         >
@@ -351,6 +356,7 @@ function UnlinkModal({
   const [preventRelink, setPreventRelink] = useState(false);
   const [reason, setReason] = useState('');
   const [working, setWorking] = useState(false);
+  const sharing = accountsSharingContact(parent, student.parents);
 
   const confirm = async () => {
     setWorking(true);
@@ -358,7 +364,10 @@ function UnlinkModal({
       await studentsApi.unlinkParent(student.id, parent.parentId, { preventRelink, reason });
       notifications.show({
         title: preventRelink ? 'Parent unlinked and blocked' : 'Parent unlinked',
-        message: parent.fullName,
+        message:
+          preventRelink && sharing.length > 0
+            ? [parent, ...sharing].map((p) => p.fullName).join(', ')
+            : parent.fullName,
         color: 'green',
       });
       onDone();
@@ -398,6 +407,13 @@ function UnlinkModal({
             minRows={2}
             radius="md"
           />
+        )}
+        {preventRelink && sharing.length > 0 && (
+          <Alert color="orange" variant="light" radius="md">
+            {sharing.length === 1 ? 'Another account uses' : `${sharing.length} other accounts use`}{' '}
+            the same phone or email and will be unlinked and blocked too:{' '}
+            {sharing.map((p) => p.fullName).join(', ')}.
+          </Alert>
         )}
         <Group justify="flex-end">
           <Button variant="default" onClick={onClose} radius="md" disabled={working}>

@@ -100,6 +100,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  /**
+   * Replaces the stored user's role and permissions with the server's, so a
+   * session started before a permission was added gets it without signing in
+   * again (QA-239). A different user means the session is inconsistent.
+   */
+  const refreshProfile = useCallback(
+    async (stored: AuthUser) => {
+      try {
+        const res = await apiClient.get('/auth/profile');
+        const fresh = parseAuthUser(res.data);
+        if (!fresh) return;
+        if (fresh.id !== stored.id) {
+          endSession();
+          return;
+        }
+        setUser((current) => (current ? { ...fresh, modules: current.modules } : current));
+        localStorage.setItem(SESSION_STORAGE_KEYS.user, JSON.stringify(fresh));
+      } catch {
+        // Offline or signed out: keep the stored copy; the backend still checks.
+      }
+    },
+    [endSession],
+  );
+
   // Restore a stored session on first mount. A school user stays loading
   // until their school's modules are known, so no page shows and then vanishes.
   useEffect(() => {
@@ -120,14 +144,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setUser(restored);
+    const profile = refreshProfile(restored);
     if (!restored.schoolId) {
-      setIsLoading(false);
+      profile.finally(() => setIsLoading(false));
       return;
     }
     if (cachedSchool?.id === restored.schoolId) setSchool(cachedSchool);
     fetchSchoolProfile(restored.schoolId);
-    fetchModules().finally(() => setIsLoading(false));
-  }, [fetchSchoolProfile, fetchModules]);
+    Promise.all([profile, fetchModules()]).finally(() => setIsLoading(false));
+  }, [fetchSchoolProfile, fetchModules, refreshProfile]);
 
   const userRef = useRef(user);
   useEffect(() => {

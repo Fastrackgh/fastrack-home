@@ -12,6 +12,7 @@ import type {
   OptionalFeeRequest,
   OptionalFeeRequestAction,
   ParentInvoice,
+  ParentInvoiceSummary,
   ParentPayment,
   PaymentVerification,
   ResentChallenge,
@@ -44,6 +45,8 @@ export interface ParentApi {
   getWard(studentId: string): Promise<WardProfile>;
   listTerms(studentId: string): Promise<AcademicTerm[]>;
   listInvoices(studentId: string, query: InvoiceListQuery): Promise<Page<ParentInvoice>>;
+  /** Totals for the same bills as `listInvoices` with this termId, across every page. */
+  invoiceSummary(studentId: string, termId?: string | null): Promise<ParentInvoiceSummary>;
   getInvoice(studentId: string, invoiceId: string): Promise<ParentInvoice>;
   invoiceDocument(studentId: string, invoiceId: string): Promise<string>;
   listPayments(studentId: string, query: { page: number }): Promise<Page<ParentPayment>>;
@@ -119,6 +122,19 @@ const liveParentApi: ParentApi = {
       `${ward(studentId)}/invoices?${pageParams(page, { termId })}`,
     );
     return toPage(res, toParentInvoice);
+  },
+  async invoiceSummary(studentId, termId) {
+    const query = termId ? `?${new URLSearchParams({ termId })}` : '';
+    const { data } = await apiClient.get<Raw>(`${ward(studentId)}/invoices/summary${query}`);
+    return {
+      invoiceCount: Number(data.invoiceCount ?? 0),
+      totalBilled: toPesewas(data.totalBilled),
+      totalPaid: toPesewas(data.totalPaid),
+      outstanding: toPesewas(data.outstanding),
+      overpaid: toPesewas(data.overpaid),
+      broughtForward: toPesewas(data.broughtForward),
+      carriedForward: toPesewas(data.carriedForward),
+    };
   },
   async getInvoice(studentId, invoiceId) {
     const res = await apiClient.get<Raw>(`${ward(studentId)}/invoices/${id(invoiceId)}`);

@@ -79,6 +79,24 @@ export interface ParentInvoice extends Invoice {
   carriedForwardToInvoiceNumber?: string | null;
 }
 
+/**
+ * Totals across a ward's bills, optionally for one term. Arrears carried onto a
+ * later bill are counted once, so these don't equal a sum of `feePayable`
+ * (QA-222).
+ */
+export interface ParentInvoiceSummary {
+  invoiceCount: number;
+  /** New charges after discounts; balances brought forward aren't counted again. */
+  totalBilled: Pesewas;
+  totalPaid: Pesewas;
+  outstanding: Pesewas;
+  overpaid: Pesewas;
+  /** Unpaid balances of earlier bills, outside the selection, included in these bills. */
+  broughtForward: Pesewas;
+  /** Balances of these bills moved onto later bills outside the selection. */
+  carriedForward: Pesewas;
+}
+
 export type PaymentChannel = 'mobile_money' | 'card';
 
 export const PAYMENT_CHANNELS: { value: PaymentChannel; label: string }[] = [

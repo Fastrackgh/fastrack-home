@@ -70,7 +70,7 @@ sequenceDiagram
 | Tab | Route | Contents |
 | --- | --- | --- |
 | Home | `/parent` | Child card; tiles for fees owed, this month's attendance and the latest report (hidden until reports ship); "Coming up this term" (next three events that aren't cancelled, with a postponed badge, needs `calendar:read`); other children; install card |
-| Fees | `/parent/fees` | Bills (filter by term, outstanding total) and Payments |
+| Fees | `/parent/fees` | Bills (filter by term) and Payments. The Outstanding card comes from `GET /parents/me/wards/:id/invoices/summary` with the same term, not from the visible page: billed excludes arrears brought forward, and notes show amounts brought forward, moved to a later bill, or held as credit (QA-222) |
 | | `/parent/fees/[invoiceId]` | Breakdown, Pay now, printable bill |
 | | `/parent/receipts/[paymentId]` | Receipt and printable receipt |
 | Reports | `/parent/reports` | Terminal reports ("coming soon" on the live API) |

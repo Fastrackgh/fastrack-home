@@ -37,6 +37,7 @@ Ward profile = `ParentWardResponseDto` plus:
 | Method | Path | Query / body | Response `data` |
 | --- | --- | --- | --- |
 | GET | `…/wards/:studentId/invoices` | `page, limit, termId?` | `Invoice[]`, newest term first. Same fields as `/schools/me/invoices` (including `status: 'CARRIED_FORWARD'` with `carriedForwardAmount, carriedForwardToInvoiceNumber`), plus `termId, termLabel, yearLabel, dueDate, canPayOnline` |
+| GET | `…/wards/:studentId/invoices/summary` | `termId?` | `{invoiceCount, totalBilled, totalPaid, outstanding, overpaid, broughtForward, carriedForward}` in cedis, across every page. `totalBilled` leaves out arrears brought forward. Invariant: billed + broughtForward − paid − carriedForward = outstanding − overpaid (QA-222) |
 | GET | `…/wards/:studentId/invoices/:invoiceId` | – | `Invoice` with `lineItems` |
 | GET | `…/wards/:studentId/invoices/:invoiceId/document` | – | `{html}` |
 | GET | `…/wards/:studentId/payments` | `page, limit` | `Payment[]`, newest first. Same fields as `/schools/me/payments`, plus `invoiceId, invoiceNumber, termLabel, reference` |

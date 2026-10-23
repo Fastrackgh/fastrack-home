@@ -1,7 +1,7 @@
 import { ApiError } from '@/lib/api-client';
 import type { Page } from '@/lib/pagination';
 import { addDays, isWeekend, todayIso } from '@/features/calendar/dates';
-import { formatGhs, type Pesewas } from '@/features/fees/money';
+import { formatGhs, sumPesewas, type Pesewas } from '@/features/fees/money';
 import type { ParentApi } from './api';
 import type {
   AcademicTerm,
@@ -380,6 +380,19 @@ export const mockParentApi: ParentApi = {
   async listInvoices(studentId, { page: pageNumber, termId }) {
     const invoices = buildInvoices(studentId).filter((inv) => !termId || inv.termId === termId);
     return wait(page(invoices, pageNumber));
+  },
+  async invoiceSummary(studentId, termId) {
+    const invoices = buildInvoices(studentId).filter((inv) => !termId || inv.termId === termId);
+    // Sample bills carry no arrears, so nothing is brought or carried forward.
+    return wait({
+      invoiceCount: invoices.length,
+      totalBilled: sumPesewas(invoices, (inv) => inv.totalFees - inv.discountAmount),
+      totalPaid: sumPesewas(invoices, (inv) => inv.totalPayment),
+      outstanding: sumPesewas(invoices, (inv) => Math.max(inv.balance, 0)),
+      overpaid: sumPesewas(invoices, (inv) => Math.max(-inv.balance, 0)),
+      broughtForward: 0,
+      carriedForward: 0,
+    });
   },
   async getInvoice(studentId, id) {
     const invoice = buildInvoices(studentId).find((inv) => inv.id === id);

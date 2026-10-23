@@ -3,7 +3,9 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import {
+  Alert,
   Badge,
+  Button,
   Card,
   Group,
   Pagination,
@@ -16,13 +18,13 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { Bus, ChevronRight, Receipt, Wallet } from 'lucide-react';
-import { formatGhs, sumPesewas } from '@/features/fees/money';
+import { formatGhs } from '@/features/fees/money';
 import { PAGE_SIZE } from '@/lib/pagination';
 import { useAuth } from '@/lib/auth';
 import { parentApi } from '../api';
 import { EmptyState, PageTitle, QueryView, WithWard } from '../components';
 import { formatDate, invoiceStatus, percent, wardName } from '../format';
-import type { ParentInvoice, ParentPayment, Ward } from '../types';
+import type { ParentInvoice, ParentInvoiceSummary, ParentPayment, Ward } from '../types';
 import { useParentQuery } from '../useParentQuery';
 import { OptionalServices } from './OptionalServices';
 
@@ -73,6 +75,11 @@ function Bills({ ward }: { ward: Ward }) {
   const invoices = useParentQuery(`invoices:${ward.studentId}:${termId ?? 'all'}:${page}`, () =>
     parentApi.listInvoices(ward.studentId, { page, termId }),
   );
+  // Totals come from the backend, not the visible page: a sum of bills counts
+  // carried-over balances twice and misses other pages (QA-222).
+  const summary = useParentQuery(`invoice-summary:${ward.studentId}:${termId ?? 'all'}`, () =>
+    parentApi.invoiceSummary(ward.studentId, termId),
+  );
 
   return (
     <Stack gap="md">
@@ -105,7 +112,15 @@ function Bills({ ward }: { ward: Ward }) {
       >
         {(result) => (
           <>
-            <OutstandingCard invoices={result.items} />
+            {summary.data ? (
+              <OutstandingCard summary={summary.data} />
+            ) : summary.error ? (
+              <Alert color="red" radius="md" title="Could not load the totals">
+                <Button size="xs" variant="light" color="red" onClick={summary.reload}>
+                  Try again
+                </Button>
+              </Alert>
+            ) : null}
             <Stack gap="sm">
               {result.items.map((invoice) => (
                 <InvoiceCard key={invoice.id} invoice={invoice} />
@@ -129,10 +144,14 @@ function Bills({ ward }: { ward: Ward }) {
   );
 }
 
-function OutstandingCard({ invoices }: { invoices: ParentInvoice[] }) {
-  const outstanding = sumPesewas(invoices, (inv) => Math.max(inv.balance, 0));
-  const payable = sumPesewas(invoices, (inv) => inv.feePayable);
-  const paid = sumPesewas(invoices, (inv) => inv.totalPayment);
+function OutstandingCard({ summary }: { summary: ParentInvoiceSummary }) {
+  const { totalBilled, totalPaid, outstanding, overpaid, broughtForward, carriedForward } = summary;
+  const notes = [
+    broughtForward > 0 &&
+      `Includes ${formatGhs(broughtForward)} brought forward from earlier bills`,
+    carriedForward > 0 && `${formatGhs(carriedForward)} moved to a later bill`,
+    overpaid > 0 && `${formatGhs(overpaid)} paid in advance, held as credit`,
+  ].filter((note): note is string => Boolean(note));
   return (
     <Paper
       radius="lg"
@@ -146,15 +165,20 @@ function OutstandingCard({ invoices }: { invoices: ParentInvoice[] }) {
         {formatGhs(outstanding)}
       </Text>
       <Progress
-        value={percent(paid, payable) ?? 0}
+        value={Math.min(percent(totalPaid, totalBilled) ?? 0, 100)}
         color="white"
         bg="rgba(255,255,255,0.25)"
         mt="sm"
         size="sm"
       />
       <Text size="xs" mt={6} opacity={0.85}>
-        {formatGhs(paid)} paid of {formatGhs(payable)}
+        {formatGhs(totalPaid)} paid of {formatGhs(totalBilled)}
       </Text>
+      {notes.map((note) => (
+        <Text key={note} size="xs" mt={2} opacity={0.85}>
+          {note}
+        </Text>
+      ))}
     </Paper>
   );
 }

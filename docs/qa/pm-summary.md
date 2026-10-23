@@ -1,6 +1,6 @@
 # Fastrack EduSuite: PM and QA summary
 
-20 Oct 2026. Full detail: [findings.md](./findings.md) (126 findings; QA-060 to QA-088 and QA-200 to QA-237 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
+20 Oct 2026. Full detail: [findings.md](./findings.md) (131 findings; QA-060 to QA-088 and QA-200 to QA-242 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
 ## Verdict
 
@@ -108,8 +108,8 @@ A brand-new school was set up from nothing and taken through every built feature
 
 **High-risk in real use:**
 - **Linking families:**
-  - Guardian contacts can't be corrected after admission (QA-211).
-  - Unlinking a parent doesn't stick, which is a safeguarding problem (QA-214).
+  - Guardian contacts can't be corrected after admission (QA-211). **Fixed 23 Oct**, with change history visible (QA-238 fixed).
+  - Unlinking a parent doesn't stick, which is a safeguarding problem (QA-214). **Fixed 23 Oct** with a block list that also covers other accounts on the same phone or email (QA-240 fixed).
   - A revoked invite locks a staff member out for good (QA-208). **Fixed 22 Oct:** "Resend invite" now works for anyone who never set a password.
 - **What parents see about money:**
   - The parent app's "paid of" total inflates every term (QA-222).

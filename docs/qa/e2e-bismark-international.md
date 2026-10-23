@@ -108,7 +108,7 @@ Everything else was done through the UI.
 | Admit 8 more students across KG 2 and Basic 1–3 | ✅ Codes `BIS-001/STD/2026/001`–`009`. The father's phone was kept as typed (`+233 24 777 0002`). |
 | Duplicate name (a second "Kwame Adjei") | ⚠️ Accepted with no "possible duplicate" warning. |
 | Edit profile (birth date, gender, allergies, emergency contact) | ✅ Saved. This is the only way to enter health details (workaround for QA-210). |
-| Edit mother and father contacts after admission | ❌ **QA-211 (High)**: not possible anywhere. The drawer has no guardian-contact fields, but parent linking sends the OTP to "the contact on record". A typo or changed phone number means **the parent can never link**, and staff have no "link parent" action. |
+| Edit mother and father contacts after admission | **Re-test 23 Oct: fixed** (Guardians tab; trimmed, lowercased, recorded; staff can link from the contact). New: QA-238, QA-239, QA-241 (all fixed and re-tested 23 Oct). Original: ❌ **QA-211 (High)**: not possible anywhere. The drawer has no guardian-contact fields, but parent linking sends the OTP to "the contact on record". A typo or changed phone number means **the parent can never link**, and staff have no "link parent" action. |
 | Teacher (Basic 1) opens Students by URL | ❌ 🔁 QA-016 (improved): guardian phones are now hidden and the drawer is read-only, but the teacher still sees **all 9 students** in every class, guardian names, and medical notes. |
 
 ## Phase 6: Parents and linking (parent app at 390 px)
@@ -128,7 +128,7 @@ Everything else was done through the UI.
 | Email-only guardian contact | ✅ The OTP goes by email to a masked address (`a********h@bis.test`). |
 | Mother and father both link one child (Kobby Mensah) | ✅ Both linked. |
 | Staff Guardians tab → Unlink the father | ✅ Shows both parents with their relationship. A confirmation explains the effect. The father loses access immediately. |
-| **The unlinked father links again** | ❌ **QA-214 (High, safeguarding)**: he got straight back in with a new OTP. The school can't remove his contact (QA-211) and there's no block list, so an unlink never sticks (custody disputes, court orders). |
+| **The unlinked father links again** | **Re-test 23 Oct: fixed**: with "Prevent this parent from linking again" he is refused with the ordinary message until "Allow again". Gaps (fixed and re-tested 23 Oct): QA-240 (his second account stays linked) and QA-242. Original: ❌ **QA-214 (High, safeguarding)**: he got straight back in with a new OTP. The school can't remove his contact (QA-211) and there's no block list, so an unlink never sticks (custody disputes, court orders). |
 
 ## Phase 7: Fee setup (Account Officer)
 

@@ -23,9 +23,9 @@
 |---|---|
 | Critical | 8 |
 | High | 31 |
-| Medium | 63 |
-| Low | 24 |
-| **Total** | **126** |
+| Medium | 66 |
+| Low | 26 |
+| **Total** | **131** |
 
 | ID | Sev | Cat | Side | Status | Title |
 |---|---|---|---|---|---|
@@ -64,8 +64,8 @@
 | QA-207 | High | FLOW | Both | Browser ✔ | Classes have no order; promotion is one pupil at a time with no next-class suggestion |
 | QA-208 | High | FLOW | Both | Browser ✔ | Revoking an invite locks that person out for good (Reactivate gives an account with no password) — **fixed** (22 Oct; backend `e14ddfc` on `main`) |
 | QA-210 | High | FLOW/data | FE | Browser ✔ | Admission "Next" submits early: Health & Safety unreachable; no guardian required |
-| QA-211 | High | FLOW | FE | Browser ✔ | Guardian contacts can't be viewed or corrected after admission, so parents may never link |
-| QA-214 | High | SEC | Both | Browser ✔ | Staff unlink doesn't stick: the parent relinks immediately (safeguarding) |
+| QA-211 | High | FLOW | FE | Browser ✔ | Guardian contacts can't be viewed or corrected after admission, so parents may never link — **fixed** (23 Oct; BE `a89ee57`, FE `0fd3b0d`) |
+| QA-214 | High | SEC | Both | Browser ✔ | Staff unlink doesn't stick: the parent relinks immediately (safeguarding) — **fixed** (23 Oct; shared-contact gap QA-240 also fixed) |
 | QA-222 | High | Money/UX | FE | Browser ✔ | Parent app "paid of" total counts carried bills again every term |
 | QA-227 | High | Money/SEC | BE | Browser ✔ | An old "tamper-proof" public bill changes later (live class and balance) |
 | QA-011 | Medium | SEC | BE | Live ✔ | Invoice job status can be read across schools (sequential ids) |
@@ -131,6 +131,9 @@
 | QA-233 | Medium | FLOW | Both | Code ✔ | Subject teachers can't be assigned (`staff_subjects` and `timetable_slots` exist but have no API or UI) |
 | QA-236 | Medium | EDGE/data | BE | Browser ✔ | Making a year current leaves the current term in another year |
 | QA-237 | Medium | EDGE | Both | Browser ✔ | Unticking the current term leaves the school with no current term, silently |
+| QA-238 | Medium | FLOW/audit | FE | Browser ✔ | Guardian change history always shows "No changes recorded yet" (reads `items`, API v2 returns a list) — **fixed** (23 Oct, FE `b0ac515`) |
+| QA-239 | Medium | FLOW | FE | Browser ✔ | Staff signed in before an update lose new permissions until they sign out (contacts "hidden" yet shown, no editing) — **fixed** (23 Oct, FE `b0ac515`) |
+| QA-240 | Medium | SEC | BE | Browser ✔ | Blocking a parent leaves their other linked account with the same phone in place — **fixed** (23 Oct, BE `cece817` + FE warning `b0ac515`) |
 | QA-043 | Low | FLOW | BE | Code ✔ | Discounts stack to 100%, silently overwrite, and don't re-price issued invoices |
 | QA-046 | Low | SEC | BE | Code ✔ | Super Admin permissions never checked; no rank check on invites; `isActive` field duplicates the endpoints |
 | QA-047 | Low | SEC/data | BE | Code ✔ / Live ✔ | Config hygiene: seed passwords, secret reuse, DB TLS, email case, `$argon2` bypass, PII in logs, current-term flag |
@@ -155,6 +158,8 @@
 | QA-230 | Low | UX | FE | Browser ✔ | Parent "Coming up" shows 3 events and leaves out the PTA meeting |
 | QA-234 | Low | FLOW | Both | Code ✔ | Only one class teacher per class (no assistant or co-teacher) |
 | QA-235 | Low | FLOW/data | BE | Code ✔ | Changing a class teacher overwrites it; no history of who taught the class each term |
+| QA-241 | Low | UX/audit | BE | Browser ✔ | "Link parent account" on an already-linked parent says linked again and logs a second link — **fixed** (23 Oct, BE `cece817`) |
+| QA-242 | Low | UX | BE | Browser ✔ | Staff link refused with "more than one parent account" when the others are blocked or already linked — **fixed** (23 Oct, BE `cece817`) |
 
 ---
 
@@ -928,6 +933,12 @@ A new school (BIS-001) was set up and run through every built feature in the web
 - **Evidence:** mother and father name, phone and email exist only in the admission form (`students/page.tsx`). The student drawer has no guardian-contact fields, and there's no "link parent" action for staff.
 - **Impact:** parent linking sends the OTP to "the contact on record". A typo, a missing contact or a changed number means that parent can **never** link, and the school can't fix it.
 - **Fix:** an editable Guardians section in the drawer (with an audit trail), and a staff "link parent" action (the API `POST me/students/:id/parents` exists).
+- **Fixed 23 Oct** (backend `a89ee57` on `main`; frontend `0fd3b0d`): a Guardians tab in the student drawer, edits recorded in `audit_logs`, and "Link parent account" from the mother's or father's contact on record.
+- **Browser re-test (23 Oct, BIS-001):**
+  - Principal: Esi Adjei's mother email entered as `  GRACE.ADJEI@BIS.TEST  ` with a blank occupation was saved as `grace.adjei@bis.test` and NULL. Save stays disabled until something changes, and "Link parent account" is disabled while edits are unsaved. A save that changes nothing after trimming writes no audit row.
+  - Kwame Adjei (mother Comfort, no account): added the mother's email of an existing parent, saved, then "Link parent account" linked Grace Adjei. Grace now has two wards (Esi and Kwame).
+  - Teacher (Yaw Darko): contacts hidden and read-only, no Unlink, Link or history. Account Officer: contacts visible, read-only, no editing.
+  - **New issues:** QA-238 (the history panel is always empty), QA-239 (a session from before the update shows "hidden" and can't edit until the user signs in again), QA-241 (relinking an already-linked parent).
 
 #### QA-214: Unlinking a parent doesn't stick (safeguarding)
 - **Side / status:** Both / Browser ✔ · **Severity:** High
@@ -938,6 +949,13 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - Unlink can also remove or flag that contact.
   - A "blocked from linking" list per student.
   - Notify the remaining guardians.
+- **Fixed 23 Oct** (backend `a89ee57`; frontend `0fd3b0d`): Unlink has "Prevent this parent from linking again" with a reason, which stores a block covering the account and its phone and email. The student shows a "Blocked from linking" list with "Allow again".
+- **Browser re-test (23 Oct, BIS-001, Nana Tetteh):**
+  - The Principal unlinked samuel.tetteh@bis.test with a block and the reason "Court order (QA test)". The toast read "Parent unlinked and blocked", and the block was listed with who blocked and when.
+  - Samuel then tried to link Nana in the parent app with her code. He got the ordinary "We could not link a child with those details…" (400), which doesn't reveal the block.
+  - Staff "Link parent account" was refused (409, but with a misleading message: QA-242).
+  - "Allow again" asked to confirm, then showed "Block lifted". Samuel relinked with a code sent to `+233 ••• 002`. Nana is back to her original two linked accounts.
+  - **Gap:** his second account with the same phone stayed linked the whole time (QA-240). The change history didn't show any of this (QA-238).
 
 #### QA-222: Parent app's "paid of" total counts carried bills again every term
 - **Side / status:** FE / Browser ✔ · **Severity:** High (money shown to parents)
@@ -980,6 +998,9 @@ A new school (BIS-001) was set up and run through every built feature in the web
 | QA-233 | Medium | Both | Only a class (homeroom) teacher can be set, in School setup → Classes → Edit → Class teacher (`classes.homeroom_staff_id`). The tables `staff_subjects` and `timetable_slots` (class, subject, staff, term, day and time) exist, but only analytics reads them. There's no endpoint or screen, and the "Timetable" and "Faculty & workload" pages show sample data. A subject teacher (for example, maths for Basic 2 and Basic 3) has no link to any class, so they can't take attendance or (later) enter scores for those classes. | Add subject and teaching assignments (class × subject × teacher × term) with API and UI, and use them for attendance rights, gradebook access and the timetable. Scope teachers' student lists by these assignments (QA-016). |
 | QA-236 | Medium | BE | Found in the QA-206 re-test (22 Oct). With 2026/27 Term 2 current, ticking "This is the current academic year" on 2027/28 saved fine, but the current **term** stayed 2026/27 Term 2. The school then had current year 2027/28 and a current term from 2026/27. Making a term current already moves the year, but not the other way round. | When a year becomes current, either make its first (or date-matching) term current too, or refuse with "Pick the current term in this year". Show a warning when the current term isn't in the current year. |
 | QA-237 | Medium | Both | Found in the QA-206 re-test (22 Oct). Unticking "This is the current term" on the current term saved with "Term updated" and left the school with **no current term** (the year stayed current). Billing, attendance and the calendar then fall back to dates or show nothing, with no warning. | Don't allow unticking the only current term; the way to change it is to tick another term. Or show a banner "No current term set" on setup and fees. |
+| QA-238 | Medium | FE | Found in the QA-211 re-test (23 Oct). Guardians tab → Change history → Show always says "No changes recorded yet". The audit rows exist (`audit_logs`), and `GET me/students/:id/history` returns them, but with `X-Api-Contract: 2` the data is a plain list, while `studentsApi.history` (`src/features/students/api.ts:215-218`) reads `page.items`. So staff can't see who changed a contact, which was the point of QA-211's audit trail. | Read the list (`data` is the array; paging in `meta`), like other v2 lists. Add a test against the v2 shape. <br>Re-test 23 Oct (browser): **fixed** (FE `b0ac515`). The panel lists the entries, e.g. "Changed guardian contacts · Ama Boateng · Mother's email: Grace.Adjei@bis.test → grace.adjei@bis.test". Screenshot: `bis-h1-qa238-history.png`. |
+| QA-239 | Medium | FE | Found in the QA-211 re-test (23 Oct). The Principal's session from before the update showed "Phone numbers and emails are hidden for your role" with every field read-only, while the real phone and email were shown in those fields. `parseAuthUser` (`src/lib/auth/session.ts:43`) drops permission keys the frontend didn't know at sign-in, and token refresh never re-reads the user, so `students:read_sensitive` stayed missing until sign-out. Refresh tokens last up to 14 days, so after every release that adds a permission key, staff lose that feature until they sign in again. | Re-read the user (or `/auth/me`) after a refresh and on app load, instead of trusting the stored copy. Or keep unknown keys and only filter them when checking. <br>Re-test 23 Oct (browser): **fixed** (FE `b0ac515`). With `students:read_sensitive` removed from the stored session, a reload called `/auth/profile`, put the key back, and the Guardians tab was editable with no "hidden" alert. |
+| QA-240 | Medium | BE | Found in the QA-214 re-test (23 Oct). Nana Tetteh had two linked accounts for her father: samuel.tetteh@bis.test and samuel.tetteh.bis@example.org, both with phone 024 777 0002. Unlinking and blocking the first stored a block covering that phone, but the second account stayed linked and nothing pointed it out. A blocked person can keep seeing the child through another account. | When blocking, list other linked accounts that share the blocked phone or email and offer to unlink them too, or unlink them in the same step. <br>Re-test 23 Oct (browser): **fixed** (BE `cece817`, FE `b0ac515`). The unlink dialog warns "Another account uses the same phone or email and will be unlinked and blocked too". Confirming unlinked both Samuel accounts, and one block covers `phone:247770002` and both emails. The second account's relink was refused with the neutral message. Polish (FE `a2c39cf`, checked in the browser): the warning now reads "…blocked too: Samuel Tetteh (samuel.tetteh.bis@example.org)". Screenshots: `bis-h1-qa240-warning.png`, `bis-h2-qa240-blocked.png`. |
 | QA-229 | Medium | Both | Paystack checkout uses the parent's login email. If Paystack rejects it, the parent sees the raw "Invalid Email Address Passed" and can't pay online. | Validate the email at sign-up, fall back to a school or placeholder email, and show friendly errors. |
 
 ### Low
@@ -989,6 +1010,8 @@ A new school (BIS-001) was set up and run through every built feature in the web
 | QA-205 | Low | BE | The reset email says the link "will expire in 30 minutes". The real TTL is 60 minutes (`PASSWORD_RESET_TTL_SECONDS`), and the app says "one hour". | Use the constant in the copy. |
 | QA-234 | Low | Both | A class has a single `homeroom_staff_id`, so there's no assistant or co-teacher (common in KG and lower primary), and a second adult can't mark that class's register. | Allow several class teachers with a role (lead or assistant). |
 | QA-235 | Low | BE | Changing the class teacher overwrites `homeroom_staff_id` with no history, so there's no record of who taught the class in an earlier term. Terminal reports ("Class teacher's remarks") and audits need this. | Keep class-teacher assignments per term (from and to dates) and read historical ones for past terms. |
+| QA-241 | Low | BE | Found in the QA-211 re-test (23 Oct). Pressing "Link parent account" for a parent who is already linked returns 200, shows "Parent account linked", and writes a second `student.parent.linked` audit row. There's no duplicate link row. | Answer "already linked" (200 with a flag, or 409) and don't write an audit row. <br>Re-test 23 Oct (browser): **fixed** (BE `cece817`). Linking Grace on Kwame Adjei again shows "The mother's parent account is already linked to this student." (409) and writes no audit row (the 2 `linked` rows are from before the fix). |
+| QA-242 | Low | BE | Found in the QA-214 re-test (23 Oct). On Nana Tetteh, with one Samuel account blocked and the other already linked, staff "Link parent account" (father) said "More than one parent account uses the father's phone or email. Correct the contact on record…". The contact is correct; the real reason is that one match is blocked and the other is already linked. | Leave blocked and already-linked accounts out of the match, and say which case applies. <br>Re-test 23 Oct (browser): **fixed** (BE `cece817`). With the block active, staff link says "The father's parent account is blocked from linking to this student. Lift the block first." Screenshot: `bis-h2-qa242.png`. |
 | QA-230 | Low | FE | Parent home "Coming up this term" shows only the first three events (no year), leaves out the parents' PTA meeting, and there's no parent calendar page. | Prioritise events for parents and closures, show the year, and link to a full list. |
 
 Smaller observations from the run, not given IDs:

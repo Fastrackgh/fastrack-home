@@ -100,3 +100,19 @@ Always sent: `admissionAcademicYearId`, `admissionTermId` (current), and `admiss
   - "Total Enrolled" shows the *filtered* total.
   - The status filter offers only All, Active and Inactive. The backend also has Pending_Admission, Stopped, Transferred_Out and Graduated, which show with a red badge.
 - **Mobile:** the table has a minimum width of 840px and scrolls horizontally, and the four-step Stepper labels squeeze on narrow screens.
+
+## After admission: guardian contacts and parent links (QA-211, QA-214)
+
+Added 23 Oct 2026 (backend `a89ee57`, frontend `0fd3b0d`). Code: `src/features/students/GuardiansTab.tsx`.
+
+- **Where:** student drawer → **Guardians** tab.
+  - Editing needs `students:update` plus `students:read_sensitive` (Principal, Academic Head, Secretary).
+  - The Account Officer sees the contacts read-only.
+  - Teachers see "Phone numbers and emails are hidden for your role".
+- **Edit contacts:** `PATCH me/students/:id`. Values are trimmed, blanks are saved as null, and emails are lowercased. Every real change is recorded in `audit_logs`; a save that changes nothing records nothing.
+- **Link parent account:** `POST me/students/:id/parents/from-guardian {guardian}` links the one parent account matching the mother's or father's saved phone or email. It answers 404 when none matches and 409 when several do. The button is disabled while edits are unsaved.
+- **Unlink:** "Prevent this parent from linking again" plus a reason stores a block (`parent_link_blocks`) on the account and its phone and email. The parent's OTP linking then fails with the ordinary mismatch message, and staff linking gets 409. **Allow again** (`DELETE …/parent-blocks/:id`) lifts it.
+- **Change history:** `GET me/students/:id/history`. Shown under Change history → Show, newest first (QA-238 fixed 23 Oct).
+- **Known gaps (re-test 23 Oct):**
+  - All fixed 23 Oct: QA-239 (a restored session refreshes permissions from `/auth/profile`), QA-240 (a block unlinks and covers every account on the same phone or email; the dialog names them), QA-241 (linking an already-linked parent is a 409 "already linked"), QA-242 (a blocked parent gets "blocked … Lift the block first").
+

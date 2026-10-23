@@ -31,6 +31,7 @@ Code: `src/features/parent/*`, with routes in `src/app/parent/*`.
 | Sign in | `/parent/login`. The staff login also works: `landingPathFor('PARENT')` is `/parent` |
 | Link a child | `/parent/wards/link`: student code (and school code if asked) → 6-digit OTP sent to the guardian contact the school holds → linked |
 | Unlink | `/parent/wards` → ⋮ → Remove from my account |
+| Blocked by the school (QA-214) | When staff unlink with "Prevent this parent from linking again", the parent's next link attempt gets the ordinary "We could not link a child with those details…" message. The block isn't revealed, and it lasts until staff press "Allow again". |
 
 Parents can no longer open `/school-admin/*`. Staff and Super Admins can't open `/parent/*`. A signed-out visitor to `/parent/*` is sent to `/parent/login?next=…`, and an expired session lands there too.
 

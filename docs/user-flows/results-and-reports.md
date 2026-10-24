@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Subjects and what each class takes | School setup → Subjects | Live (phase 0); see [school-setup.md](./school-setup.md#subjects-tab-added-24-oct-results-phase-0) |
 | Grading setup (weights, grades, positions) | `/school-admin/results/setup` | Live (phase 1; backend `99e912b`, not pushed yet), tested on PRM-001 on 24 Oct |
-| Mark entry | `/school-admin/results/marks` | Live (phase 2; backend `6b0e07d`, not pushed yet), tested on PRM-001 on 24 Oct. Descriptor sheets wait on band ids from the backend. |
+| Mark entry | `/school-admin/results/marks` | Live (phase 2; backend `6b0e07d` and `6e673c7`, not pushed yet), tested on PRM-001 on 24 Oct, with marks and with descriptors |
 | Term reports: review, remarks, publish | — | Phase 3 |
 | Parent reports | Parent portal → Reports | Built earlier on sample data; goes live in phase 4 |
 
@@ -144,6 +144,6 @@ Code: `src/features/results/MarkSheetsPage.tsx` and `MarkGridPage.tsx`, with the
 - **Both editing at once:** the principal changed Bekoe's Test 1 to 6 while the teacher entered 55 for the exam on a stale version. The teacher's save got 409, the grid reloaded and re-sent only the exam mark, and there was no false conflict: 12 + 33 = 45.
 - **Too high a mark** (99 out of 20, sent straight to the API): 422 "Above the maximum of 20." in `details.cells`.
 - **Submit and after:** the teacher filled the rest and submitted. As the principal, the banner read "Submitted: changing marks as a head", the exam changed to 60 (48 E), and **Return to teacher** worked. The teacher then saw "Returned by a head: Check the exam marks." and could edit again.
-- **Descriptor sheet** (Class A English, Montessori areas): the live scale bands had no `id`, so a descriptor choice can't be saved. The grid crashed ("Each option must have value property"); it now says "This sheet can't be marked yet" instead. Band ids were requested from the backend.
+- **Descriptor sheet** (Class A English, Montessori areas): the live scale bands had no `id`, so a descriptor choice can't be saved. The grid crashed ("Each option must have value property"); it now says "This sheet can't be marked yet" instead. Band ids were added by the backend (`6e673c7`). Re-tested: Akwasi's five strands (four descriptors and one Absent) saved in one request; the teacher submitted; the principal returned it with "Please check Sensorial for Akwasi.", which the teacher then saw.
 - **Fixed during the run:** submit, return and not-assessed now send `rowVersion`, as the backend requires.
 

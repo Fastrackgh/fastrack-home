@@ -118,7 +118,7 @@ All tables have `school_id`, a uuid primary key and timestamps.
 | `class_subjects` | `class_id`, `subject_id`, `sequence_order`, `report_label?`, `counts_in_average`, `aggregate_role` (none/core/pool), `is_active` | Unique on (class, subject). **No term or year column.** |
 | `subject_teacher_assignments` | `class_id`, `subject_id`, `staff_id`, `assigned_at`, `ended_at?` | Standing; ended rows keep the history. |
 | `assessment_schemes` / `assessment_components` | scheme: `name`, `mode` (numeric/descriptor), `preset_key?`, `family_id` (the first version's id), `version`; component: `key`, `label`, `short_label`, `weight` `decimal(5,2)`, `default_max_raw`, `entry` (single/items), `best_of?`, `report_group` (continuous/exam) | One row per version, unique on (school, family_id, version); components belong to a version. See **Versions** below. |
-| `grading_scales` / `grade_bands` | scale: `name`, `mode`, `preset_key?`, `family_id`, `version`; band: `label`, `remark`, `min_score?`, `points?`, `is_pass`, `description?` | Versioned the same way. A numeric scale has a `min_score` on every band, one of them 0, and no two the same. A descriptor scale has none. |
+| `grading_scales` / `grade_bands` | scale: `name`, `mode`, `preset_key?`, `family_id`, `version`; band: `id`, `label`, `remark`, `min_score?`, `points?`, `is_pass`, `description?` | Versioned the same way. A numeric scale has a `min_score` on every band, one of them 0, and no two the same. A descriptor scale has none. |
 | `results_policy_assignments` | `academic_year_id`, `scope` (school / department / subject / class / class_subject), `department_id?`, `class_id?`, `subject_id?`, `scheme_family_id?`, `scale_family_id?` | A CHECK makes sure each scope fills exactly its own columns. A partial unique index allows one row per scope target per year. Null scheme or scale means "inherit". See **Which settings apply** below. |
 | `assessment_sheets` | `term_id`, `class_id`, `subject_id`, frozen `scheme_id` and `grading_scale_id`, `status` (draft/submitted/approved), `not_assessed`, `row_version` | One per term, class and subject. Created the first time it is opened. |
 | `assessment_sheet_items` | `sheet_id`, `component_key`, `item_index`, `label`, `max_raw`, `taken_on?` | Teachers add class tests as the term goes. |
@@ -199,6 +199,9 @@ The backend adds an any-of permission decorator for the GETs, because its permis
   - If it is in use, version + 1 is created in the same family: `newVersion: true`.
 - Scheme errors: 400 if the weights don't total exactly 100.00 (thirds are 33.33/33.33/33.34); 409 on duplicate component keys.
 - Scale errors: 400 if a numeric scale has no band at 0, or two bands share a minimum.
+- **Band ids.** Every band in a scale response has `id`: in the sheet view, the scale lists, resolve and the PUT result. It's what `descriptorBandId` takes.
+  - An id belongs to that **version** of the scale: a new version gets new ids, and ids sent back in a PUT are ignored.
+  - After apply-latest, descriptor marks still point at the old version's bands, so re-read the view before changing one.
 
 **Versions.**
 - A version is **in use** once it is frozen on an assessment sheet or appears in a published report snapshot.

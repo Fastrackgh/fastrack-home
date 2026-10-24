@@ -34,6 +34,8 @@ import {
 } from './api';
 
 const pupils = (n: number) => `${n} ${n === 1 ? 'pupil' : 'pupils'}`;
+/** The verb that agrees with a count: "1 stays", "2 stay". */
+const agree = (n: number, one: string, many: string) => (n === 1 ? one : many);
 
 const SKIP = 'skip';
 const GRADUATE = 'graduate';
@@ -358,7 +360,7 @@ export function PromotionsPage() {
           <Group justify="space-between">
             <Text size="sm" c={problem ? 'red' : 'dimmed'}>
               {problem ??
-                `${pupils(summary.promoted)} move up, ${summary.graduated} graduate, ${summary.stay} stay.`}
+                `${pupils(summary.promoted)} ${agree(summary.promoted, 'moves', 'move')} up, ${summary.graduated} ${agree(summary.graduated, 'graduates', 'graduate')}, ${summary.stay} ${agree(summary.stay, 'stays', 'stay')}.`}
             </Text>
             <Button
               color="fastrackRed"
@@ -385,9 +387,11 @@ export function PromotionsPage() {
       >
         <Stack gap="sm">
           <Text size="sm">
-            <b>{pupils(summary.promoted)}</b> move up, <b>{summary.graduated}</b> graduate and leave
-            the school, and <b>{summary.stay}</b> stay in their class. They start in{' '}
-            {termLabel(termId)}.
+            <b>{pupils(summary.promoted)}</b> {agree(summary.promoted, 'moves', 'move')} up,{' '}
+            <b>{summary.graduated}</b>{' '}
+            {agree(summary.graduated, 'graduates and leaves', 'graduate and leave')} the school, and{' '}
+            <b>{summary.stay}</b> {agree(summary.stay, 'stays', 'stay')} in their class. They start
+            in {termLabel(termId)}.
           </Text>
           <Stack gap={4}>
             {(classes ?? []).map((c) => {
@@ -398,7 +402,7 @@ export function PromotionsPage() {
                 return c.pupils.length ? (
                   <Text key={c.classId} size="xs" c="dimmed">
                     {c.className}: doesn&apos;t move ({pupils(c.pupils.length)}{' '}
-                    {c.pupils.length === 1 ? 'stays' : 'stay'})
+                    {agree(c.pupils.length, 'stays', 'stay')})
                   </Text>
                 ) : null;
               const to =
@@ -407,8 +411,11 @@ export function PromotionsPage() {
                   : (classes ?? []).find((x) => x.classId === plan.target)?.className;
               return (
                 <Text key={c.classId} size="xs" c="dimmed">
-                  {c.className} → {to}: {c.pupils.length - plan.kept.size} move
-                  {plan.kept.size ? `, ${plan.kept.size} stay` : ''}
+                  {c.className} → {to}: {c.pupils.length - plan.kept.size}{' '}
+                  {agree(c.pupils.length - plan.kept.size, 'moves', 'move')}
+                  {plan.kept.size
+                    ? `, ${plan.kept.size} ${agree(plan.kept.size, 'stays', 'stay')}`
+                    : ''}
                 </Text>
               );
             })}

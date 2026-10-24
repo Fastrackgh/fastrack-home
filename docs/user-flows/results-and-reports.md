@@ -211,5 +211,5 @@ Code: `src/features/results/ReportsBoardPage.tsx` and `ClassReportPage.tsx`.
   - Science 12 + 36 = 48, an E, with no subject position (staff only);
   - "Overall Position: 1st out of 6", attendance "57 out of 60", the remarks, and the grading scale with A from 85.
 - **Reopen** showed "Check Bekoe’s attendance", and Print all opened the class's reports.
-- **Not checked:** the publish email.
+- **Publish email:** none was sent, because no parent is linked to a Class C pupil on PRM-001. The backend's e2e test covers the emails: a linked parent is emailed, withheld reports send nothing, and a republish is marked updated. In dev, emails appear on a local preview from 127.0.0.1:4080, and the backend log prints its URL.
 

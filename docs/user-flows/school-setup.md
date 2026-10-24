@@ -115,7 +115,8 @@ Code: `src/features/school-setup/SubjectsPanel.tsx` and its modals. The rules co
   - **Edit <class>'s subjects** adds, removes and reorders subjects, and picks teachers from all active staff.
   - **Report options** reveals the name on the report (e.g. "Ga"), whether the subject counts in the average, and its role in a BECE-style aggregate.
   - **Add to several classes** adds subjects to a whole department or to chosen classes. Classes that already take a subject keep their settings.
-- **Known gap (24 Oct):** turning a subject off locks every class that takes it. Saving that class's list gets 400 "Mathematics is inactive. Reactivate it before giving it to a class.", even for an unrelated change. The editor marks such rows "Not in use" so they can be removed. Reported to the backend: it should refuse only a newly added inactive subject.
+- **Turned-off subjects:** a class keeps a subject that was turned off after it took it; the editor marks it "Not in use" so it can be removed. Only adding a turned-off subject anew is refused (400 "Mathematics is inactive. Reactivate it before giving it to a class.").
+  - *Fixed 24 Oct (backend `9141452`):* this used to lock the class, refusing every save of its list. Re-tested on PRM-001: Class A saved with the inactive Mathematics on it, and adding Mathematics to Class B was still refused, leaving Class B unchanged.
 - **Standing.** The lists hold every term and year until changed. There is no term picker. Pupils take their current class's subjects.
 
 ## Status

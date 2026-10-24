@@ -40,6 +40,9 @@ Conventions follow the rest of the API:
 8. **A mid-term change of scheme** (decided 24 Oct) applies by itself to mark sheets that have no marks yet. Sheets with marks keep the version they started with, until a head uses "Apply latest scheme".
 9. **Setup always starts from a school-wide default** (decided 24 Oct). The wizard asks for it first.
 10. **A new academic year copies the previous year's grading** (decided 24 Oct), unless the school changes it for the new year.
+11. **A pupil moved mid-term** (decided 24 Oct) appears only on the new class's sheet, flagged `movedFrom`, with their earlier marks carried. The old class no longer lists or counts them.
+12. **Heads can change marks at any time** (decided 24 Oct), on submitted and approved sheets too, and every such change is audited. Teachers change draft sheets only. A published report changes only after reopen and republish (rule 7).
+13. **A pupil who leaves mid-term stays on the term's sheets** (decided 24 Oct), flagged `leftOn`. Their marks aren't required and never block submitting, and marks already entered are kept.
 
 ## Module and permissions
 
@@ -118,7 +121,7 @@ All tables have `school_id`, a uuid primary key and timestamps.
 | `results_policy_assignments` | `academic_year_id`, `scope` (school / department / subject / class / class_subject), `department_id?`, `class_id?`, `subject_id?`, `scheme_family_id?`, `scale_family_id?` | A CHECK makes sure each scope fills exactly its own columns. A partial unique index allows one row per scope target per year. Null scheme or scale means "inherit". See **Which settings apply** below. |
 | `assessment_sheets` | `term_id`, `class_id`, `subject_id`, frozen `scheme_id` and `grading_scale_id`, `status` (draft/submitted/approved), `not_assessed`, `row_version` | One per term, class and subject. Created the first time it is opened. |
 | `assessment_sheet_items` | `sheet_id`, `component_key`, `item_index`, `label`, `max_raw`, `taken_on?` | Teachers add class tests as the term goes. |
-| `assessment_marks` | `term_id`, `school_student_id`, `subject_id`, `component_key`, `item_index`, `status` (scored/absent/exempt), `raw_score?`, `descriptor_band_id?`, `entered_by` | Unique on the pupil, not the sheet, so marks follow a pupil who moves class. |
+| `assessment_marks` | `term_id`, `school_student_id`, `subject_id`, `component_key`, `item_index`, `status` (scored/absent/exempt), `raw_score?`, `max_raw`, `descriptor_band_id?`, `entered_by` | Unique on the pupil, not the sheet, so marks follow a pupil who moves class. `max_raw` is copied from the item when the mark is entered, so a carried mark keeps its fraction (another class's "Test 2" may be out of a different total). |
 | `report_batches` | `term_id`, `class_id`, `status` (open/in_review/approved/published/reopened), `policy_snapshot` | |
 | `term_reports` / `term_report_revisions` | remarks, conduct/attitude/interest, `promotion?`, `status` (incl. `withheld`), `snapshot_data`, `published_revision` | Parents see the latest published revision. |
 | `remark_bank` | `kind`, `text`, `min_average?`, `max_average?` | |
@@ -227,15 +230,64 @@ The backend adds an any-of permission decorator for the GETs, because its permis
 
 ### Mark sheets (`marks:read` / `marks:enter`; teachers limited per rule 3)
 
+Agreed with the backend session on 24 Oct. The ★ shapes were proposed by the frontend; they're written as proposed until the backend confirms or corrects them.
+
+**Who is on a sheet.**
+- A pupil is in class C for term T if their latest `enrollment_history` row dated on or before min(term end, today) is C. Promotions are dated from the next term's start, so a Term 3 sheet keeps the pupils as they were.
+- A pupil who left during T (exit date inside T) is listed under the class they left from, flagged `leftOn` (rule 13).
+- `joinedOn` is set for a pupil admitted or moved in after the term started. `movedFrom {classId, className, on}` is set for a pupil moved in during the term (rule 11).
+- **Not required:** an item taken (`takenOn`) before the pupil's `joinedOn` or `movedFrom.on`. Unless it has a mark, it's listed in the row's `notRequired` and counted as exempt, so the rest is reweighted. Every other item needs a mark: scored, absent or exempt.
+
+**Carried marks.**
+- After a move, a carried mark fills the new class's item with the same `componentKey` and `itemIndex`.
+- Carried marks with no matching item, or for a component key the new scheme doesn't have, are kept but not counted. The row lists them in `carried: [{componentKey, itemIndex, raw, maxRaw, fromClass}]`.
+- New items the pupil hasn't sat need a mark, unless they're not required (above).
+
+**Items.**
+- A `single` component gets item 1 when the sheet is created, labelled with the component's label and out of `defaultMaxRaw`. Descriptor strands are `single` components.
+- An `items` component starts with no items, so it is missing until the teacher adds a test. The grid shows "Add the first class test" there. To skip a test, add it and mark the class exempt.
+- Deleting an item that has marks gives 409 "Test 2 has marks. Remove them first.", unless `?force=true`, which only heads may send (audited).
+- Lowering a maximum below an existing mark gives 422.
+
+**Status.** Phase 2 has `draft` and `submitted`; `approved` comes with batch approval in phase 3.
+- `submit`: draft → submitted. It gives 422 with `details.missing [{schoolStudentId, fullName, missing}]` unless every required mark is in, or the sheet is `notAssessed`.
+- `return {reason}`: submitted → draft, keeping `returnReason`.
+- `reopen {reason}`: approved → draft (phase 3).
+- `rowVersion` goes up on every write (marks, items, status, apply-latest). A stale one gives 409 on marks and item routes.
+
+**Who may enter marks** (rule 3). A teacher may if they hold an open assignment for the class and subject, or nobody does (`anyTeacher`). Heads always may (rule 12).
+- `mine=true` for a teacher lists their assigned pairs, plus the unassigned pairs in the class they are class teacher of.
+- `mine=false` (heads, and teachers with `marks:read`) lists every pair. The grid's "All classes" switch uses it.
+
+**Scheme versions** (rule 8).
+- A version is in use once a sheet using it has a mark or isn't a draft. An empty draft doesn't count, and moves to a new version automatically.
+- `POST /mark-sheets/:id/apply-latest` (`reports:approve`) moves a sheet that has marks to the family's latest scheme and scale. Marks are matched by `componentKey`, and unmatched ones are kept unused, as for carried marks.
+
+**Shapes ★**
+- sheet = `{id, termId, classId, subjectId, status, notAssessed, returnReason, rowVersion, schemeId, scaleId, submittedAt, submittedBy}`
+- item = `{id, componentKey, itemIndex, label, maxRaw, takenOn}`
+- mark = `{componentKey, itemIndex, status, rawScore, maxRaw, descriptorBandId, enteredBy: {id, name}, enteredAt}`
+- roster row = `{schoolStudentId, studentCode, fullName, flags: {joinedOn?, movedFrom?, leftOn?}, marks: mark[], notRequired: [{componentKey, itemIndex}], carried: [...], preview}`
+  - `preview` is the engine's subject result: `{status, componentScores: [{key, score}], total, grade, points, reweighted}`.
+  - A `leftOn` pupil with missing marks shows `missing` but doesn't block.
+- card = `{sheetId | null, classId, className, subjectId, subjectName, status | 'not_started', entered, expected, anyTeacher, teachers: [{staffId, name}]}`. `expected` counts required marks only.
+
 | Method & path | Notes |
 | --- | --- |
-| `GET /mark-sheets?termId&mine=true` | Cards: `{sheetId?, classId, className, subjectId, subjectName, status, entered, expected, anyTeacher}`. `anyTeacher` is true when nobody is assigned to the subject. |
-| `GET /mark-sheets/open?termId&classId&subjectId` | Creates the sheet if needed. Returns `{sheet, scheme, scale, items, roster: [{schoolStudentId, studentCode, fullName, flags: {joinedOn?, movedFrom?}, marks, preview}]}`. `preview` is the subject result (calculation step 2). |
-| `PUT /mark-sheets/:id/marks` | `{rowVersion, marks: [{schoolStudentId, componentKey, itemIndex, status, rawScore?, descriptorBandId?}]}`. Returns the changed rows with previews and the new `rowVersion`. 409 when `rowVersion` is stale; 422 when a mark is above `max_raw` or below 0. |
-| `POST /mark-sheets/:id/items`, `PATCH /mark-sheets/:id/items/:itemId`, `DELETE /mark-sheets/:id/items/:itemId` | Add, rename or re-maximum a class test. Lowering a maximum below an existing mark is refused (422). |
-| `POST /mark-sheets/:id/submit` | 422 with `details.missing` lists the pupils whose marks are not all entered. |
-| `POST /mark-sheets/:id/return` `{reason}`, `POST /mark-sheets/:id/reopen` `{reason}` | Need `reports:approve`. |
-| `PATCH /mark-sheets/:id` `{notAssessed}` | Needs `reports:approve`. Leaves the subject off this term's reports. |
+| `GET /mark-sheets?termId&mine=true\|false` | cards |
+| `GET /mark-sheets/open?termId&classId&subjectId` | `{sheet \| null, canEdit, scheme, scale, settings, items, roster}`. Creates the sheet only when the caller may enter marks there; otherwise `sheet: null`, `items: []` and the roster, read-only. `settings` is the school's results settings, so previews use the same rounding. |
+| `PUT /mark-sheets/:id/marks` | `{rowVersion, marks: [{schoolStudentId, componentKey, itemIndex, status \| null, rawScore?, descriptorBandId?}]}`. `status: null` removes a mark. Descriptor marks are `scored` with `descriptorBandId` and no `rawScore`. The backend fills `maxRaw` from the item. Returns `{rowVersion, rows}` with the changed pupils only. A stale version gives 409 with `details.rowVersion`. A bad cell gives 422 with `details.cells [{schoolStudentId, componentKey, itemIndex, message}]`, and nothing is saved. |
+| `POST /mark-sheets/:id/items` | `{rowVersion, componentKey, label, maxRaw, takenOn?}`. `itemIndex` is the next free one. Returns `{rowVersion, items}`. |
+| `PATCH /mark-sheets/:id/items/:itemId` | `{rowVersion, label?, maxRaw?, takenOn?}`. Returns `{rowVersion, items}`. |
+| `DELETE /mark-sheets/:id/items/:itemId?rowVersion=&force=` | Returns `{rowVersion, items}`. |
+| `POST /mark-sheets/:id/submit` | See Status. |
+| `POST /mark-sheets/:id/return` `{reason}`, `POST /mark-sheets/:id/reopen` `{reason}` | `reports:approve`. |
+| `PATCH /mark-sheets/:id` `{notAssessed}` | `reports:approve`. Leaves the subject off this term's reports. |
+| `POST /mark-sheets/:id/apply-latest` | `reports:approve`. Returns the same shape as open. |
+
+**Phase 0 rules finished in phase 2:**
+- `DELETE /subjects/:id` gives 409 when any mark uses the subject.
+- `PUT /classes/:id/subjects` keeps a removed subject that has marks this year as inactive: it is no longer returned, but its marks stay.
 
 ### Term reports
 

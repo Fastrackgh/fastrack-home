@@ -43,6 +43,9 @@ Conventions follow the rest of the API:
 11. **A pupil moved mid-term** (decided 24 Oct) appears only on the new class's sheet, flagged `movedFrom`, with their earlier marks carried. The old class no longer lists or counts them.
 12. **Heads can change marks at any time** (decided 24 Oct), on submitted and approved sheets too, and every such change is audited. Teachers change draft sheets only. A published report changes only after reopen and republish (rule 7).
 13. **A pupil who leaves mid-term stays on the term's sheets** (decided 24 Oct), flagged `leftOn`. Their marks aren't required and never block submitting, and marks already entered are kept.
+14. **Attendance on a report** (decided 24 Oct) comes from the register when the school uses attendance and the class has registers: days present (present or late) out of the term's school days. Otherwise the class teacher or a head types it in.
+15. **Promotion shows only on the year's last term** (decided 24 Oct). Each pupil defaults to promoted to the next class by order (or graduated from the top class), and can be changed before approval. It moves nobody: the promotions page still does that.
+16. **Publishing emails each pupil's linked parents** (decided 24 Oct): "<Pupil>'s Term 1 report is ready", with a link to the parent app. Withheld reports send nothing. Republishing after a reopen sends "updated".
 
 ## Module and permissions
 
@@ -123,8 +126,9 @@ All tables have `school_id`, a uuid primary key and timestamps.
 | `assessment_sheets` | `term_id`, `class_id`, `subject_id`, frozen `scheme_id` and `grading_scale_id`, `status` (draft/submitted/approved), `not_assessed`, `row_version` | One per term, class and subject. Created the first time it is opened. |
 | `assessment_sheet_items` | `sheet_id`, `component_key`, `item_index`, `label`, `max_raw`, `taken_on?` | Teachers add class tests as the term goes. |
 | `assessment_marks` | `term_id`, `school_student_id`, `subject_id`, `component_key`, `item_index`, `status` (scored/absent/exempt), `raw_score?`, `max_raw`, `descriptor_band_id?`, `entered_by` | Unique on the pupil, not the sheet, so marks follow a pupil who moves class. `max_raw` is copied from the item when the mark is entered, so a carried mark keeps its fraction (another class's "Test 2" may be out of a different total). |
-| `report_batches` | `term_id`, `class_id`, `status` (open/in_review/approved/published/reopened), `policy_snapshot` | |
-| `term_reports` / `term_report_revisions` | remarks, conduct/attitude/interest, `promotion?`, `status` (incl. `withheld`), `snapshot_data`, `published_revision` | Parents see the latest published revision. |
+| `report_batches` | `term_id`, `class_id`, `status` (open/in_review/approved/published/reopened), `policy_snapshot` (settings, plus the scheme and scale version per subject at the last compute), `computed_at`, `approved_at/by`, `published_at/by`, `revision` | One per term and class. |
+| `term_reports` | `class_teacher_remark`, `head_remark`, `conduct`, `attitude`, `interest` (text ≤ 500), `promotion` jsonb, `attendance` jsonb `{present, total, source}`, `computed` jsonb (subjects, summary, positions), `withheld`, `withheld_reason`, `published_revision` | One per batch and pupil. |
+| `term_report_revisions` | (report, revision) → `snapshot_data` (the exam.report v2 source), `published_at/by` | Append-only. Parents see the latest. |
 | `remark_bank` | `kind`, `text`, `min_average?`, `max_average?` | |
 | `results_settings` | the settings in the fixtures' `defaults.settings`, except `aggregate` is `{bestOtherCount}` or null; plus `classPositionVisibility` (default `show`) and `subjectPositionVisibility` (default `staff_only`), each show/hide/staff_only | One row per school, created with the defaults on the first GET. The aggregate's core count is the number of the class's subjects with `aggregate_role = core`, passed to the engine as `coreCount`. |
 
@@ -297,15 +301,57 @@ Agreed with the backend session on 24 Oct, including the shapes the frontend pro
 
 ### Term reports
 
+Agreed with the backend session on 24 Oct. The ★ items were proposed by the frontend and await the backend's confirmation.
+
+**Status.**
+- `open`: compute and remarks.
+- `in_review`: set by compute once every sheet is submitted or not assessed; back to `open` if a sheet is returned or reopened.
+- **approve** (`reports:approve`):
+  - refused with 422 and `details.blockers` unless every sheet is submitted;
+  - recomputes first;
+  - sets the class's sheets to `approved` (teachers can no longer change them; heads still can, rule 12);
+  - locks remarks.
+- **publish** (approved → published): writes revision *n* for every report and sends the rule 16 emails.
+- **reopen** `{reason}` (published or approved → reopened):
+  - unlocks remarks and recompute;
+  - sheets stay approved, and a head reopens a sheet itself through the mark-sheet route;
+  - publishing again writes revision *n*+1, and parents keep seeing *n* until then.
+
+**Compute** (`POST /report-batches/:termId/:classId/compute`, `reports:generate`, idempotent; 409 once approved).
+- **Who gets a report:** every pupil on the roster. Left pupils have status `left`; they aren't ranked but count in the number on roll. ★ Their report starts withheld ("Left the school"), and a head can release it to issue it anyway (the approved plan).
+- **Subject results:**
+  - Worked out from each sheet with the engine. A draft or missing sheet still computes from the marks entered, so heads can preview, and its status shows.
+  - Not-assessed subjects are left off.
+- **Summary:** average, total and aggregate use the class subjects' `countsInAverage` and `aggregateRole`, with `coreCount` = the number of core subjects.
+- **Positions:**
+  - class positions use `classPositions(…, classHasAggregate = any core or pool subject)`;
+  - subject positions rank among pupils with a result in that subject.
+- **Never overwritten:** remarks, conduct, promotion edits and typed attendance. Promotion is defaulted only while unset.
+- **Positions in documents:** staff JSON always carries positions. Documents follow the parent visibility (rule 5), since printed reports go home: positions are removed when the setting is `hide` or `staff_only`.
+
+**Shapes.**
+- ★ batch = `{termId, classId, status, revision, computedAt, approvedAt, approvedBy: {id, name} | null, publishedAt, publishedBy | null, reopenReason | null, onRoll, rankedCount, isLastTerm}`
+- pupil row = `{termReportId, schoolStudentId, fullName, status, withheld, withheldReason, average, total, aggregate, position, subjects: [{subjectId, subjectName, total, grade, position, status}], classTeacherRemark, headRemark, conduct, attitude, interest, promotion, attendance}`
+  - ★ `status`: `ready` (every counted subject has a result), `incomplete` or `left`.
+  - ★ `subjects[].status`: the engine's statuses (ok, incomplete, exempt, missing) plus `not_assessed`.
+  - ★ `promotion`: `{status: 'promoted' | 'repeated' | 'graduated', toClassId, toClassName}`, or null when it isn't the last term.
+  - ★ `attendance`: `{present, total, source: 'register' | 'manual'}`, or null.
+- board row = `{classId, className, status, sheetsSubmitted, sheetsTotal, remarksDone, pupils, blockers}`
+  - `remarksDone` counts pupils with a class teacher's remark.
+  - `blockers`: `{type: 'sheet_not_submitted', subjectId, subjectName}`; ★ also `{type: 'remarks_missing', count}`, a warning that doesn't block approval.
+  - ★ Every class that takes subjects is listed, with status `not_started` until computed.
+
 | Method & path | Permission | Notes |
 | --- | --- | --- |
-| `GET /report-batches?termId` | `reports:read` | Per class: `{classId, status, sheetsSubmitted, sheetsTotal, remarksDone, pupils, blockers[]}` |
-| `GET /report-batches/:termId/:classId` | `reports:read` | The pupils with average, position, status and remarks |
-| `POST /report-batches/:termId/:classId/compute` | `reports:generate` | Idempotent; remarks already written are kept |
-| `PUT /term-reports/:id/remarks` | `reports:remark` (head remark: `reports:approve`) | `{classTeacherRemark?, headRemark?, conduct?, attitude?, interest?, promotion?}`. The same body in bulk goes to `/report-batches/:termId/:classId/remarks`. |
-| `POST /report-batches/:termId/:classId/approve`, `.../publish`, `.../reopen` `{reason}` | `reports:approve` | Approve is refused with `details.blockers` while sheets are unsubmitted |
-| `POST /term-reports/:id/withhold` `{reason}`, `POST /term-reports/:id/release` | `reports:approve` | A withheld report is hidden from parents but still ranked |
-| `GET /term-reports/:id/document`, `GET /report-batches/:termId/:classId/documents` | `reports:read` | `{html}` from the school's published `exam.report` design. The batch route gives the whole class in one printable document. |
+| `GET /report-batches?termId` | `reports:read` | board rows |
+| `GET /report-batches/:termId/:classId` | `reports:read` | `{batch, pupils}`. ★ Before the first compute: `{batch: null, pupils: []}`, not 404. |
+| `POST /report-batches/:termId/:classId/compute` | `reports:generate` | See Compute. |
+| `PUT /term-reports/:id/remarks` | `reports:remark` for the class's homeroom teacher or a head; `headRemark` needs `reports:approve` | `{classTeacherRemark?, headRemark?, conduct?, attitude?, interest?, promotion?, attendance?}`. ★ Partial: a field left out stays, `null` clears it. 409 once approved or published. Returns the pupil row. |
+| `PUT /report-batches/:termId/:classId/remarks` | as above | `{reports: [{termReportId, …}]}`; returns the changed rows. |
+| `POST /report-batches/:termId/:classId/approve`, `/publish`, `/reopen {reason}` | `reports:approve` | See Status. |
+| `POST /term-reports/:id/withhold {reason}`, `/release` | `reports:approve` | A withheld report is hidden from parents but still ranked (left pupils excepted). |
+| `GET /term-reports/:id/document` | `reports:read` | `{html}` from the school's published `exam.report` design, or the default. ★ Works at any status: before publishing it renders the live computed data. |
+| `GET /report-batches/:termId/:classId/documents` | `reports:generate` | `{html}`: the whole class, one report per page, leaving out left and withheld pupils. |
 
 ### Parent routes
 

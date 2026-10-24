@@ -20,6 +20,7 @@ import { errorMessage } from '@/features/fees/notify';
 import { useActiveWard } from './ActiveWardProvider';
 import { formatAge } from './format';
 import type { Ward } from './types';
+import { schoolOffers } from './types';
 import type { ParentQuery } from './useParentQuery';
 
 export function PageTitle({
@@ -128,15 +129,7 @@ export function QueryView<T>({
         </Center>
       );
     }
-    if (notOffered(error)) {
-      return (
-        <EmptyState
-          icon={<AlertCircle size={22} />}
-          title="Not offered by this school"
-          message="Your child's school hasn't turned this on for parents. Ask the school if you need it."
-        />
-      );
-    }
+    if (notOffered(error)) return <NotOfferedState />;
     return (
       <Alert color="red" radius="md" icon={<AlertCircle size={16} />} title="Could not load">
         <Stack gap="xs" align="flex-start">
@@ -167,7 +160,28 @@ export function QueryView<T>({
 }
 
 /** Renders `children` for the selected child, or asks the parent to link one. */
-export function WithWard({ children }: { children: (ward: Ward) => React.ReactNode }) {
+/** An area the child's school hasn't turned on for parents (QA-262). */
+export function NotOfferedState() {
+  return (
+    <EmptyState
+      icon={<AlertCircle size={22} />}
+      title="Not offered by this school"
+      message="Your child's school hasn't turned this on for parents. Ask the school if you need it."
+    />
+  );
+}
+
+/**
+ * Renders `children` for the active child. With `module`, a school that
+ * hasn't turned it on gets the "Not offered" state at once, with no request.
+ */
+export function WithWard({
+  children,
+  module,
+}: {
+  children: (ward: Ward) => React.ReactNode;
+  module?: 'fees' | 'results' | 'attendance';
+}) {
   const { activeWard, query } = useActiveWard();
   return (
     <QueryView
@@ -188,7 +202,13 @@ export function WithWard({ children }: { children: (ward: Ward) => React.ReactNo
         ),
       }}
     >
-      {() => (activeWard ? children(activeWard) : null)}
+      {() =>
+        !activeWard ? null : module && !schoolOffers(activeWard, module) ? (
+          <NotOfferedState />
+        ) : (
+          children(activeWard)
+        )
+      }
     </QueryView>
   );
 }

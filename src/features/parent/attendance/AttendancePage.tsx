@@ -53,7 +53,11 @@ export function AttendancePage() {
       </>
     );
   }
-  return <WithWard>{(ward) => <WardAttendance key={ward.studentId} ward={ward} />}</WithWard>;
+  return (
+    <WithWard module="attendance">
+      {(ward) => <WardAttendance key={ward.studentId} ward={ward} />}
+    </WithWard>
+  );
 }
 
 function WardAttendance({ ward }: { ward: Ward }) {

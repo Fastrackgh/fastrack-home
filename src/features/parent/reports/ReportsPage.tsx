@@ -46,7 +46,11 @@ export function ReportsPage() {
       </>
     );
   }
-  return <WithWard>{(ward) => <WardReports key={ward.studentId} ward={ward} />}</WithWard>;
+  return (
+    <WithWard module="results">
+      {(ward) => <WardReports key={ward.studentId} ward={ward} />}
+    </WithWard>
+  );
 }
 
 function WardReports({ ward }: { ward: Ward }) {
@@ -155,7 +159,9 @@ export function ReportView({ reportId }: { reportId: string }) {
         <ArrowLeft size={14} /> Reports
       </Anchor>
       {parentAreaReady.reports ? (
-        <WithWard>{(ward) => <WardReport ward={ward} reportId={reportId} />}</WithWard>
+        <WithWard module="results">
+          {(ward) => <WardReport ward={ward} reportId={reportId} />}
+        </WithWard>
       ) : (
         <ComingSoon icon={<FileText size={22} />} area="Terminal reports" />
       )}

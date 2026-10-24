@@ -29,7 +29,9 @@ import { useParentQuery } from '../useParentQuery';
 import { OptionalServices } from './OptionalServices';
 
 export function FeesPage() {
-  return <WithWard>{(ward) => <WardFees key={ward.studentId} ward={ward} />}</WithWard>;
+  return (
+    <WithWard module="fees">{(ward) => <WardFees key={ward.studentId} ward={ward} />}</WithWard>
+  );
 }
 
 function WardFees({ ward }: { ward: Ward }) {

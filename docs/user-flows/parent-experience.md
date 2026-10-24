@@ -16,7 +16,8 @@ As of 21 October 2026 these are live against the backend too (checked on localho
 
 **An area the school hasn't turned on** is left out (QA-262):
 - the ward record carries `school.enabledModules` (backend `83aa165`+), so the Fees, Reports and Attendance tabs and their Home tiles show only when the child's school has `fees`, `results` or `attendance` turned on;
-- if a page is opened anyway, or for an older ward record without the list, a 403 shows "Not offered by this school" with no Try again.
+- if the page is opened anyway, by its address, it shows "Not offered by this school" straight away, without calling the backend;
+- for an older ward record without the list, the 403 shows the same message, with no Try again.
 
 Checked 24 Oct:
 - FIS-001 (no results): Home, Fees, Attendance and More;

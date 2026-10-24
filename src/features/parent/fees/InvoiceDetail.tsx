@@ -42,7 +42,9 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
       >
         <ArrowLeft size={14} /> Fees
       </Anchor>
-      <WithWard>{(ward) => <WardInvoice ward={ward} invoiceId={invoiceId} />}</WithWard>
+      <WithWard module="fees">
+        {(ward) => <WardInvoice ward={ward} invoiceId={invoiceId} />}
+      </WithWard>
     </>
   );
 }

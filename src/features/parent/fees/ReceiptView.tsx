@@ -28,7 +28,9 @@ export function ReceiptView({ paymentId }: { paymentId: string }) {
       >
         <ArrowLeft size={14} /> Fees
       </Anchor>
-      <WithWard>{(ward) => <WardReceipt ward={ward} paymentId={paymentId} />}</WithWard>
+      <WithWard module="fees">
+        {(ward) => <WardReceipt ward={ward} paymentId={paymentId} />}
+      </WithWard>
     </>
   );
 }

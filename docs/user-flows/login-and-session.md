@@ -105,6 +105,7 @@ AppShell's "Sign out" icon (`aria-label="Sign out"`) or the platform's red icon 
 
 | Scenario | What happens today | Evidence |
 | --- | --- | --- |
+| Phone capitalises the email, or adds a trailing space | Every account email field uses `emailInputProps` (`src/lib/email-input.ts`: `type=email`, `autocapitalize=none`, `autocorrect=off`, no spellcheck), so phones don't change it. The backend trims and lower-cases emails, so `Head@fastrack.school ` signs in (QA-201, backend `e226f97`). The client sends what was typed. | `src/lib/email-input.ts` |
 | Access token expires mid-form | The next submit gets 401, refreshes silently, and retries. That works unless the refresh fails, in which case there is a hard redirect and the form data is lost. | `api-client.ts:121-135` |
 | Two tabs, both idle past 15 min, resume together | Both tabs may refresh with the same refresh token. The backend treats the second refresh as reuse and revokes every token, so both tabs are logged out. `refreshOnce` dedupes only within one tab. | `api-client.ts:61-68`; backend `auth.service.ts:96-133` |
 | Two tabs, different users | Tab B's login overwrites the shared `localStorage` tokens. Tab A keeps showing user A's name, role and menus, but its API calls now carry user B's token, so tab A acts as B inside A's UI. Nothing listens for `storage` events. | `auth-context.tsx` (no `storage` listener) |

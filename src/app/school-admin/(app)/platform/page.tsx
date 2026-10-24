@@ -56,6 +56,7 @@ import { AnalyticsPanel } from '@/features/platform/AnalyticsPanel';
 import { LoginAuditPanel } from '@/features/platform/LoginAuditPanel';
 import { PlatformUsersPanel } from '@/features/platform/PlatformUsersPanel';
 import { apiClient } from '@/lib/api-client';
+import { emailInputProps } from '@/lib/email-input';
 import type { ModuleEntitlement } from '@/features/platform-schools/model';
 
 interface SchoolItem {
@@ -854,7 +855,8 @@ export default function PlatformConsolePage() {
             <TextInput
               label="Contact Email"
               placeholder="admin@morningstar.edu.gh"
-              type="email"
+              {...emailInputProps}
+              autoComplete="off"
               value={newSchoolEmail}
               onChange={(e) => setNewSchoolEmail(e.currentTarget.value)}
             />

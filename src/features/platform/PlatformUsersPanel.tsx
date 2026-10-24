@@ -20,6 +20,7 @@ import { notifications } from '@mantine/notifications';
 import { Search, UserPlus } from 'lucide-react';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import { useAuth } from '@/lib/auth';
+import { emailInputProps } from '@/lib/email-input';
 import { PAGE_SIZE, type Page } from '@/lib/pagination';
 import { errorMessage, platformApi, type PlatformUser } from './api';
 
@@ -242,7 +243,8 @@ function AddPlatformUserModal({ onClose, onAdded }: { onClose: () => void; onAdd
             />
           </SimpleGrid>
           <TextInput
-            type="email"
+            {...emailInputProps}
+            autoComplete="off"
             label="Email"
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}

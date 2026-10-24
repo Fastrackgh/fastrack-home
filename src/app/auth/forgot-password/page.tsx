@@ -6,6 +6,7 @@ import { useSearchParams } from 'next/navigation';
 import { Alert, Anchor, Button, Loader, Stack, Text, TextInput } from '@mantine/core';
 import { AlertCircle, CheckCircle2, Mail } from 'lucide-react';
 import { apiClient } from '@/lib/api-client';
+import { emailInputProps } from '@/lib/email-input';
 import { AuthShell, portalFrom, SIGN_IN_PATHS } from '../AuthShell';
 
 /**
@@ -63,7 +64,7 @@ function ForgotPassword() {
           <Stack gap="sm">
             <TextInput
               label="Email"
-              type="email"
+              {...emailInputProps}
               value={email}
               onChange={(e) => setEmail(e.currentTarget.value)}
               leftSection={<Mail size={16} />}

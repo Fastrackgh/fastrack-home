@@ -21,6 +21,7 @@ import {
 } from '@mantine/core';
 import { AlertCircle, ArrowRight, Lock, Mail, Phone, User } from 'lucide-react';
 import { ApiError } from '@/lib/api-client';
+import { emailInputProps } from '@/lib/email-input';
 import { useAuth } from '@/lib/auth';
 import { landingPathFor, safeRedirectTarget } from '@/lib/rbac';
 
@@ -132,9 +133,8 @@ export function ParentLogin() {
           )}
           <TextInput
             label="Email"
-            type="email"
+            {...emailInputProps}
             autoComplete="email"
-            inputMode="email"
             required
             size="md"
             leftSection={<Mail size={16} />}
@@ -270,9 +270,8 @@ export function ParentRegister() {
           </SimpleGrid>
           <TextInput
             label="Email"
-            type="email"
+            {...emailInputProps}
             autoComplete="email"
-            inputMode="email"
             required
             leftSection={<Mail size={16} />}
             value={form.email}

@@ -18,6 +18,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { School, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
+import { emailInputProps } from '@/lib/email-input';
 import { errorMessage, setupApi, type SchoolDetails } from './api';
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
@@ -186,7 +187,13 @@ export function SchoolProfilePanel({
                 radius="md"
               />
               <TextInput label="Phone" maxLength={50} {...field('phone')} />
-              <TextInput label="Email" type="email" maxLength={255} {...field('email')} />
+              <TextInput
+                label="Email"
+                {...emailInputProps}
+                autoComplete="off"
+                maxLength={255}
+                {...field('email')}
+              />
             </SimpleGrid>
             <TextInput
               label="Website"

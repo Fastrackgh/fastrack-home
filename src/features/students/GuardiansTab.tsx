@@ -19,6 +19,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
+import { emailInputProps } from '@/lib/email-input';
 import {
   GUARDIAN_FIELDS,
   errorMessage,
@@ -190,7 +191,7 @@ export function GuardiansTab({
       <SimpleGrid cols={{ base: 1, sm: 2 }}>
         {text('motherName', 'Name', { maxLength: 255 })}
         {text('motherContact', 'Phone', { maxLength: 50 })}
-        {text('motherEmail', 'Email', { type: 'email', maxLength: 255 })}
+        {text('motherEmail', 'Email', { ...emailInputProps, autoComplete: 'off', maxLength: 255 })}
         {text('motherOccupation', 'Occupation', { maxLength: 150 })}
       </SimpleGrid>
 
@@ -201,7 +202,7 @@ export function GuardiansTab({
       <SimpleGrid cols={{ base: 1, sm: 2 }}>
         {text('fatherName', 'Name', { maxLength: 255 })}
         {text('fatherContact', 'Phone', { maxLength: 50 })}
-        {text('fatherEmail', 'Email', { type: 'email', maxLength: 255 })}
+        {text('fatherEmail', 'Email', { ...emailInputProps, autoComplete: 'off', maxLength: 255 })}
         {text('fatherOccupation', 'Occupation', { maxLength: 150 })}
       </SimpleGrid>
 

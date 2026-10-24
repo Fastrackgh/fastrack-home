@@ -48,6 +48,7 @@ import { StudentDrawer } from '@/features/students/StudentDrawer';
 import { PageHeader } from '@/features/workspace';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
+import { emailInputProps } from '@/lib/email-input';
 import { APP_ROUTES, canAccessRoute } from '@/lib/rbac';
 
 interface StudentListItem {
@@ -1084,7 +1085,8 @@ export default function StudentsPage() {
                       <TextInput
                         label="Mother's Email Address"
                         placeholder="e.g. akosua@example.com"
-                        type="email"
+                        {...emailInputProps}
+                        autoComplete="off"
                         value={formData.motherEmail}
                         onChange={(e) =>
                           setFormData({ ...formData, motherEmail: e.currentTarget.value })
@@ -1138,7 +1140,8 @@ export default function StudentsPage() {
                       <TextInput
                         label="Father's Email Address"
                         placeholder="e.g. kojo@example.com"
-                        type="email"
+                        {...emailInputProps}
+                        autoComplete="off"
                         value={formData.fatherEmail}
                         onChange={(e) =>
                           setFormData({ ...formData, fatherEmail: e.currentTarget.value })

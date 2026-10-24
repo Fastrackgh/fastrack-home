@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Alert, Button, Group, Modal, SimpleGrid, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { emailInputProps } from '@/lib/email-input';
 import { platformSchoolsApi as api } from './api';
 
 const errorMessage = (error: unknown, fallback: string) =>
@@ -88,7 +89,8 @@ export function AssignPrincipalModal({
             />
           </SimpleGrid>
           <TextInput
-            type="email"
+            {...emailInputProps}
+            autoComplete="off"
             label="Email"
             description="The invitation goes here"
             value={email}

@@ -21,6 +21,7 @@ import { notifications } from '@mantine/notifications';
 import { ArrowRight, CheckCircle2, Lock, Mail, ShieldCheck, AlertCircle } from 'lucide-react';
 import { BrandLogo } from '@/components/atoms';
 import { useAuth } from '@/lib/auth';
+import { emailInputProps } from '@/lib/email-input';
 import { landingPathFor, safeRedirectTarget } from '@/lib/rbac';
 
 const highlights = [
@@ -285,6 +286,8 @@ export default function SchoolAdminLoginPage() {
                   <TextInput
                     label="School email"
                     placeholder="you@yourschool.com"
+                    {...emailInputProps}
+                    autoComplete="username"
                     required
                     size="md"
                     radius="md"

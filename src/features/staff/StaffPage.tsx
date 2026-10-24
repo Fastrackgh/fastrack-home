@@ -21,6 +21,7 @@ import { MailPlus, RefreshCw } from 'lucide-react';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
+import { emailInputProps } from '@/lib/email-input';
 import { ROLE_LABELS } from '@/lib/rbac';
 import {
   INVITABLE_ROLES,
@@ -412,7 +413,8 @@ function InviteModal({ onClose, onSent }: { onClose: () => void; onSent: () => v
           </SimpleGrid>
           <TextInput
             label="Email"
-            type="email"
+            {...emailInputProps}
+            autoComplete="off"
             required
             value={email}
             onChange={(e) => setEmail(e.currentTarget.value)}

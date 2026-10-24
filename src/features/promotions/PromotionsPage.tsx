@@ -71,7 +71,11 @@ export function PromotionsPage() {
   const [open, setOpen] = useState<Set<string>>(new Set());
   const [confirming, setConfirming] = useState(false);
   const [running, setRunning] = useState(false);
-  const [result, setResult] = useState<PromotionResult | null>(null);
+  // `left` holds the classes set to "Don't move": they aren't sent, so the
+  // backend's `kept` leaves their pupils out (QA-249).
+  const [result, setResult] = useState<
+    (PromotionResult & { left: { classId: string; className: string; pupils: number }[] }) | null
+  >(null);
 
   const load = useCallback(async () => {
     setError(null);
@@ -158,11 +162,15 @@ export function PromotionsPage() {
         ...(exitDate ? { exitDate } : {}),
         classes: runs,
       });
-      setResult(done);
+      const left = (classes ?? [])
+        .filter((c) => c.pupils.length > 0 && plans[c.classId]?.target === SKIP)
+        .map((c) => ({ classId: c.classId, className: c.className, pupils: c.pupils.length }));
+      const stayed = done.kept + left.reduce((sum, c) => sum + c.pupils, 0);
+      setResult({ ...done, kept: stayed, left });
       setConfirming(false);
       notifications.show({
         title: 'Classes moved up',
-        message: `${done.promoted} moved up, ${done.graduated} graduated, ${done.kept} stayed.`,
+        message: `${done.promoted} moved up, ${done.graduated} graduated, ${stayed} stayed.`,
         color: 'green',
       });
     } catch (err) {
@@ -219,6 +227,14 @@ export function PromotionsPage() {
                   <Table.Td>{c.graduated ? 'Graduated' : c.toClassName}</Table.Td>
                   <Table.Td ta="right">{c.moved}</Table.Td>
                   <Table.Td ta="right">{c.kept}</Table.Td>
+                </Table.Tr>
+              ))}
+              {result.left.map((c) => (
+                <Table.Tr key={c.classId}>
+                  <Table.Td>{c.className}</Table.Td>
+                  <Table.Td c="dimmed">Not moved</Table.Td>
+                  <Table.Td ta="right">0</Table.Td>
+                  <Table.Td ta="right">{c.pupils}</Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>

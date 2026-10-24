@@ -28,7 +28,8 @@ sequenceDiagram
   S->>P: Next: first name + surname required
   P->>S: Step 2 Academics
   S->>P: Next: class required
-  P->>S: Step 3 Guardians (no checks)
+  P->>S: Step 3 Guardians
+  S->>P: Next: mother's or father's name + phone required
   S->>P: Next
   P->>S: Step 4 Health & Safety
   S->>P: Complete Admission
@@ -67,7 +68,7 @@ sequenceDiagram
 | | Boarding status | | **Day** | ≤30 |
 | | Transport route | | omitted when "None" | ≤100; the routes are hard-coded Accra examples |
 | | Entrance exam notes | | — | — (the `entranceExamScore` state exists but has no input and is never sent) |
-| 3 Guardians | Mother and father name, phone, email, occupation | | — | emails `IsEmail` (server only; the client has only `type="email"`, which is not enforced on step change) |
+| 3 Guardians | Mother and father name, phone, email, occupation | Mother's **or** father's name and phone ("Add the mother's or father's name and phone number."), checked on Next and again on Complete Admission (QA-210) | — | emails `IsEmail` (server only; the client has only `type="email"`, which is not enforced on step change) |
 | 4 Health | Blood group | | **O+** | ≤10 |
 | | Genotype | | **AA** | ≤10 |
 | | Allergies / medical notes | | — | |
@@ -87,6 +88,7 @@ Always sent: `admissionAcademicYearId`, `admissionTermId` (current), and `admiss
 | Submitting | "Complete Admission" button `loading`. Cancel and the close X stay enabled, and Esc closes the modal (`closeOnEscape` default). |
 | Success | Toast, modal closes, list refetches |
 | Server error | Alert inside the modal, entered data kept |
+| Enter in a field | Moves to the next step (same checks as Next). Only Complete Admission on the last step admits. Before 24 Oct, Next Step on Guardians admitted at once and skipped Health (QA-210, fixed in `90d7a5a`) |
 
 ## Issues specific to this flow
 

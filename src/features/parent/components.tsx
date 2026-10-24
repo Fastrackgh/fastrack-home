@@ -88,6 +88,9 @@ export function ComingSoon({ icon, area }: { icon: React.ReactNode; area: string
   );
 }
 
+/** The school has this area turned off for parents (a 403). Nothing to retry (QA-262). */
+export const notOffered = (error: unknown) => error instanceof ApiError && error.statusCode === 403;
+
 /** Why a read failed, in words a parent can act on. */
 export function readFailure(error: unknown): string {
   if (error instanceof ApiError && error.statusCode === 404) {
@@ -123,6 +126,15 @@ export function QueryView<T>({
         <Center py={48}>
           <Loader color="fastrackRed" />
         </Center>
+      );
+    }
+    if (notOffered(error)) {
+      return (
+        <EmptyState
+          icon={<AlertCircle size={22} />}
+          title="Not offered by this school"
+          message="Your child's school hasn't turned this on for parents. Ask the school if you need it."
+        />
       );
     }
     return (

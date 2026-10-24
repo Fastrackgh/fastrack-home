@@ -12,7 +12,9 @@ As of 21 October 2026 these are live against the backend too (checked on localho
 - attendance (see [attendance.md](./attendance.md))
 - the school calendar ("Coming up this term" on Home)
 
-**Reports** still have no backend (they need a grading domain). The screen says "Terminal reports coming soon", and the Latest report tile on Home is hidden. `parentAreaReady` in `src/features/parent/api.ts` turns the screen back on once the endpoints ship. To see every screen on sample data, set `NEXT_PUBLIC_PARENT_API_MOCK=1`.
+**Reports** are live since results phase 4 (24 Oct; see [results-and-reports.md](./results-and-reports.md)). Parents see only published, not-withheld reports, always the last published version. To see every screen on sample data, set `NEXT_PUBLIC_PARENT_API_MOCK=1`.
+
+**An area the school hasn't turned on** (a 403 from a ward's endpoint) shows "Not offered by this school" with no Try again, and its Home tile is hidden (QA-262). The tab itself still shows, because the ward record doesn't yet say which modules the school has.
 
 Code: `src/features/parent/*`, with routes in `src/app/parent/*`.
 
@@ -69,12 +71,12 @@ sequenceDiagram
 
 | Tab | Route | Contents |
 | --- | --- | --- |
-| Home | `/parent` | Child card; tiles for fees owed, this month's attendance and the latest report (hidden until reports ship); "Coming up this term" (next three events that aren't cancelled, with a postponed badge, needs `calendar:read`); other children; install card |
+| Home | `/parent` | Child card; tiles for fees owed, this month's attendance and the latest report (each hidden when the school hasn't turned it on); "Coming up this term" (next three events that aren't cancelled, with a postponed badge, needs `calendar:read`); other children; install card |
 | Fees | `/parent/fees` | Bills (filter by term) and Payments. The Outstanding card comes from `GET /parents/me/wards/:id/invoices/summary` with the same term, not from the visible page: billed excludes arrears brought forward. The headline is outstanding minus credit, shown as "In credit" when below zero, and notes show amounts brought forward, moved to a later bill, or netted against a credit (QA-222, QA-243) |
 | | `/parent/fees/[invoiceId]` | Breakdown, Pay now, printable bill |
 | | `/parent/receipts/[paymentId]` | Receipt and printable receipt |
-| Reports | `/parent/reports` | Terminal reports ("coming soon" on the live API) |
-| | `/parent/reports/[reportId]` | Subject table and remarks; the report card in the school's design |
+| Reports | `/parent/reports` | Published terminal reports: term, class, average, position (with "=" for a shared place) and grade; "Updated <date>" when republished |
+| | `/parent/reports/[reportId]` | Average, grade, position, aggregate and attendance; a subject table with one column per part of the school's weighting (e.g. "CS 40%", "EX 60%"), or Class and Exam for older reports; descriptor subjects as cards with each strand's descriptor; remarks, promotion on the last term, next term's start; "The school corrected this report on …" for a republished one; the report card in the school's design |
 | Attendance | `/parent/attendance` | Month calendar coloured by mark (present, late, half day, absent, excused); hover shows the arrival time and note; summary and the count of unmarked days |
 | My children | `/parent/wards/[studentId]` | Profile: code, birth date, class, boarding status, admission date, guardians on file, school contacts |
 | More | `/parent/more` | Profile, my children, link a child, install, appearance, sign out |
@@ -110,7 +112,7 @@ The child switcher sits in the header. The choice is kept in `fastrack_parent_ac
   | fees | `invoices:read` |
   | receipts | `payments:read` |
   | attendance | `attendance:read` |
-  | reports | `marks:read` (frontend grant) |
+  | reports | `marks:read` (from the backend since results phase 1) |
 
 - Pay now needs the frontend grant `payments:make` (PARENT only).
 - Module gating happens in the backend, against the ward's school (see the contract).

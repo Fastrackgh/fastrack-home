@@ -23,7 +23,7 @@ import { formatSpan, monthOf, todayIso } from '@/features/calendar/dates';
 import { useActiveWard } from '../ActiveWardProvider';
 import { parentApi, parentAreaReady } from '../api';
 import { attendanceRate, monthRange } from '../attendance/AttendancePage';
-import { WithWard } from '../components';
+import { WithWard, notOffered } from '../components';
 import { wardInitials, wardName, wardPlacement, wardStatusColor, wardStatusLabel } from '../format';
 import { InstallCard } from '../pwa';
 import { gradeColor } from '../reports/ReportsPage';
@@ -69,6 +69,8 @@ function Tile<T>({
   value: (data: T) => React.ReactNode;
   detail?: (data: T) => React.ReactNode;
 }) {
+  // A school that hasn't turned the area on gets no tile at all (QA-262).
+  if (query.data === undefined && !query.loading && notOffered(query.error)) return null;
   return (
     <UnstyledButton component={Link} href={href}>
       <Card withBorder radius="lg" padding="md" h="100%">

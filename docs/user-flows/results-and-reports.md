@@ -8,7 +8,7 @@
 | Grading setup (weights, grades, positions) | `/school-admin/results/setup` | Live (phase 1; backend `99e912b`, not pushed yet), tested on PRM-001 on 24 Oct |
 | Mark entry | `/school-admin/results/marks` | Live (phase 2; backend `6b0e07d` and `6e673c7`, not pushed yet), tested on PRM-001 on 24 Oct, with marks and with descriptors |
 | Term reports: review, remarks, publish | `/school-admin/results/reports` | Live (phase 3; backend `101af33`, not pushed yet), tested on PRM-001 on 24 Oct |
-| Parent reports | Parent portal → Reports | Built earlier on sample data; goes live in phase 4 |
+| Parent reports | Parent portal → Reports | Live (phase 4; backend `a0220a2`, not pushed yet), tested on 24 Oct as Bekoe's parent on PRM-001 and QA's parent on QAR |
 
 ## Grading setup
 
@@ -214,4 +214,15 @@ Code: `src/features/results/ReportsBoardPage.tsx` and `ClassReportPage.tsx`.
   - "Overall Position: 1st out of 6", attendance "57 out of 60", the remarks, and the grading scale with A from 85.
 - **Reopen** showed "Check Bekoe’s attendance", and Print all opened the class's reports.
 - **Publish email:** none was sent, because no parent is linked to a Class C pupil on PRM-001. The backend's e2e test covers the emails: a linked parent is emailed, withheld reports send nothing, and a republish is marked updated. In dev, emails appear on a local preview from 127.0.0.1:4080, and the backend log prints its URL.
+
+## Parent reports (phase 4)
+
+The parent screens are described in [parent-experience.md](./parent-experience.md). Tested live on 24 Oct, on an iPhone-sized screen:
+- **Bekoe's parent (PRM-001):**
+  - home showed "Latest report 48% E";
+  - the list showed "Class C · Updated 24 Oct 2026 · 48% · 1st of 6 · E";
+  - the report showed "CS 40% / EX 60%" with Science 12 and 36, total 48, E, attendance 57/60, both remarks, "Next term begins 8 Jan 2027" and "The school corrected this report on 24 Oct 2026";
+  - the report card rendered the school's design.
+- **QA's parent at QAR** (no fees module) saw report 85% A. Fees said "Not offered by this school", and there was no fees tile.
+- **FIS-001's parent** (no results module) saw "Not offered by this school" on Reports, and no report tile.
 

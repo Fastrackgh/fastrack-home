@@ -139,12 +139,32 @@ export interface PaymentVerification {
 
 export interface SubjectResult {
   subject: string;
+  /** The continuous and exam groups' sums, for schools with two columns. */
   classScore: number | null;
   examScore: number | null;
   total: number | null;
   grade: string | null;
   position?: number | null;
+  positionTied?: boolean;
   remark?: string | null;
+  // Added with results phase 4 (docs/api/results.md); all optional.
+  status?: 'ok' | 'incomplete' | 'exempt' | 'missing' | 'not_assessed';
+  mode?: 'numeric' | 'descriptor';
+  /** One per scheme part, in the order of the report's `components`. */
+  componentScores?: { key: string; score: number | null; display: string }[];
+  points?: number | null;
+  /** Descriptor subjects: the overall descriptor and each strand's. */
+  descriptor?: string | null;
+  strands?: { label: string; descriptor: string }[];
+}
+
+/** A part of the school's weighting, e.g. "Class score" worth 40. */
+export interface ReportComponent {
+  key: string;
+  label: string;
+  shortLabel?: string;
+  weight: number;
+  group?: 'continuous' | 'exam';
 }
 
 /** A published terminal report; the list endpoint omits `subjects`. */
@@ -165,6 +185,16 @@ export interface TermReport {
   headRemark?: string | null;
   promotedTo?: string | null;
   nextTermBegins?: string | null;
+  // Added with results phase 4; all optional.
+  positionTied?: boolean;
+  components?: ReportComponent[] | null;
+  /** The backend sends the status capitalised ("Promoted"); compare ignoring case. */
+  promotion?: { status: string; toClass?: string | null } | null;
+  /** BECE-style total of points; lower is better. */
+  aggregate?: number | null;
+  /** Above 1 when the school corrected and republished the report. */
+  revision?: number;
+  updatedAt?: string | null;
 }
 
 export type AttendanceMark = 'present' | 'absent' | 'late' | 'half_day' | 'excused';

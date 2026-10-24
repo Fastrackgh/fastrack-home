@@ -7,7 +7,7 @@
 | Subjects and what each class takes | School setup → Subjects | Live (phase 0); see [school-setup.md](./school-setup.md#subjects-tab-added-24-oct-results-phase-0) |
 | Grading setup (weights, grades, positions) | `/school-admin/results/setup` | Live (phase 1; backend `99e912b`, not pushed yet), tested on PRM-001 on 24 Oct |
 | Mark entry | `/school-admin/results/marks` | Live (phase 2; backend `6b0e07d` and `6e673c7`, not pushed yet), tested on PRM-001 on 24 Oct, with marks and with descriptors |
-| Term reports: review, remarks, publish | `/school-admin/results/reports` | Built against the agreed phase 3 contract and checked with simulated responses; backend in progress |
+| Term reports: review, remarks, publish | `/school-admin/results/reports` | Live (phase 3; backend `101af33`, not pushed yet), tested on PRM-001 on 24 Oct |
 | Parent reports | Parent portal → Reports | Built earlier on sample data; goes live in phase 4 |
 
 ## Grading setup
@@ -193,4 +193,23 @@ Code: `src/features/results/ReportsBoardPage.tsx` and `ClassReportPage.tsx`.
 - **Found and fixed during the run:**
   - the remark boxes crashed on typing, the same mistake as QA-212: reading the value after React cleared it;
   - error details weren't read correctly, because `ApiError.details` holds the whole error body. The new `errorDetails()` in `src/lib/api-client.ts` fixes this for the mark grid's refused cells and submit list, and for the approve blockers.
+
+**Tested live (24 Oct, PRM-001 Class C, backend `101af33`):**
+- **Setup:**
+  - Tina Teacher was made Class C's class teacher through School setup → Classes.
+  - Eight subjects were marked not assessed through the API (test setup), and the teacher submitted Science in the grid.
+  - The board then showed "9 of 9 submitted".
+- **Working out the reports:** "6 on roll, 6 ranked". Bekoe has 48 (1st), and the other five have 18 each, sharing 2nd. Only Science counts.
+- **Attendance:** "Not recorded", because PRM-001 doesn't use attendance.
+- **As the teacher:** there were no compute, approve or print buttons and no head's-remark field. Their remark, conduct "Very good" and attendance 57/60 saved.
+- **As the principal:**
+  - the head's remark "Keep it up, Bekoe." saved;
+  - Approve worked, and after it the teacher's remark save got 409 "These reports are approved. Reopen them to change remarks.";
+  - publishing produced "Published version 1".
+- **The preview document** (the school's design):
+  - columns "Class Score (40%)" and "Exam Score (60%)";
+  - Science 12 + 36 = 48, an E, with no subject position (staff only);
+  - "Overall Position: 1st out of 6", attendance "57 out of 60", the remarks, and the grading scale with A from 85.
+- **Reopen** showed "Check Bekoe’s attendance", and Print all opened the class's reports.
+- **Not checked:** the publish email.
 

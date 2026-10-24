@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Subjects and what each class takes | School setup → Subjects | Live (phase 0); see [school-setup.md](./school-setup.md#subjects-tab-added-24-oct-results-phase-0) |
 | Grading setup (weights, grades, positions) | `/school-admin/results/setup` | Live (phase 1; backend `99e912b`, not pushed yet), tested on PRM-001 on 24 Oct |
-| Mark entry | `/school-admin/results/marks` | Built against the agreed phase 2 contract and checked with simulated responses; backend in progress |
+| Mark entry | `/school-admin/results/marks` | Live (phase 2; backend `6b0e07d`, not pushed yet), tested on PRM-001 on 24 Oct. Descriptor sheets wait on band ids from the backend. |
 | Term reports: review, remarks, publish | — | Phase 3 |
 | Parent reports | Parent portal → Reports | Built earlier on sample data; goes live in phase 4 |
 
@@ -135,5 +135,15 @@ Code: `src/features/results/MarkSheetsPage.tsx` and `MarkGridPage.tsx`, with the
 - "Test 2" was added and had to be filled;
 - submit was disabled until every mark was in, then the sheet showed as submitted and read-only.
 
-The page title needs `context` (class, subject and term names) from the open response, which has been requested from the backend.
+**Tested live (24 Oct, PRM-001, backend `6b0e07d`):**
+- **Setup for the test:** Pre-School was switched to the school's GES 40/60, so its classes are marked numerically. The re-run's ticked "add subjects" also gave those classes the GES subjects.
+- **Class C Science, teacher@prm.test:**
+  - the page showed "Science, Class C · Term 1, 2026/27 · Class score 40 / Exam 60 · grades: GES A–F (edited)" and "Add the first class test";
+  - Test 1 was added (out of 20);
+  - Bekoe's 8 and 50 saved as 46 E (16 + 30).
+- **Both editing at once:** the principal changed Bekoe's Test 1 to 6 while the teacher entered 55 for the exam on a stale version. The teacher's save got 409, the grid reloaded and re-sent only the exam mark, and there was no false conflict: 12 + 33 = 45.
+- **Too high a mark** (99 out of 20, sent straight to the API): 422 "Above the maximum of 20." in `details.cells`.
+- **Submit and after:** the teacher filled the rest and submitted. As the principal, the banner read "Submitted: changing marks as a head", the exam changed to 60 (48 E), and **Return to teacher** worked. The teacher then saw "Returned by a head: Check the exam marks." and could edit again.
+- **Descriptor sheet** (Class A English, Montessori areas): the live scale bands had no `id`, so a descriptor choice can't be saved. The grid crashed ("Each option must have value property"); it now says "This sheet can't be marked yet" instead. Band ids were requested from the backend.
+- **Fixed during the run:** submit, return and not-assessed now send `rowVersion`, as the backend requires.
 

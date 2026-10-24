@@ -127,6 +127,8 @@ export function MarkGridPage() {
     [data],
   );
   const descriptor = data?.scheme.mode === 'descriptor';
+  // Descriptor marks are saved by band id; without ids the picker can't save anything.
+  const bandsUsable = !descriptor || !!data?.scale.bands.every((b) => b.id);
 
   const flush = useCallback(async () => {
     timer.current = null;
@@ -309,7 +311,7 @@ export function MarkGridPage() {
     if (!sheet) return;
     if (pending.current.size) await flush();
     try {
-      await marksApi.submit(sheet.id);
+      await marksApi.submit(sheet.id, dataRef.current?.sheet?.rowVersion ?? sheet.rowVersion);
       notifications.show({
         color: 'green',
         title: 'Marks submitted',
@@ -336,7 +338,7 @@ export function MarkGridPage() {
   const setNotAssessed = async (on: boolean) => {
     if (!sheet) return;
     try {
-      await marksApi.setNotAssessed(sheet.id, on);
+      await marksApi.setNotAssessed(sheet.id, sheet.rowVersion, on);
       load();
     } catch (err) {
       notifications.show({
@@ -467,6 +469,13 @@ export function MarkGridPage() {
             : ''}
         </Alert>
       ) : null}
+
+      {!bandsUsable && (
+        <Alert color="red" mb="md" title="This sheet can't be marked yet">
+          Its descriptors arrived without the ids needed to save a choice. This has been reported;
+          try again later.
+        </Alert>
+      )}
 
       {noItems.length > 0 && editable && (
         <Alert color="blue" mb="md" title="Add the first class test">
@@ -669,6 +678,7 @@ export function MarkGridPage() {
                                   n.itemIndex === item.itemIndex,
                               );
                               const err = cellErrors[key];
+                              if (descriptor && !bandsUsable) return <Table.Td key={item.id} />;
                               if (descriptor)
                                 return (
                                   <Table.Td key={item.id}>
@@ -873,7 +883,7 @@ export function MarkGridPage() {
           onClose={() => setReturning(false)}
           onReturn={async (reason) => {
             try {
-              await marksApi.returnSheet(sheet.id, reason);
+              await marksApi.returnSheet(sheet.id, sheet.rowVersion, reason);
               setReturning(false);
               notifications.show({
                 color: 'green',

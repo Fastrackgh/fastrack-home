@@ -195,13 +195,17 @@ export const marksApi = {
       )
     ).data;
   },
-  async submit(sheetId: string) {
-    return (await apiClient.post<Sheet>(`${base}/${id(sheetId)}/submit`, {})).data;
+  // Sheet actions carry the version they were made on and return the whole view.
+  async submit(sheetId: string, rowVersion: number) {
+    return (await apiClient.post<OpenSheet>(`${base}/${id(sheetId)}/submit`, { rowVersion })).data;
   },
-  async returnSheet(sheetId: string, reason: string) {
-    return (await apiClient.post<Sheet>(`${base}/${id(sheetId)}/return`, { reason })).data;
+  async returnSheet(sheetId: string, rowVersion: number, reason: string) {
+    return (
+      await apiClient.post<OpenSheet>(`${base}/${id(sheetId)}/return`, { rowVersion, reason })
+    ).data;
   },
-  async setNotAssessed(sheetId: string, notAssessed: boolean) {
-    return (await apiClient.patch<Sheet>(`${base}/${id(sheetId)}`, { notAssessed })).data;
+  async setNotAssessed(sheetId: string, rowVersion: number, notAssessed: boolean) {
+    return (await apiClient.patch<OpenSheet>(`${base}/${id(sheetId)}`, { rowVersion, notAssessed }))
+      .data;
   },
 };

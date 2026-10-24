@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { Alert, Badge, Button, Card, Group, Loader, Stack, Table, Text } from '@mantine/core';
 import { errorMessage } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
+import { useAuth } from '@/lib/auth';
 import { APP_ROUTES } from '@/lib/rbac';
 import { reportsApi, type BoardRow } from './reports-api';
 import { TermPicker, useTerms } from './TermPicker';
@@ -24,6 +25,13 @@ export const classReportHref = (termId: string, classId: string) =>
 /** Every class's term reports at a glance: marks submitted, remarks written, and what's blocking. */
 export function ReportsBoardPage() {
   const { terms, termId, setTermId, error: termsError } = useTerms();
+  const { can } = useAuth();
+  // Say what this role does here: heads approve, class teachers write remarks, secretaries print.
+  const subtitle = can('reports:approve')
+    ? "Check each class's marks and remarks, then approve and publish its reports."
+    : can('reports:remark')
+      ? 'See how each class is doing, and write remarks for your own class.'
+      : "See how each class is doing, and print reports once they're worked out.";
   const [rows, setRows] = useState<BoardRow[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,10 +52,7 @@ export function ReportsBoardPage() {
 
   return (
     <>
-      <PageHeader
-        title="Term reports"
-        subtitle="Check each class's marks and remarks, then approve and publish its reports."
-      />
+      <PageHeader title="Term reports" subtitle={subtitle} />
       <Group mb="md">
         <TermPicker terms={terms} termId={termId} onChange={setTermId} />
       </Group>

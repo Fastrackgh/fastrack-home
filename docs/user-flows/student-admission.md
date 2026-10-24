@@ -57,7 +57,7 @@ sequenceDiagram
 | | Surname | ✓ | — | ≤100 |
 | | Other name | | — | ≤100 |
 | | Gender | | **Male** | `Male`\|`Female` |
-| | Date of birth | | — | date; **future dates accepted** |
+| | Date of birth | | — | date, up to today. A future date shows "Birth date can't be in the future." and blocks Next; the backend refuses it too, and so does the student's Profile tab (QA-209) |
 | | National ID / Ghana Card | | — | ≤50, no format check |
 | | Nationality | | **Ghanaian** | ≤100 |
 | | Religion | | **Christian** | ≤100 |

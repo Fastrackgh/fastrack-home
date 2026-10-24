@@ -43,6 +43,7 @@ import {
   Users,
   UserX,
 } from 'lucide-react';
+import { todayIso } from '@/features/calendar/dates';
 import { setupApi } from '@/features/school-setup/api';
 import { StudentDrawer } from '@/features/students/StudentDrawer';
 import { PageHeader } from '@/features/workspace';
@@ -238,6 +239,10 @@ export default function StudentsPage() {
     fetchStudents();
   }, [fetchStudents]);
 
+  // The backend refuses a birth date after today (QA-209).
+  const BIRTH_IN_FUTURE = "Birth date can't be in the future.";
+  const birthInFuture = () => !!formData.birthDate && formData.birthDate > todayIso();
+
   // The backend needs one parent reachable by name and phone (QA-210).
   const GUARDIAN_REQUIRED = "Add the mother's or father's name and phone number.";
   const hasGuardian = () =>
@@ -250,6 +255,10 @@ export default function StudentsPage() {
     if (step === 0) {
       if (!formData.firstName.trim() || !formData.surname.trim()) {
         setFormError('First Name and Surname are required to proceed.');
+        return false;
+      }
+      if (birthInFuture()) {
+        setFormError(BIRTH_IN_FUTURE);
         return false;
       }
     }
@@ -306,6 +315,11 @@ export default function StudentsPage() {
 
     if (!formData.firstName.trim() || !formData.surname.trim()) {
       setFormError('First name and surname are required.');
+      setActiveStep(0);
+      return;
+    }
+    if (birthInFuture()) {
+      setFormError(BIRTH_IN_FUTURE);
       setActiveStep(0);
       return;
     }
@@ -874,6 +888,8 @@ export default function StudentsPage() {
                       <TextInput
                         label="Date of Birth"
                         type="date"
+                        max={todayIso()}
+                        error={birthInFuture() ? BIRTH_IN_FUTURE : undefined}
                         value={formData.birthDate}
                         onChange={(e) =>
                           setFormData({ ...formData, birthDate: e.currentTarget.value })

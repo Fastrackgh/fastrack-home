@@ -12,6 +12,7 @@ import {
   Textarea,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { todayIso } from '@/features/calendar/dates';
 import { PROFILE_FIELDS, errorMessage, studentsApi, type Profile, type StudentDetail } from './api';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -30,6 +31,8 @@ export function ProfileTab({
   const [draft, setDraft] = useState<Profile>(student.profile);
   const [saving, setSaving] = useState(false);
 
+  // The backend refuses a birth date after today (QA-209).
+  const birthInFuture = !!draft.birthDate && draft.birthDate > todayIso();
   const changed = PROFILE_FIELDS.filter((f) => draft[f].trim() !== student.profile[f]);
 
   const text = (field: keyof Profile, label: string, extra: object = {}) => (
@@ -56,7 +59,7 @@ export function ProfileTab({
   );
 
   const save = async () => {
-    if (!draft.firstName.trim() || !draft.surname.trim()) return;
+    if (!draft.firstName.trim() || !draft.surname.trim() || birthInFuture) return;
     setSaving(true);
     try {
       await studentsApi.update(
@@ -83,7 +86,11 @@ export function ProfileTab({
         {text('otherName', 'Other name', { maxLength: 100 })}
         {text('surname', 'Surname', { required: true, maxLength: 100 })}
         {choice('gender', 'Gender', ['Male', 'Female'])}
-        {text('birthDate', 'Date of birth', { type: 'date' })}
+        {text('birthDate', 'Date of birth', {
+          type: 'date',
+          max: todayIso(),
+          error: birthInFuture ? "Birth date can't be in the future." : undefined,
+        })}
         {text('nationalId', 'National ID / birth cert. no.', { maxLength: 50 })}
         {text('nationality', 'Nationality', { maxLength: 100 })}
         {text('religion', 'Religion', { maxLength: 100 })}
@@ -120,7 +127,12 @@ export function ProfileTab({
             color="fastrackRed"
             radius="md"
             loading={saving}
-            disabled={changed.length === 0 || !draft.firstName.trim() || !draft.surname.trim()}
+            disabled={
+              changed.length === 0 ||
+              !draft.firstName.trim() ||
+              !draft.surname.trim() ||
+              birthInFuture
+            }
             onClick={save}
           >
             Save changes

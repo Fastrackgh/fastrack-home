@@ -47,6 +47,7 @@ import {
 import {
   bandsProblem,
   editFrom,
+  baseCopies,
   editFromStored,
   prefillFrom,
   sameEdit,
@@ -56,6 +57,7 @@ import {
   tryScore,
   weightTotal,
   weightsProblem,
+  type Copy,
   type PresetEdit,
 } from './setup-model';
 
@@ -252,6 +254,12 @@ function Wizard({
   onDone: () => void;
 }) {
   const [prefill] = useState(() => (existing ? prefillFrom(existing, presets) : null));
+  // Keys below are copy ids: a preset's key, or one of the school's stored setups.
+  const copies = useMemo(
+    () => [...(prefill?.copies ?? []), ...baseCopies(presets)],
+    [prefill, presets],
+  );
+  const copyOf = (id: string) => copies.find((c) => c.id === id)!;
   const suggested = (codes: string[]) =>
     presets.find((p) => codes.some((c) => p.suggestedForDepartmentCodes.includes(c)))?.key;
   // The school default follows the department with the most classes.
@@ -269,7 +277,7 @@ function Wizard({
     ),
   );
   const [edits, setEdits] = useState<Record<string, PresetEdit>>(() =>
-    Object.fromEntries(presets.map((p) => [p.key, prefill?.edits[p.key] ?? editFrom(p)])),
+    Object.fromEntries(copies.map((c) => [c.id, prefill?.edits[c.id] ?? editFrom(c.preset)])),
   );
   // A re-run keeps the school's settings rather than the presets' suggestions.
   const [settings, setSettings] = useState<Settings>(existing?.settings ?? DEFAULT_SETTINGS);
@@ -282,16 +290,16 @@ function Wizard({
     deptKeys[deptId] === SAME || !deptKeys[deptId] ? defaultKey : deptKeys[deptId];
   const used = useMemo(() => {
     const keys = new Set([defaultKey, ...departments.map((d) => keyFor(d.id))]);
-    return presets.filter((p) => keys.has(p.key));
+    return copies.filter((c) => keys.has(c.id));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [defaultKey, deptKeys, departments, presets]);
-  const preset = (key: string) => presets.find((p) => p.key === key)!;
+  }, [defaultKey, deptKeys, departments, copies]);
+  const preset = (key: string) => copyOf(key).preset;
 
   // Settings start from the presets until the school changes them itself.
   useEffect(() => {
     if (settingsTouched) return;
     const fromDefault = preset(defaultKey)?.settings ?? {};
-    const aggregate = used.map((p) => p.settings.aggregate).find(Boolean) ?? null;
+    const aggregate = used.map((c) => c.preset.settings.aggregate).find(Boolean) ?? null;
     setSettings({ ...DEFAULT_SETTINGS, ...fromDefault, aggregate });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultKey, used, settingsTouched]);
@@ -318,7 +326,7 @@ function Wizard({
       const scheme = row ? schemeOf(row.schemeFamilyId) : undefined;
       return (
         !!scheme &&
-        scheme.presetKey === key &&
+        scheme.presetKey === preset(key).key &&
         sameEdit(edits[key], editFromStored(preset(key), scheme, scaleOf(row!.scaleFamilyId)))
       );
     };
@@ -350,12 +358,12 @@ function Wizard({
   const setEdit = (key: string, edit: PresetEdit) => setEdits((all) => ({ ...all, [key]: edit }));
 
   const problems = (kind: 'weights' | 'bands') =>
-    used.flatMap((p) => {
+    used.flatMap((c) => {
       const problem =
         kind === 'weights'
-          ? weightsProblem(edits[p.key], p.scheme.mode)
-          : bandsProblem(edits[p.key], p.scale.mode);
-      return problem ? [`${p.name}: ${problem}`] : [];
+          ? weightsProblem(edits[c.id], c.preset.scheme.mode)
+          : bandsProblem(edits[c.id], c.preset.scale.mode);
+      return problem ? [`${c.label}: ${problem}`] : [];
     });
   const stepProblems = step === 1 ? problems('weights') : step === 2 ? problems('bands') : [];
 
@@ -364,14 +372,14 @@ function Wizard({
     try {
       const result = await resultsApi.apply({
         academicYearId: year.id,
-        defaultPresetKey: defaultKey,
+        defaultPresetKey: preset(defaultKey).key,
         defaultOverrides: overridesFor(preset(defaultKey), edits[defaultKey]),
         departments: departments
           // A department on the same preset as the school already gets it from the school row.
           .filter((d) => deptKeys[d.id] && deptKeys[d.id] !== SAME && deptKeys[d.id] !== defaultKey)
           .map((d) => ({
             departmentId: d.id,
-            presetKey: deptKeys[d.id],
+            presetKey: preset(deptKeys[d.id]).key,
             overrides: overridesFor(preset(deptKeys[d.id]), edits[deptKeys[d.id]]),
           })),
         settings,
@@ -439,6 +447,7 @@ function Wizard({
       {step === 0 && (
         <PresetsStep
           presets={presets}
+          copies={copies}
           departments={departments}
           defaultKey={defaultKey}
           setDefaultKey={setDefaultKey}
@@ -447,40 +456,42 @@ function Wizard({
         />
       )}
       {step === 1 &&
-        used.map((p) => (
+        used.map((c) => (
           <WeightsCard
-            key={p.key}
-            preset={p}
-            edit={edits[p.key]}
+            key={c.id}
+            title={c.label}
+            preset={c.preset}
+            edit={edits[c.id]}
             settings={settings}
-            onChange={(edit) => setEdit(p.key, edit)}
+            onChange={(edit) => setEdit(c.id, edit)}
           />
         ))}
       {step === 2 &&
-        used.map((p) => (
+        used.map((c) => (
           <BandsCard
-            key={p.key}
-            preset={p}
-            edit={edits[p.key]}
+            key={c.id}
+            title={c.label}
+            preset={c.preset}
+            edit={edits[c.id]}
             decimals={settings.scoreDecimals}
-            onChange={(edit) => setEdit(p.key, edit)}
+            onChange={(edit) => setEdit(c.id, edit)}
           />
         ))}
       {step === 3 && (
         <SettingsStep
           settings={settings}
           onChange={changeSettings}
-          aggregateUsed={used.some((p) => p.settings.aggregate)}
+          aggregateUsed={used.some((c) => c.preset.settings.aggregate)}
         />
       )}
       {step === 4 && (
         <ReviewStep
           year={year}
           departments={departments}
-          defaultPreset={preset(defaultKey)}
-          deptPreset={(id) =>
+          defaultCopy={copyOf(defaultKey)}
+          deptCopy={(id) =>
             deptKeys[id] && deptKeys[id] !== SAME && deptKeys[id] !== defaultKey
-              ? preset(deptKeys[id])
+              ? copyOf(deptKeys[id])
               : null
           }
           edits={edits}
@@ -532,6 +543,7 @@ function Wizard({
 
 function PresetsStep({
   presets,
+  copies,
   departments,
   defaultKey,
   setDefaultKey,
@@ -539,14 +551,15 @@ function PresetsStep({
   setDeptKey,
 }: {
   presets: Preset[];
+  copies: Copy[];
   departments: Department[];
   defaultKey: string;
   setDefaultKey: (key: string) => void;
   deptKeys: Record<string, string>;
   setDeptKey: (deptId: string, key: string) => void;
 }) {
-  const options = presets.map((p) => ({ value: p.key, label: p.name }));
-  const chosen = presets.find((p) => p.key === defaultKey);
+  const options = copies.map((c) => ({ value: c.id, label: c.label }));
+  const chosen = copies.find((c) => c.id === defaultKey)?.preset;
   return (
     <Stack gap="md">
       <Card withBorder radius="lg" p="lg">
@@ -620,11 +633,13 @@ function PresetsStep({
 }
 
 function WeightsCard({
+  title,
   preset,
   edit,
   settings,
   onChange,
 }: {
+  title: string;
   preset: Preset;
   edit: PresetEdit;
   settings: Settings;
@@ -638,7 +653,7 @@ function WeightsCard({
   if (preset.scheme.mode === 'descriptor')
     return (
       <Card withBorder radius="lg" p="lg">
-        <Text fw={700}>{preset.name}</Text>
+        <Text fw={700}>{title}</Text>
         <Text size="sm" c="dimmed" mb="sm">
           Rated in words, with no marks to add up. Teachers rate each of these:
         </Text>
@@ -656,7 +671,7 @@ function WeightsCard({
   return (
     <Card withBorder radius="lg" p="lg">
       <Group justify="space-between" mb="sm">
-        <Text fw={700}>{preset.name}</Text>
+        <Text fw={700}>{title}</Text>
         <Group gap="xs">
           <Badge color={total === 100 ? 'green' : 'red'} variant="light">
             Total {total} / 100
@@ -758,11 +773,13 @@ function WeightsCard({
 }
 
 function BandsCard({
+  title,
   preset,
   edit,
   decimals,
   onChange,
 }: {
+  title: string;
   preset: Preset;
   edit: PresetEdit;
   decimals: number;
@@ -777,7 +794,7 @@ function BandsCard({
   return (
     <Card withBorder radius="lg" p="lg">
       <Group justify="space-between" mb="sm" align="flex-end">
-        <Text fw={700}>{preset.name}</Text>
+        <Text fw={700}>{title}</Text>
         {numeric && (
           <Group gap="xs" align="flex-end">
             <NumberInput
@@ -978,8 +995,8 @@ function SettingsStep({
 function ReviewStep({
   year,
   departments,
-  defaultPreset,
-  deptPreset,
+  defaultCopy,
+  deptCopy,
   edits,
   settings,
   changes,
@@ -989,8 +1006,8 @@ function ReviewStep({
 }: {
   year: AcademicYear;
   departments: Department[];
-  defaultPreset: Preset;
-  deptPreset: (deptId: string) => Preset | null;
+  defaultCopy: Copy;
+  deptCopy: (deptId: string) => Copy | null;
   edits: Record<string, PresetEdit>;
   settings: Settings;
   /** Null on a first setup; otherwise the levels this would change. */
@@ -999,13 +1016,14 @@ function ReviewStep({
   addSubjects: boolean;
   setAddSubjects: (on: boolean) => void;
 }) {
-  const describe = (p: Preset) => {
-    const edit = edits[p.key];
-    const changed = overridesFor(p, edit) ? ' (changed)' : '';
-    if (p.scheme.mode === 'descriptor') return `${p.name}${changed}: rated in words`;
+  const describe = (c: Copy) => {
+    const edit = edits[c.id];
+    const changed =
+      overridesFor(c.preset, edit) && !c.id.startsWith('current-') ? ' (changed)' : '';
+    if (c.preset.scheme.mode === 'descriptor') return `${c.label}${changed}: rated in words`;
     const parts = edit.components.map((c) => `${c.label} ${c.weight}%`).join(', ');
     const top = edit.bands[0];
-    return `${p.name}${changed}: ${parts}; ${top?.label} from ${top?.minScore}`;
+    return `${c.label}${changed}: ${parts}; ${top?.label} from ${top?.minScore}`;
   };
   const visibility = (v: Visibility) => VISIBILITY.find((o) => o.value === v)?.label;
   return (
@@ -1041,10 +1059,10 @@ function ReviewStep({
           <Text fw={700}>For {year.yearLabel}</Text>
         </Group>
         <Text size="sm">
-          <b>Whole school:</b> {describe(defaultPreset)}
+          <b>Whole school:</b> {describe(defaultCopy)}
         </Text>
         {departments.map((d) => {
-          const p = deptPreset(d.id);
+          const p = deptCopy(d.id);
           return (
             <Text key={d.id} size="sm">
               <b>{d.name}:</b> {p ? describe(p) : 'same as the whole school'}

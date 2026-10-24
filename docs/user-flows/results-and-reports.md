@@ -59,6 +59,8 @@ flowchart TD
 - **Warning:** settings it can't show (one class, one subject, or a department overriding only its grades) are counted in a red warning, because applying replaces the year's rows.
 - **Re-tested on PRM-001:** a re-run applied unchanged created nothing and left the summary as it was. Changing JHS to the school default was listed before applying.
 - **Before the fix:** the re-run started from the suggestions, so applying it could quietly replace departments' settings (QA found this on QAS-300).
+- **Partly fixed, then finished 24 Oct:** the first fix kept one working copy per preset. So a department on the school's preset but with its own weights (QAS-300's Lower Primary at 40/60) was merged into the school default. Each distinct stored setup is now its own copy, offered in the pickers as e.g. "GES basic (30% class, 70% exam): your current (Class score 40 / Exam 60, GES A–F (edited))", with its own Weights and Grades cards.
+- **Re-tested on PRM-001:** with the school on its 40/60 copy and Lower Primary on the plain preset, a re-run prefilled both separately and said "No change to weights or grades", with no removal warning.
 
 **What is sent:**
 - Only changes from the preset go as overrides.

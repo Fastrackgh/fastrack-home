@@ -167,37 +167,58 @@ export function sameEdit(a: PresetEdit, b: PresetEdit) {
 }
 
 /**
+ * A working copy the wizard edits: a preset as it comes (id = the preset key),
+ * or one of the school's stored setups made from it. Two levels on the same
+ * preset with different weights are two copies (QA-257).
+ */
+export interface Copy {
+  id: string;
+  preset: Preset;
+  label: string;
+}
+
+export const baseCopies = (presets: Preset[]): Copy[] =>
+  presets.map((preset) => ({ id: preset.key, preset, label: preset.name }));
+
+/**
  * Starts "Run setup again" from what the school has (QA-257), not from the
- * suggestions, so applying it unchanged changes nothing. Levels the wizard
- * can't show (one class, one subject, or a department overriding only its
- * scale) are counted, because applying replaces the year's rows.
+ * suggestions, so applying it unchanged changes nothing. Each distinct stored
+ * setup becomes its own copy. Levels the wizard can't show (one class, one
+ * subject, or a department overriding only its scale) are counted, because
+ * applying replaces the year's rows.
  */
 export function prefillFrom(current: CurrentSetup, presets: Preset[]) {
   const scheme = (familyId: string | null) => current.schemes.find((s) => s.familyId === familyId);
   const scale = (familyId: string | null) => current.scales.find((s) => s.familyId === familyId);
-  const presetFor = (row: PolicyRow) => {
-    const key = scheme(row.schemeFamilyId)?.presetKey ?? scale(row.scaleFamilyId)?.presetKey;
-    return presets.find((p) => p.key === key);
-  };
+  const copies: Copy[] = [];
   const edits: Record<string, PresetEdit> = {};
   const deptKeys: Record<string, string> = {};
   let defaultKey: string | undefined;
   let notShown = 0;
-  const take = (row: PolicyRow, preset: Preset) => {
-    const edit = editFromStored(preset, scheme(row.schemeFamilyId), scale(row.scaleFamilyId));
-    if (!edits[preset.key]) edits[preset.key] = edit;
-    // One working copy per preset: a second, different copy can't be shown.
-    else if (!sameEdit(edits[preset.key], edit)) notShown++;
+  const copyFor = (row: PolicyRow): string | undefined => {
+    const s = scheme(row.schemeFamilyId);
+    const key = s?.presetKey ?? scale(row.scaleFamilyId)?.presetKey;
+    const preset = presets.find((p) => p.key === key);
+    if (!preset) return undefined;
+    const stored = editFromStored(preset, s, scale(row.scaleFamilyId));
+    if (sameEdit(stored, editFrom(preset))) return preset.key;
+    const twin = copies.find((c) => c.preset.key === preset.key && sameEdit(edits[c.id], stored));
+    if (twin) return twin.id;
+    const id = `current-${copies.length + 1}`;
+    const name = [s?.name, scale(row.scaleFamilyId)?.name].filter(Boolean).join(', ');
+    copies.push({ id, preset, label: `${preset.name}: your current (${name})` });
+    edits[id] = stored;
+    return id;
   };
   for (const row of current.rows) {
-    const preset = presetFor(row);
-    if (row.scope === 'school' && preset) {
-      defaultKey = preset.key;
-      take(row, preset);
-    } else if (row.scope === 'department' && row.departmentId && row.schemeFamilyId && preset) {
-      deptKeys[row.departmentId] = preset.key;
-      take(row, preset);
-    } else if (row.scope !== 'school') notShown++;
+    if (row.scope === 'school') {
+      defaultKey = copyFor(row);
+      if (!defaultKey) notShown++;
+    } else if (row.scope === 'department' && row.departmentId && row.schemeFamilyId) {
+      const id = copyFor(row);
+      if (id) deptKeys[row.departmentId] = id;
+      else notShown++;
+    } else notShown++;
   }
-  return { defaultKey, deptKeys, edits, notShown };
+  return { defaultKey, deptKeys, edits, copies, notShown };
 }

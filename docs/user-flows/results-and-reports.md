@@ -154,6 +154,7 @@ Code: `src/features/results/ReportsBoardPage.tsx` and `ClassReportPage.tsx`.
 
 **Who:**
 - **Viewing:** anyone with `reports:read` and the `results` module (Principal, Academic Head, Teacher, Secretary). The Reports & results area opens it.
+- **The old sample "Academic performance" page:** when the school has `results` on, it gives way to Term reports. Teachers, who have no Reports area, see "Term reports" in its place. For heads it's hidden, since Reports & results already opens the board. Without `results`, it stays a labelled preview. The dashboard's sample banner no longer mentions "child" to staff (QA note, 24 Oct).
 - **Working out and printing:** `reports:generate` (heads and secretaries).
 - **Remarks:** the class's own class teacher, or a head.
 - **Head's remark, approve, publish, reopen, withhold:** heads only.

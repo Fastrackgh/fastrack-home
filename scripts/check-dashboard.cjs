@@ -810,4 +810,22 @@ check('mark sheets: teachers and heads with results; cell typing, missing marks 
   assert.deepEqual(keep.map((k) => k.change.itemIndex), [2]);
   assert.deepEqual(conflicts, ['p1|class|1']);
 });
+check('with results on, Academic performance gives way to the live term reports', () => {
+  const on = (role) => ({ ...viewer(role), modules: ['results', 'students'] });
+  const off = (role) => ({ ...viewer(role), modules: ['students'] });
+  // Teachers have no Reports area, so their Academic performance opens Term reports.
+  assert.equal(m.areaPage(on('TEACHER'), 'performance'), 'reports');
+  assert.ok(m.canAccess(on('TEACHER'), 'performance'));
+  assert.equal(m.areaHref(on('TEACHER'), 'performance'), '/school-admin/results/reports');
+  // Heads already have Reports, so the preview is simply hidden.
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD']) {
+    assert.equal(m.canAccess(on(role), 'performance'), false, role);
+    assert.ok(m.canAccess(on(role), 'reports'), role);
+  }
+  // Without results, everyone keeps the labelled preview.
+  for (const role of ['TEACHER', 'PRINCIPAL', 'ACADEMIC_HEAD']) {
+    assert.equal(m.areaPage(off(role), 'performance'), undefined, role);
+    assert.ok(m.canAccess(off(role), 'performance'), role);
+  }
+});
 console.log(`${checks} dashboard and access checks passed.`);

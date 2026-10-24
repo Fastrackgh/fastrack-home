@@ -301,13 +301,29 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   reports: 'reports',
 };
 
+/**
+ * With the results module on, the sample "Academic performance" gives way to
+ * the live term reports: for roles without a Reports area (teachers) it opens
+ * them; for the rest it's hidden, as Reports already does (QA, 24 Oct).
+ * Only a known module list counts, so an unloaded one keeps the preview.
+ */
+const resultsLive = (viewer: Viewer) => !!viewer.modules?.includes('results');
+
 /** The live page that serves `area` for this viewer, if any. */
 export function areaPage(viewer: Viewer, area: Area): AppRouteKey | undefined {
-  return audienceOf(viewer.role) === 'staff' ? areaPages[area] : undefined;
+  if (audienceOf(viewer.role) !== 'staff') return undefined;
+  if (area === 'performance' && resultsLive(viewer)) return 'reports';
+  return areaPages[area];
 }
 
 export function canAccess(viewer: Viewer, area: Area) {
   if (!roleConfig[viewer.role].areas.includes(area)) return false;
+  if (
+    area === 'performance' &&
+    resultsLive(viewer) &&
+    roleConfig[viewer.role].areas.includes('reports')
+  )
+    return false;
   const requiredModule = areaModule[area];
   if (requiredModule && !hasModule(viewer, requiredModule)) return false;
   const page = areaPage(viewer, area);

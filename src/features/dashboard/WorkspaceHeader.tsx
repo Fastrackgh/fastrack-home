@@ -12,7 +12,8 @@ export function WorkspaceHeader({ title, subtitle }: { title: string; subtitle?:
   return (
     <>
       <PreviewNotice>
-        Sample data · Changes last until you switch child or term, or reload.
+        Sample data · Changes last until you switch{' '}
+        {dataScopeOf(viewer.role) === 'own_children' ? 'child or term' : 'term'}, or reload.
       </PreviewNotice>
       <PageHeader
         title={title}

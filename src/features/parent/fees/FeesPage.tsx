@@ -216,10 +216,26 @@ function InvoiceCard({ invoice }: { invoice: ParentInvoice }) {
           </div>
           <Group gap={4} wrap="nowrap">
             <div style={{ textAlign: 'right' }}>
-              <Text fw={700}>{formatGhs(Math.max(invoice.balance, 0))}</Text>
-              <Text size="xs" c="dimmed">
-                of {formatGhs(invoice.feePayable)}
-              </Text>
+              {/* A credit bigger than the fees leaves a negative balance (QA-244). */}
+              {invoice.balance < 0 ? (
+                <>
+                  <Text fw={700} c="green">
+                    {formatGhs(-invoice.balance)} credit
+                  </Text>
+                  <Text size="xs" c="dimmed">
+                    Nothing to pay
+                  </Text>
+                </>
+              ) : (
+                <>
+                  <Text fw={700}>{formatGhs(invoice.balance)}</Text>
+                  <Text size="xs" c="dimmed">
+                    {invoice.feePayable > 0
+                      ? `of ${formatGhs(invoice.feePayable)}`
+                      : 'Covered by credit'}
+                  </Text>
+                </>
+              )}
             </div>
             <ChevronRight size={18} color="var(--mantine-color-gray-5)" />
           </Group>

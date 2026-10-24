@@ -80,7 +80,7 @@ sequenceDiagram
 | Tab | Route | Contents |
 | --- | --- | --- |
 | Home | `/parent` | Child card; tiles for fees owed, this month's attendance and the latest report (each hidden when the school hasn't turned it on); "Coming up this term" (next three events that aren't cancelled, with a postponed badge, needs `calendar:read`); other children; install card |
-| Fees | `/parent/fees` | Bills (filter by term) and Payments. The Outstanding card comes from `GET /parents/me/wards/:id/invoices/summary` with the same term, not from the visible page: billed excludes arrears brought forward. The headline is outstanding minus credit, shown as "In credit" when below zero, and notes show amounts brought forward, moved to a later bill, or netted against a credit (QA-222, QA-243) |
+| Fees | `/parent/fees` | Bills (filter by term) and Payments. The Outstanding card comes from `GET /parents/me/wards/:id/invoices/summary` with the same term, not from the visible page: billed excludes arrears brought forward. The headline is outstanding minus credit, shown as "In credit" when below zero, and notes show amounts brought forward, moved to a later bill, or netted against a credit (QA-222, QA-243). A bill whose credit is bigger than its fees reads "GHS 200.00 credit · Nothing to pay" in the list; its detail shows "Credit after fees" and "Credit" in green instead of negative amounts. A zero balance with nothing payable reads "Covered by credit" (QA-244) |
 | | `/parent/fees/[invoiceId]` | Breakdown, Pay now, printable bill |
 | | `/parent/receipts/[paymentId]` | Receipt and printable receipt |
 | Reports | `/parent/reports` | Published terminal reports: term, class, average, position (with "=" for a shared place) and grade; "Updated <date>" when republished |

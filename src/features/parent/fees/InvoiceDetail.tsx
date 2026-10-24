@@ -47,13 +47,23 @@ export function InvoiceDetail({ invoiceId }: { invoiceId: string }) {
   );
 }
 
-function Row({ label, value, strong }: { label: string; value: Pesewas; strong?: boolean }) {
+function Row({
+  label,
+  value,
+  strong,
+  credit,
+}: {
+  label: string;
+  value: Pesewas;
+  strong?: boolean;
+  credit?: boolean;
+}) {
   return (
     <Group justify="space-between">
       <Text size="sm" fw={strong ? 700 : 400} c={strong ? undefined : 'dimmed'}>
         {label}
       </Text>
-      <Text size="sm" fw={strong ? 700 : 500}>
+      <Text size="sm" fw={strong ? 700 : 500} c={credit ? 'green' : undefined}>
         {formatGhs(value)}
       </Text>
     </Group>
@@ -82,17 +92,25 @@ function WardInvoice({ ward, invoiceId }: { ward: Ward; invoiceId: string }) {
                   <Text size="sm" c="dimmed">
                     {invoice.termLabel ? `${invoice.termLabel}, ${invoice.yearLabel}` : 'Fee bill'}
                   </Text>
-                  <Title order={2} style={{ fontFamily: 'var(--font-heading)' }}>
-                    {formatGhs(Math.max(invoice.balance, 0))}
+                  <Title
+                    order={2}
+                    c={invoice.balance < 0 ? 'green' : undefined}
+                    style={{ fontFamily: 'var(--font-heading)' }}
+                  >
+                    {invoice.balance < 0
+                      ? `${formatGhs(-invoice.balance)} credit`
+                      : formatGhs(invoice.balance)}
                   </Title>
                   <Text size="xs" c="dimmed">
                     {owing
                       ? 'Balance to pay'
                       : invoice.balance < 0
-                        ? `In credit by ${formatGhs(-invoice.balance)}`
+                        ? 'Nothing to pay on this bill'
                         : invoice.status === 'CARRIED_FORWARD'
                           ? `${formatGhs(invoice.carriedForwardAmount ?? 0)} moved to ${invoice.carriedForwardToInvoiceNumber ?? 'the next bill'}`
-                          : 'Fully paid'}
+                          : invoice.feePayable <= 0
+                            ? 'Covered by credit'
+                            : 'Fully paid'}
                     {owing && invoice.dueDate ? ` · Due ${formatDate(invoice.dueDate)}` : ''}
                   </Text>
                 </div>
@@ -163,9 +181,18 @@ function WardInvoice({ ward, invoiceId }: { ward: Ward; invoiceId: string }) {
                 {invoice.discountAmount > 0 && (
                   <Row label="Discount" value={-invoice.discountAmount} />
                 )}
-                <Row label="Amount payable" value={invoice.feePayable} strong />
+                {/* A credit bigger than the fees is shown as credit, not a negative amount (QA-244). */}
+                {invoice.feePayable < 0 ? (
+                  <Row label="Credit after fees" value={-invoice.feePayable} strong credit />
+                ) : (
+                  <Row label="Amount payable" value={invoice.feePayable} strong />
+                )}
                 <Row label="Paid so far" value={invoice.totalPayment} />
-                <Row label="Balance" value={invoice.balance} strong />
+                {invoice.balance < 0 ? (
+                  <Row label="Credit" value={-invoice.balance} strong credit />
+                ) : (
+                  <Row label="Balance" value={invoice.balance} strong />
+                )}
               </Stack>
             </Card>
 

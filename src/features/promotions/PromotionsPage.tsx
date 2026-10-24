@@ -392,7 +392,15 @@ export function PromotionsPage() {
           <Stack gap={4}>
             {(classes ?? []).map((c) => {
               const plan = plans[c.classId];
-              if (!plan || plan.target === SKIP || plan.target === null) return null;
+              if (!plan || plan.target === null) return null;
+              // Name the classes left where they are, not only count their pupils.
+              if (plan.target === SKIP)
+                return c.pupils.length ? (
+                  <Text key={c.classId} size="xs" c="dimmed">
+                    {c.className}: doesn&apos;t move ({pupils(c.pupils.length)}{' '}
+                    {c.pupils.length === 1 ? 'stays' : 'stay'})
+                  </Text>
+                ) : null;
               const to =
                 plan.target === GRADUATE
                   ? 'Graduates'

@@ -6,7 +6,7 @@
 | --- | --- | --- |
 | Subjects and what each class takes | School setup → Subjects | Live (phase 0); see [school-setup.md](./school-setup.md#subjects-tab-added-24-oct-results-phase-0) |
 | Grading setup (weights, grades, positions) | `/school-admin/results/setup` | Live (phase 1; backend `99e912b`, not pushed yet), tested on PRM-001 on 24 Oct |
-| Mark entry | — | Phase 2 |
+| Mark entry | `/school-admin/results/marks` | Built against the agreed phase 2 contract and checked with simulated responses; backend in progress |
 | Term reports: review, remarks, publish | — | Phase 3 |
 | Parent reports | Parent portal → Reports | Built earlier on sample data; goes live in phase 4 |
 
@@ -82,3 +82,58 @@ flowchart TD
 - **A bad apply** (weights adding to 95, sent to the API) gets 400 "School default: Weights add up to 95, not 100."
 
 **Not yet:** advanced editing of a single class's or subject's grading, the remark bank, and per-version history. These come with the "Advanced" tabs after phase 1 is live.
+
+## Mark entry
+
+Code: `src/features/results/MarkSheetsPage.tsx` and `MarkGridPage.tsx`, with the grid's logic in `marks-model.ts` (checked in `scripts/check-dashboard.cjs`).
+
+**Who:** `marks:enter` with the `results` module on: Principal, Academic Head and Teacher. Secretaries can read results for reports but don't open mark sheets. The Gradebook area opens this page.
+
+**Mark sheets list.**
+- A term picker, defaulting to the current term.
+- Cards grouped by class, one per subject, each showing its status (not started, in progress, submitted, approved), "n of m marks", and the teachers or "Any teacher can mark".
+- Teachers see their own subjects plus unassigned ones in their own class. **All classes** shows every class, so a teacher can find a subject nobody teaches yet. Heads start with all classes.
+
+**The grid** (`/school-admin/results/marks/sheet?termId&classId&subjectId`).
+- **Layout:**
+  - one row per pupil;
+  - columns grouped by part (class score, exam…), one per test;
+  - the total and grade beside each pupil, worked out with the school's own rounding.
+- **Typing:**
+  - a mark, **a** for absent or **x** for exempt; clearing a cell removes the mark;
+  - Enter or ↓ moves down the column, ↑ moves up;
+  - pasting a column or a block from a spreadsheet fills down, and across.
+- **Saving:**
+  - changes save on their own after a moment ("Saving…", "All changes saved");
+  - leaving with unsaved changes asks first;
+  - a refused cell is outlined red with the reason, e.g. "The most is 10.".
+- **Pupil flags:**
+  - **Joined <date>:** tests taken before then show "n/a" and aren't needed.
+  - **From <class>:** marks came with the pupil.
+  - **Left <date>:** greyed; never needed.
+  - **+n kept:** carried marks with no matching test here.
+- **Tests:**
+  - **+** in a part's header adds a test (name, marked out of, date taken). The date decides who doesn't need it.
+  - Each test's menu edits or removes it.
+  - A part with no tests shows "Add the first class test", because no pupil can be complete without one.
+- **Someone else saved first** (409): the sheet reloads, your other changes are re-applied, and any cell they also changed is outlined orange with "Someone else changed this sheet".
+- **Submit:**
+  - enabled once every needed mark is in;
+  - the backend's missing list is shown if it disagrees;
+  - after submitting, a teacher can't change marks ("Ask a head to return the sheet").
+- **Heads:**
+  - can change marks on a submitted or approved sheet, with a yellow note that changes are recorded against them;
+  - can **Return to teacher** with a reason, which the teacher sees;
+  - can mark the subject **Not assessed this term**.
+- **Descriptor subjects** use a picker per strand (the scale's descriptors, Absent, Exempt) and have no total.
+
+**Checked with simulated responses (24 Oct, PRM-001, signed in as teacher@prm.test):**
+- 8 and 56 saved in one request and showed 80 A;
+- "71" out of 70 was refused in the cell;
+- pasting 63 and 40 down the Exam column filled Kofi and Esi;
+- a simulated 409 kept the other person's 9 and outlined it;
+- "Test 2" was added and had to be filled;
+- submit was disabled until every mark was in, then the sheet showed as submitted and read-only.
+
+The page title needs `context` (class, subject and term names) from the open response, which has been requested from the backend.
+

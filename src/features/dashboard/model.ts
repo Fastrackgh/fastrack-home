@@ -123,6 +123,7 @@ export const roleConfig: Record<
       'archive',
       'questions',
       'templates',
+      'gradebook',
       'grading',
       'setup',
     ],
@@ -146,6 +147,7 @@ export const roleConfig: Record<
       'questions',
       'communication',
       'schedule',
+      'gradebook',
       'grading',
       'setup',
     ],
@@ -295,6 +297,7 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   calendar: 'calendar',
   setup: 'setup',
   grading: 'resultsSetup',
+  gradebook: 'marks',
 };
 
 /** The live page that serves `area` for this viewer, if any. */

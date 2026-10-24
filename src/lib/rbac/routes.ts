@@ -63,6 +63,12 @@ export const APP_ROUTES = {
     label: 'School setup',
     rule: { audiences: ['staff'], permission: 'classes:manage' },
   },
+  marks: {
+    path: '/school-admin/results/marks',
+    label: 'Mark sheets',
+    // Secretaries read results for reports, but don't open mark sheets.
+    rule: { audiences: ['staff'], permission: 'marks:enter', module: 'results' },
+  },
   resultsSetup: {
     path: '/school-admin/results/setup',
     label: 'Grading setup',

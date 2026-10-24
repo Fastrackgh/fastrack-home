@@ -740,4 +740,62 @@ check('grading setup is for heads with the results module; its maths matches the
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 0), { printed: 80, grade: 'A' });
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 1), { printed: 79.5, grade: 'B' });
 });
+check('mark sheets: teachers and heads with results; cell typing, missing marks and conflicts', () => {
+  const path = '/school-admin/results/marks/sheet';
+  assert.equal(rbac.findRoute(path).path, '/school-admin/results/marks');
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD', 'TEACHER'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), role);
+  for (const role of ['SECRETARY', 'ACCOUNT_OFFICER', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), false, role);
+  assert.equal(rbac.canAccessPath({ ...viewer('TEACHER'), modules: [] }, path), false);
+
+  const mm = load('src/features/results/marks-model.ts');
+  assert.deepEqual(mm.parseCell('7.5', 10), { change: { status: 'scored', rawScore: 7.5 } });
+  assert.deepEqual(mm.parseCell(' A ', 10), { change: { status: 'absent', rawScore: null } });
+  assert.deepEqual(mm.parseCell('x', 10), { change: { status: 'exempt', rawScore: null } });
+  assert.deepEqual(mm.parseCell('', 10), { change: { status: null } });
+  assert.deepEqual(mm.parseCell('11', 10), { error: 'The most is 10.' });
+  assert.ok('error' in mm.parseCell('7.555', 10));
+  assert.ok('error' in mm.parseCell('-1', 10));
+
+  const item = (componentKey, itemIndex, maxRaw = 10) => ({ id: `${componentKey}${itemIndex}`, componentKey, itemIndex, label: `T${itemIndex}`, maxRaw, takenOn: null });
+  const items = [item('class', 1), item('class', 2), item('exam', 1, 70)];
+  const mark = (componentKey, itemIndex, rawScore, maxRaw = 10) => ({ componentKey, itemIndex, status: 'scored', rawScore, maxRaw, descriptorBandId: null, enteredBy: null, enteredAt: null });
+  const row = (marks, extra = {}) => ({ schoolStudentId: 'p1', studentCode: 'S1', fullName: 'Ama', flags: {}, marks, notRequired: [], carried: [], preview: null, ...extra });
+  assert.equal(mm.missingFor(row([mark('class', 1, 8)]), items), 2);
+  // Tests before the pupil joined aren't needed, and leavers never need marks.
+  assert.equal(mm.missingFor(row([mark('exam', 1, 50, 70)], { notRequired: [{ componentKey: 'class', itemIndex: 1 }, { componentKey: 'class', itemIndex: 2 }] }), items), 0);
+  assert.equal(mm.missingFor(row([], { flags: { leftOn: '2026-11-02' } }), items), 0);
+
+  // The local preview matches the engine: a late joiner's missed test is exempt, so
+  // class 8/10 = 0.8 x 30 = 24 and exam 56/70 = 56 give 80, an A.
+  const sheet = {
+    scheme: { components: [{ key: 'class', weight: 30, bestOf: null }, { key: 'exam', weight: 70, bestOf: null }] },
+    scale: { bands: [{ label: 'A', minScore: 80 }, { label: 'B', minScore: 70 }, { label: 'F', minScore: 0 }] },
+    items,
+  };
+  const late = row([mark('class', 2, 8), mark('exam', 1, 56, 70)], { notRequired: [{ componentKey: 'class', itemIndex: 1 }] });
+  const p = mm.localPreview(late, sheet, load('src/features/results/api.ts').DEFAULT_SETTINGS);
+  assert.deepEqual([p.status, p.total, p.grade], ['ok', 80, 'A']);
+
+  // Changes show at once; a cleared cell removes its mark.
+  const changed = mm.withChanges(row([mark('class', 1, 8)]), items, [
+    { schoolStudentId: 'p1', componentKey: 'class', itemIndex: 1, status: null },
+    { schoolStudentId: 'p1', componentKey: 'exam', itemIndex: 1, status: 'absent', rawScore: null },
+  ]);
+  assert.deepEqual(changed.marks.map((m) => [m.componentKey, m.status]), [['exam', 'absent']]);
+
+  // After a 409, a change is kept only if nobody else changed that cell meanwhile.
+  const fresh = [row([mark('class', 1, 9), mark('class', 2, 6)])];
+  const { keep, conflicts } = mm.rebase(
+    [
+      { change: { schoolStudentId: 'p1', componentKey: 'class', itemIndex: 1, status: 'scored', rawScore: 7 }, base: '8' },
+      { change: { schoolStudentId: 'p1', componentKey: 'class', itemIndex: 2, status: 'scored', rawScore: 5 }, base: '6' },
+    ],
+    fresh,
+    items,
+  );
+  assert.deepEqual(keep.map((k) => k.change.itemIndex), [2]);
+  assert.deepEqual(conflicts, ['p1|class|1']);
+});
 console.log(`${checks} dashboard and access checks passed.`);

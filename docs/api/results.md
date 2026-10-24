@@ -201,7 +201,7 @@ The backend adds an any-of permission decorator for the GETs, because its permis
 - Scale errors: 400 if a numeric scale has no band at 0, or two bands share a minimum.
 - **Band ids.** Every band in a scale response has `id`: in the sheet view, the scale lists, resolve and the PUT result. It's what `descriptorBandId` takes.
   - An id belongs to that **version** of the scale: a new version gets new ids, and ids sent back in a PUT are ignored.
-  - After apply-latest, descriptor marks still point at the old version's bands, so re-read the view before changing one.
+  - On apply-latest, and when empty drafts move to a new version, the backend (`9d9afb3`) remaps descriptor marks to the new version's band with the same label. A mark whose label no longer exists stays on its old band. Always take ids from the current view.
 
 **Versions.**
 - A version is **in use** once it is frozen on an assessment sheet or appears in a published report snapshot.

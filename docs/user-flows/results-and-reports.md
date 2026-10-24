@@ -178,6 +178,8 @@ Code: `src/features/results/ReportsBoardPage.tsx` and `ClassReportPage.tsx`.
   - days present and school days, typed in only when the register has none (present can't exceed school days).
 - **Saving** sends only the fields that changed.
 - **Preview report** shows the school's report design in a sandboxed frame, with "Open to print".
+- **Shared places** show as "2nd=" in the list and the drawer, as on printed reports (QA-260). "of N" is the number on roll, left pupils included.
+- **The remark bank** is loaded only for people who write remarks. A secretary's view used to get 403 from it (QA-261).
 - **Withholding (heads):** a head can withhold a report with a reason. A left pupil's report starts withheld, and **Issue report anyway** releases it.
 - **Approve → Publish to parents → Reopen (with a reason):**
   - after approval, remarks are read-only;

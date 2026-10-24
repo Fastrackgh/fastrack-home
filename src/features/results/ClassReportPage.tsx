@@ -44,6 +44,13 @@ const PUPIL_STATUS: Record<PupilReport['status'], { label: string; color: string
   left: { label: 'Left', color: 'gray' },
 };
 
+/** "2nd", or "2nd=" when another pupil shares the place (QA-260), as on printed reports. */
+const place = (n: number, tied: boolean) => `${ordinal(n)}${tied ? '=' : ''}`;
+
+/** Whether `position` is shared among `positions`. */
+const shared = (positions: (number | null)[], position: number) =>
+  positions.filter((p) => p === position).length > 1;
+
 const ordinal = (n: number) => {
   const tail = n % 100 >= 11 && n % 100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
   return `${n}${tail}`;
@@ -106,11 +113,17 @@ export function ClassReportPage() {
       .allClasses()
       .then(setClasses)
       .catch(() => setClasses([]));
+  }, [load]);
+
+  // Only people who write remarks may read the remark bank (QA-261).
+  const writesRemarks = can('reports:remark') || isHead;
+  useEffect(() => {
+    if (!writesRemarks) return;
     reportsApi
       .remarkBank()
       .then(setBank)
       .catch(() => setBank([]));
-  }, [load]);
+  }, [writesRemarks]);
 
   const run = async (label: string, fn: () => Promise<unknown>, done: string) => {
     setBusy(label);
@@ -153,7 +166,6 @@ export function ClassReportPage() {
     (b): b is Extract<Blocker, { type: 'sheet_not_submitted' }> => b.type === 'sheet_not_submitted',
   );
   const status = batch ? BATCH_STATUS[batch.status] : BATCH_STATUS.not_started;
-  const ranked = batch?.rankedCount ?? 0;
   const replace = (row: PupilReport) => {
     setPupils((list) => list.map((p) => (p.termReportId === row.termReportId ? row : p)));
     setOpen((current) => (current?.termReportId === row.termReportId ? row : current));
@@ -343,7 +355,15 @@ export function ClassReportPage() {
                   </Table.Td>
                   <Table.Td ta="right">{p.average ?? '—'}</Table.Td>
                   <Table.Td ta="right">
-                    {p.position ? `${ordinal(p.position)} of ${ranked}` : '—'}
+                    {p.position
+                      ? `${place(
+                          p.position,
+                          shared(
+                            pupils.map((x) => x.position),
+                            p.position,
+                          ),
+                        )} of ${batch.onRoll}`
+                      : '—'}
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c={p.attendance ? undefined : 'dimmed'}>
@@ -378,6 +398,7 @@ export function ClassReportPage() {
         <PupilDrawer
           key={open.termReportId}
           pupil={open}
+          classmates={pupils}
           batch={batch}
           bank={bank}
           classes={classes}
@@ -402,6 +423,7 @@ export function ClassReportPage() {
 
 function PupilDrawer({
   pupil,
+  classmates,
   batch,
   bank,
   classes,
@@ -411,6 +433,8 @@ function PupilDrawer({
   onChanged,
 }: {
   pupil: PupilReport;
+  /** The whole class, to show shared places. */
+  classmates: PupilReport[];
   batch: Batch;
   bank: BankRemark[];
   classes: SchoolClass[];
@@ -541,7 +565,15 @@ function PupilDrawer({
           {pupil.aggregate != null && <Text size="sm">· Aggregate {pupil.aggregate}</Text>}
           {pupil.position != null && (
             <Text size="sm">
-              · {ordinal(pupil.position)} of {batch.rankedCount}
+              ·{' '}
+              {place(
+                pupil.position,
+                shared(
+                  classmates.map((x) => x.position),
+                  pupil.position,
+                ),
+              )}{' '}
+              of {batch.onRoll}
             </Text>
           )}
         </Group>
@@ -582,7 +614,20 @@ function PupilDrawer({
                       }[s.status]}
                 </Table.Td>
                 <Table.Td>{s.grade ?? ''}</Table.Td>
-                <Table.Td ta="right">{s.position ? ordinal(s.position) : ''}</Table.Td>
+                <Table.Td ta="right">
+                  {s.position
+                    ? place(
+                        s.position,
+                        shared(
+                          classmates.map(
+                            (x) =>
+                              x.subjects.find((y) => y.subjectId === s.subjectId)?.position ?? null,
+                          ),
+                          s.position,
+                        ),
+                      )
+                    : ''}
+                </Table.Td>
               </Table.Tr>
             ))}
           </Table.Tbody>

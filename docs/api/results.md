@@ -2,7 +2,7 @@
 
 **Status (24 Oct 2026):**
 - Phase 0 (subjects) is live on the backend (`4df1e64`, `9141452`, not pushed) and in the Subjects tab, re-tested on PRM-001.
-- Phase 1 (grading setup) is agreed with the backend session and the product owner (below), but not built yet.
+- Phase 1 (grading setup) is agreed with the backend session (confirmed at `c2a0eb5`) and the product owner (below), but not built yet.
 - The frontend builds against this contract.
 - The calculation's worked answers are in [`results-fixtures.json`](./results-fixtures.json). `src/features/results/engine.ts` passes them (`node scripts/check-dashboard.cjs`). The backend engine must pass them too.
 - The full design, with the reasons behind it, is in the approved plan. The user-facing flow will go in `docs/user-flows/results-and-reports.md` once screens exist.
@@ -174,6 +174,7 @@ The backend adds an any-of permission decorator for the GETs, because its permis
 - A version is **in use** once it is frozen on an assessment sheet or appears in a published report snapshot.
 - A sheet freezes the family's latest version when it is created.
 - When a new version is made, draft sheets with no marks move to it automatically. Sheets with marks keep theirs until "Apply latest scheme" (rule 8).
+- Until phase 2 there are no sheets, so nothing is in use and every PUT edits in place (`newVersion: false`). The version logic is built and tested now, against a stub "in use" check.
 - So one class can mix versions across its subjects. The reports board says so ("Mathematics uses an earlier version of the scheme").
 
 **Which settings apply.**
@@ -181,10 +182,12 @@ The backend adds an any-of permission decorator for the GETs, because its permis
 - Scheme and scale resolve separately, most specific first: **class_subject > class > subject > department > school**. A class can therefore override only its scale.
 - A class with no department skips the department level. The school row must set both a scheme and a scale.
 - The scheme's mode must match the scale's: numeric with numeric, descriptor with descriptor. This is checked when assignments are saved and again in resolve. The 400 names both, e.g. 'The "Montessori descriptors" scale can't be used with a scheme that has marks.'
+- **Mismatched pairs from different levels.** Rows can combine into a bad pair, e.g. a descriptor scheme for French everywhere over a numeric scale on P4. So saving resolves the effective pair for every class × subject the school's classes take, and returns 400 on the first mismatch: 'In P4, French: the "GES 30/70" scale can't be used with a scheme that uses descriptors.'
+- A class_subject row for a subject the class doesn't take is accepted and never applies. It doesn't block anything if the subject is later removed.
 - `GET /results-policy?academicYearId` returns the year's rows.
 - `PUT /results-policy/assignments` takes `{academicYearId, assignments[]}` and replaces the year's list in one transaction. It returns 400 when the school row is missing, a scope target repeats, or the modes don't match.
 - `GET /results-policy/resolve?termId&classId&subjectId` returns `{mode, scheme, scale, source: {scheme: {scope, id}, scale: {scope, id}}}`.
-- **A new year** copies the previous year's rows when the year is created, or when it is first made current if it was created earlier, unless it already has rows (rule 10). Resolve for a year with no rows and nothing to copy returns 409 "Results aren't set up for <year>."
+- **A new year** copies the previous year's rows when the year is created, or when it is first made current if it was created earlier, unless it already has rows (rule 10). "Previous year" means the most recent earlier year, by start date, that has rows. The copies keep the family ids, so they follow those families' latest versions. Resolve for a year with no rows and nothing to copy returns 409 "Results aren't set up for <year>."
 
 **Settings and remarks.**
 - `GET /results-settings` and `PATCH /results-settings`. PATCH checks ranges: decimals 0–2, percentages 0–100.

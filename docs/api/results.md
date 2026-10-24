@@ -230,7 +230,7 @@ The backend adds an any-of permission decorator for the GETs, because its permis
 
 ### Mark sheets (`marks:read` / `marks:enter`; teachers limited per rule 3)
 
-Agreed with the backend session on 24 Oct. The ★ shapes were proposed by the frontend; they're written as proposed until the backend confirms or corrects them.
+Agreed with the backend session on 24 Oct, including the shapes the frontend proposed.
 
 **Who is on a sheet.**
 - A pupil is in class C for term T if their latest `enrollment_history` row dated on or before min(term end, today) is C. Promotions are dated from the next term's start, so a Term 3 sheet keeps the pupils as they were.
@@ -240,14 +240,15 @@ Agreed with the backend session on 24 Oct. The ★ shapes were proposed by the f
 
 **Carried marks.**
 - After a move, a carried mark fills the new class's item with the same `componentKey` and `itemIndex`.
-- Carried marks with no matching item, or for a component key the new scheme doesn't have, are kept but not counted. The row lists them in `carried: [{componentKey, itemIndex, raw, maxRaw, fromClass}]`.
+- Carried marks with no matching item, or for a component key the new scheme doesn't have, are kept but not counted. The row lists them in `carried: [{componentKey, itemIndex, rawScore, maxRaw, status, fromClass: {classId, className}}]`.
 - New items the pupil hasn't sat need a mark, unless they're not required (above).
 
 **Items.**
 - A `single` component gets item 1 when the sheet is created, labelled with the component's label and out of `defaultMaxRaw`. Descriptor strands are `single` components.
 - An `items` component starts with no items, so it is missing until the teacher adds a test. The grid shows "Add the first class test" there. To skip a test, add it and mark the class exempt.
+- A `single` component (and a descriptor strand) has exactly one item: adding or deleting one gives 400 "Exam is entered once; it has no extra items.". Its label, `maxRaw` and `takenOn` can still be changed (`maxRaw` only on numeric items; it's null on descriptor items).
 - Deleting an item that has marks gives 409 "Test 2 has marks. Remove them first.", unless `?force=true`, which only heads may send (audited).
-- Lowering a maximum below an existing mark gives 422.
+- Lowering a maximum below an existing mark gives 422 with `details.cells` listing those pupils.
 
 **Status.** Phase 2 has `draft` and `submitted`; `approved` comes with batch approval in phase 3.
 - `submit`: draft → submitted. It gives 422 with `details.missing [{schoolStudentId, fullName, missing}]` unless every required mark is in, or the sheet is `notAssessed`.
@@ -263,14 +264,14 @@ Agreed with the backend session on 24 Oct. The ★ shapes were proposed by the f
 - A version is in use once a sheet using it has a mark or isn't a draft. An empty draft doesn't count, and moves to a new version automatically.
 - `POST /mark-sheets/:id/apply-latest` (`reports:approve`) moves a sheet that has marks to the family's latest scheme and scale. Marks are matched by `componentKey`, and unmatched ones are kept unused, as for carried marks.
 
-**Shapes ★**
+**Shapes**
 - sheet = `{id, termId, classId, subjectId, status, notAssessed, returnReason, rowVersion, schemeId, scaleId, submittedAt, submittedBy}`
 - item = `{id, componentKey, itemIndex, label, maxRaw, takenOn}`
-- mark = `{componentKey, itemIndex, status, rawScore, maxRaw, descriptorBandId, enteredBy: {id, name}, enteredAt}`
+- mark = `{componentKey, itemIndex, status, rawScore, maxRaw, descriptorBandId, enteredBy: {id, name}, enteredAt}`. `enteredAt` and `enteredBy` are the last change and who made it.
 - roster row = `{schoolStudentId, studentCode, fullName, flags: {joinedOn?, movedFrom?, leftOn?}, marks: mark[], notRequired: [{componentKey, itemIndex}], carried: [...], preview}`
   - `preview` is the engine's subject result: `{status, componentScores: [{key, score}], total, grade, points, reweighted}`.
   - A `leftOn` pupil with missing marks shows `missing` but doesn't block.
-- card = `{sheetId | null, classId, className, subjectId, subjectName, status | 'not_started', entered, expected, anyTeacher, teachers: [{staffId, name}]}`. `expected` counts required marks only.
+- card = `{sheetId | null, classId, className, subjectId, subjectName, status | 'not_started', entered, expected, anyTeacher, teachers: [{staffId, name}]}`. `expected` counts required marks of pupils not flagged `leftOn`. A `leftOn` pupil's marks still count in `entered` when present.
 
 | Method & path | Notes |
 | --- | --- |

@@ -135,7 +135,7 @@ Legend for actions: **Live** calls the backend; *Preview* changes browser memory
   - Documents & archive\*
   - Question bank\*
 
-  \* = preview at `/dashboard/<area>`.
+  \* = preview at `/dashboard/<area>`. When the school has `results` on, "Academic performance" gives way to the live Term reports: teachers see "Term reports" in its place, and heads don't see it, since Reports & results opens the board (FE `7c9e141`).
 - **Routes:** dashboard, students, attendance, fees, staff, admissions.
 - **Live actions:**
 

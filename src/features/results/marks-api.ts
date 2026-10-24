@@ -92,7 +92,7 @@ export interface SheetScale {
 }
 
 export interface OpenSheet {
-  /** Names for the page title; requested from the backend 24 Oct. */
+  /** Names for the page title. */
   context?: { className: string; subjectName: string; termLabel: string; yearLabel: string };
   /** Null when the viewer may only read: the sheet isn't created for them. */
   sheet: Sheet | null;

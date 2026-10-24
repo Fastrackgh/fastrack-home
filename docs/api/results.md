@@ -237,6 +237,7 @@ Agreed with the backend session on 24 Oct, including the shapes the frontend pro
 - A pupil is in class C for term T if their latest `enrollment_history` row dated on or before min(term end, today) is C. Promotions are dated from the next term's start, so a Term 3 sheet keeps the pupils as they were.
 - A pupil who left during T (exit date inside T) is listed under the class they left from, flagged `leftOn` (rule 13).
 - `joinedOn` is set for a pupil admitted or moved in after the term started. `movedFrom {classId, className, on}` is set for a pupil moved in during the term (rule 11).
+- `enrollment_history` keeps one row per pupil per term, so a mid-term move used to overwrite the class. The row now has `moved_from_class_id`, which is set when the class changes within the term, and `movedFrom` comes from it. Moves made before that change aren't known: such a pupil shows no `movedFrom`, but their earlier marks still appear under `carried` with `fromClass`.
 - **Not required:** an item taken (`takenOn`) before the pupil's `joinedOn` or `movedFrom.on`. Unless it has a mark, it's listed in the row's `notRequired` and counted as exempt, so the rest is reweighted. Every other item needs a mark: scored, absent or exempt.
 
 **Carried marks.**
@@ -277,12 +278,12 @@ Agreed with the backend session on 24 Oct, including the shapes the frontend pro
 | Method & path | Notes |
 | --- | --- |
 | `GET /mark-sheets?termId&mine=true\|false` | cards |
-| `GET /mark-sheets/open?termId&classId&subjectId` | `{sheet \| null, canEdit, scheme, scale, settings, items, roster}`. Creates the sheet only when the caller may enter marks there; otherwise `sheet: null`, `items: []` and the roster, read-only. `settings` is the school's results settings, so previews use the same rounding. |
+| `GET /mark-sheets/open?termId&classId&subjectId` | The sheet view: `{context: {className, subjectName, termLabel, yearLabel}, sheet \| null, canEdit, scheme, scale, settings, items, roster}`. `canEdit` is true for heads at any status, and for a teacher only on a draft they may enter. Creates the sheet only when the caller may enter marks there; otherwise `sheet: null`, `items: []` and the roster, read-only. `settings` is the school's results settings, so previews use the same rounding. |
 | `PUT /mark-sheets/:id/marks` | `{rowVersion, marks: [{schoolStudentId, componentKey, itemIndex, status \| null, rawScore?, descriptorBandId?}]}`. `status: null` removes a mark. Descriptor marks are `scored` with `descriptorBandId` and no `rawScore`. The backend fills `maxRaw` from the item. Returns `{rowVersion, rows}` with the changed pupils only. A stale version gives 409 with `details.rowVersion`. A bad cell gives 422 with `details.cells [{schoolStudentId, componentKey, itemIndex, message}]`, and nothing is saved. |
 | `POST /mark-sheets/:id/items` | `{rowVersion, componentKey, label, maxRaw, takenOn?}`. `itemIndex` is the next free one. Returns `{rowVersion, items}`. |
 | `PATCH /mark-sheets/:id/items/:itemId` | `{rowVersion, label?, maxRaw?, takenOn?}`. Returns `{rowVersion, items}`. |
 | `DELETE /mark-sheets/:id/items/:itemId?rowVersion=&force=` | Returns `{rowVersion, items}`. |
-| `POST /mark-sheets/:id/submit` | See Status. |
+| `POST /mark-sheets/:id/submit` | See Status. Submit, return, reopen, `PATCH {notAssessed}` and apply-latest all return the sheet view, as open does. |
 | `POST /mark-sheets/:id/return` `{reason}`, `POST /mark-sheets/:id/reopen` `{reason}` | `reports:approve`. |
 | `PATCH /mark-sheets/:id` `{notAssessed}` | `reports:approve`. Leaves the subject off this term's reports. |
 | `POST /mark-sheets/:id/apply-latest` | `reports:approve`. Returns the same shape as open. |

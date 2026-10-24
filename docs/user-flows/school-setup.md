@@ -19,6 +19,7 @@ The page gives a school one place to fill in its profile, academic years and ter
 | Years & terms | always shown | `academic_years:manage` (also used for terms) | `PRINCIPAL, ACADEMIC_HEAD`; terms need `academic_terms:manage`, which both roles also hold |
 | Departments | always shown | `departments:manage` | `PRINCIPAL, ACADEMIC_HEAD` |
 | Classes | always shown | `classes:manage` | `PRINCIPAL, ACADEMIC_HEAD` |
+| Subjects | `subjects:read` (tab hidden without it) | `subjects:manage` | `PRINCIPAL, ACADEMIC_HEAD`; Teachers can view |
 
 - Checklist entries: "fee types and structures" appears only with `fee_types:read` (Principal; not Academic Head). "Invite your staff" appears only with `staff:read`.
 
@@ -37,7 +38,8 @@ Verified against `fastrack-space/fastrack-backend` on `fix/invoice-run-class-lab
 | Departments | `GET /schools/me/departments?limit=100`, `POST`, `PATCH /:id`, `DELETE /:id` | ✓ Code is upper-cased and unique (409). Delete sets the department of its classes to null |
 | Standard departments | `POST /schools/me/departments/seed-defaults` | ✓ Adds only the codes that are missing |
 | Classes | `GET /schools/me/classes?page&limit&search`, `POST`, `PATCH /:id` | ✓ Code is unique but **case-sensitive**. Each class has a `sequenceOrder` (the **Order** field and column, added 24 Oct for QA-207); lists come back in that order, and a new class with no order goes after the last one. Order numbers are unique per school (QA-245): a used number returns 409 "Order 2 is already used by Primary 2. Give each class its own number.", shown under the Order field. 0 means not ordered yet and may repeat; promotion asks for a target for such a class. Swapping two numbers needs a free number in between (1 → 99, 2 → 1, 99 → 2). Promotion moves pupils to the class with the next number. The backend's bulk create (`classes[]`) is unused |
-| Teacher pickers | `GET /schools/me/staff?role=TEACHER&isActive=true&limit=100` | ✓ First 100 only |
+| Subjects | `GET /schools/me/subjects?includeInactive=true`, `POST`, `PATCH /:id`, `DELETE /:id`; `GET\|PUT /schools/me/classes/:id/subjects`; `POST /schools/me/class-subjects/apply` | **Not built on the backend yet** (results phase 0, contract in [`docs/api/results.md`](../api/results.md)). The tab is built and was checked against simulated responses. |
+| Teacher pickers | `GET /schools/me/staff?role=TEACHER&isActive=true&limit=100`; subject teachers use `GET /schools/me/staff?isActive=true&limit=100` (any role, since heads teach too) | ✓ First 100 only |
 | Checklist | the year and class calls above, plus `GET /schools/me/fee-types` | ✓ |
 | Not available anywhere | delete a year, a term or a class; "set current" without opening the edit form | The backend has no delete route for years, terms or classes |
 
@@ -77,6 +79,7 @@ flowchart TD
 | Years & terms | `Loader` | "No academic years yet. Add the current year, then its terms." / "No terms yet." | Alert + Try again | Toast "Academic year added / Term updated… Saved." |
 | Departments | `Loader` | "No departments yet. Add the standard ones…" | Alert + Try again | Toast on add/edit/delete; **no toast after "Add standard departments"** |
 | Classes | `Loader` | "No classes yet." / "No class matches that search." | Alert + Try again | Toast "Class added / updated" |
+| Subjects | `Loader` per section | "No subjects yet. Start with the common subjects, then add your own." / "Primary 1 takes no subjects yet." / "Add classes first, in the Classes tab." | Alert + Try again per section | Toasts "14 subjects added", "Subjects saved", "2 added; 1 was already there" |
 | Modals | Submit `loading`, Cancel disabled; X and Esc still close | — | Red toast, modal stays open | Modal closes, list reloads |
 | Teacher pickers | — | Empty list | **Swallowed**: the pickers are empty and the checklist says no staff | — |
 
@@ -97,6 +100,22 @@ flowchart TD
 | School name | Required, trimmed, ≤255 | ≤255 |
 | School email | `type="email"`; a cleared field is sent as `""` | `IsEmail`, so **the email can't be cleared** (400) |
 | Logo | PNG/JPEG/WebP, ≤2 MB | Media service limits |
+
+## Subjects tab (added 24 Oct, results phase 0)
+
+Code: `src/features/school-setup/SubjectsPanel.tsx` and its modals. The rules come from the product owner (see [`docs/api/results.md`](../api/results.md#rules-the-product-owner-set)).
+
+- **Subject list.** The school's catalogue. English is one subject however many classes take it.
+  - **Add common subjects** offers starter lists (Primary and JHS GES subjects; Montessori and early-years areas), skipping names or codes the school already has. It adds them one by one, so a clash loses only that subject.
+  - **Add subject** asks for a name, a code (2–20 letters, digits or hyphens; the backend upper-cases it), a short name for narrow report columns, and a category (free text with suggestions).
+  - Names and codes are unique per school, ignoring case: a clash shows the 409 under the field.
+  - **Edit** can turn a subject off ("In use"). **Remove** is offered only while no class takes it; the backend refuses with 409 otherwise.
+- **Subjects by class.** Pick a class to see what it takes, in report order, with its teachers.
+  - A subject with no teacher shows "Any teacher can mark".
+  - **Edit <class>'s subjects** adds, removes and reorders subjects, and picks teachers from all active staff.
+  - **Report options** reveals the name on the report (e.g. "Ga"), whether the subject counts in the average, and its role in a BECE-style aggregate.
+  - **Add to several classes** adds subjects to a whole department or to chosen classes. Classes that already take a subject keep their settings.
+- **Standing.** The lists hold every term and year until changed. There is no term picker. Pupils take their current class's subjects.
 
 ## Status
 

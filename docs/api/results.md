@@ -1,6 +1,6 @@
 # Results and term reports: API contract
 
-**Status (24 Oct 2026): design agreed with the product owner; nothing built on the backend yet.**
+**Status (24 Oct 2026): design agreed with the product owner. Phase 0 subject routes agreed with the backend session (below); nothing built on the backend yet. The frontend Subjects tab is built against them.**
 - The frontend builds against this contract.
 - The calculation's worked answers are in [`results-fixtures.json`](./results-fixtures.json). `src/features/results/engine.ts` passes them (`node scripts/check-dashboard.cjs`). The backend engine must pass them too.
 - The full design, with the reasons behind it, is in the approved plan. The user-facing flow will go in `docs/user-flows/results-and-reports.md` once screens exist.
@@ -117,13 +117,13 @@ All are under `/api/schools/me` unless marked as a parent route.
 
 | Method & path | Body / query | Returns |
 | --- | --- | --- |
-| `GET /subjects` | `?search&includeInactive` | `[{id, subjectCode, subjectName, shortName, category, isActive, classCount}]` |
-| `POST /subjects`, `PATCH /subjects/:id` | `{subjectCode, subjectName, shortName?, category?}` | the subject. 409 on a duplicate code or name. |
+| `GET /subjects` | `?search&includeInactive`; a plain v2 array, not paged | `[{id, subjectCode, subjectName, shortName, category, isActive, classCount}]` |
+| `POST /subjects`, `PATCH /subjects/:id` | `{subjectCode, subjectName, shortName?, category?}` (PATCH also `isActive`) | the subject. `subjectCode` is trimmed and upper-cased, 2–20 letters, digits or hyphens. `category` is free text, at most 50 characters. Code and name are unique per school, ignoring case: 409 on a clash. |
 | `DELETE /subjects/:id` | | 409 if any class or mark uses it; deactivate instead. |
 | `GET /classes/:classId/subjects` | | `[{subjectId, subjectName, sequenceOrder, reportLabel, countsInAverage, aggregateRole, teachers: [{staffId, name}]}]` |
-| `PUT /classes/:classId/subjects` | the full list, in that shape (`teacherIds` instead of `teachers`) | the saved list. Leaving a subject out deactivates it for the class. |
+| `PUT /classes/:classId/subjects` | the full list, in that shape (`teacherIds` instead of `teachers`) | the saved list. A subject left out is removed from the class, or kept inactive if it already has marks. `teacherIds` must be active staff of the school, of any role (heads teach too). |
 | `POST /class-subjects/apply` | `{subjectIds, classIds?, departmentId?}` | `{added, alreadyThere}`, e.g. English for every class in Lower Primary. |
-| `GET /teaching-assignments` | `?staffId=me` | `[{classId, className, subjectId, subjectName}]` |
+| `GET /teaching-assignments` | `?staffId=me`; heads may pass another staff id | `[{classId, className, subjectId, subjectName}]` |
 
 ### Grading setup (`grading:manage`; GETs also allowed with `marks:read`)
 

@@ -83,6 +83,57 @@ export interface ClassInput {
   sequenceOrder?: number;
 }
 
+/**
+ * A subject in the school's catalogue. One English serves every class that
+ * takes it; which classes take it is set per class (docs/api/results.md).
+ */
+export interface Subject {
+  id: string;
+  subjectCode: string;
+  subjectName: string;
+  shortName: string | null;
+  category: string | null;
+  isActive: boolean;
+  classCount: number;
+}
+
+export interface SubjectInput {
+  subjectCode: string;
+  subjectName: string;
+  shortName?: string | null;
+  category?: string | null;
+  isActive?: boolean;
+}
+
+/** How a subject counts in a BECE-style aggregate: always, among the best others, or not at all. */
+export type AggregateRole = 'none' | 'core' | 'pool';
+
+/**
+ * A subject a class takes. It stands until someone changes it, through every
+ * term and year; pupils take their current class's subjects.
+ */
+export interface ClassSubject {
+  subjectId: string;
+  subjectCode: string;
+  subjectName: string;
+  sequenceOrder: number;
+  /** Printed on the report instead of the subject's name, e.g. "Ga". */
+  reportLabel: string | null;
+  countsInAverage: boolean;
+  aggregateRole: AggregateRole;
+  /** Empty means any teacher can enter its marks. */
+  teachers: StaffOption[];
+}
+
+export interface ClassSubjectInput {
+  subjectId: string;
+  sequenceOrder: number;
+  reportLabel: string | null;
+  countsInAverage: boolean;
+  aggregateRole: AggregateRole;
+  teacherIds: string[];
+}
+
 export type SchoolDetailsInput = Partial<Omit<SchoolDetails, 'code' | 'logoUrl'>>;
 
 /** The backend caps every list at 100 rows. */
@@ -102,6 +153,31 @@ const toClass = (raw: Raw): SchoolClass => {
     sequenceOrder: Number(raw.sequenceOrder ?? 0),
   };
 };
+
+const toSubject = (raw: Raw): Subject => ({
+  id: String(raw.id),
+  subjectCode: String(raw.subjectCode ?? ''),
+  subjectName: String(raw.subjectName ?? ''),
+  shortName: text(raw.shortName),
+  category: text(raw.category),
+  isActive: raw.isActive !== false,
+  classCount: Number(raw.classCount ?? 0),
+});
+
+const toClassSubject = (raw: Raw): ClassSubject => ({
+  subjectId: String(raw.subjectId),
+  subjectCode: String(raw.subjectCode ?? ''),
+  subjectName: String(raw.subjectName ?? ''),
+  sequenceOrder: Number(raw.sequenceOrder ?? 0),
+  reportLabel: text(raw.reportLabel),
+  countsInAverage: raw.countsInAverage !== false,
+  aggregateRole:
+    raw.aggregateRole === 'core' || raw.aggregateRole === 'pool' ? raw.aggregateRole : 'none',
+  teachers: ((raw.teachers as Raw[] | undefined) ?? []).map((t) => ({
+    id: String(t.staffId),
+    name: String(t.name ?? ''),
+  })),
+});
 
 export const setupApi = {
   /** Every academic year with its terms, newest first. */
@@ -185,6 +261,65 @@ export const setupApi = {
   },
   async updateClass(classId: string, change: ClassInput) {
     await apiClient.patch(`/schools/me/classes/${id(classId)}`, change);
+  },
+
+  async listSubjects(includeInactive = false): Promise<Subject[]> {
+    const rows =
+      (
+        await apiClient.get<Raw[]>(
+          `/schools/me/subjects?${ALL}${includeInactive ? '&includeInactive=true' : ''}`,
+        )
+      ).data ?? [];
+    return rows
+      .map(toSubject)
+      .sort((a, b) => a.subjectName.localeCompare(b.subjectName, undefined, { numeric: true }));
+  },
+  async createSubject(input: SubjectInput) {
+    await apiClient.post('/schools/me/subjects', input);
+  },
+  async updateSubject(subjectId: string, change: Partial<SubjectInput>) {
+    await apiClient.patch(`/schools/me/subjects/${id(subjectId)}`, change);
+  },
+  /** Refused (409) while a class or a mark uses it; deactivate it instead. */
+  async deleteSubject(subjectId: string) {
+    await apiClient.delete(`/schools/me/subjects/${id(subjectId)}`);
+  },
+  async listClassSubjects(classId: string): Promise<ClassSubject[]> {
+    const rows =
+      (await apiClient.get<Raw[]>(`/schools/me/classes/${id(classId)}/subjects`)).data ?? [];
+    return rows.map(toClassSubject).sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+  },
+  /**
+   * Replaces the class's whole list. A subject left out is removed from the
+   * class, or kept inactive if it already has marks.
+   */
+  async saveClassSubjects(classId: string, subjects: ClassSubjectInput[]) {
+    const rows =
+      (await apiClient.put<Raw[]>(`/schools/me/classes/${id(classId)}/subjects`, subjects)).data ??
+      [];
+    return rows.map(toClassSubject);
+  },
+  /** Adds subjects to every class in a department, or to chosen classes. */
+  async applySubjects(input: { subjectIds: string[]; departmentId?: string; classIds?: string[] }) {
+    return (
+      await apiClient.post<{ added: number; alreadyThere: number }>(
+        '/schools/me/class-subjects/apply',
+        input,
+      )
+    ).data;
+  },
+
+  /** Any active staff member can teach a subject, heads included. */
+  async listActiveStaff(): Promise<StaffOption[]> {
+    const rows =
+      (
+        await apiClient.get<{ id: string; firstName: string; lastName: string }[]>(
+          `/schools/me/staff?isActive=true&${ALL}`,
+        )
+      ).data ?? [];
+    return rows
+      .map((s) => ({ id: s.id, name: `${s.firstName} ${s.lastName}`.trim() }))
+      .sort((a, b) => a.name.localeCompare(b.name));
   },
 
   async listStaffOptions(): Promise<StaffOption[]> {

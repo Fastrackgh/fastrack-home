@@ -22,9 +22,10 @@ import { errorMessage, setupApi, type Department, type StaffOption } from './api
 import { ClassesPanel } from './ClassesPanel';
 import { DepartmentsPanel } from './DepartmentsPanel';
 import { SchoolProfilePanel } from './SchoolProfilePanel';
+import { SubjectsPanel } from './SubjectsPanel';
 import { YearsPanel } from './YearsPanel';
 
-type TabKey = 'profile' | 'years' | 'departments' | 'classes';
+type TabKey = 'profile' | 'years' | 'departments' | 'classes' | 'subjects';
 
 interface Step {
   label: string;
@@ -36,7 +37,8 @@ interface Step {
 
 /**
  * Everything a school sets up before its first term: profile, academic year
- * and terms, departments and classes, with a checklist of what is missing.
+ * and terms, departments, classes and their subjects, with a checklist of
+ * what is missing.
  */
 export function SetupPage() {
   const { user, can, school } = useAuth();
@@ -127,7 +129,7 @@ export function SetupPage() {
     <>
       <PageHeader
         title="School setup"
-        subtitle="Your school’s profile, academic years and terms, departments and classes."
+        subtitle="Your school’s profile, academic years and terms, departments, classes and subjects."
       />
 
       {steps && done < steps.length && (
@@ -170,6 +172,7 @@ export function SetupPage() {
           <Tabs.Tab value="years">Years & terms</Tabs.Tab>
           <Tabs.Tab value="departments">Departments</Tabs.Tab>
           <Tabs.Tab value="classes">Classes</Tabs.Tab>
+          {can('subjects:read') && <Tabs.Tab value="subjects">Subjects</Tabs.Tab>}
         </Tabs.List>
 
         <Stack>
@@ -200,6 +203,11 @@ export function SetupPage() {
               }}
             />
           </Tabs.Panel>
+          {can('subjects:read') && (
+            <Tabs.Panel value="subjects">
+              <SubjectsPanel departments={departments ?? []} canManage={can('subjects:manage')} />
+            </Tabs.Panel>
+          )}
         </Stack>
       </Tabs>
     </>

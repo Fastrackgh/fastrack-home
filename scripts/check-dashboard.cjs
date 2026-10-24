@@ -61,6 +61,13 @@ const backendDefaults = {
     'academic_terms:manage',
     'classes:manage',
     'departments:manage',
+    'grading:manage',
+    'marks:read',
+    'marks:enter',
+    'reports:read',
+    'reports:remark',
+    'reports:generate',
+    'reports:approve',
   ],
   ACADEMIC_HEAD: [
     'students:read',
@@ -81,6 +88,13 @@ const backendDefaults = {
     'academic_terms:manage',
     'classes:manage',
     'departments:manage',
+    'grading:manage',
+    'marks:read',
+    'marks:enter',
+    'reports:read',
+    'reports:remark',
+    'reports:generate',
+    'reports:approve',
   ],
   ACCOUNT_OFFICER: [
     'student_fee_preferences:manage',
@@ -105,6 +119,10 @@ const backendDefaults = {
     'attendance:mark',
     'calendar:read',
     'calendar:manage',
+    'reports:read',
+    // 18 Oct product decision; requested from the backend's results grants on 24 Oct.
+    'marks:read',
+    'reports:generate',
   ],
   TEACHER: [
     'students:read',
@@ -112,6 +130,10 @@ const backendDefaults = {
     'attendance:mark',
     'timetable:read',
     'calendar:read',
+    'marks:read',
+    'marks:enter',
+    'reports:read',
+    'reports:remark',
   ],
   PARENT: [
     'students:read',
@@ -120,6 +142,7 @@ const backendDefaults = {
     'payments:read',
     'timetable:read',
     'calendar:read',
+    'marks:read',
   ],
 };
 const viewer = (role, permissions = backendDefaults[role]) => ({
@@ -289,7 +312,8 @@ const accountOfficer = subject('ACCOUNT_OFFICER', [
   'payments:collect',
 ]);
 const secretary = subject('SECRETARY', ['students:read', 'attendance:read', 'enrollment:manage']);
-const parent = subject('PARENT', ['students:read', 'attendance:read', 'invoices:read'], null);
+// marks:read comes from the backend since results phase 1 (reports in the parent portal).
+const parent = subject('PARENT', ['students:read', 'attendance:read', 'invoices:read', 'marks:read'], null);
 const superAdmin = subject('SUPER_ADMIN', ['schools:read', 'schools:manage'], null);
 const routes = (s) => Object.keys(rbac.APP_ROUTES).filter((key) => rbac.canAccessRoute(s, key));
 

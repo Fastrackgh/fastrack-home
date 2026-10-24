@@ -53,15 +53,16 @@ Conventions follow the rest of the API:
 | --- | --- | --- | --- | --- | --- |
 | `subjects:read` / `subjects:manage` (exist) | ✓ / ✓ | ✓ / ✓ | ✓ / – | – | – |
 | `grading:manage` | ✓ | ✓ | – | – | – |
-| `marks:read` | ✓ | ✓ | ✓ | – | ✓ (own children, via parent routes) |
+| `marks:read` | ✓ | ✓ | ✓ | ✓ (requested 24 Oct) | ✓ (own children, via parent routes) |
 | `marks:enter` | ✓ | ✓ | ✓ | – | – |
 | `reports:read` | ✓ | ✓ | ✓ | ✓ | – |
 | `reports:remark` | ✓ | ✓ | ✓ (own homeroom class only) | – | – |
-| `reports:generate` | ✓ | ✓ | – | – | – |
+| `reports:generate` | ✓ | ✓ | – | ✓ (requested 24 Oct) | – |
 | `reports:approve` | ✓ | ✓ | – | – | – |
 
+- **Secretary:** per the product decisions of 18 Oct, secretaries generate and print terminal reports, so they need `marks:read` and `reports:generate`. The phase 1 backend grants gave them `reports:read` only; adding these was requested on 24 Oct.
 - **Grant migration.** Stored permissions override role defaults, so the new keys need a grant migration, following `1792600000100-GrantCalendarPermissions.ts`.
-- **Frontend keys.** The frontend already uses `marks:read`, `marks:enter`, `grading:manage` and `reports:generate` as frontend-only keys (`src/lib/rbac/feature-permissions.ts`). They move to `permissions.ts` once the backend issues them.
+- **Frontend keys.** All seven keys come from the backend since phase 1, in `src/lib/rbac/permissions.ts`. They are no longer frontend-only grants.
 
 ## Calculation
 

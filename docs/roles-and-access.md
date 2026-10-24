@@ -42,6 +42,19 @@ Source: `fastrack-backend/src/common/auth/role-permissions.matrix.ts`. A user's 
 
 \* The Super Admin passes every `PermissionsGuard` check, but most `/schools/me/*` routes do not list `SUPER_ADMIN` in `@Role`, so it uses `/super-admin/schools/:schoolId/*` instead.
 
+### Results keys (issued by the backend since results phase 1, 24 Oct)
+
+These were frontend-only grants until the backend's results phase 1 grant migration; they now come from the backend (`src/lib/rbac/permissions.ts`).
+
+| Key | PRIN | AH | TEACH | AO | SEC | PARENT | SA |
+| --- | --- | --- | --- | --- | --- | --- | --- |
+| grading:manage | ✓ | ✓ | – | – | – | – | – |
+| marks:read / marks:enter | ✓/✓ | ✓/✓ | ✓/✓ | – | ✓ (requested)/– | ✓/– | – |
+| reports:read / remark | ✓/✓ | ✓/✓ | ✓/✓ | – | ✓/– | – | – |
+| reports:generate / approve | ✓/✓ | ✓/✓ | – | – | ✓ (requested)/– | – | – |
+
+The Principal now has `grading:manage` too. The Secretary's `marks:read` and `reports:generate` follow the 18 Oct product decision and were requested from the backend on 24 Oct; the phase 1 grants gave secretaries `reports:read` only.
+
 ### Frontend-only feature grants
 
 | Key | PRIN | AH | TEACH | AO | SEC | PARENT | SA |
@@ -49,9 +62,6 @@ Source: `fastrack-backend/src/common/auth/role-permissions.matrix.ts`. A user's 
 | budgets:read / manage | ✓/✓ | – | – | ✓/✓ | – | – | – |
 | payment_plans:read / manage | ✓/✓ | – | – | ✓/✓ | – | – | – |
 | enquiries:read / manage | ✓/✓ | – | – | – | ✓/✓ | – | – |
-| marks:read / marks:enter | ✓/✓ | ✓/✓ | ✓/✓ | – | ✓/– | ✓/– | – |
-| grading:manage | – | ✓ | – | – | – | – | – |
-| reports:generate | ✓ | ✓ | – | – | ✓ | – | – |
 | question_bank:read / manage | ✓/✓ | ✓/✓ | ✓/✓ | – | – | – | – |
 | calendar:read / manage | ✓/✓ | ✓/✓ | ✓/– | ✓/– | ✓/✓ | ✓/– | – |
 | meals:read / manage | ✓/✓ | – | ✓/– | – | ✓/✓ | ✓/– | – |
@@ -248,7 +258,7 @@ Legend for actions: **Live** calls the backend; *Preview* changes browser memory
   | `parentFees` | `invoices:read` |
   | `parentReceipts` | `payments:read` |
   | `parentAttendance` | `attendance:read` |
-  | `parentReports` | `marks:read` (frontend grant) |
+  | `parentReports` | `marks:read` (from the backend since results phase 1) |
 
 - **Live actions:** register, link a child (code plus OTP) and unlink. Online payment needs the frontend grant `payments:make` (PARENT only) and the proposed checkout endpoint.
 - **Backend reality:**

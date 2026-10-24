@@ -79,6 +79,15 @@ export const PERMISSIONS = [
   'timetable:read',
   'timetable:manage',
 
+  // Results: grading, marks and term reports (backend results phase 1)
+  'grading:manage',
+  'marks:read',
+  'marks:enter',
+  'reports:read',
+  'reports:remark',
+  'reports:generate',
+  'reports:approve',
+
   // Analytics & audit
   'analytics:read',
   'audit_logs:read',

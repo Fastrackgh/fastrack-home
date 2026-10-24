@@ -19,148 +19,169 @@
 
 ## Summary
 
-| Severity | Count |
-|---|---|
-| Critical | 8 |
-| High | 31 |
-| Medium | 67 |
-| Low | 26 |
-| **Total** | **132** |
+| Severity | Count | Fixed | Partly fixed | Open |
+|---|---|---|---|---|
+| Critical | 8 | 7 | 1 | 0 |
+| High | 31 | 23 | 4 | 4 |
+| Medium | 76 | 25 | 11 | 40 |
+| Low | 36 | 17 | 5 | 14 |
+| **Total** | **151** | **72** | **21** | **58** |
+
+Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
 | ID | Sev | Cat | Side | Status | Title |
 |---|---|---|---|---|---|
-| QA-001 | Critical | SEC/EDGE | BE | Live ✔ | Concurrent payments lose credits on the invoice and fee account |
-| QA-002 | Critical | FLOW | BE | Live ✔ | Carried-forward arrears are counted twice; a paid-up student's bill still shows a debt |
-| QA-003 | Critical | SEC | Both | Live ✔ Browser ✔ | Suspending a school has no effect; the UI reports success |
+| QA-001 | Critical | SEC/EDGE | BE | Live ✔ | Concurrent payments lose credits on the invoice and fee account — **fixed** (reconciled 24 Oct) |
+| QA-002 | Critical | FLOW | BE | Live ✔ | Carried-forward arrears are counted twice; a paid-up student's bill still shows a debt — **fixed** (reconciled 24 Oct) |
+| QA-003 | Critical | SEC | Both | Live ✔ Browser ✔ | Suspending a school has no effect; the UI reports success — **fixed** (reconciled 24 Oct) |
 | QA-015 | Critical | FLOW | Both | Browser ✔ | Invited staff can never get in: the invite links to a page the frontend doesn't have — **fixed** (page in 41eeb3b; crash fixed 22 Oct, QA-204) |
-| QA-020 | Critical | FLOW | FE | Browser ✔ | Waitlist and contact forms send nothing; every lead is lost — **mostly fixed** (41eeb3b) |
+| QA-020 | Critical | FLOW | FE | Browser ✔ | Leads are saved now, but the waitlist success message still promises "login credentials" — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-204 | Critical | FLOW | FE | Browser ✔ | Invite link page crashes (no AuthProvider): no invited user can activate an account — **fixed** (22 Oct) |
-| QA-206 | Critical | EDGE/data | BE | **Fixed** 22 Oct (backend bcb2e0b) | Setting the current year/term returns 500 and leaves two current years/terms |
-| QA-212 | Critical | FLOW | FE | **Fixed** 22 Oct | Parent sign-up crashes on the first keystroke |
+| QA-206 | Critical | EDGE/data | BE | **Fixed** 22 Oct (backend bcb2e0b) | Setting the current year/term returns 500 and leaves two current years/terms — **fixed** (reconciled 24 Oct) |
+| QA-212 | Critical | FLOW | FE | **Fixed** 22 Oct | Parent sign-up crashes on the first keystroke — **fixed** (reconciled 24 Oct) |
 | QA-004 | High | SEC/EDGE | Both | Live ✔ | Payments can be double-submitted; a client-chosen receipt number causes a 500 — FE half **fixed** (41eeb3b); rest in QA-086 |
-| QA-005 | High | SEC | BE | Live ✔ | AdminJS is mounted in production, never rate-limited, and can edit the ledger directly |
-| QA-006 | High | SEC | BE | Code ✔ | Notification client logs OTPs and invite tokens and serves them on a LAN port |
-| QA-007 | High | SEC | BE | Code ✔ | Accepting an invite re-activates a deactivated user; revoked invites can be resent |
-| QA-008 | High | EDGE/SEC | Both | Live ✔ (partly); race not reproduced in browser | Multi-tab use: a refresh race logs out every session; signing in another tab swaps the identity |
-| QA-009 | High | SEC | Both | Live ✔ Browser ✔ | Logout and password change never end the session on the server; tokens sit in localStorage with no CSP |
-| QA-010 | High | SEC | BE | Live ✔ | Public invoice opens by its database UUID, never expires, isn't throttled, and exposes a staff email |
-| QA-013 | High | SEC | BE | Live ✔ Browser ✔ | An Academic Head can create an Account Officer with a chosen password, then use it to handle money |
-| QA-016 | High | SEC | Both | Live ✔ Browser ✔ | Teachers see every student in the school, with national IDs, guardian contacts and medical notes |
-| QA-026 | High | FLOW | Both | Code ✔ | Parents can't use any real feature: every parent API call returns 403 and there is no parent UI |
-| QA-027 | High | FLOW | Both | Browser ✔ | No forgot/reset password anywhere — **in progress** (backend on `main`; FE pages uncommitted) |
-| QA-028 | High | FLOW | FE | Live ✔ Browser ✔ | Generate-invoices toast reads "Generated undefined … GHS 0.00" because the field names don't match |
-| QA-030 | High | EDGE | FE | Code ✔ / Live ✔ | Lists silently cut off: classes at 10, payment student picker at 100, schools at 50 |
-| QA-031 | High | FLOW | Both | Code ✔ | Fees KPI cards add up only the 20 invoices on screen |
-| QA-032 | High | UX/data | FE | Code ✔ | Admission saves medical and personal defaults (O+, AA, Christian, Male…) the user never chose |
-| QA-033 | High | FLOW | FE | Code ✔ | A new school can't be set up from the UI (no Principal assignment, no years/terms/classes/fees setup) — **partly fixed** (School setup page, uncommitted; see QA-075 to QA-079) |
-| QA-034 | High | UX | FE | Code ✔ | Sample data looks real: the Overview, parent pages, attendance and admissions are mock-ups |
+| QA-005 | High | SEC | BE | Live ✔ | AdminJS was mounted in production, unthrottled, with in-memory sessions and an editable ledger — **fixed** (24 Oct; BE `44b2a3f`: off in production unless ADMIN_ENABLED=true, sessions in Redis, SameSite=Lax, 8h) |
+| QA-006 | High | SEC | BE | Code ✔ | Notification client logs OTPs and invite tokens and serves them on a LAN port — **fixed** (24 Oct; BE `8dfd574`, `5af0b93`: no OTP/link logging; dev preview on 127.0.0.1:4080–4089 only; never dev in production) |
+| QA-007 | High | SEC | BE | Code ✔ | Invite acceptance checks the expiry date, not the status, so a superseded (EXPIRED-status) token is still accepted — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-008 | High | EDGE/SEC | Both | Live ✔ (partly); race not reproduced in browser | Multi-tab use: a refresh race logs out every session; signing in another tab swaps the identity — **fixed** (reconciled 24 Oct) |
+| QA-009 | High | SEC | Both | Live ✔ Browser ✔ | Logout and password change never end the session on the server; tokens sit in localStorage with no CSP — **fixed** (reconciled 24 Oct) |
+| QA-010 | High | SEC | BE | Live ✔ | Public invoice opens by its database UUID, never expires, isn't throttled, and exposes a staff email — **fixed** (24 Oct; BE `a417fb0`: token-only links, rotated on resend, rate-limited, no staff email, 404 when suspended) |
+| QA-013 | High | SEC | BE | Live ✔ Browser ✔ | Any staff creator can set a password that activates the new account at once (Academic Head role limits are fixed) — **fixed** (24 Oct; BE `5857a8d`: only a Super Admin sets a password at creation; staff invite) |
+| QA-016 | High | SEC | Both | Live ✔ Browser ✔ | Teachers still see every class in the school and medical notes (national IDs and guardian contacts are now hidden) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-026 | High | FLOW | Both | Code ✔ | Parents can't use any real feature: every parent API call returns 403 and there is no parent UI — **fixed** (reconciled 24 Oct) |
+| QA-027 | High | FLOW | Both | Browser ✔ | No forgot/reset password anywhere — **fixed** (reconciled 24 Oct) |
+| QA-028 | High | FLOW | FE | Live ✔ Browser ✔ | Generate-invoices toast reads "Generated undefined … GHS 0.00" because the field names don't match — **fixed** (reconciled 24 Oct) |
+| QA-030 | High | EDGE | FE | Code ✔ / Live ✔ | Some pickers still stop at 100 (payment/discount student picker, staff, invites, platform staff); classes and schools now page fully — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-031 | High | FLOW | Both | Code ✔ | Fees KPI cards add up only the 20 invoices on screen — **fixed** (reconciled 24 Oct) |
+| QA-032 | High | UX/data | FE | Code ✔ | Admission saves medical and personal defaults (O+, AA, Christian, Male…) the user never chose — **fixed** (reconciled 24 Oct) |
+| QA-033 | High | FLOW | FE | Code ✔ | A new school can't be set up from the UI (no Principal assignment, no years/terms/classes/fees setup) — **fixed** (reconciled 24 Oct) |
+| QA-034 | High | UX | FE | Code ✔ | The dashboard Overview KPIs are still sample data (attendance is live; admissions is labelled "Preview only") — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-055 | High | FLOW/money | FE | Browser ✔ | Record Payment overwrites the amount the cashier typed once the balance finishes loading — **fixed** (41eeb3b) |
 | QA-060 | High | Bug | BE | Live ✔ | Staff list of optional-service requests returned 500 — **fixed** (08c9ee3) |
-| QA-061 | High | Data | Data, FE | Live ✔ | Flagged current term doesn't contain today; billing forms default to it (9 robotics bills went to Term 2) |
-| QA-064 | High | EDGE/data | FE | Code ✔ | Design builder can save the previous design onto the version just opened |
-| QA-065 | High | EDGE/data | FE | Code ✔ | Design edits in the last 1.2 s are lost on switch or leave; no unsaved-changes guard |
-| QA-066 | High | FLOW | FE | Code ✔ | Publish can push an older design than the one on screen |
-| QA-201 | High | SEC/UX | BE | Browser ✔ | Emails are case- and space-sensitive: capitalised login fails; duplicate accounts per mailbox |
-| QA-207 | High | FLOW | Both | Browser ✔ | Classes have no order; promotion is one pupil at a time with no next-class suggestion |
+| QA-061 | High | Data | Data, FE | Live ✔ | Flagged current term doesn't contain today; billing forms default to it (9 robotics bills went to Term 2) — **open** (code re-checked 24 Oct) |
+| QA-064 | High | EDGE/data | FE | Code ✔ | Design builder can save the previous design onto the version just opened — **open** (code re-checked 24 Oct) |
+| QA-065 | High | EDGE/data | FE | Code ✔ | Design edits in the last 1.2 s are lost on switch or leave; no unsaved-changes guard — **open** (code re-checked 24 Oct) |
+| QA-066 | High | FLOW | FE | Code ✔ | Publish can push an older design than the one on screen — **open** (code re-checked 24 Oct) |
+| QA-201 | High | SEC/UX | BE | Browser ✔ | Emails are case- and space-sensitive: capitalised login fails; duplicate accounts per mailbox — **fixed** (24 Oct; BE `e226f97`, FE `df392ad`) |
+| QA-207 | High | FLOW | Both | Browser ✔ | Classes have no order; promotion is one pupil at a time with no next-class suggestion — **fixed** (24 Oct; BE `23504b6`, FE `a2f0bff`; follow-ups QA-245, QA-247) |
 | QA-208 | High | FLOW | Both | Browser ✔ | Revoking an invite locks that person out for good (Reactivate gives an account with no password) — **fixed** (22 Oct; backend `e14ddfc` on `main`) |
-| QA-210 | High | FLOW/data | FE | Browser ✔ | Admission "Next" submits early: Health & Safety unreachable; no guardian required |
+| QA-210 | High | FLOW/data | FE | Browser ✔ | Admission "Next" submits early: Health & Safety unreachable; no guardian required — **fixed** (24 Oct; FE `90d7a5a`, BE `23504b6`) |
 | QA-211 | High | FLOW | FE | Browser ✔ | Guardian contacts can't be viewed or corrected after admission, so parents may never link — **fixed** (23 Oct; BE `a89ee57`, FE `0fd3b0d`) |
 | QA-214 | High | SEC | Both | Browser ✔ | Staff unlink doesn't stick: the parent relinks immediately (safeguarding) — **fixed** (23 Oct; shared-contact gap QA-240 also fixed) |
 | QA-222 | High | Money/UX | FE | Browser ✔ | Parent app "paid of" total counts carried bills again every term — **fixed** (23 Oct; FE `b945bd8`, BE `25eb632`) |
-| QA-227 | High | Money/SEC | BE | Browser ✔ | An old "tamper-proof" public bill changes later (live class and balance) |
-| QA-011 | Medium | SEC | BE | Live ✔ | Invoice job status can be read across schools (sequential ids) |
-| QA-012 | Medium | SEC | BE | Live ✔ | No security headers; Swagger public; CORS `*` with credentials; unset `NODE_ENV` runs production as dev |
-| QA-014 | Medium | SEC | BE | Live ✔ | User enumeration through register-parent, login timing and ward-link errors |
-| QA-017 | Medium | FLOW | BE | Live ✔ | Exited students can still be paid against; their open invoices are never written off |
-| QA-018 | Medium | EDGE | Both | Live ✔ | Terms can't be closed: past and future-dated writes are accepted; term dates aren't validated |
-| QA-019 | Medium | EDGE | BE | Live ✔ | Payment input gaps: oversized amount returns 500, unvalidated `dueDate`, allocations not checked |
-| QA-021 | Medium | SEC | BE | Suspected | A failed OTP send is never caught and can crash the API process |
-| QA-022 | Medium | SEC/FLOW | BE | Live ✔ | Some paths skip module and suspension checks (public invoice, media, ward linking, queued jobs) |
-| QA-023 | Medium | SEC | BE | Code ✔ | Throttling is keyed on IP+email, held in memory, spoofable through `X-Forwarded-For`, with no lockout |
-| QA-024 | Medium | SEC | BE | Live ✔ | `PATCH /students/:id` lets a Secretary graduate or transfer a student, bypassing `students:exit` |
-| QA-025 | Medium | SEC | BE | Code ✔ | `POST /users` can link a parent login to any child without the guardian-contact check |
-| QA-029 | Medium | EDGE/UX | Both | Live ✔ | Overpayment accepted with no cap or warning (GHS 50,000 on a GHS 1,450 bill) |
-| QA-035 | Medium | EDGE | Both | Browser ✔ | Role, permissions and modules go stale in an open page until reload; stored permission copies drift from the matrix |
-| QA-036 | Medium | FLOW | Both | Browser ✔ | Non-teacher staff (Academic Head, Account Officer, Secretary) can't be listed, edited or re-activated |
-| QA-037 | Medium | EDGE | FE | Browser ✔ | A failed refresh hard-redirects (draft lost); a network blip logs out; possible redirect loop |
-| QA-038 | Medium | EDGE | FE | Code ✔ | Search races: no protection against stale responses; Students search isn't debounced |
-| QA-039 | Medium | UX | FE | Browser ✔ (partly) | Failed loads show a toast, but the page also shows zeros as if the data were real; raw "Failed to fetch"; school mismatch logs out silently |
-| QA-040 | Medium | UX/EDGE | FE | Code ✔ | Platform console: one-click deactivate, stale module drawer, can't clear optional fields |
-| QA-041 | Medium | UX | FE | Code ✔ | Payment, invoice, receipt and admission modal friction |
-| QA-042 | Medium | EDGE | BE | Code ✔ | Invoice modification reads outside its transaction and leaves later arrears stale; no audit trail |
-| QA-044 | Medium | DOC | FE | Code ✔ | Marketing and login copy claim things the product doesn't do |
-| QA-045 | Medium | SEC | BE | Suspected | `BaseRepository` stops filtering by school when none is in context (backup control) |
-| QA-053 | Medium | FLOW | FE | Suspected | The in-progress fees `api.ts` reads lists as `data[]`+`meta`, but the backend returns `data.items` |
-| QA-056 | Medium | FLOW | Both | Browser ✔ | Platform staff counts are wrong (overview says 3 staff, school page says 1) |
+| QA-227 | High | Money/SEC | BE | Browser ✔ | An old "tamper-proof" public bill changes later (live class and balance) — **fixed** (24 Oct; BE `eb0f25c` on `main`; older bills keep showing the current class by choice) |
+| QA-011 | Medium | SEC | BE | Live ✔ | Invoice job status can be read across schools (sequential ids) — **open** (code re-checked 24 Oct) |
+| QA-012 | Medium | SEC | BE | Live ✔ | No security headers; Swagger public; CORS `*` with credentials; unset `NODE_ENV` runs production as dev — **fixed** (24 Oct; BE `c9c06b9`: security headers; production refuses Swagger, open CORS and a missing NODE_ENV) |
+| QA-014 | Medium | SEC | BE | Live ✔ | User enumeration through register-parent, login timing and ward-link errors — **open** (code re-checked 24 Oct) |
+| QA-017 | Medium | FLOW | BE | Live ✔ | Exited students can still be paid against; their open invoices are never written off — **open** (code re-checked 24 Oct) |
+| QA-018 | Medium | EDGE | Both | Live ✔ | Terms can't be closed, term dates aren't checked for start ≤ end, and payment dates are unbounded — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-019 | Medium | EDGE | BE | Live ✔ | Payment input gaps: oversized amount returns 500, unvalidated `dueDate`, allocations not checked — **open** (code re-checked 24 Oct) |
+| QA-021 | Medium | SEC | BE | Suspected | A failed OTP send is never caught and can crash the API process — **open** (code re-checked 24 Oct) |
+| QA-022 | Medium | SEC/FLOW | BE | Live ✔ | Public invoice, media, optional fees and queued jobs still skip module and suspension checks (payments are fixed) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-023 | Medium | SEC | BE | Code ✔ | The main throttler is still in memory, keyed on IP+email and spoofable, with no lockout (only AdminJS has one) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-024 | Medium | SEC | BE | Live ✔ | `PATCH /students/:id` lets a Secretary graduate or transfer a student, bypassing `students:exit` — **open** (code re-checked 24 Oct) |
+| QA-025 | Medium | SEC | BE | Code ✔ | `POST /users` can link a parent login to any child without the guardian-contact check — **open** (code re-checked 24 Oct) |
+| QA-029 | Medium | EDGE/UX | Both | Live ✔ | Staff payments accept any overpayment as credit with no confirmation (online payments are capped) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-035 | Medium | EDGE | Both | Browser ✔ | Permissions refresh only on app load: no refetch on focus or 403, unknown modules allowed, stored permission lists drift — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-036 | Medium | FLOW | Both | Browser ✔ | Non-teacher staff (Academic Head, Account Officer, Secretary) can't be listed, edited or re-activated — **fixed** (reconciled 24 Oct) |
+| QA-037 | Medium | EDGE | FE | Browser ✔ | A failed refresh hard-redirects (draft lost); a network blip logs out; possible redirect loop — **fixed** (reconciled 24 Oct) |
+| QA-038 | Medium | EDGE | FE | Code ✔ | No stale-response guard on searches, and Students search sends 2 requests per keystroke (fees search is debounced) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-039 | Medium | UX | FE | Browser ✔ (partly) | KPI cards still show GHS 0 when the load fails, and there's no request timeout (errors are now friendly, with Retry) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-040 | Medium | UX/EDGE | FE | Code ✔ | Platform console: deactivate is still one click, the module drawer goes stale, and optional fields can't be cleared — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-041 | Medium | UX | FE | Code ✔ | Payment, invoice, receipt and admission modal friction — **open** (code re-checked 24 Oct) |
+| QA-042 | Medium | EDGE | BE | Code ✔ | Invoice modification has no audit trail and overwrites signedBy (the transaction race is fixed) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-044 | Medium | DOC | FE | Code ✔ | Marketing and login copy claim things the product doesn't do — **open** (code re-checked 24 Oct) |
+| QA-045 | Medium | SEC | BE | Suspected | `BaseRepository` stops filtering by school when none is in context (backup control) — **open** (code re-checked 24 Oct) |
+| QA-053 | Medium | FLOW | FE | Suspected | The in-progress fees `api.ts` reads lists as `data[]`+`meta`, but the backend returns `data.items` — **fixed** (reconciled 24 Oct) |
+| QA-056 | Medium | FLOW | Both | Browser ✔ | Platform staff counts are wrong (overview says 3 staff, school page says 1) — **fixed** (reconciled 24 Oct) |
 | QA-057 | Medium | FLOW | BE | Browser ✔ | Bill & report designs page returns 500: uncommitted entity column `layout` has no migration — **fixed** (backend 5bae8a2) |
-| QA-062 | Medium | Money | BE | Code ✔ | Extra-bill duplicate check ignores term bills, so a fee can be charged twice |
-| QA-067 | Medium | EDGE | Both | Code ✔ | Template edits have no conflict check; last save wins |
-| QA-068 | Medium | FLOW | BE | Code ✔ | A published design that fails on real data breaks the parent bill; no fallback |
-| QA-069 | Medium | FLOW | Both | Code ✔ | Code editor silently converts a visual design into a code design |
-| QA-070 | Medium | UX/EDGE | FE | Code ✔ | Design builder error states: sticky preview errors, kind-switch races, silent rename failures |
-| QA-072 | Medium | EDGE | Both | Code ✔ | Past terms stay editable on the calendar; closures change attendance totals after the fact |
-| QA-073 | Medium | EDGE | FE | Suspected | Calendar term/class switch can show another term's events and stats |
-| QA-075 | Medium | FLOW | Both | Code ✔ | A mistaken year, term or class can't be deleted |
-| QA-076 | Medium | EDGE | Both | Code ✔ | Term and year dates aren't checked against each other (overlap, order, containment) |
-| QA-077 | Medium | EDGE | BE | Code ✔ | Current year and current term can disagree |
-| QA-080 | Medium | FLOW | FE | Code ✔ | Staff optional-requests page unreachable in committed code (route rule uncommitted) |
-| QA-081 | Medium | SEC/UX | FE | Code ✔ | Parent sample-data mode has no production guard |
-| QA-084 | Medium | Money/data | BE | Code ✔ | Renaming a fee type changes invoices already issued |
-| QA-085 | Medium | Money | BE | Code ✔ | Structure penalty and due date ignored; bill prints a hard-coded 10% penalty |
-| QA-086 | Medium | Money/EDGE | FE | Code ✔ | A cash payment can still be recorded twice after a timeout or closed modal |
-| QA-200 | Medium | EDGE | BE | Browser ✔ | School codes case-sensitive and untrimmed |
-| QA-202 | Medium | FLOW | Both | Browser ✔ | Pending principal invite invisible to Super Admin; two principal invites can be open |
-| QA-203 | Medium | FLOW | BE | Browser ✔ | Plain-text email links broken (`token&#x3D;`) |
-| QA-209 | Medium | EDGE | Both | Browser ✔ | Future birth date accepted at admission |
-| QA-213 | Medium | UX | FE | Browser ✔ | Ward-link OTP errors flattened; no "start again" after lockout |
-| QA-215 | Medium | Money | BE | Browser ✔ | GHS 0 invoice marked UNPAID and sent to parents |
-| QA-216 | Medium | Money/FLOW | Both | Browser ✔ | One MoMo transfer can't cover several siblings |
-| QA-217 | Medium | UX | FE | Browser ✔ | Fees KPI cards stale after payments and Refresh |
-| QA-218 | Medium | FLOW | BE | Browser ✔ | Only one extra bill per fee type per term |
-| QA-219 | Medium | UX/Money | BE | Browser ✔ | Public bill labels this term's extra bills "Bal B/f" |
-| QA-220 | Medium | Money | BE | Browser ✔ | Credit not applied to new extra bills |
-| QA-221 | Medium | Money/FLOW | FE | Browser ✔ | Extra bills can't be paid on their own |
-| QA-223 | Medium | EDGE | Both | Browser ✔ | Promotion accepts a past, already-billed term |
-| QA-224 | Medium | FLOW | Both | Browser ✔ | Exit dialog hides the outstanding balance |
-| QA-225 | Medium | EDGE | BE | Browser ✔ | Attendance roster uses current class for past dates |
-| QA-226 | Medium | UX | FE | Browser ✔ | Design preview needs the invoice UUID, not its number |
-| QA-228 | Medium | FLOW | BE | Browser ✔ | Published design not used on public bill links |
-| QA-229 | Medium | FLOW | Both | Browser ✔ | Paystack rejects some parent emails; raw error; no fallback |
-| QA-231 | Medium | UX/trust | BE | Browser ✔ Code ✔ | The design preview shows another school ("Fastrack International School") instead of the user's own |
-| QA-232 | Medium | FLOW/audit | Both | Code ✔ (DB) | Invoices from one billing run share no run ID: runs can't be undone, audited or re-sent as a unit |
-| QA-233 | Medium | FLOW | Both | Code ✔ | Subject teachers can't be assigned (`staff_subjects` and `timetable_slots` exist but have no API or UI) |
-| QA-236 | Medium | EDGE/data | BE | Browser ✔ | Making a year current leaves the current term in another year |
-| QA-237 | Medium | EDGE | Both | Browser ✔ | Unticking the current term leaves the school with no current term, silently |
+| QA-062 | Medium | Money | BE | Code ✔ | Extra-bill duplicate check ignores term bills, so a fee can be charged twice — **open** (code re-checked 24 Oct) |
+| QA-067 | Medium | EDGE | Both | Code ✔ | Template edits have no conflict check; last save wins — **open** (code re-checked 24 Oct) |
+| QA-068 | Medium | FLOW | BE | Code ✔ | A published design that fails on real data breaks the parent bill; no fallback — **open** (code re-checked 24 Oct) |
+| QA-069 | Medium | FLOW | Both | Code ✔ | Code editor silently converts a visual design into a code design — **open** (code re-checked 24 Oct) |
+| QA-070 | Medium | UX/EDGE | FE | Code ✔ | Design builder error states: sticky preview errors, kind-switch races, silent rename failures — **open** (code re-checked 24 Oct) |
+| QA-072 | Medium | EDGE | Both | Code ✔ | Past terms stay editable on the calendar; closures change attendance totals after the fact — **open** (code re-checked 24 Oct) |
+| QA-073 | Medium | EDGE | FE | Suspected | Calendar term/class switch can show another term's events and stats — **open** (code re-checked 24 Oct) |
+| QA-075 | Medium | FLOW | Both | Code ✔ | A mistaken year, term or class can't be deleted — **open** (code re-checked 24 Oct) |
+| QA-076 | Medium | EDGE | Both | Code ✔ | Term and year dates aren't checked against each other (overlap, order, containment) — **open** (code re-checked 24 Oct) |
+| QA-077 | Medium | EDGE | BE | Code ✔ | Current year and current term can disagree — **open** (code re-checked 24 Oct) |
+| QA-080 | Medium | FLOW | FE | Code ✔ | Staff optional-requests page unreachable in committed code (route rule uncommitted) — **fixed** (reconciled 24 Oct) |
+| QA-081 | Medium | SEC/UX | FE | Code ✔ | Parent sample-data mode has no production guard — **open** (code re-checked 24 Oct) |
+| QA-084 | Medium | Money/data | BE | Code ✔ | Invoice API line items still show the live fee type name after a rename (public bills use the snapshot) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-085 | Medium | Money | BE | Code ✔ | Structure penalty and due date ignored; bill prints a hard-coded 10% penalty — **open** (code re-checked 24 Oct) |
+| QA-086 | Medium | Money/EDGE | FE | Code ✔ | A cash payment can still be recorded twice after a timeout or closed modal — **open** (code re-checked 24 Oct) |
+| QA-200 | Medium | EDGE | BE | Browser ✔ | School codes case-sensitive and untrimmed — **fixed** (24 Oct; BE `611856b`) |
+| QA-202 | Medium | FLOW | Both | Browser ✔ | Pending principal invite invisible to Super Admin; two principal invites can be open — **fixed** (24 Oct; BE `7d5a143`, FE `2c15920`; follow-up QA-253) |
+| QA-203 | Medium | FLOW | BE | Browser ✔ | Plain-text email links broken (`token&#x3D;`) — **fixed** (24 Oct; BE `7d5a143`) |
+| QA-209 | Medium | EDGE | Both | Browser ✔ | Future birth date accepted at admission — **fixed** (24 Oct; BE `7d5a143`, FE `d5d0ae1`) |
+| QA-213 | Medium | UX | FE | Browser ✔ | Ward-link OTP errors flattened; no "start again" after lockout — **open** (code re-checked 24 Oct) |
+| QA-215 | Medium | Money | BE | Browser ✔ | GHS 0 invoice marked UNPAID and sent to parents — **open** (code re-checked 24 Oct) |
+| QA-216 | Medium | Money/FLOW | Both | Browser ✔ | One MoMo transfer can't cover several siblings — **open** (code re-checked 24 Oct) |
+| QA-217 | Medium | UX | FE | Browser ✔ | Fees KPI cards stale after payments and Refresh — **open** (code re-checked 24 Oct) |
+| QA-218 | Medium | FLOW | BE | Browser ✔ | Only one extra bill per fee type per term — **open** (code re-checked 24 Oct) |
+| QA-219 | Medium | UX/Money | BE | Browser ✔ | The public bill lumps this term's extra bills into "Balance from previous bills" instead of listing them (the "Bal B/f" label is gone) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-220 | Medium | Money | BE | Browser ✔ | Credit not applied to new extra bills — **open** (code re-checked 24 Oct) |
+| QA-221 | Medium | Money/FLOW | FE | Browser ✔ | Extra bills can't be paid on their own — **open** (code re-checked 24 Oct) |
+| QA-223 | Medium | EDGE | Both | Browser ✔ | Promotion accepts a past, already-billed term — **open** (code re-checked 24 Oct) |
+| QA-224 | Medium | FLOW | Both | Browser ✔ | Exit dialog hides the outstanding balance — **open** (code re-checked 24 Oct) |
+| QA-225 | Medium | EDGE | BE | Browser ✔ | Attendance roster uses current class for past dates — **open** (code re-checked 24 Oct) |
+| QA-226 | Medium | UX | FE | Browser ✔ | Design preview needs the invoice UUID, not its number — **open** (code re-checked 24 Oct) |
+| QA-228 | Medium | FLOW | BE | Browser ✔ | Published design not used on public bill links — **fixed** (reconciled 24 Oct) |
+| QA-229 | Medium | FLOW | Both | Browser ✔ | Paystack rejects some parent emails; raw error; no fallback — **open** (code re-checked 24 Oct) |
+| QA-231 | Medium | UX/trust | BE | Browser ✔ Code ✔ | The design preview shows another school ("Fastrack International School") instead of the user's own — **open** (code re-checked 24 Oct) |
+| QA-232 | Medium | FLOW/audit | Both | Code ✔ (DB) | Invoices from one billing run share no run ID: runs can't be undone, audited or re-sent as a unit — **open** (code re-checked 24 Oct) |
+| QA-233 | Medium | FLOW | Both | Code ✔ | Subject teachers can't be assigned (`staff_subjects` and `timetable_slots` exist but have no API or UI) — **open** (code re-checked 24 Oct) |
+| QA-236 | Medium | EDGE/data | BE | Browser ✔ | Making a year current leaves the current term in another year — **open** (code re-checked 24 Oct) |
+| QA-237 | Medium | EDGE | Both | Browser ✔ | Unticking the current term leaves the school with no current term, silently — **open** (code re-checked 24 Oct) |
 | QA-238 | Medium | FLOW/audit | FE | Browser ✔ | Guardian change history always shows "No changes recorded yet" (reads `items`, API v2 returns a list) — **fixed** (23 Oct, FE `b0ac515`) |
 | QA-239 | Medium | FLOW | FE | Browser ✔ | Staff signed in before an update lose new permissions until they sign out (contacts "hidden" yet shown, no editing) — **fixed** (23 Oct, FE `b0ac515`) |
 | QA-240 | Medium | SEC | BE | Browser ✔ | Blocking a parent leaves their other linked account with the same phone in place — **fixed** (23 Oct, BE `cece817` + FE warning `b0ac515`) |
 | QA-243 | Medium | Money/data | BE | DB ✔ | FIS-001 Efua Ansah: a bill shows GHS 8,400 paid against GHS 2,000 of payments, and only GHS 300 of its credit moved to the next bill — **fixed** (23 Oct; BE `5deed77`, `f8944de`, on `main`) |
-| QA-043 | Low | FLOW | BE | Code ✔ | Discounts stack to 100%, silently overwrite, and don't re-price issued invoices |
-| QA-046 | Low | SEC | BE | Code ✔ | Super Admin permissions never checked; no rank check on invites; `isActive` field duplicates the endpoints |
-| QA-047 | Low | SEC/data | BE | Code ✔ / Live ✔ | Config hygiene: seed passwords, secret reuse, DB TLS, email case, `$argon2` bypass, PII in logs, current-term flag |
-| QA-048 | Low | EDGE | BE | Code ✔ | Arrays have no `ArrayMaxSize`; optional-fee `feeTypeId` not validated |
-| QA-049 | Low | EDGE/SEC | BE | Code ✔ | Invite acceptance isn't atomic; media residuals (non-revocable signed URLs, no upload limit) |
-| QA-050 | Low | UX | FE | Code ✔ | Four currency formats, four date formats, partial dark mode, accessibility gaps |
-| QA-051 | Low | DOC/SEC | FE | Code ✔ | API URL defaults to Next's port; client-only guard; menus vs routes; hand-copied permission list |
-| QA-052 | Low | DOC | BE | Code ✔ | Architecture docs out of date; three different list envelope shapes |
-| QA-058 | Low | FLOW | Both | Browser ✔ | The new Calendar page can't be opened by any role: the backend never grants `calendar:read` — **fixed in code** (needs migration run and re-login) |
-| QA-059 | Low | UX | FE | Browser ✔ | Login gives no message on an empty submit and repeats each error 3 times; Teacher's Students breadcrumb is blank |
+| QA-245 | Medium | FLOW/data | Both | Browser ✔ | When two classes share the top order number, a middle class is pre-filled to "Graduates" on Move classes up — **fixed** (24 Oct; BE `f9e93b5`, FE `e469eda`: order numbers are unique; remaining gap QA-248) |
+| QA-248 | Medium | FLOW/data | Both | Browser ✔ | When the classes after it have no order (0), the last numbered class is pre-filled to "Graduates" — **fixed** (24 Oct; BE `2119f1e`) |
+| QA-250 | Medium | Money | BE | Browser ✔ | AdminJS Analytics "Fees invoiced" counts carried-forward balances again (BIS-001: 78,789 shown, 46,420 real), so the collection rate is wrong — **fixed** (24 Oct; BE `611856b`) |
+| QA-251 | Medium | Bug | BE | Browser ✔ | AdminJS filters on School Module (school), Parent Student (parent) and Marketing Lead (kind) return 500 — **fixed** (24 Oct; BE `611856b`) |
+| QA-253 | Medium | FLOW | Both | Browser ✔ | After revoking a principal invite on the platform school page, the same person can't be invited again from the UI — **fixed** (24 Oct; BE `d4c87aa`, FE `0ca3e3b`) |
+| QA-254 | Medium | Dev tooling | BE | Live ✔ | Dev email previews no longer open: the preview binds 127.0.0.1:80, which macOS refuses (EACCES) — **fixed** (24 Oct; BE `5af0b93`: preview moved to port 4080) |
+| QA-255 | Medium | Bug | BE | Live ✔ Browser ✔ | A deleted subject's code can't be reused (500), so grading setup with "add subjects" crashes on schools that deleted one — **fixed** (24 Oct; BE `3708535`, local, not pushed: partial unique indexes on code and name) |
+| QA-257 | Medium | FLOW/data | FE | Browser ✔ | "Run setup again" in Grading setup starts from the suggested presets, and applying silently replaces the school's existing department choices — **fixed** (24 Oct; FE `4913515`, `769f63e`, local, not pushed) |
+| QA-258 | Medium | Data | BE | Live ✔ Browser ✔ | Term report attendance counts every school day of the term as the total, even days with no register and days before a pupil joined ("1 of 39" for a pupil there 7 days) — **fixed** (24 Oct; BE `a0220a2`: total = register days while the pupil was in the class) |
+| QA-043 | Low | FLOW | BE | Code ✔ | Discounts stack to 100%, silently overwrite, and don't re-price issued invoices — **open** (code re-checked 24 Oct) |
+| QA-046 | Low | SEC | BE | Code ✔ | Super Admin skips the permissions guard, and revoke or pending resend have no rank check (staff isActive and reopen are checked) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-047 | Low | SEC/data | BE | Code ✔ / Live ✔ | Config hygiene: seed passwords, JWT secret fallbacks, DB TLS not verified, $argon2 skip, emails in logs (email case is fixed) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-048 | Low | EDGE | BE | Code ✔ | Arrays have no `ArrayMaxSize`; optional-fee `feeTypeId` not validated — **open** (code re-checked 24 Oct) |
+| QA-049 | Low | EDGE/SEC | BE | Code ✔ | Invite acceptance isn't atomic; media residuals (non-revocable signed URLs, no upload limit) — **open** (code re-checked 24 Oct) |
+| QA-050 | Low | UX | FE | Code ✔ | Four currency formats, four date formats, partial dark mode, accessibility gaps — **open** (code re-checked 24 Oct) |
+| QA-051 | Low | DOC/SEC | FE | Code ✔ | API URL defaults to localhost:3000, there is no middleware route guard, and the permission script is a hand copy — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-052 | Low | DOC | BE | Code ✔ | Architecture docs out of date; three different list envelope shapes — **open** (code re-checked 24 Oct) |
+| QA-058 | Low | FLOW | Both | Browser ✔ | The new Calendar page can't be opened by any role: the backend never grants `calendar:read` — **fixed** (reconciled 24 Oct) |
+| QA-059 | Low | UX | FE | Browser ✔ | A wrong password shows both an inline alert and a toast (empty submit and the Teacher breadcrumb are fixed) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-063 | Low | UX | BE | Live ✔ | Whole-school invoice run message named one class — **fixed** (e28166d) |
-| QA-054 | Low | Process | BE | Suspected | Something creates "Parent Ward Link Academy" in the **dev** database every few minutes |
-| QA-071 | Low | UX/EDGE | Both | Code ✔ | Smaller design-builder gaps |
-| QA-074 | Low | EDGE/UX | Both | Code ✔ | Smaller calendar gaps (overnight events, timed closures, stuck loader, +N more) |
-| QA-078 | Low | UX | FE | Code ✔ | A failed read makes school setup look done |
-| QA-079 | Low | EDGE | Both | Code ✔ | Smaller school-setup gaps (email, code, class codes, checklist) |
-| QA-082 | Low | FLOW | BE | Code ✔ | Optional-service requests that should no longer be possible (orphaned, leavers, forced fees) |
-| QA-083 | Low | UX/FLOW | Both | Code ✔ | Smaller optional-request gaps (issued bills, price, races, paging) |
-| QA-087 | Low | EDGE/UX | Both | Code ✔ | Smaller fee-setup gaps (module gating, duplicates, huge amounts, lists) |
+| QA-054 | Low | Process | BE | Suspected | The e2e test creates "Parent Ward Link Academy" schools and never deletes them (74 left in the dev DB; creation stopped 20 Oct) — **fixed** (24 Oct; backend `71ec686`, leftovers deleted) |
+| QA-071 | Low | UX/EDGE | Both | Code ✔ | Smaller design-builder gaps — **open** (code re-checked 24 Oct) |
+| QA-074 | Low | EDGE/UX | Both | Code ✔ | Smaller calendar gaps (overnight events, timed closures, stuck loader, +N more) — **open** (code re-checked 24 Oct) |
+| QA-078 | Low | UX | FE | Code ✔ | A failed read makes school setup look done — **open** (code re-checked 24 Oct) |
+| QA-079 | Low | EDGE | Both | Code ✔ | School setup: clearing the email sends "", a Principal can change the code and logo URL, and an empty term number is sent — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-082 | Low | FLOW | BE | Code ✔ | Optional-service requests that should no longer be possible (orphaned, leavers, forced fees) — **open** (code re-checked 24 Oct) |
+| QA-083 | Low | UX/FLOW | Both | Code ✔ | Smaller optional-request gaps (issued bills, price, races, paging) — **open** (code re-checked 24 Oct) |
+| QA-087 | Low | EDGE/UX | Both | Code ✔ | Smaller fee-setup gaps (module gating, duplicates, huge amounts, lists) — **open** (code re-checked 24 Oct) |
 | QA-088 | Low | FLOW/UX | Both | Code ✔ | Invite page and lead-form edge cases — invite double sign-in **fixed** (22 Oct) |
-| QA-205 | Low | DOC | BE | Code ✔ | Reset email says 30 minutes; the link lasts 60 |
-| QA-230 | Low | UX | FE | Browser ✔ | Parent "Coming up" shows 3 events and leaves out the PTA meeting |
-| QA-234 | Low | FLOW | Both | Code ✔ | Only one class teacher per class (no assistant or co-teacher) |
-| QA-235 | Low | FLOW/data | BE | Code ✔ | Changing a class teacher overwrites it; no history of who taught the class each term |
+| QA-205 | Low | DOC | BE | Code ✔ | Reset email says 30 minutes; the link lasts 60 — **fixed** (24 Oct; BE `7d5a143`) |
+| QA-230 | Low | UX | FE | Browser ✔ | Parent "Coming up" shows 3 events and leaves out the PTA meeting — **open** (code re-checked 24 Oct) |
+| QA-234 | Low | FLOW | Both | Code ✔ | Only one class teacher per class (no assistant or co-teacher) — **open** (code re-checked 24 Oct) |
+| QA-235 | Low | FLOW/data | BE | Code ✔ | Changing a class teacher overwrites it; no history of who taught the class each term — **open** (code re-checked 24 Oct) |
 | QA-241 | Low | UX/audit | BE | Browser ✔ | "Link parent account" on an already-linked parent says linked again and logs a second link — **fixed** (23 Oct, BE `cece817`) |
 | QA-242 | Low | UX | BE | Browser ✔ | Staff link refused with "more than one parent account" when the others are blocked or already linked — **fixed** (23 Oct, BE `cece817`) |
+| QA-244 | Low | UX/money | FE | Browser ✔ | Parent bill list shows a credit bill as "GHS 0.00 of GHS -200.00" — **fixed** (24 Oct; FE `01ce719`) |
+| QA-256 | Low | UX | BE | Live ✔ | Setup apply with a weight override keeps the preset's name ("GES 30/70 (Lower Primary)" for a 40/60 scheme) — **fixed** (24 Oct; BE `3708535`, local, not pushed: edited copies named after their content) |
+| QA-259 | Low | Bug | BE | Live ✔ | Term report class view returns `batch.classId: null` (the class relation isn't loaded) — **fixed** (24 Oct; BE `a0220a2`) |
+| QA-260 | Low | UX | Both | Browser ✔ | A position reads "2nd of 4" on screen but "2nd out of 5" on the printed report (the pupil who left is counted), and ties aren't marked "=" — **fixed** (24 Oct; BE `a0220a2`, FE `018cc3b`: "2nd=" on screen and in print; "out of" = on roll) |
+| QA-261 | Low | UX | FE | Browser ✔ | The term reports page requests the remark bank for a secretary and gets 403 each time — **fixed** (24 Oct; FE `018cc3b`) |
+| QA-262 | Low | UX | FE | Browser ✔ | Parent portal Fees tab shows "Could not load … Try again" at a school without the fees module, instead of hiding it — **fixed** (24 Oct; FE `c98d2c4`, `e85bd47`, BE `e6616cb`, local) |
+| QA-246 | Low | UX | FE | Browser ✔ | School setup calls the fee-types API on schools without the fees module (repeated 403s) — **fixed** (24 Oct; FE `e469eda`) |
+| QA-247 | Low | Data | BE | DB ✔ | A promotion into a later term records the new class history row as starting today, not on the term's start date — **fixed** (24 Oct; BE `f9e93b5`) |
+| QA-249 | Low | UX | Both | Browser ✔ | Move classes up: the result says "0 stayed" for classes set to "Don't move", though the confirmation counted them — **fixed** (24 Oct; FE `b032a41`) |
+| QA-252 | Low | UX | BE | Browser ✔ | AdminJS Analytics shows cedi amounts with "$" and raw ISO dates on the attendance trend — **fixed** (24 Oct; BE `611856b`) |
 
 ---
 
@@ -372,7 +393,7 @@
 | ID | Evidence | Fix |
 |---|---|---|
 | QA-011 | `invoices.controller.ts:134-160` (also the super-admin variant `:133`); live #17 read RIV's job as FIS | Compare `job.data.schoolId`; 404 on mismatch; UUID job ids |
-| QA-012 | No helmet, `X-Powered-By` sent; `main.ts:12` Swagger always on; `configure-app.ts:37-38` `origin ?? '*'` + credentials; `env.validation.ts:49-50` defaults `NODE_ENV` to dev (live #25-27) | helmet; gate Swagger; require `CORS_ORIGINS` and `NODE_ENV` in production |
+| QA-012 | Fixed (re-tested 24 Oct after 44b2a3f) | helmet; gate Swagger; require `CORS_ORIGINS` and `NODE_ENV` in production |
 | QA-014 | `auth.service.ts:188-191` register-parent 409 for staff emails (live #22); login skips the hash for unknown emails (timing); `parents.service.ts:91-133` distinct ward-link errors | Uniform responses, a dummy hash for unknown emails, email verification |
 | QA-017 | `student-resolver.strategy.ts:32-44` (single student, no status filter for payments); live #18: a payment for a Transferred_Out student was accepted, and the open invoice stayed at GHS 1440. Generation for the exited student was correctly refused (live #19) | Block or confirm payments for exited students; write off or settle on exit |
 | QA-018 | Terms have only `isCurrent`; no status/close; `paymentDate` 2030 accepted (live #12); `setCurrent` writes term and year separately with no transaction; start > end accepted (`academic-years.service.ts:30-52`). The FE closed-term read-only rule is preview-only (`phase-one/domain.ts:21-23`) | Term status OPEN/CLOSED, `assertTermWritable`, a close endpoint, date checks |
@@ -873,6 +894,13 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - Lower-case and trim on write and lookup.
   - Add a unique index on `lower(email)`.
   - Migrate the existing rows.
+- **Re-test 24 Oct (browser): fixed.**
+  - **Login:** staff "Principal@BIS.test " (capitals and a trailing space) signed in as principal@bis.test. Parent "Grace.Adjei@BIS.TEST " signed in as grace.adjei@bis.test.
+  - **Forgot password:** "  GRACE.ADJEI@bis.TEST" returned 204, and the reset email preview was addressed to grace.adjei@bis.test. The link wasn't used and the password is unchanged.
+  - **Duplicates:** on PRM-001, inviting "Teacher@PRM.Test" (teacher@prm.test exists) shows "Email already registered" (409) in the form. `POST /auth/register-parent` with "GRACE.Adjei@bis.test" gets 409 "Email already registered".
+  - **Data:** the unique index `UQ_USERS_EMAIL_LOWER` on `lower(email)` is in place, and no stored email has capitals. The old duplicate is now head-bis@fastrack.school (inactive, no password), next to the single head@fastrack.school.
+  - **Fields:** the staff login, parent login, forgot-password, parent sign-up and invite email fields all have `type=email`, `inputmode=email`, `autocapitalize=none`, `autocorrect=off` and `spellcheck=false`. Autocomplete is `username` on staff login, `email` on parent login, forgot password and sign-up, and `off` on the invite form.
+  - Screenshot: `prm-qa201-invite-dup.png`.
 
 #### QA-207: Classes have no order; promotion is one pupil at a time
 - **Side / status:** Both / Browser ✔ · **Severity:** High (real-world workload)
@@ -885,6 +913,15 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - A `level` or `sequence` on classes (or on departments plus classes).
   - A "Promote class" or "Promote school" screen that maps each class to the next, with exceptions for repeaters and leavers.
   - Graduation of the top class.
+- **Re-test 24 Oct (browser): fixed.** The test ran on a new throwaway school, **PRM-001 "QA Promotion Test School"** (id `b9fa310c-b6ed-4a3c-b18b-05ee3559203a`). It has principal@prm.test and teacher@prm.test (`Prm!Pass2026`), 2026/27 with Term 1 (current) and Term 2, and classes A, B and C with 3 pupils each.
+  - **Class order:** Class A, B and C, created in School setup with Order left empty, got Order 1, 2 and 3, and the list is sorted by it.
+  - **Preview** (`/school-admin/students/promote`, linked from the Students header): A → Class B, B → Class C and C → "Graduates (leaves the school)", each 3 of 3. "6 pupils move up, 3 graduate, 0 stay."
+  - **Repeater:** unticking Akwasi PromoA gave "5 pupils move up, 3 graduate, 1 stay."
+  - **Shared order:** with Class C set to Order 2, Class A showed "Choose where this class goes" and Review was blocked. Order 3 restored it. See QA-245 for what happens to Class B.
+  - **The one real run:** start term Term 2, 2026/27 (pre-filled), leaving date 18 Dec 2026, Akwasi kept back. The confirm dialog read "5 move up, 3 graduate…, 1 stay… Move 8 pupils". The toast read "5 pupils moved up, 3 graduated and 1 stayed". The results table showed A→B 2 moved / 1 stayed, B→C 3, C→Graduated 3. The DB matches: Akwasi is in A, Adjoa and Aba in B, all of B in C, and Comfort, Kweku and Cecilia are Graduated with no class. Benewaa's history gained "Class C · Term 2 2026/27". Comfort's exit is "Graduated · Term 1 2026/27 · 2026-12-18".
+  - **Teacher:** the page has no link for her, opening it directly redirects to the dashboard, and `GET /promotions/preview` and `POST /promotions` both return 403.
+  - Screenshots: `prm-qa207-preview.png`, `prm-qa207-results.png`.
+  - **Clean-up:** PRM-001 is throwaway test data and can be deleted.
 
 #### QA-208: Revoking an invite locks that person out for good
 - **Side / status:** Both / Browser ✔ · **Severity:** High
@@ -928,6 +965,14 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - Add `type="button"` to the Next button.
   - Require at least one guardian contact.
   - Make the emergency contact mandatory or explicitly skipped.
+- **Re-test 24 Oct (browser, Principal on BIS-001): fixed.**
+  - **Steps:** Enter in the Surname field moved to Academics. "Next Step" moved to Guardians.
+  - **Guardian rule:** "Next Step" with an empty Guardians step stayed there with "Add the mother's or father's name and phone number.", and so did a mother's name with no phone. Nothing was admitted.
+  - **Health:** with the mother's phone added, Enter opened Health & Safety (Blood Group, Genotype, Allergies & Medical Notes, Emergency Contact Person). Still nothing was admitted.
+  - **One admission:** "Complete Admission" admitted once. "Student Admitted Successfully · Kwesi Admissiontest enrolled with code: BIS-001/STD/2026/012", and the DB count is 1.
+  - **Skipping ahead:** a second test (Esi Skipaheadtest) jumped to Health & Safety with the step header and no guardian. "Complete Admission" showed "Admission Form Alert · Add the mother's or father's name and phone number." and went back to Guardians. Nothing was admitted, and the form was cancelled.
+  - **API:** `POST /schools/me/students` with no guardian, or with a mother's name and no phone, gets 400 "Add the mother's or father's name and phone number, or link a parent account." Nothing was created.
+  - Screenshots: `bis-qa210-guardian-required.png`, `bis-qa210-health-step.png`.
 
 #### QA-211: Guardian contacts can't be viewed or corrected after admission
 - **Side / status:** FE / Browser ✔ Code ✔ · **Severity:** High
@@ -980,15 +1025,24 @@ A new school (BIS-001) was set up and run through every built feature in the web
   - Render public bills from the invoice's signed snapshot (`snapshot_data`).
   - Label carried-forward bills "Moved to INV/…".
   - Never mix in live account balances.
+- **Re-test 24 Oct (browser, public links, backend `eb0f25c`): fixed.** Each link shows the bill as issued.
+  - **Esi 0009 (Term 1):** "Fees Due 1,500.00 · Balance from previous bills 0.00 · Less Amount Paid to Date −0.50 · Balance moved to INV/BIS-001/2026/0033 −1,499.50 · TOTAL FEES DUE 0.00". The excursion bill 0019 moves its 120.00 to 0033 too, so 0033 receives 1,619.50.
+  - **Esi 0033 (Term 2):** "Fees Due 1,250.00 · Balance from previous bills 1,619.50 · Balance moved to INV/BIS-001/2026/0041 −2,869.50 · TOTAL FEES DUE 0.00".
+  - **Esi 0041 (2027/28 Term 1):** "Fees Due 1,760.00 · Balance from previous bills 2,869.50 · TOTAL FEES DUE 4,629.50".
+  - **Efua 0039 (FIS-001):** "Fees Due 1,700.00 · Credit from previous bills −1,900.00 · CREDIT ON THIS BILL 200.00".
+  - **Seal:** "CHARGES DIGITALLY SIGNED & SEALED" with "Payments as of <date>". "Bal B/f" is gone.
+  - **Class:** a test pupil, Abena Classcheck (BIS-001/STD/2026/011), was admitted to Basic 1. She was billed alone for 2027/28 Term 1 (INV/BIS-001/2026/0043, 1,760.00), then moved to Basic 2. Her link still reads "Class: Basic 1". Screenshot: `bis-qa227-class-kept.png`.
+  - **Known limit (user's choice, no backfill):** bills issued before the fix still show the current class. For example, Esi's Term 1 bill says Basic 1 though she was billed as KG 2.
+  - A broken logo on the BIS-001 links during this test was environmental: the server ran from a separate worktree without the shared `storage/` folder. It isn't a product bug.
 
 ### Medium
 
 | ID | Sev | Side | Finding | Fix |
 |---|---|---|---|---|
-| QA-200 | Medium | BE | School codes are compared exactly. The unique index on `schools.code` is case-sensitive and untrimmed, so `fis-001` or `FIS-001 ` would be a second school. Parents type this code. | Normalise to upper case and trim; unique on `upper(code)`. |
-| QA-202 | Medium | Both | After the Super Admin assigns a principal, the school still says "Principal: Not assigned". The pending invite isn't shown and can't be resent or revoked there, and a second principal invite was accepted while the first was open (two PRINCIPAL invites pending). | Show the pending invite with Resend and Revoke. Allow one open principal invite per school. |
-| QA-203 | Medium | BE | The plain-text part of the invite and reset emails contains `setup-password?token&#x3D;…` (HTML-escaped), a broken link in text-only clients. | Don't HTML-escape the text template. |
-| QA-209 | Medium | Both | Birth date in the future (2030) accepted at admission and saved. | Validate the birth date (past; a reasonable age range for the class). |
+| QA-200 | Medium | BE | School codes are compared exactly. The unique index on `schools.code` is case-sensitive and untrimmed, so `fis-001` or `FIS-001 ` would be a second school. Parents type this code. | Normalise to upper case and trim; unique on `upper(code)`. <br>Re-test 24 Oct (API, throwaway school "QA Code Test School", now QAC-200Z, with principal@qac.test / `Qac!Pass2026`; it can be deleted): **fixed**.<br>• **Super Admin create:** "qa/200", "Q" and "qa 200" get 400 "School code must be 2–20 letters, digits or hyphens". " bis-001 " and "Fis-001" get 409 "School code already exists". "  qac-200x " is saved as QAC-200X.<br>• **Super Admin edit:** "prm-001" gets 409, "x" and "qac 200" get 400, and "qac-200y" is saved as QAC-200Y.<br>• **Principal's own edit** (`PATCH /schools/me`): "Bis-001" gets 409, "a/b" gets 400, and " qac-200z " is saved as QAC-200Z.<br>• **Index:** `UQ_SCHOOLS_CODE_UPPER` on `upper(code)` is in place. |
+| QA-202 | Medium | Both | After the Super Admin assigns a principal, the school still says "Principal: Not assigned". The pending invite isn't shown and can't be resent or revoked there, and a second principal invite was accepted while the first was open (two PRINCIPAL invites pending). | Show the pending invite with Resend and Revoke. Allow one open principal invite per school. <br>Re-test 24 Oct, on a throwaway school "QA Invite Test School", code QAI-202 (later renamed "St. Mary's QA Invite School"; it can be deleted). **Fixed.**<br>• **Second invite:** after inviting Ama O'Neil (ama.oneil@qai.test) with no password, a second invite (same or another email) gets 409 "A principal invitation is already pending for ama.oneil@qai.test. Resend or revoke it first."<br>• **API:** `GET /super-admin/schools/:id` returns `pendingPrincipalInvite` (name, email, sentAt, expiresAt, resendCount). `GET /invitations?schoolId=` returns just that school's invite, and BIS-001's list has none of it.<br>• **Platform page:** it shows "Ama O'Neil · INVITED · ama.oneil@qai.test · Sent 24 Oct 2026 · Expires 26 Oct 2026" with Resend and Revoke, and Assign principal is hidden. Resend gives "Invitation resent" and "(resent 1 time)". Revoke gives "Invitation revoked", and Assign principal comes back.<br>• **Follow-up:** inviting the same person again after Revoke is QA-253.<br>• Screenshot: `qai-qa202-invite-card.png`. |
+| QA-203 | Medium | BE | The plain-text part of the invite and reset emails contains `setup-password?token&#x3D;…` (HTML-escaped), a broken link in text-only clients. | Don't HTML-escape the text template. <br>Re-test 24 Oct (dev email previews, rendered): **fixed**. The invite text part reads "…join St. Mary's QA Invite School…" and "http://localhost:3001/auth/setup-password?token=3bfb…". The reset text part (throwaway principal@qac.test) reads "…/auth/reset-password?token=9590…" and "If you didn't request…". There is no `&#x3D;` and no escaped apostrophe in the text. The raw preview page HTML-escapes its own `<pre>`, which is expected. |
+| QA-209 | Medium | Both | Birth date in the future (2030) accepted at admission and saved. | Validate the birth date (past; a reasonable age range for the class). <br>Re-test 24 Oct (PRM-001; nothing saved): **fixed**.<br>• **API:** birth date 2027-03-15 gets 400 "Birth date can't be in the future" from admission (`POST /schools/me/students`), student edit (Aba), staff edit (teacher@prm.test), user create (`POST /users`) and super-admin staff create. No pupil or user was created, and Aba's birth date is unchanged (2019-03-04).<br>• **UI:** the admission and Profile date fields have `max=2026-10-24`. A typed future date shows "Birth date can't be in the future." and keeps admission on step 1, with Profile Save disabled.<br>• Screenshot: `prm-qa209-profile-future.png`. |
 | QA-213 | Medium | FE | Ward-link errors are all shown as "We could not link… check the code" or "That code is not right… send a new one". This hides "2 attempts remaining", "Maximum attempts reached, start over" and "already linked to your account". "Send a new code" after a lockout fails. | Map backend messages to clear copy. After a lockout, offer "Start again". |
 | QA-215 | Medium | BE | An invoice whose discounts bring it to GHS 0 is created as **UNPAID**. It appears in arrears views and got a "view your bill" SMS. | Mark GHS 0 invoices PAID or "No fees due", and exclude them from reminders. |
 | QA-216 | Medium | Both | One MoMo transaction ID can be used only once, so a parent who pays several siblings in one transfer can't be recorded (the second child gets 409). | "Split one payment across siblings", or scope the reference check to (reference, student). |
@@ -1010,18 +1064,37 @@ A new school (BIS-001) was set up and run through every built feature in the web
 | QA-238 | Medium | FE | Found in the QA-211 re-test (23 Oct). Guardians tab → Change history → Show always says "No changes recorded yet". The audit rows exist (`audit_logs`), and `GET me/students/:id/history` returns them, but with `X-Api-Contract: 2` the data is a plain list, while `studentsApi.history` (`src/features/students/api.ts:215-218`) reads `page.items`. So staff can't see who changed a contact, which was the point of QA-211's audit trail. | Read the list (`data` is the array; paging in `meta`), like other v2 lists. Add a test against the v2 shape. <br>Re-test 23 Oct (browser): **fixed** (FE `b0ac515`). The panel lists the entries, e.g. "Changed guardian contacts · Ama Boateng · Mother's email: Grace.Adjei@bis.test → grace.adjei@bis.test". Screenshot: `bis-h1-qa238-history.png`. |
 | QA-239 | Medium | FE | Found in the QA-211 re-test (23 Oct). The Principal's session from before the update showed "Phone numbers and emails are hidden for your role" with every field read-only, while the real phone and email were shown in those fields. `parseAuthUser` (`src/lib/auth/session.ts:43`) drops permission keys the frontend didn't know at sign-in, and token refresh never re-reads the user, so `students:read_sensitive` stayed missing until sign-out. Refresh tokens last up to 14 days, so after every release that adds a permission key, staff lose that feature until they sign in again. | Re-read the user (or `/auth/me`) after a refresh and on app load, instead of trusting the stored copy. Or keep unknown keys and only filter them when checking. <br>Re-test 23 Oct (browser): **fixed** (FE `b0ac515`). With `students:read_sensitive` removed from the stored session, a reload called `/auth/profile`, put the key back, and the Guardians tab was editable with no "hidden" alert. |
 | QA-240 | Medium | BE | Found in the QA-214 re-test (23 Oct). Nana Tetteh had two linked accounts for her father: samuel.tetteh@bis.test and samuel.tetteh.bis@example.org, both with phone 024 777 0002. Unlinking and blocking the first stored a block covering that phone, but the second account stayed linked and nothing pointed it out. A blocked person can keep seeing the child through another account. | When blocking, list other linked accounts that share the blocked phone or email and offer to unlink them too, or unlink them in the same step. <br>Re-test 23 Oct (browser): **fixed** (BE `cece817`, FE `b0ac515`). The unlink dialog warns "Another account uses the same phone or email and will be unlinked and blocked too". Confirming unlinked both Samuel accounts, and one block covers `phone:247770002` and both emails. The second account's relink was refused with the neutral message. Polish (FE `a2c39cf`, checked in the browser): the warning now reads "…blocked too: Samuel Tetteh (samuel.tetteh.bis@example.org)". Screenshots: `bis-h1-qa240-warning.png`, `bis-h2-qa240-blocked.png`. |
-| QA-243 | Medium | BE | Found in the QA-222 re-test on FIS-001 (23 Oct), flagged by the guardian-contacts session. Efua Ansah (school_student `5ebd4e59`, parent rita.ansah@gmail.com): supplementary bill INV/FIS-001/2026/0013 is GHS 100 with `total_payment` 8,400 and `balance` −8,300. Its only payment is GHS 2,000 (MAN-RCT-0046), and no online payments exist. The next bill (0019) brought forward only −300 of credit, and 0013 is not marked carried forward. The fee account says `total_paid` 2,000 and `total_billed` 3,900, although the payments add up to GHS 3,600 (1,600 + 2,000). The figures disagree three ways, so the parent and staff views may each show a different balance. It may be left over from earlier payment tests (QA-004/QA-086), but nothing in the app detects or repairs it. The browser view wasn't checked, because there is no test password for rita.ansah@gmail.com. | Decide the true credit (2,000 − 100 = 1,900 by the payments), then repair 0013, 0019 and the account. Add a reconciliation check that `invoice.total_payment` = the sum of its live payments, and that the account totals match the invoices. <br>Re-test 23 Oct: **fixed**.<br>• **Data:** Efua's bills are repaired. Bill 0013 shows paid 2,000, balance 0, with 1,900 carried forward. The new term bill 0039 brings forward −1,900 and keeps its balance of −200; before the fix it was clamped to 0. Extra bill 0040 is 500. The account shows billed 3,900, paid 3,600 (= 1,600 + 2,000) and balance 300 (= −200 + 500), so all three figures agree.<br>• **Ledger check:** `GET /super-admin/system/ledger-check` as Super Admin returns `consistent: true` for all schools, for BIS-001 and for FIS-001. The Account Officer gets 403.<br>• **Receipt numbers:** as the Account Officer on BIS-001, recording a payment with receipt "RCT/BIS-001/2026/0001", "  rct/bis-001/2026/0001  " or "Rct/Bis-001/2026/0001" gets 409 "Receipt number RCT/BIS-001/2026/0001 is already used by another payment in this school…" and creates no payment. The unique index `UQ_PAYMENTS_SCHOOL_RECEIPT_NORMALISED` on `(school_id, upper(trim(receipt_number)))` is in place. The staff payment form has no receipt field, so this was tested through the API.<br>• **Not checked:** what Efua's parent sees, because there is no test password for rita.ansah@gmail.com. |
+| QA-243 | Medium | BE | Found in the QA-222 re-test on FIS-001 (23 Oct), flagged by the guardian-contacts session. Efua Ansah (school_student `5ebd4e59`, parent rita.ansah@gmail.com): supplementary bill INV/FIS-001/2026/0013 is GHS 100 with `total_payment` 8,400 and `balance` −8,300. Its only payment is GHS 2,000 (MAN-RCT-0046), and no online payments exist. The next bill (0019) brought forward only −300 of credit, and 0013 is not marked carried forward. The fee account says `total_paid` 2,000 and `total_billed` 3,900, although the payments add up to GHS 3,600 (1,600 + 2,000). The figures disagree three ways, so the parent and staff views may each show a different balance. It may be left over from earlier payment tests (QA-004/QA-086), but nothing in the app detects or repairs it. The browser view wasn't checked, because there is no test password for rita.ansah@gmail.com. | Decide the true credit (2,000 − 100 = 1,900 by the payments), then repair 0013, 0019 and the account. Add a reconciliation check that `invoice.total_payment` = the sum of its live payments, and that the account totals match the invoices. <br>Re-test 23 Oct: **fixed**.<br>• **Data:** Efua's bills are repaired. Bill 0013 shows paid 2,000, balance 0, with 1,900 carried forward. The new term bill 0039 brings forward −1,900 and keeps its balance of −200; before the fix it was clamped to 0. Extra bill 0040 is 500. The account shows billed 3,900, paid 3,600 (= 1,600 + 2,000) and balance 300 (= −200 + 500), so all three figures agree.<br>• **Ledger check:** `GET /super-admin/system/ledger-check` as Super Admin returns `consistent: true` for all schools, for BIS-001 and for FIS-001. The Account Officer gets 403.<br>• **Receipt numbers:** as the Account Officer on BIS-001, recording a payment with receipt "RCT/BIS-001/2026/0001", "  rct/bis-001/2026/0001  " or "Rct/Bis-001/2026/0001" gets 409 "Receipt number RCT/BIS-001/2026/0001 is already used by another payment in this school…" and creates no payment. The unique index `UQ_PAYMENTS_SCHOOL_RECEIPT_NORMALISED` on `(school_id, upper(trim(receipt_number)))` is in place. The staff payment form has no receipt field, so this was tested through the API.<br>• **Parent card (FE `9fbc58e`, browser):** as Rita Ansah (dev test password reset with the user's approval) Efua's card reads "Outstanding GHS 300.00", "GHS 3,600.00 paid of GHS 3,900.00" and "After GHS 200.00 credit from an earlier bill"; before this fix it said 500. Esi (GHS 4,629.50, no credit note) and Kofi (GHS 3,600.00) are unchanged. No API errors. The bill list wording is QA-244. |
+| QA-245 | Medium | Both | Found in the QA-207 re-test on PRM-001 (24 Oct). Classes A, B and C had Order 1, 2 and 3; Class C was set to 2, so B and C share the top number. The page asks only Class A to choose ("Choose where this class goes"), but pre-fills **Class B → "Graduates (leaves the school)"**, the same as C. After choosing A → Class B, Review enabled, and the confirmation read "3 pupils move up, **6 graduate** and leave the school… Class B → Graduates… Move 9 pupils". One click would graduate a whole middle class. The dialog does list it, so it wasn't confirmed. Screenshot: `prm-qa245-b-graduates.png`. | Treat every class that shares the top order number as ambiguous: no pre-fill and a required choice, as for Class A. Better, refuse duplicate order numbers or warn about them in class settings. <br>Re-test 24 Oct (PRM-001): **fixed**. Order numbers are now unique.<br>• **Form:** setting Class C to Order 2 kept the form open with "Order 2 is already used by Class B. Give each class its own number." under the field, and no toast.<br>• **API:** a direct `PATCH` gets 409 with the same message.<br>• **Own number:** re-saving C as 3 works.<br>• **Order 0:** classes on 0 must be given a target and are never suggested as one. With B and C at 0, both showed "Choose where this class goes". The old scenario (B and C both pre-filled "Graduates") can't happen now. The remaining gap is QA-248. Screenshot: `prm-qa245-order-taken.png`. |
+| QA-248 | Medium | Both | Found in the QA-245 re-test on PRM-001 (24 Oct; BE `f9e93b5`). With Class A on Order 1 and Classes B and C on 0 ("not ordered yet", e.g. created outside the app), the preview correctly asks B and C to choose. But it pre-fills **Class A → "Graduates (leaves the school)"**, because no numbered class follows it. After choosing "Don't move" for B and C, Review enabled, and the confirmation read "1 graduate and leave the school… Class A → Graduates… Move 1 pupil". I cancelled. A school that has numbered only its first classes would graduate the last numbered class by default. Screenshot: `prm-qa248-a-graduates.png`. | Suggest "Graduates" only when the class is the highest-numbered class and no class is on 0. Otherwise require a choice. Or show a warning: "Some classes have no order, so we can't tell which class is last." <br>Re-test 24 Oct (PRM-001): **fixed**. Class A is empty now, so it isn't listed. With A=1, B=2 (the top numbered class with pupils) and C=0, Class B starts with no target. Its options are Class C, Graduates, Don't move and Class A, and Review stays blocked until it is chosen, even after C is set to Don't move. With C back on 3: B → Class C, C → Graduates. Screenshot: `prm-qa248-choose.png`. |
+| QA-250 | Medium | BE | Found in the AdminJS click-through (24 Oct; backend main `40daa86`). In Analytics, with Bismark International School (BIS-001) selected, the cards read "FEES INVOICED $78,789.00", "FEES COLLECTED $8,870.50 · 11% collection rate" and "OUTSTANDING BALANCE $37,549.50". In the DB, the sum of `fee_payable` over all bills is 78,789.00, because each bill's payable includes the balance brought forward from earlier bills. The charges actually raised (`total_fees − discount_amount`) sum to 46,420.00, which equals `student_fee_accounts.total_billed`. So the real collection rate is 19%, not 11%. Collected and outstanding are correct. This is the same double counting as QA-222, in the Super Admin dashboard. The all-schools view ($141,879.00 invoiced, 16%) is inflated the same way. Screenshot: `adm-qa250-analytics-bis.png`. | Sum charges once: `total_fees − discount_amount`, or the accounts' `total_billed`, or skip carried-forward bills' arrears, as the parent fees summary now does (QA-222). <br>Re-test 24 Oct (browser): **fixed**. Analytics shows BIS-001 "FEES INVOICED GH₵ 46,420.00 · 19% collection rate" and FIS-001 GH₵ 40,110.00 (15%). All schools shows GH₵ 100,750.00 (23%), which equals `sum(total_fees − discount_amount)` and the accounts' `total_billed`. Collected (8,870.50 and 22,770.50) and outstanding are unchanged. `GET /super-admin/analytics/schools-comparison` gives BIS-001 19.11% and FIS-001 15.21%. Screenshot: `adm-qa250-fixed-bis.png`. |
+| QA-251 | Medium | BE | Found in the AdminJS click-through (24 Oct). Lists, records and new forms open for all 36 resources, but three filters fail with 500 "Internal server error", even with real values: `School Module` filtered by school (BIS-001's id), `Parent Student` by parent (Grace Adjei's id), and `Marketing Lead` by kind ("waitlist"). Request: `GET /admin/api/resources/<Resource>/actions/list?filters.<field>=…` → 500. Other filters work, e.g. Staff by email, School by email, Fee Type by name and Invoice by title. School Module and Parent Student are probably join tables keyed by those columns, and kind is an enum. The cause is in the server log. | Fix or remove those filter properties (`filterProperties`) and add a test that every resource's list works with each filter. <br>Re-test 24 Oct (browser): **fixed**. School Module filtered by BIS-001 gives 8 rows. Parent Student filtered by Grace Adjei gives 2 rows. Marketing Lead filtered by kind ("waitlist" or "WAITLIST") shows "No records", with no error; the dev DB has no leads. |
+| QA-253 | Medium | Both | Found in the QA-202 re-test on throwaway school QAI-202 (24 Oct). After **Revoke**, the platform school page shows only "Assign principal". Assigning the same person (ama.oneil@qai.test) gets 409 "Email already registered. This person has not set up their account yet, so resend their invitation instead.", but the page has no Resend for a revoked invite, so the UI is a dead end. Resending the revoked invitation through the API (`POST /invitations/:id/resend`) works: the card came back as "INVITED… (resent 2 times)". A Super Admin who revokes by mistake, or wants to re-send to a principal whose link expired after a revoke, can't do it without the API or a different email. Revoke also has no confirmation step. Screenshot: `qai-qa253-reinvite-blocked.png`. | When the last principal invite was revoked or expired and the account was never set up, show the person with "Invite again" (resend) instead of a blank Assign principal. Or let Assign principal with the same email reopen the invite. Add a confirm to Revoke. <br>Re-test 24 Oct (browser, throwaway QAI-202): **fixed**.<br>• **Revoke:** it now asks "Revoke the invitation to Ama O'Neil? Their link stops working; you can invite them again." Cancel leaves the invite pending (resent 2).<br>• **After revoking:** the card shows "Not assigned… Ama O'Neil ama.oneil@qai.test · invitation revoked" with **Invite again** and **Assign someone else**, and the API returns `lapsedPrincipalInvite` with REVOKED.<br>• **Invite again:** "Invitation resent", and the invite is pending again ("resent 3 times").<br>• **Assign someone else:** after another revoke, inviting Kojo Newhead (kojo.newhead@qai.test) shows "Principal invited". His invite is now the pending one, and the lapsed line is gone.<br>• Screenshot: `qai-qa253-lapsed.png`. |
+| QA-254 | Medium | BE | Found in the QA-006 re-test (24 Oct; backend `8dfd574`). Since the 16:24 restart, every email (staff invite, principal invite) logs `[relu-notification-client] failed to start preview server: Error: listen EACCES: permission denied 127.0.0.1:80` (18 times), and nothing listens on ports 80–89. On macOS a non-root process may bind ports below 1024 only on the wildcard address, which the old preview used. On dev, invite links, ward-link OTPs and reset links therefore can't be read, so invite acceptance, parent linking and password reset can't be completed or tested. The leak fix itself works: no "JSON Payload", token or OTP lines in the log. | Bind 127.0.0.1 on a high port (e.g. 1080+), or fall back to printing only the local preview URL. <br>Re-test 24 Oct (`5af0b93`): **fixed**. A staff invite logs "[relu-notification-client] preview available at http://localhost:4080/". The preview opens on 127.0.0.1:4080 with the invite and a working `setup-password?token=…` link. It listens on 127.0.0.1 only, so the LAN IP gets no answer, and there is still no "JSON Payload" line. |
+| QA-255 | Medium | BE | Found in the results phase 1 test (24 Oct; backend `347d1be`) on throwaway QAS-300. After deleting an unused subject SCI (soft delete), `POST /schools/me/subjects {subjectCode:"SCI"}` returns **500**. The log shows `QueryFailedError: duplicate key value violates unique constraint "UQ_SUBJECTS_SCHOOL_CODE"`, because the index is `(school_id, subject_code)` without `WHERE deleted_at IS NULL`, while the lookups skip deleted rows. `POST /results-setup/apply` with `subjects:true` hits the same error. The preset list includes SCI "Science" (`presets.data.ts:98`), `findByCode` and `findByName` miss the deleted row, and `setup.service.ts:244` inserts it, so 500. In the wizard, the "Also add each preset's usual subjects" box is ticked by default, so **"Set up grading" fails with "Could not set up grading · Internal server error"** on any school that ever deleted a subject with a preset code. Unticking the box works. Screenshot: `qas-qa255-wizard-500.png`. | Make the unique indexes partial (`WHERE deleted_at IS NULL`) for code and name, or restore and reuse the deleted row. Map the unique violation to 409. Add a test: delete a subject, then apply a preset with subjects. <br>Re-test 24 Oct (`3708535`): **fixed**. The indexes are now `UQ_SUBJECTS_SCHOOL_CODE_UPPER` and `UQ_SUBJECTS_SCHOOL_NAME_LOWER`, both `WHERE deleted_at IS NULL`. A deleted QAZ "Zed Temp" was re-created as "qaz"/"zed temp" (201). Apply with `subjects:true` on QAS-300, which has a deleted SCI, gives 200 `{subjects: created 11, existing 19}` and re-creates SCI "Science". Four parallel creates of one code, and of one name, give one 201 and three 409s ("Subject code RACE-1 is already used.", 'A subject named "Race Name" already exists.'). POST SCI with a name another live subject uses still gets the expected 409 on the name. |
+| QA-257 | Medium | FE | Found in the results phase 1 test (24 Oct; frontend `d6c494d`) on throwaway QAS-300. The existing setup was: whole school GES 30/70, JHS BECE, Upper Primary Cambridge (40/60, A*–U), Lower Primary GES with weights changed to 40/60. **Run setup again** opens the wizard on the suggested presets, not on this setup: the review said "Lower Primary: same as the whole school", "Upper Primary: same as the whole school", Pre-School Montessori and SHS WASSCE. Pressing **Set up grading** (subjects unticked) replaced it. The summary now shows whole school, SHS, JHS and Pre-School, so the Upper Primary Cambridge and Lower Primary 40/60 choices are gone. The confirmation only said "2 weightings and 2 grade scales created for 2026/27." No warning that existing choices would change. Screenshot: `qas-qa257-rerun-replaced.png`. | Start "Run setup again" from the current policy (per-department schemes and scales, overrides, settings), or warn on Review: "This replaces the setup for 2026/27: Upper Primary changes from … to …". <br>Re-test 24 Oct (FE `4913515`; QAS-300 set up again by API with Lower Primary 40/60, Upper Primary Cambridge, JHS bands from 85 and Pre-School early years with an edited label): **partly fixed**.<br>• **Fixed:** "Run setup again" prefills Upper Primary Cambridge, JHS "(changed)… 1 from 85" and Pre-School "Early years (descriptors) (changed)". Review now opens with "**This changes your current setup**" listing each change, plus a red "Some settings will be removed · 1 setting for a single class or subject, or a department's own grades, can't be shown here and will be removed when you apply."<br>• **Still wrong:** Lower Primary (same preset as the school, only weights 40/60) is prefilled as "same as the whole school", so Review lists "Lower Primary: Class score 40 / Exam 60 with GES A–F → same as the whole school" instead of "No change". Applying unchanged would still drop it, though now with a warning. Not applied. Screenshot: `qas-qa257-review-warning.png`. <br>Re-test 2 (24 Oct, FE `769f63e`): **fixed**.<br>• **Prefill:** "Run setup again" on QAS-300 shows "GES basic (30% class, 70% exam): your current (Class score 40 / Exam 60, GES A–F)" for Lower Primary, with its own weights card (worked example 30 of 40, 46 of 60). Upper Primary is Cambridge, and JHS and Pre-School show "your current".<br>• **Review:** "No change to weights or grades · Applying keeps the current setup; only the settings below are saved." The removal warning is gone.<br>• **Apply:** applying unchanged gives "0 weightings and 0 grade scales created", and the summary keeps all five rows.<br>• **Note:** a session that was open while `c2dae22` hot-loaded was briefly sent to the dashboard. After a reload it recovered: the profile refresh restored the new results permissions. Not a finding.<br>• Screenshot: `qas-qa257-no-change.png`. |
+| QA-258 | Medium | BE | Found in the results phase 3 test (24 Oct; backend `101af33`) on throwaway QAR-301 Basic One. Registers were kept on 22 and 23 Oct only. After compute, every pupil's attendance is `{present: n, total: 39, source: "register"}`: 39 is every weekday from 1 Sep to 23 Oct. Latejoiner, admitted on 15 Oct (7 school days), shows "1 of 39". Pupilone, present on both register days, shows "2 of 39". The printed report says "Attendance: 2 out of 39", and the class view in the UI shows the same. Days with no register taken, and days before a pupil joined, count as absences, so a parent sees what looks like very poor attendance. A typed figure (Mover 3 of 4) works and survives a recompute. Screenshot: `qar-term-reports-class.png`. | Count only days a register was taken for the class, and only from the pupil's join (or move-in) date to their leave date. Or, if school days are meant, start each pupil's total at their joinedOn or movedFrom date and show "no register" when none were kept. <br>Re-test 24 Oct (`a0220a2`): **fixed**. After a recompute on QAR-301, the total is the days a register was taken while the pupil was in the class. Pupilone shows 2 of 2. Pupiltwo shows 2 of 2 (late counts as present). Latejoiner shows 1 of 2, and after a register on 14 Oct (before she joined) she still shows 1 of 2, while Pupilone goes to 3 of 3. Mover's typed 3 of 4 (manual) is kept. The print shows "Attendance: 2 out of 2". |
 | QA-229 | Medium | Both | Paystack checkout uses the parent's login email. If Paystack rejects it, the parent sees the raw "Invalid Email Address Passed" and can't pay online. | Validate the email at sign-up, fall back to a school or placeholder email, and show friendly errors. |
 
 ### Low
 
 | ID | Sev | Side | Finding | Fix |
 |---|---|---|---|---|
-| QA-205 | Low | BE | The reset email says the link "will expire in 30 minutes". The real TTL is 60 minutes (`PASSWORD_RESET_TTL_SECONDS`), and the app says "one hour". | Use the constant in the copy. |
+| QA-205 | Low | BE | The reset email says the link "will expire in 30 minutes". The real TTL is 60 minutes (`PASSWORD_RESET_TTL_SECONDS`), and the app says "one hour". | Use the constant in the copy. <br>Re-test 24 Oct: **fixed**. The reset email's text and HTML parts both say "This link will expire in 1 hour for your security." "30 minutes" is gone. |
 | QA-234 | Low | Both | A class has a single `homeroom_staff_id`, so there's no assistant or co-teacher (common in KG and lower primary), and a second adult can't mark that class's register. | Allow several class teachers with a role (lead or assistant). |
 | QA-235 | Low | BE | Changing the class teacher overwrites `homeroom_staff_id` with no history, so there's no record of who taught the class in an earlier term. Terminal reports ("Class teacher's remarks") and audits need this. | Keep class-teacher assignments per term (from and to dates) and read historical ones for past terms. |
 | QA-241 | Low | BE | Found in the QA-211 re-test (23 Oct). Pressing "Link parent account" for a parent who is already linked returns 200, shows "Parent account linked", and writes a second `student.parent.linked` audit row. There's no duplicate link row. | Answer "already linked" (200 with a flag, or 409) and don't write an audit row. <br>Re-test 23 Oct (browser): **fixed** (BE `cece817`). Linking Grace on Kwame Adjei again shows "The mother's parent account is already linked to this student." (409) and writes no audit row (the 2 `linked` rows are from before the fix). |
 | QA-242 | Low | BE | Found in the QA-214 re-test (23 Oct). On Nana Tetteh, with one Samuel account blocked and the other already linked, staff "Link parent account" (father) said "More than one parent account uses the father's phone or email. Correct the contact on record…". The contact is correct; the real reason is that one match is blocked and the other is already linked. | Leave blocked and already-linked accounts out of the match, and say which case applies. <br>Re-test 23 Oct (browser): **fixed** (BE `cece817`). With the block active, staff link says "The father's parent account is blocked from linking to this student. Lift the block first." Screenshot: `bis-h2-qa242.png`. |
+| QA-244 | Low | FE | Found in the QA-243 frontend re-test (23 Oct), parent Rita Ansah → Efua, FIS-001. In the Bills list, INV/FIS-001/2026/0039 has the badge "IN CREDIT" and reads "GHS 0.00 · of GHS -200.00". A negative "of" amount is hard for a parent to read. Also, the term bill and the extra bill (0040) are both titled "Term 2, 2026/27", so nothing tells them apart. Screenshot: `fis-qa243-efua-fees.png`. | For a bill in credit, show "GHS 200.00 credit" instead of "0.00 of −200.00". Label supplementary bills with their title, e.g. "Extra bill · Term 2, 2026/27". <br>Re-test 24 Oct (FE `01ce719`, browser at phone width, Rita Ansah → Efua, read-only): **fixed**. In the Bills list, 0039 now reads "IN CREDIT · GHS 200.00 credit · Nothing to pay", with no "of" line. The bill detail reads "GHS 200.00 credit · Nothing to pay on this bill", and its totals show "Total fees GHS 1,700.00", "Credit after fees GHS 200.00", "Paid so far GHS 0.00" and "Credit GHS 200.00". The fees card reads "In credit GHS 200.00 · GHS 4,100.00 paid of GHS 3,900.00". Extra bill 0040 now shows PAID: a GHS 500 MoMo payment (RCT/FIS-001/2026/0005, 23 Oct 23:11) was recorded after the QA-243 re-test. No API errors. Still the same: the breakdown line "Credit from last term GHS -1,900.00" keeps its minus sign, which reads fine as a deduction. Term bill 0039 and extra bill 0040 are also both still titled "Term 2, 2026/27" (the second suggestion). Screenshots: `fis-qa244-bill-list.png`, `fis-qa244-bill-detail.png`. |
+| QA-256 | Low | BE | Found in the results phase 1 test (24 Oct). `POST /results-setup/apply` with Lower Primary on `ges_basic_30_70` and `overrides.components {class:{weight:40}, exam:{weight:60}}` and no `schemeName` creates a scheme named "GES 30/70 (Lower Primary)" whose components are class=40, exam=60. The Grading setup summary then shows "Lower Primary · GES 30/70 (Lower Primary)" for a 40/60 split. The wizard names its own copies (frontend `d6c494d`); this affects API callers and any other client. | When weights are overridden and no name is given, name the copy after its weights (e.g. "40/60 (Lower Primary)"), as the wizard does. <br>Re-test 24 Oct (`3708535`): **fixed**. Apply without schemeName or scaleName names the copies "Class score 40 / Exam 60" (numeric, weight override), "Early years areas (edited)" (descriptor, label change) and "BECE grades 1–9 (edited)" (scale, band change). Unedited copies keep the preset names, with no "(Department)" suffix. The older "GES 30/70 (Lower Primary)" row is from before the fix. |
+| QA-259 | Low | BE | Found in the results phase 3 test (24 Oct). `GET /schools/me/report-batches/:termId/:classId` returns `batch: {termId, classId: null, status, …}` for Basic One, because `reports.service.ts:930` uses `batch.schoolClass?.id`, which isn't loaded. The UI doesn't rely on it (the URL has the class), but any API client or future screen reading `batch.classId` gets null. | Load the class relation or fall back to the requested classId. <br>Re-test 24 Oct: **fixed**. `batch.classId` now returns Basic One's id. |
+| QA-260 | Low | Both | Found in the results phase 3 test (24 Oct). Pupiltwo and Mover tie on an average of 74. The class view shows "2nd of 4" (ranked count), while the printed report shows "Overall Position: 2nd out of 5" (on roll, including Pupilthree, who left and has no position). Neither marks the tie (e.g. "2nd=" or "joint 2nd"), so a parent can't tell two pupils share the place. | Print "out of" the ranked count, as the screen does, and mark shared places. <br>Re-test 24 Oct: **fixed**. The print reads "Overall Position: 2nd= out of 5" for both tied pupils, and the class view reads "2nd= of 5". Both now count the number on roll, as agreed. |
+| QA-261 | Low | FE | Found in the results phase 3 test (24 Oct; frontend `3e58f4d`). Opening a class in Term reports as the Secretary (sec@qar.test) calls `GET /schools/me/remark-bank` twice, and both get 403 "Forbidden resource". Nothing visible breaks (the Secretary can't write remarks anyway), but the failing requests show in logs and the console. | Load the remark bank only for users who can write remarks (homeroom teachers and heads). <br>Re-test 24 Oct (`018cc3b`): **fixed**. The Secretary's class view makes no remark-bank calls (0 × 403) and still shows the remarks. |
+| QA-262 | Low | FE | Found in the results phase 4 test (24 Oct) as parent@qar.test, whose child is at QAR-301 (no fees module). The parent **Fees** tab shows "Could not load · Your school has not turned this on for parents · Try again", an error state with a retry for a feature the school doesn't use. Home and Fees call `invoices`, `invoices/summary` and `academic-terms`, all 403. The home card handles it well ("Fees owed: Not available"). | Hide the Fees tab (and skip the calls) when the ward's school has no fees module, or show a plain "Your school doesn't use online fees" message without "Try again". <br>Re-test 24 Oct: **fixed**. Wards now carry `school.enabledModules`, and it matches the DB for QAR-301, PRM-001, BIS-001 and FIS-001. Tabs and Home tiles follow it: FIS-001 shows Home, Fees, Attendance and More; QAR-301 shows Home, Reports, Attendance and More; PRM-001 shows Home, Fees, Reports and More. There are no 403s while using the visible tabs. A direct URL to an off area (QAR Fees, FIS Reports, PRM Attendance) shows "Not offered by this school · Your child's school hasn't turned this on for parents. Ask the school if you need it." with no Try again. Screenshot: `fis-parent-reports-not-offered.png`. |
+| QA-246 | Low | FE | Found in the QA-207 setup (24 Oct). On PRM-001, which has only the students module, the School setup page calls `GET /schools/me/fee-types` on load and again on every class save. Each call gets 403 "The 'fees' module is not enabled for this school". Nothing breaks visibly, but it's noise in the logs and wasted requests. | Load fee types only when the fees module is on. <br>Re-test 24 Oct (PRM-001, students module only): **fixed**. Opening School setup → Classes and saving a class twice made no `fee-types` calls and got no 403s. |
+| QA-247 | Low | BE | Found in the QA-207 re-test on PRM-001 (24 Oct). After moving Class B up into Term 2, 2026/27 (which starts 8 Jan 2027), Benewaa PromoB's new `enrollment_history` row reads "Class C · Term 2 2026/27 · enrolled 2026-10-24", the run date. Anything that resolves a pupil's class by date (attendance by date, see QA-225; class lists for a past date) will put her in Class C from 24 Oct, while she is still in Class B for the rest of Term 1. | Set `enrolled_on` to the start of the chosen term when it is later than today. Or keep the current class until the new term starts. <br>Re-test 24 Oct (PRM-001): **fixed**. I added Term 3 (starts 2027-04-26).<br>• **Bulk move:** Class A moved into Term 3 with the leaving date empty. Akwasi's new row reads "Class B · Term 3 · enrolled 2027-04-26".<br>• **Single move:** promoting Adjoa from the student drawer, "From term" Term 3, gives "Class C · Term 3 · enrolled 2027-04-26".<br>• **Older rows:** rows from before the fix keep the run date. For example, Adjoa's Term 2 row says 2026-10-24. |
+| QA-249 | Low | Both | Found in the QA-247 re-test on PRM-001 (24 Oct). With Class A moving and Classes B and C set to "Don't move", the confirmation said "1 pupil move up, 0 graduate…, and **5 stay** in their class". The result toast and table said "1 pupil moved up, 0 graduated and **0 stayed**". The repeaters' count works, but whole classes left behind aren't counted, so the two screens disagree. | Count "Don't move" classes in the result's "stayed", or word the confirmation "5 not moved". <br>Re-test 24 Oct (PRM-001, one real run): **fixed**. B → C with Aba kept back, C set to Don't move, start term Term 2. The confirmation read "1 pupil move up, 0 graduate…, and 5 stay". The toast and Done alert read "1 pupil moved up, 0 graduated and 5 stayed". The table shows "Class B · Class C · 1 · 1" and "Class C · Not moved · 0 · 4". The DB matches: B has Aba, and C has Adjoa, Akwasi, Bekoe, Benewaa and Boatemaa. Minor: the confirmation's per-class list omits the "Class C → not moved: 4" line, though its total counts them. Screenshot: `prm-qa249-results.png`. <br>Re-test of that minor point, 24 Oct (FE `43dda52`, new throwaway school QPM-402 with Primary 1 (2 pupils), Primary 2 (1) and Primary 3 (2)): **fixed**. (a) Primary 1 and Primary 2 set to Don't move, with Esi unticked in Primary 3. The confirmation lists "Primary 1: doesn't move (2 pupils stay)", "Primary 2: doesn't move (1 pupil stays)" and "Primary 3 → Graduates: 1 move, 1 stay". The total reads "0 pupils move up, 1 graduate…, and 4 stay", and the button reads "Move 1 pupil". Cancel sent no request and moved nobody. (b) A real run with only Primary 2 set to Don't move. The confirmation lists "Primary 1 → Primary 2: 2 move", "Primary 2: doesn't move (1 pupil stays)" and "Primary 3 → Graduates: 2 move". The toast reads "2 pupils moved up, 2 graduated and 1 stayed". The table shows Primary 1 · Primary 2 · 2 · 0, Primary 3 · Graduated · 2 · 0 and Primary 2 · Not moved · 0 · 1. The DB matches: Primary 2 now has Ama, Kofi and Yaa, and Esi and Kojo graduated. Wording nit: "and 1 stay in their class" should read "1 stays". Screenshots: `qpm-promote-confirm.png`, `qpm-promote-results.png`. |
+| QA-252 | Low | BE | Found in the AdminJS click-through (24 Oct). The Analytics page shows every amount with "$" ("$141,879.00", "+$22,770.50"), although fees are in Ghana cedis (GH₵). The Attendance Tracking tab labels its trend "2026-10-21T00:00:00.000Z" instead of a date. Also, the school picker lists 84 schools, mostly automated-test leftovers ("Class Test School A (CLSA-1792…)"), which makes the dev picker hard to use. That last part is dev data, not a product bug. | Format money as GH₵ (or the school's currency) and dates as "21 Oct 2026". Clean the dev DB of test schools. <br>Re-test 24 Oct (browser): **fixed**. Amounts read "GH₵ 46,420.00" and "+GH₵ 6,100.00", with no "$" left on the summary, Financial & Billing or Platform Health tabs. The attendance trend reads "2026-10-21". |
 | QA-230 | Low | FE | Parent home "Coming up this term" shows only the first three events (no year), leaves out the parents' PTA meeting, and there's no parent calendar page. | Prioritise events for parents and closures, show the year, and link to a full list. |
 
 Smaller observations from the run, not given IDs:
@@ -1058,3 +1131,210 @@ Smaller observations from the run, not given IDs:
 - **Frontend redirects:** crafted `?next=` values fall back safely.
 - **CSV export:** escapes formula injection.
 - **Test suites:** backend 46 suites / 500 tests pass; frontend `test:dashboard` passes. Typecheck is clean on both. ESLint: 0 errors (backend 739 warnings, frontend 7).
+
+
+## Status reconciliation (24 Oct 2026)
+
+Every index row that wasn't marked fixed was checked against the current code (backend `main` d4c87aa, frontend `0ca3e3b`) and the re-test history in this file. Rows already marked **fixed** with a re-test were not re-checked. "Fixed" from code reading alone (no new browser re-test) is noted as such.
+
+| ID | Status | Evidence |
+|---|---|---|
+| QA-001 | Fixed | per-student advisory lock + row lock before reading balance (student-fee-account.repository.ts:46-57, payments.service.ts:86-111); e2e test; 18b3c9a, 5deed77 |
+| QA-002 | Fixed | two term rollovers carried arrears exactly once and the ledger reconciles (browser, 21 Oct run) |
+| QA-003 | Fixed | suspended schools are refused at login and mid-session with 403 (browser, 21 Oct run) |
+| QA-005 | Fixed (re-tested 24 Oct after 44b2a3f) | Redis login lockout and read-only ledger resources (18b3c9a); still always mounted (no ADMIN_ENABLED), in-memory sessions, no sameSite, no audit log Re-test 24 Oct: the cookie is HttpOnly and SameSite=Lax with an 8h expiry; the session is in Redis (`adminjs:sess:*`, TTL 28800) and still worked after the 16:40 restart. |
+| QA-006 | Fixed (re-tested 24 Oct after 5af0b93) | notification dev mode still on when NODE_ENV≠production or no API key; client not patched |
+| QA-007 | Partly fixed | deactivation revokes invites, accept refuses accounts with a password, reopen needs rank (e14ddfc); accept still checks expiresAt not status |
+| QA-008 | Fixed | refresh under Web Locks + storage listener reloads on user change (6b1713d); 30s rotation grace (08954f5); code only, not re-tested in a browser |
+| QA-009 | Fixed | sign-out calls /auth/logout and the old refresh token gets 401 (browser, 21 Oct run) |
+| QA-010 | Fixed (re-tested 24 Oct after 44b2a3f) | public invoice still opens by UUID, links built from invoice.id, no expiry or throttle, signedByEmail returned |
+| QA-011 | Open | job status read with no school check (invoices.controller.ts:140-165) |
+| QA-012 | Fixed (re-tested 24 Oct after 44b2a3f) | no helmet, Swagger always on, CORS origin ?? '*' with credentials, NODE_ENV defaults to development |
+| QA-013 | Fixed (re-tested 24 Oct after 44b2a3f) | Academic Head limited to Teacher/Secretary/Parent (18b3c9a); any creator can still set a password that activates at once |
+| QA-014 | Open | register-parent 409 "Email already registered"; login skips hashing for unknown emails |
+| QA-016 | Partly fixed | national IDs and guardian contacts hidden from teachers; list still whole-school and medical notes still shown |
+| QA-017 | Open | no student-status check on payments; no write-off on exit |
+| QA-018 | Partly fixed | current year/term switch is one transaction (bcb2e0b); terms still can't be closed, no start ≤ end check, payment dates unbounded |
+| QA-019 | Open | no @Max on amount, dueDate unvalidated, amount ignored when allocations sent |
+| QA-020 | Partly fixed | forms post to POST /public/leads (submitLead); waitlist success copy still promises "login credentials" (WaitlistForm.tsx:112) |
+| QA-021 | Open | OTP send still fire-and-forget with no .catch (otp.service.ts:85,141) |
+| QA-022 | Partly fixed | payments check suspension (18b3c9a); public invoice, media, optional fees, queued jobs still unchecked |
+| QA-023 | Partly fixed | only AdminJS has a Redis lockout; main throttler still IP+email, in memory, no lockout |
+| QA-024 | Open | UpdateStudentDto still accepts status and classId under students:update |
+| QA-025 | Open | POST /users still links a parent to any child of the school without the guardian-contact check |
+| QA-026 | Fixed | parent portal live: ward-scoped parents/me/wards/:id routes with module checks (parent-fees.controller.ts, ward-access.service.ts); reports still "coming soon" |
+| QA-027 | Fixed | forgot/verify/reset on the backend (auth.controller.ts:47-85); FE /auth/forgot-password and /auth/reset-password with links on both logins; used in the 23–24 Oct tests |
+| QA-028 | Fixed | the toast reads "Successfully generated N term invoice(s)…" (browser, 21 Oct run) |
+| QA-029 | Partly fixed | online payments capped at the balance; staff payments still accept any surplus as credit without confirmation |
+| QA-030 | Partly fixed | classes and platform schools now page fully; payment/discount student picker, staff, invites and platform staff still limit=100 |
+| QA-031 | Fixed | cards read /schools/me/invoices/summary over all matching invoices (fees/api.ts:285-297) |
+| QA-032 | Fixed | admission no longer invents defaults (browser, 21 Oct run) |
+| QA-033 | Fixed | School setup committed with checklist; Assign principal on the platform page; leftovers tracked as QA-075/076/077 |
+| QA-034 | Partly fixed | attendance is live, admissions labelled "Preview only"; dashboard Overview KPIs still sample data |
+| QA-035 | Partly fixed | profile re-read on app load (b0ac515); no refetch on focus or 403; unknown modules allowed; stored permission lists remain |
+| QA-036 | Fixed | all staff roles are listed, editable and can be deactivated (browser, 21 Oct run) |
+| QA-037 | Fixed | network errors keep the session, only a refresh 401/403 ends it, no hard redirect, ?next kept (api-client.ts:144-166, 6b1713d) |
+| QA-038 | Partly fixed | fees search debounced; no stale-response guard; Students search still 2 requests per keystroke |
+| QA-039 | Partly fixed | friendly "Can't reach Fastrack" and table Retry; KPI cards still show GHS 0 on a failed load; no request timeout |
+| QA-040 | Partly fixed | school page has a loading state; deactivate still one click; stale module drawer and optional fields unchanged |
+| QA-041 | Open | receipt still "PAID & VERIFIED" with raw date; generate modal can show "undefined • undefined"; Esc closes admission |
+| QA-042 | Partly fixed | edit now locks and re-reads inside the transaction (18b3c9a); no audit trail, signedBy overwritten |
+| QA-043 | Open | same student/fee/term discount still silently overwritten; stacking and re-pricing unaddressed |
+| QA-044 | Open | login still claims "260+ schools", "99.98%", "Port 3001"; modules list MoMo and payroll |
+| QA-045 | Open | BaseRepository still unscoped when no school in context; middleware reads x-school-id before auth |
+| QA-046 | Partly fixed | staff isActive and invite reopen are rank-checked; Super Admin skips the permissions guard; revoke/resend not rank-checked |
+| QA-047 | Partly fixed | emails case-insensitive (e226f97); seed passwords, JWT fallbacks, DB TLS off, $argon2 skip, emails in logs remain |
+| QA-048 | Open | no @ArrayMaxSize on the listed arrays; optional-fee feeTypeId unchecked |
+| QA-049 | Open | accept invite not transactional; media upload unthrottled |
+| QA-050 | Open | colour-scheme keys differ; currency formatted in several places |
+| QA-051 | Partly fixed | permission list updated; API URL default, no middleware guard, hand-copied permission script remain |
+| QA-052 | Open | fees-and-billing.md still has OVERPAID and DELETE fee-types; PermissionsGuard not documented |
+| QA-053 | Fixed | api-client sends X-Api-Contract: 2, so lists are data[] + meta |
+| QA-054 | Fixed | 24 Oct, backend `71ec686`: the ward-linking e2e spec now deletes the school, pupils and users it creates, and `scripts/cleanup-test-schools.ts` (a dry run unless `--yes`) clears throwaway schools. Checked: the dev DB has no PWL- or Class Test schools left (FIS-001, RIV-002, BIS-001, plus the new throwaway QPM-402), and `fastrack_qa_test` has 0 "Parent Ward Link" schools. The spec itself wasn't run in this check. |
+| QA-056 | Fixed | platform overview and school page count every staff role below principal (user.repository.ts:197-218) |
+| QA-058 | Fixed | calendar opens for staff (browser, 21 Oct run) |
+| QA-059 | Partly fixed | breadcrumb fixed, empty submit shows a message; wrong password still shows both an alert and a toast |
+| QA-061 | Open | FIS-001 still flags the Jan 2027 term current while today is in Term 1; billing forms still default to the flagged term with no dates shown |
+| QA-062 | Open | duplicate check still only looks at extra bills, not term bills (invoice-line-item.repository.ts:58) |
+| QA-064 | Open | layout debounce can still save onto a newly opened version (TemplateBuilder.tsx:153-201) |
+| QA-065 | Open | 1200 ms debounce, no flush on switch or leave, no unsaved-changes guard |
+| QA-066 | Open | Publish enabled during the debounce and after a failed save |
+| QA-067 | Open | no version/updatedAt check on template saves |
+| QA-068 | Open | a render error on real data still throws with no fallback to the default design |
+| QA-069 | Open | code editor still edits any draft and clears its visual layout |
+| QA-070 | Open | shared error state, no cancellation, rename failure swallowed |
+| QA-071 | Open | one failed side-load still fails the whole builder load |
+| QA-072 | Open | past terms still editable on the calendar |
+| QA-073 | Open | calendar load has no abort or request id |
+| QA-074 | Open | times compared without dates; HOLIDAY accepts times; "+N more" not clickable |
+| QA-075 | Open | no delete for years, terms or classes |
+| QA-076 | Open | backend doesn't check term/year dates against each other; frontend misses overlaps |
+| QA-077 | Open | unticking a current year leaves its term current |
+| QA-078 | Open | failed reads still dropped silently on School setup |
+| QA-079 | Partly fixed | department seeding shows errors; clearing email, principal editing code/logo, empty term number remain |
+| QA-080 | Fixed | optional-requests route rule, permission and Fees entry are committed (rbac/routes.ts:47-55) |
+| QA-081 | Open | sample-data mode env flag has no production guard |
+| QA-082 | Open | approve doesn't re-check fee type or enrolment; leavers still resolve to their last enrolment |
+| QA-083 | Open | no stored price; parent history capped at 10; issued bills unchanged by approve |
+| QA-084 | Partly fixed | public bill uses the snapshot name; invoice API line items still read the live fee type name |
+| QA-085 | Open | due date from the Generate form, structure penalty unused; the 10% note is now an editable default |
+| QA-086 | Open | modal can still close while saving; 409 shows a generic error; key regenerated on reopen; no timeout |
+| QA-087 | Open | discounts tab not module-gated, description can't be cleared, exact-match names, no @Max |
+| QA-206 | Fixed | re-tested 22 Oct (backend bcb2e0b) |
+| QA-212 | Fixed | re-tested 22 Oct |
+| QA-213 | Open | ward-link messages still generic; no attempts left or "Start again" |
+| QA-215 | Open | GHS 0 bill still shows UNPAID (student-invoice-response.dto.ts:277-286) |
+| QA-216 | Open | transaction reference unique per school, so one MoMo transfer can't cover siblings |
+| QA-217 | Open | summary not re-fetched on Refresh or after recording a payment (FeesPage.tsx:198-248) |
+| QA-218 | Open | still one extra bill per fee type, student and term |
+| QA-219 | Partly fixed | "Bal B/f" became "Balance from previous bills" and figures are frozen (eb0f25c); extra bills still lumped into that line, not listed by title |
+| QA-220 | Open | new extra bills still ignore existing credit |
+| QA-221 | Open | Record Payment still pays only the latest bill; no bill picker |
+| QA-223 | Open | promotion still accepts a past, already-billed term |
+| QA-224 | Open | exit dialog still shows no outstanding balance |
+| QA-225 | Open | attendance rosters still use the current class, not enrolment history |
+| QA-226 | Open | design preview still needs the invoice UUID |
+| QA-228 | Fixed | public bill renders through the document renderer with the school's published design (public-invoices.controller.ts:53-58; live link checked); likely 326ee64 |
+| QA-229 | Open | checkout still uses the login email; raw Paystack error; no fallback |
+| QA-230 | Open | parent home still takes the first 3 events; no parent calendar |
+| QA-231 | Open | design samples still hard-coded to Fastrack International School |
+| QA-232 | Open | no run/batch id on invoices |
+| QA-233 | Open | no API or UI for subject teachers |
+| QA-234 | Open | still one homeroom teacher per class |
+| QA-235 | Open | no class-teacher history per term |
+| QA-236 | Open | making a year current never moves the current term |
+| QA-237 | Open | the only current term can still be unticked |
+| QA-244 | Fixed | 24 Oct, FE `01ce719`; re-tested in the browser (credit bill reads "GHS 200.00 credit · Nothing to pay") |
+
+| QA-254 | Fixed | dev email preview moved to 127.0.0.1:4080 (5af0b93); re-tested 24 Oct |
+## Results phase 0: subjects (tested 24 Oct 2026)
+
+Backend `main` 9141452 (migration 1792600001300) and frontend `5005d17`/`54dc651` (School setup → Subjects tab). The test used a new throwaway school, **QAS-300 "QA Subjects Test School"**. It has principal@qas.test, t1@qas.test and t2@qas.test (Teachers), sec@qas.test and ao@qas.test, all with password `Qas!Pass2026`, and classes Basic One and Basic Two (Lower Primary) and JHS One (JHS). Isolation used PRM-001, where one subject, "PRMX", was added. **All 22 API checks pass, and the browser and AdminJS checks pass. There are no new findings.**
+
+| Area | Result |
+|---|---|
+| Codes | " rob-1 " is saved as ROB-1. "E/1" gets 400 "Subject code must be 2–20 letters, digits or hyphens". A duplicate code in other capitals gets 409 "Subject code ROB-1 is already used." A duplicate name gets 409 'A subject named "ROBOTICS" already exists.' The form shows the same messages under the field. |
+| Apply | Maths and English applied to Lower Primary: `{added: 4, alreadyThere: 0}`. A repeat gives `{added: 0, alreadyThere: 4}`, and JHS One is untouched. In the UI, "Add subjects to several classes" by chosen class gives "1 added", and by department gives "0 added; 2 were already there". |
+| Class list (PUT) | Order, report labels ("English", "Maths") and teachers persist. A subject left out disappears, and its teacher's `teaching-assignments` go from 2 to 0. A teacher from another school gets 400 "Teachers must be active staff of this school". |
+| Inactive subjects | Hidden from `GET subjects` unless `includeInactive=true`. A class already taking one can still be saved (the 9141452 fix). Adding it to another class gets 400 "Mathematics is inactive. Reactivate it before giving it to a class." |
+| Delete | 409 "English Language is used by a class. Deactivate it instead." while in use; 204 when unused. |
+| Roles | A Teacher can read subjects, class subjects and their own assignments. A Teacher gets 403 on all 5 writes and on another teacher's assignments. The Secretary and the Account Officer get 403 on reads and writes. |
+| Isolation | PRM-001's subject and class ids from QAS-300 get 404 or 400 on every route, and PRMX is unchanged. |
+| UI | The Subjects tab lists subjects with code, short name, category and class count. "Add subject" works. "Subjects by class" and "Subjects for Basic One" show order, teachers, report names and options. No failed requests or page errors. Screenshot: `qas-subjects-class-modal.png`. |
+| AdminJS | The Subject list (19 records) shows School, Code, Name, Short Name, Category and Is Active with no errors, and the record page opens. |
+
+Nit, not logged: when nothing new was added, the toast title still reads "Subjects added" ("0 added; 2 were already there").
+
+
+## Results phase 1: grading setup (tested 24 Oct 2026)
+
+Backend `main` 347d1be (migration 1792600001400) and frontend `d6c494d` (local; wizard at `/school-admin/results/setup`, sidebar "Grading setup"). The test used throwaway schools **QAS-300**, which also got ah@qas.test (`Qas!Pass2026`) and a class with no department, and **QAR-301** "QA Results Test School" (principal@qar.test / `Qar!Pass2026`), with the `results` module on. PRM-001 was used only for isolation. **API: 33 of 34 checks pass. The one failure was my test's assumption about which year copies, and the correct case passes on QAR-301. Three new findings: QA-255, QA-256, QA-257.**
+
+| Area | Result |
+|---|---|
+| Gate and roles | Without the module, 403. Principal and Academic Head can read and write. A Teacher gets 200 on all 9 GETs and 403 on all 7 writes. Secretary, Account Officer and a parent get 403. |
+| Permissions in the login payload | PR and AH have `grading:manage`. TE has `marks:read`, `marks:enter`, `reports:read` and `reports:remark`. SE has `reports:read`. |
+| Presets | 7 keys, as listed, with components, bands and suggested departments. |
+| Apply | Default `ges_basic_30_70`, JHS `bece_jhs`, Lower Primary with a 40/60 override, Upper Primary `cambridge_style`: 200 `{schemesCreated:4, scalesCreated:3, assignments:4}`. A re-run gives 0 and 0. Weights 95 get 400 "Lower Primary: Weights add up to 95, not 100." A weight on a descriptor preset gets 400 "Pre-School: Component \"communication\": a descriptor scheme has no weight." With `subjects:true` on QAR-301: 10 subjects, 10 per Lower Primary class, nothing for Upper Primary (no classes); the re-run gives existing 10 and alreadyThere 20. On QAS-300, `subjects:true` gets 500 (QA-255). |
+| Resolve | A Lower Primary class gives scheme and scale scope `department`. The class with no department gives `school`. A 2025/26 year with no setup gives 409 "Results aren't set up for 2025/26." |
+| Policy PUT | Without the school row: 400 "Give exactly one school row, with both a scheme and a scale." A class_subject with a descriptor scheme over a numeric scale: 400 "In Basic One, English Language: The \"A*–U\" scale can't be used with \"QA Descriptor\", a scheme that uses descriptors." |
+| Schemes and scales | Weights 90 get 400 "Weights add up to 90, not 100." No band at 0 gets 400 "The lowest band must start at 0." A repeated key gets 409 'Component key "class" is used twice.' PUT edits in place (`newVersion:false`, version 1). Changing the mode gets 400 "A scheme's mode can't change. Create a new scheme instead." |
+| Settings | Defaults: classPositionVisibility `show` and subjectPositionVisibility `staff_only`, with scoreDecimals 0, averageDecimals 1, minCountedWeight 50 and rankBy `average`. scoreDecimals 3 gets 400. A partial PATCH keeps the rest. |
+| Remark bank | Create, update, list and delete give 201, 200, 200 and 204. min above max gets 400 "The lowest average must not be above the highest." A Teacher can read (200) but not create (403). |
+| New year | A later 2027/28 created after setup gets the same 4 rows. On QAR-301, a 2027/28 created **before** setup had 0 rows and got 3 when made current. Copying is forward-only by design: an earlier year has nothing to copy from. |
+| Isolation | From PRM-001, QAS-300's scheme (GET and PUT), policy year and scale all get 404. |
+| Wizard (browser) | The sidebar shows "Grading setup". The summary lists what applies where. "Run setup again" walks Presets, Weights (with a worked example), Grades ("Try a score"), Positions and Review, then "Set up grading". With subjects unticked: "Grading is set up · 2 weightings and 2 grade scales created". A Teacher is redirected to the dashboard. Issues: QA-255 (500 with subjects ticked) and QA-257 (a re-run replaces the setup). Screenshot: `qas-results-wizard-weights.png`. |
+
+## Results phase 2: mark sheets (tested 24 Oct 2026)
+
+Backend `main` 9d9afb3 (migration 1792600001800) and frontend `5e7c530` + `6e399ae` (local; `/school-admin/results/marks`, sidebar "Mark sheets"). The test used throwaway **QAR-301**, which got the students module, t1@qar.test (assigned Mathematics in Basic One), t2@qar.test (Basic One's class teacher), sec@qar.test and ao@qar.test (all `Qar!Pass2026`), and pupils Pupilone, Pupiltwo, Pupilthree and Latejoiner (admitted 15 Oct) in Basic One, plus Mover in Basic Two. QAS-300 was used for isolation. **All 34 API checks pass, the grid works in the browser, and there are no new findings.**
+
+| Area | Result |
+|---|---|
+| Who sees what | t1 `mine=true` lists only Basic One Mathematics. t2 `mine=true` lists Basic One's 9 unassigned subjects, not Mathematics. `mine=false` lists all 20. Secretary, Account Officer and a parent get 403. |
+| Open | t2 on Mathematics (assigned to t1) gets `sheet:null`, `canEdit:false`, and no sheet is created. t1 creates it with an "Exam /100" item. Any teacher opens an unassigned subject (English) with `canEdit:true`. |
+| Roster | Latejoiner has `flags.joinedOn 2026-10-15`, and Test 1 (1 Oct) is in `notRequired`. Mover, marked in Basic Two and then moved through the normal promote flow, shows on Basic One only, with `flags.movedFrom {Basic Two, 2026-10-24}` and the earlier mark (stored as entered in Basic Two). Pupilthree, withdrawn by exit (Stopped), keeps `flags.leftOn` and isn't listed as missing on submit. |
+| Marks | 25/20, −5 and a scored cell with no raw score give 422 with `details.cells` (3 messages), and nothing is saved. A stale rowVersion gives 409 "Someone else changed this sheet. Reload to see their changes." with `details.rowVersion`. `status:null` clears a cell. The preview for 15/20 and 80/100 on 30/70 is **79, B**. |
+| Items | Test 1 and Test 2 get indexes 1 and 2. A second Exam item gets 400 "Exam is entered once; it has no extra items." Lowering Test 1 to 10 gets 422 "1 pupil has a mark above 10." Deleting Test 2 with marks gets 409 "Test 2 has marks. Remove them first."; a head with `force=true` gets 200, with `marks.item_deleted` audited. |
+| Status | Submit with gaps gives 422 `details.missing` (Latejoiner, Pupiltwo). Submit when complete gives `submitted`. A teacher editing then gets 403 "This sheet has been submitted. Ask a head to return it." A head's edit is 200 with a `marks.updated` audit row. Return with "Check Mover exam" sends it back to `draft` with `returnReason`, and the teacher can edit. `notAssessed:true` lets the empty English sheet submit. Reopen on a non-approved sheet gets 409 "Only an approved sheet can be reopened." (a reason is required). |
+| Versions | Editing GES 30/70 (now 40/60) gives `newVersion:true`. The empty French draft moves to the new version, while Mathematics keeps the old one until `apply-latest`. Afterwards 15/20 + 80 gives 78 B. |
+| Descriptors | Basic One × Creative Arts on a descriptor scheme and scale has `scale.bands` with ids, and a mark is saved with `descriptorBandId` (Secure). |
+| Subjects | Deleting Mathematics gets 409. Removing Creative Arts (with marks) from Basic One takes it off the class list, keeps the `class_subjects` row with `is_active:false`, and keeps the mark. |
+| Isolation | QAS-300's principal gets 404 on PUT marks, submit, items, PATCH and return for a QAR-301 sheet. |
+| Grid (browser) | t1 sees "Mark sheets" with "Basic One · Mathematics · IN PROGRESS · 7 of 7 marks". The grid shows "Class score (40%, best 4)" and "Exam (60%)", flags "JOINED 15 OCT", "FROM BASIC TWO" and "LEFT 24 OCT", and totals and grades. Typing 84 autosaves ("All changes saved"; DB 84.00). "Submit marks" gives "Submitted". t2 sees the same sheet read-only, with no editable cells and no Submit. No failed requests. Screenshots: `qar-results-mark-grid.png`, `qar-results-mark-submitted.png`. |
+
+Observation, not logged: a moved pupil's marks are matched to the new class's tests by item number. Mover's Basic Two "Test 1" (2 Oct) shows as Basic One's "Test 1" (1 Oct). Both are out of 20 here; untested is a carried mark above the new test's maximum.
+
+
+## Results phase 3: term reports (tested 24 Oct 2026)
+
+Backend `main` 101af33 (migration 1792600001900) and frontend `3e58f4d` + `4bb6012` (local; `/school-admin/results/reports`, sidebar "Term reports"). The test used throwaway **QAR-301** Basic One (5 on roll: Pupilone, Pupiltwo, Latejoiner (joined 15 Oct), Mover (moved from Basic Two), Pupilthree (left)), with Mathematics and Science marked, the other subjects not assessed, registers on 22 and 23 Oct, and parent@qar.test (`Qar!Pass2026`) linked to Pupilone. PRM-001 Class C was used for the earlier-term check and QAS-300 for isolation. **API: 33 of 34 checks pass; the failure is QA-258. Four new findings: QA-258 to QA-261.**
+
+| Area | Result |
+|---|---|
+| Roles | The Secretary reads the board and view, computes and prints. A Teacher reads, previews one report (200) and gets 403 on compute and print. Teacher and Secretary get 403 on approve, publish, withhold and reopen. Account Officer and a parent get 403. |
+| Before compute | The view is `{batch:null, pupils:[]}`. The board shows `not_started`, sheets 8 of 9, and blockers [RME not submitted]. |
+| Compute | Every pupil gets a report. Averages are 85, 74, 74 and 55, with places 1, 2, 2 and 4 (the tie shares 2nd). Subject positions are right (Maths 80, 78, 74, 60; Science 90, 74, 70, 50). The 6 not-assessed subjects are listed and not counted. Pupilthree is `left`, withheld "Left the school", with no position. A recompute keeps the remarks, the typed attendance and the promotion. |
+| Attendance | From registers with `source:"register"`, present + late counted, but the total is all 39 term days (**QA-258**). A typed 3 of 4 survives a recompute. 5 of 4 gets 400 "Days present can't be more than the school days." |
+| Promotion | Last term (`isLastTerm`): the default is "promoted to Basic Two", and changing it to repeated works. On PRM-001's Term 1 of 3: 400 "Promotion is only set on the last term of the year." |
+| Remarks | The class teacher writes the class teacher remark, conduct, attitude, interest, promotion and attendance. Partial updates work, and null clears. Bulk remarks work. Another teacher gets 403. The head remark is heads only (teacher 403, principal 200). |
+| Approve | With RME unsubmitted: 422 `details.blockers`. Once it's not assessed and submitted, approve gives 200, the sheets show `approved`, and the teacher's canEdit is false. After approval, remarks and compute get 409. Publish before approve gets 409 "Approve these reports before publishing them." |
+| Publish and emails | Revision 1, with `publishedRevision` 1 on every row. The linked parent gets a "report is ready" email (dev preview on 127.0.0.1:4080). Reopen (heads only, with a reason), then edit a remark, approve and publish: revision 2 and an "updated" email. With Pupilone withheld, revision 3 sends no email. |
+| Withhold and release | Withheld Pupilone and the left Pupilthree are missing from the class print. Releasing Pupilthree keeps `left` and adds them to the print. |
+| Documents | The print shows "Class Score (40%)", "Exam Score (60%)", totals, grades with remarks ("Very good"), the class teacher's remark, "Attendance: 2 out of 39", "Next Term Begins:" (blank, since QAR-301 has no next term), the promotion and the grading scale. Subject positions are hidden (staff_only), and the overall position is shown ("2nd out of 5", see **QA-260**). |
+| Isolation | From QAS-300: the view, compute, remarks, document and withhold for QAR-301 ids all get 404. |
+| UI | The board lists Basic One (PUBLISHED, 9 of 9 submitted, 3 of 5 remarks, "1 remark to write") and Basic Two (NOT STARTED). The class view shows average, position ("2nd of 4"), attendance, remark and View for each pupil. The principal gets Reopen and Print all; the Secretary gets only Print all. The Secretary's page gets 403 on the remark bank (**QA-261**). Screenshot: `qar-term-reports-class.png`. |
+
+
+## Results phase 4: parent report routes (tested 24 Oct 2026)
+
+Backend `main` a0220a2 (no DB change). The test ran as parent@qar.test (`Qar!Pass2026`), linked to Pupilone (QAR-301 Basic One). **Backend: all 12 checks pass. One new Low finding, QA-262, which is now fixed. Parent Reports in the portal was switched on in frontend `c98d2c4` and re-tested; see the last row.**
+
+| Area | Result |
+|---|---|
+| List and detail | `GET /parents/me/wards/:studentId/reports` returns revision 4 (average 85, grade A, position 1, classSize 5). The detail has subjects (class 30, exam 50, total 80, grade A, remark "Excellent", subject position null), attendance, remarks, promotion and nextTermBegins. The document returns HTML ("Overall Position: 1st out of 5", "Attendance: 2 out of 2"). |
+| Revisions | While reopened and edited, the parent still sees revision 4 and the old remark. After republishing, revision 5 has the new remark ("Revised: excellent all round."). |
+| Withhold | While withheld, the list is `[]` and the detail and document get 404. Release brings it back. |
+| Positions | The class position is shown by default; subject positions are null (staff_only). With `classPositionVisibility: hide`, the published report's position is null in the list and detail and there's no position line in the document. Set back to `show`. |
+| Access | Unlinked ward (Pupiltwo), and PRM-001's report id on this ward: 404. Principal, teacher and secretary tokens: 403. Results turned off for QAR-301: 403 on the list and detail (turned back on). |
+| Parent portal screens (re-test 24 Oct, FE `c98d2c4` + `e85bd47`, BE `83aa165` + `e6616cb`, phone width) | **QAR, Pupiltwo:** list "74% · 2nd= of 5 · B". Detail: average 74%, grade B, position "2nd= / 5", attendance 3 / 3, "The school corrected this report on 24 Oct 2026.", CS 40% / EX 60% columns, class teacher remark, "Promoted to Basic Two.", and "View report card" opens the document ("Overall Position: 2nd= out of 5"). **Pupilone:** "1st of 5" with the head teacher's remark. **PRM-001, Bekoe (parent-bekoe@prm.test, revision 2):** "1st of 6", attendance 57 / 60, the corrected notice, "Next term begins 8 Jan 2027." JSON: `positionTied` is true for the tied row and false otherwise (subjects too); `promotion.status` is lower case ("promoted"). Screenshots: `qar-parent-report-detail.png`, `prm-parent-report-corrected.png`. |

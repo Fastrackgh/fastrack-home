@@ -33,10 +33,10 @@ Everything else was done through the UI.
 | Logo: text file renamed `.png` | ✅ Rejected by its content. ⚠️ The message exposes the internal name "Unsupported file type for SCHOOL_LOGO". |
 | Logo: real PNG | ✅ Uploaded and shown. |
 | Assign principal using another school's principal email | ✅ 409 "Email already registered". |
-| Same email with different case `HEAD@Fastrack.school` | ❌ **QA-201**: accepted. A second, inactive account and a pending PRINCIPAL invite were created for the FIS-001 principal's mailbox. |
-| Login `Head@fastrack.school` with the right password | ❌ **QA-201**: "Invalid credentials" (login matches the email exactly; phones capitalise the first letter). With a trailing space: "email must be an email". Every error is shown twice 🔁 QA-059. |
-| After assigning, the page still says "Principal: Not assigned" | ❌ **QA-202**: the pending invite is invisible, can't be resent or revoked, and a second principal invite (Ama Boateng) was accepted while the first was still open. **Two PRINCIPAL invites are pending for BIS-001.** |
-| Invite email | ✅ The HTML version is correct and links to `localhost:3001/auth/setup-password`. ❌ **QA-203**: the plain-text version contains `token&#x3D;…`, which is a broken link. |
+| Same email with different case `HEAD@Fastrack.school` | **Re-test 24 Oct: fixed** (409 "Email already registered"). Original: ❌ **QA-201**: accepted. A second, inactive account and a pending PRINCIPAL invite were created for the FIS-001 principal's mailbox. |
+| Login `Head@fastrack.school` with the right password | **Re-test 24 Oct: fixed** (capitals and spaces sign in). Original: ❌ **QA-201**: "Invalid credentials" (login matches the email exactly; phones capitalise the first letter). With a trailing space: "email must be an email". Every error is shown twice 🔁 QA-059. |
+| After assigning, the page still says "Principal: Not assigned" | **Re-test 24 Oct: fixed** (pending invite shown with Resend and Revoke; a second invite gets 409; see QA-253). Original: ❌ **QA-202**: the pending invite is invisible, can't be resent or revoked, and a second principal invite (Ama Boateng) was accepted while the first was still open. **Two PRINCIPAL invites are pending for BIS-001.** |
+| Invite email | ✅ The HTML version is correct and links to `localhost:3001/auth/setup-password`. **Re-test 24 Oct: QA-203 fixed** (plain-text links keep `?token=`). Original: ❌ **QA-203**: the plain-text version contains `token&#x3D;…`, which is a broken link. |
 | Deactivate school | ⚠️ One click, no confirmation 🔁 QA-040. |
 | Principal signs in while suspended | ✅ 403 "This school account is suspended. Please contact Fastrack support." **QA-003 fixed at login.** |
 | Suspend during a live principal session | ✅ Every request returns 403 at once. ⚠️ The user stays inside the workspace, and each page shows its own error card. |
@@ -54,7 +54,7 @@ Everything else was done through the UI.
 | Reuse the used invite token | ✅ 400 "Invitation has already been accepted" (the dev page still renders the form; dev-only). |
 | Principal's first screen | ❌ 🔁 QA-034: the Overview shows invented data ("3 active students", "GH₵1,000 collected", "Kofi Ansah · At risk") for a school with **0 students and no terms**. A small "UI PREVIEW" label is the only hint. Nothing points a new principal to School setup. |
 | Forgot password (known and unknown email) | ✅ The same "If … has a Fastrack account" message for both (no way to tell which emails have accounts). |
-| Reset email | ❌ **QA-205**: it says the link "will expire in 30 minutes"; the real expiry is 60 minutes and the app says "one hour". The plain-text link has the same `&#x3D;` problem (QA-203). |
+| Reset email | **Re-test 24 Oct: fixed** ("expire in 1 hour" in both parts). Original: ❌ **QA-205**: it says the link "will expire in 30 minutes"; the real expiry is 60 minutes and the app says "one hour". The plain-text link has the same `&#x3D;` problem (QA-203). |
 | Reset with the **same** password as before | ⚠️ Allowed (Low). |
 | Reset page result | ✅ "Password changed… signed out on every device". |
 | Reuse the reset link | ✅ "Link not valid… Links work once". |
@@ -77,7 +77,7 @@ Everything else was done through the UI.
 | Add standard departments (×2) | ✅ Five departments, no duplicates. ⚠️ 🔁 QA-079: no feedback either time. ⚠️ Uses "Primary 1–6"; Ghana's curriculum now says "Basic". |
 | Add classes KG2, B1, B2, B3 | ✅ Each shows a toast. |
 | Add `kg2` | ❌ 🔁 QA-079: accepted next to `KG2`. ❌ 🔁 QA-075: **no Delete**, only Edit, so the mistake stays in every class picker. |
-| Class order | ❌ **QA-207**: classes have no level or order field. The list sorts alphabetically ("Basic 1… Basic 3, KG 2"), and nothing tells promotion which class comes next. |
+| Class order | **Re-test 24 Oct: fixed** (on test school PRM-001: Order defaults to 1, 2, 3 and sorts the list). Original: ❌ **QA-207**: classes have no level or order field. The list sorts alphabetically ("Basic 1… Basic 3, KG 2"), and nothing tells promotion which class comes next. |
 | Getting-started checklist | ✅ Ticks update (4 of 7 after classes). |
 
 ## Phase 4: Staff (Principal)
@@ -102,9 +102,9 @@ Everything else was done through the UI.
 |---|---|
 | Students page | ✅ Shows "2026/27 · Term 1". ⚠️ "Across 5 classroom cohorts" counts the mistaken `kg2` class. |
 | Admission defaults | ✅ **QA-032 fixed**: gender, religion, blood group and genotype are saved empty unless chosen. Boarding defaults to "Day". |
-| Birth date in 2030 | ❌ **QA-209**: accepted at step 1 and saved by the backend (`birth_date = 2030-05-01`). |
-| "Next Step" on the Guardians step | ❌ **QA-210 (High)**: it **submits the admission**. The Health & Safety step (blood group, allergies, emergency contact) can never be reached. Cause: the Next `<Button>` in the `<form>` has no `type="button"` (`students/page.tsx:1244-1253`). Pressing Enter in any field also submits. |
-| Admit with **no guardian at all** | ❌ **QA-210**: allowed. Kwame Adjei (001) was saved with no mother, father or emergency contact. |
+| Birth date in 2030 | **Re-test 24 Oct: fixed** (date picker stops at today; form and API refuse future dates). Original: ❌ **QA-209**: accepted at step 1 and saved by the backend (`birth_date = 2030-05-01`). |
+| "Next Step" on the Guardians step | **Re-test 24 Oct: fixed** (opens Health & Safety; only "Complete Admission" admits). Original: ❌ **QA-210 (High)**: it **submits the admission**. The Health & Safety step (blood group, allergies, emergency contact) can never be reached. Cause: the Next `<Button>` in the `<form>` has no `type="button"` (`students/page.tsx:1244-1253`). Pressing Enter in any field also submits. |
+| Admit with **no guardian at all** | **Re-test 24 Oct: fixed** (form and API both refuse it). Original: ❌ **QA-210**: allowed. Kwame Adjei (001) was saved with no mother, father or emergency contact. |
 | Admit 8 more students across KG 2 and Basic 1–3 | ✅ Codes `BIS-001/STD/2026/001`–`009`. The father's phone was kept as typed (`+233 24 777 0002`). |
 | Duplicate name (a second "Kwame Adjei") | ⚠️ Accepted with no "possible duplicate" warning. |
 | Edit profile (birth date, gender, allergies, emergency contact) | ✅ Saved. This is the only way to enter health details (workaround for QA-210). |
@@ -219,7 +219,7 @@ Everything else was done through the UI.
 |---|---|
 | Mark 2027/28 and its Term 1 as current | **Re-test 22 Oct: fixed**: switching to 2026/27 Term 2 and back saved with no error and kept exactly one current term and year (see QA-206; new edge cases QA-236, QA-237). Original result: ❌ 🔁 **QA-206**: two "Internal server error" saves. The school ends up with **two current years and two current terms**. Fixed by unticking 2026/27 and its Term 2. |
 | Skipping Term 3 | ⚠️ No warning that 2026/27 Term 3 was never billed. |
-| Student → Class & status → Move to another class | ✅ The current class is excluded. "From term" defaults to the current term. ❌ 🔁 **QA-207**: no suggested next class, the stray `kg2` class is offered, and there is **no bulk or class-wide promotion**. It takes about 8 clicks per pupil, so a 400-pupil school needs thousands of clicks each September. ⚠️ No confirmation step. |
+| Student → Class & status → Move to another class | **Re-test 24 Oct:** whole classes now move up from Students → Move classes up (QA-207 fixed; see findings). Original: ✅ The current class is excluded. "From term" defaults to the current term. ❌ 🔁 **QA-207**: no suggested next class, the stray `kg2` class is offered, and there is **no bulk or class-wide promotion**. It takes about 8 clicks per pupil, so a 400-pupil school needs thousands of clicks each September. ⚠️ No confirmation step. |
 | Promote 8 pupils (KG 2 → B1, B1 → B2, B2 → B3) | ✅ Each "Class changed". ⚠️ The history table shows "KG 2 · Term 1 · 2026-10-21" and "Basic 1 · Term 1 · 2026-10-21", with **no year**, so the two rows can't be told apart, and the "from" date is today, not the term start. |
 | Promote Kwame (001) "from 2026/27 Term 2" (a past, already-billed term) | ❌ **QA-223**: accepted silently. History now says he was in Basic 2 for a term he was billed as Basic 1. |
 | Record exit: Ama Serwaa and Kofi Graduated, Adwoa Transferred out | ✅ The confirmation explains "stop being billed… can't be undone here". ❌ **QA-224**: no mention of the outstanding balances (GHS 1,270, 1,570 and 680). There's no "clear fees before exit" warning, and no way to view leavers' debts. |
@@ -265,7 +265,7 @@ Everything else was done through the UI.
 | Edit a copy (v2) → change text size to 16 → switch to v1 within 1 s → back to v2 | ❌ 🔁 **QA-065**: the edit was **silently lost** (v2 still shows 11), no save was sent, and there was no unsaved-changes warning. |
 | Parent app → bill → "View printable bill" | ✅ Uses the **published** design (green main colour). |
 | Public bill link (the one sent by SMS) | ❌ **QA-228**: still renders Fastrack's **default** design, so parents see two different-looking bills. |
-| Old SMS link for a Term 1 bill, opened later | ❌ **QA-227 (High)**: the "SUMMARY TERM 1 2026/27" bill now shows Esi's **current** class (BASIC 1; she was billed as KG 2), "Bal B/f 3,130.00" and "TOTAL FEES DUE 4,629.50" (her current all-time balance), all under "DIGITALLY SIGNED & SEALED · Tamper-Proof & Verified". The JSON status is "PARTIAL" although the bill was moved to the next term. |
+| Old SMS link for a Term 1 bill, opened later | **Re-test 24 Oct: fixed** (bill as issued; "Balance moved to INV/…"; new bills keep their class). Original: ❌ **QA-227 (High)**: the "SUMMARY TERM 1 2026/27" bill now shows Esi's **current** class (BASIC 1; she was billed as KG 2), "Bal B/f 3,130.00" and "TOTAL FEES DUE 4,629.50" (her current all-time balance), all under "DIGITALLY SIGNED & SEALED · Tamper-Proof & Verified". The JSON status is "PARTIAL" although the bill was moved to the next term. |
 | Terminal report designs | ⚠️ Can be designed and published, but parents' Reports tab says "Terminal reports coming soon" and there's no score entry anywhere 🔁 QA-034. |
 
 ## Phase 16: Parent portal and online payment
@@ -313,3 +313,15 @@ Everything else was done through the UI.
 
 **No money was lost or double-counted** in the ledger across partial, exact, over- and under-payments, extra bills, discounts, bill corrections, two term rollovers, promotion, exits and an online payment. The problems are in **what people are shown**: KPI cards, parent totals, public bills, receipts and statuses.
 
+
+## Regression check, 24 Oct 2026 (13:40)
+
+No new commits since backend `611856b` and frontend `df392ad`; this was a read-only pass over the current build.
+
+| Check | Result |
+|---|---|
+| Every sidebar page for each BIS-001 role: Principal (20), Academic Head (15), Account Officer (7), Secretary (10), Teacher yaw.darko (10) | ✅ All 62 open, with no page errors, no 4xx/5xx and no error banners |
+| Parent Grace Adjei: home, wards, fees, attendance, reports, more, link a child | ✅ All 7 open, with no errors |
+| Super Admin ledger check | ✅ `consistent: true` (no bill or account mismatches) |
+| Esi Adjei's parent Fees card | ✅ "Outstanding GHS 4,629.50 · GHS 0.50 paid of GHS 4,630.00" (unchanged since QA-222) |
+| Esi's bill link INV/BIS-001/2026/0041 | ✅ "Fees Due 1,760.00 · Balance from previous bills 2,869.50 · TOTAL FEES DUE 4,629.50" (as after QA-227) |

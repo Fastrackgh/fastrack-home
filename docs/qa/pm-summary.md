@@ -1,6 +1,33 @@
 # Fastrack EduSuite: PM and QA summary
 
-20 Oct 2026. Full detail: [findings.md](./findings.md) (132 findings; QA-060 to QA-088 and QA-200 to QA-243 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
+20 Oct 2026. Full detail: [findings.md](./findings.md) (151 findings; QA-060 to QA-088 and QA-200 to QA-262 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
+
+**Status on 24 Oct 2026, reconciled against the code and re-tests:** 72 fixed, 21 partly fixed, 58 open (151 findings). No Critical is fully open: QA-020 is partly fixed (the leads are now saved, but the waitlist still promises login credentials). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
+- **Open:** QA-061, QA-064, QA-065 and QA-066.
+- **Partly fixed:** QA-007, QA-016, QA-030 and QA-034.
+
+Details are under "Status reconciliation" in findings.md.
+
+**Results phase 0 (subjects), tested 24 Oct:** the subject list, the subjects each class takes, teachers per subject, role access and school isolation all pass on the throwaway school QAS-300, with no new findings. See "Results phase 0: subjects" in findings.md.
+
+**Results phase 1 (grading setup), tested 24 Oct:** presets, the setup wizard, schemes, grade scales, policy, settings and the remark bank mostly work. Three new findings came out of it, and all were re-tested the same day:
+- QA-255: the wizard crashed (500) on schools that ever deleted a subject. Fixed.
+- QA-256: an overridden preset copy was misnamed. Fixed.
+- QA-257: "Run setup again" silently replaced existing choices. Fixed: it now starts from the current setup, and Review says "No change" when nothing changes.
+
+**Results phase 2 (mark sheets), tested 24 Oct:** teachers see and edit only their own sheets. The checks below all pass, with no new findings:
+- marks are validated, autosaved and previewed with the right totals and grades;
+- pupils who joined, moved or left mid-term are handled;
+- submit, return and the head overrides are audited;
+- scheme versions, descriptor marks and school isolation work.
+
+See "Results phase 2: mark sheets" in findings.md.
+
+**Results phase 3 (term reports), tested 24 Oct:** compute, positions with ties, remarks, approval, publishing with parent emails, withholding and the printed report all work. Four new findings, all fixed and re-tested the same day:
+- QA-258 (Medium): attendance totals counted every term day, so a pupil who joined mid-term read "1 of 39".
+- QA-259 to QA-261 (Low): a null class id in the API, "out of 5" vs "of 4" with ties unmarked, and the Secretary's page getting 403 on the remark bank.
+
+**Results phase 4 (parent report routes):** the backend works. Parents see the latest published, non-withheld report, positions follow the school setting, and access is locked down. The parent portal Reports screen is now live: list, detail with "2nd=" ties and a corrected-report notice, and the report card. QA-262 is fixed: tabs follow the school's modules, and off areas say "Not offered by this school".
 
 ## Verdict
 
@@ -113,13 +140,15 @@ A brand-new school was set up from nothing and taken through every built feature
   - A revoked invite locks a staff member out for good (QA-208). **Fixed 22 Oct:** "Resend invite" now works for anyone who never set a password.
 - **What parents see about money:**
   - The parent app's "paid of" total inflates every term (QA-222). **Fixed 23 Oct**: totals come from the backend per term, with brought-forward and moved-to-later-bill notes.
-  - Old "tamper-proof" bill links change later (QA-227).
+  - Old "tamper-proof" bill links change later (QA-227). **Fixed 24 Oct**: links show the bill as issued; bills from before the fix still show the current class.
   - "Bal B/f" mislabels this term's extra bills (QA-219).
   - GHS 0 bills are marked unpaid (QA-215).
 - **Daily school work:**
-  - The admission form skips Health & Safety (QA-210).
-  - Promotion is one pupil at a time with no class order (QA-207).
-  - Login fails if a phone capitalises the email (QA-201).
+  - The admission form skips Health & Safety (QA-210). **Fixed 24 Oct**: all four steps are shown, and a guardian's name and phone are required.
+  - Promotion is one pupil at a time with no class order (QA-207). **Fixed 24 Oct**: whole classes move up from Students → Move classes up, with repeaters kept back and the top class graduated. QA-245 (shared order numbers) is fixed: order numbers are now unique. QA-248 is fixed too: while any class has no order, the top numbered class must be given a target instead of defaulting to "Graduates".
+  - Login fails if a phone capitalises the email (QA-201). **Fixed 24 Oct**: emails are trimmed and lower-cased everywhere, and each mailbox has one account.
+- **Super Admin dashboard (AdminJS, clicked through 24 Oct on backend `40daa86`):** all 36 sections open, and their records and new forms load.
+  - **Fixed 24 Oct:** Analytics fees invoiced now counts each charge once (BIS-001: GH₵ 46,420.00, 19%) (QA-250), the three filters work (QA-251), and amounts show GH₵ with plain dates (QA-252).
 - **Structure gaps found in review:**
   - Billing runs have no ID, so a mistaken run can't be undone or audited as a unit (QA-232).
   - Only class teachers can be assigned; subject teachers have no link to classes (QA-233). There's one teacher per class (QA-234) and no per-term history (QA-235).

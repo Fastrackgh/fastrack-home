@@ -57,6 +57,12 @@ Backend verified against `fastrack-space/fastrack-backend`, branch `fix/invoice-
 
 Where the design is used:
 - The published `invoice.bill` design is rendered for parents by `public-invoices.controller.ts` (public bill link) and `parent-fees.service.ts` (parent portal) through `DocumentRendererService.render`. When a school has no published design, it falls back to the default copy.
+- What a bill shows (QA-227, fixed 24 Oct; backend `eb0f25c`):
+  - A bill shows itself as issued, never the student's running balance or later bills. "Fees Due" is that term's fees. "Balance from previous bills" (or "Credit from previous bills") is what it brought forward when it was issued; it replaced "Bal B/f". "TOTAL FEES DUE" is what is still owed on that bill, or "CREDIT ON THIS BILL" when it is in credit.
+  - A bill whose balance moved on owes 0.00 and shows "Balance moved to INV/…".
+  - The seal reads "CHARGES DIGITALLY SIGNED & SEALED" with "Payments as of <date>".
+  - Bills keep the class they were issued in. Bills from before the fix still show the current class (no backfill, by the user's choice).
+  - Published designs pick this up without republishing.
 - Nothing renders `exam.report` for parents yet, so report designs can be built and published, but **no parent sees them** (the page says as much in a blue banner).
 
 ## Diagram

@@ -178,7 +178,9 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
                 'Principal',
                 school.schoolHead
                   ? `${school.schoolHead.firstName} ${school.schoolHead.lastName}`
-                  : 'Not assigned',
+                  : school.pendingPrincipalInvite
+                    ? 'Invited'
+                    : 'Not assigned',
               ],
             ].map(([label, value]) => (
               <Card withBorder radius="md" padding="md" key={label}>
@@ -245,8 +247,32 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
 
 function OverviewTab({ school, onChanged }: { school: PlatformSchool; onChanged: () => void }) {
   const head = school.schoolHead;
+  const invite = head ? null : school.pendingPrincipalInvite;
   const [assigning, setAssigning] = useState(false);
   const [logoBusy, setLogoBusy] = useState(false);
+  const [inviteBusy, setInviteBusy] = useState<'resend' | 'revoke' | null>(null);
+
+  const inviteAction = async (action: 'resend' | 'revoke', invitationId: string) => {
+    setInviteBusy(action);
+    try {
+      if (action === 'resend') await api.resendInvitation(invitationId);
+      else await api.revokeInvitation(invitationId);
+      notifications.show({
+        color: 'green',
+        title: action === 'resend' ? 'Invitation resent' : 'Invitation revoked',
+        message: school.name,
+      });
+    } catch (e) {
+      notifications.show({
+        color: 'red',
+        title: action === 'resend' ? 'Could not resend the invitation' : 'Could not revoke it',
+        message: errorMessage(e, 'Try again.'),
+      });
+    } finally {
+      setInviteBusy(null);
+      onChanged();
+    }
+  };
 
   const uploadLogo = async (file: File | null) => {
     if (!file) return;
@@ -312,6 +338,57 @@ function OverviewTab({ school, onChanged }: { school: PlatformSchool; onChanged:
               </Text>
             </div>
           </Group>
+        ) : invite ? (
+          <Stack gap="sm" align="flex-start">
+            <Group gap="sm" wrap="nowrap">
+              <Avatar color="gray" radius="xl">
+                {`${invite.firstName[0] ?? ''}${invite.lastName[0] ?? ''}`}
+              </Avatar>
+              <div>
+                <Group gap={6}>
+                  <Text fw={700} size="sm">
+                    {invite.firstName} {invite.lastName}
+                  </Text>
+                  <Badge size="sm" variant="light" color="yellow">
+                    Invited
+                  </Badge>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  {invite.email}
+                </Text>
+              </div>
+            </Group>
+            <Text c="dimmed" size="xs">
+              Sent {formatDate(invite.sentAt)}
+              {invite.resendCount > 0
+                ? ` (resent ${invite.resendCount} time${invite.resendCount === 1 ? '' : 's'})`
+                : ''}{' '}
+              · Expires {formatDate(invite.expiresAt)}. The school can&apos;t sign in until they
+              accept.
+            </Text>
+            <Group gap="xs">
+              <Button
+                size="xs"
+                variant="light"
+                color="fastrackRed"
+                loading={inviteBusy === 'resend'}
+                disabled={inviteBusy !== null}
+                onClick={() => inviteAction('resend', invite.invitationId)}
+              >
+                Resend
+              </Button>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="red"
+                loading={inviteBusy === 'revoke'}
+                disabled={inviteBusy !== null}
+                onClick={() => inviteAction('revoke', invite.invitationId)}
+              >
+                Revoke
+              </Button>
+            </Group>
+          </Stack>
         ) : (
           <Stack gap="sm" align="flex-start">
             <Text c="dimmed" size="sm">

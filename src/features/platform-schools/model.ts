@@ -19,6 +19,17 @@ export interface PlatformSchool {
     phone: string | null;
     isActive: boolean;
   } | null;
+  /** An invitation sent but not yet accepted; at most one is open at a time (QA-202). */
+  pendingPrincipalInvite: {
+    invitationId: string;
+    userId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    sentAt: string;
+    expiresAt: string;
+    resendCount: number;
+  } | null;
   studentsCount: number;
   staffCount: number;
   enabledModules: string[];

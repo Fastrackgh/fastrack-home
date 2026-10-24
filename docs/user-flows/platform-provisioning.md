@@ -19,7 +19,7 @@ Code:
 | Detail | `GET /super-admin/schools/:id` | `staffCount` counts teachers only; the UI labels it "Staff" |
 | Edit | `PATCH /super-admin/schools/:id` | |
 | Detail tabs | `GET /super-admin/schools/:id/students?page&limit=20&search`, `/staff?limit=100`, modules | Staff means teachers only |
-| **Missing UI** | `POST /super-admin/schools/:id/school-head` | Assigns or invites the Principal. Without it a new school has no users. |
+| Principal | `POST /super-admin/schools/:id/school-head` (Assign principal modal); `POST /invitations/:id/resend`, `PATCH /invitations/:id/revoke` | Sends the principal an invitation. While one is open (`pendingPrincipalInvite` on the detail), the Principal card shows the invitee, sent and expiry dates, and Resend and Revoke instead of Assign; the stat card reads "Invited". A second invitation gets 409 "A principal invitation is already pending for …", shown in the modal (QA-202). |
 | Missing UI | academic years, terms, classes, departments, fee types and structures under `/super-admin/schools/:id/*`; `PUT …/logo`; `POST …/bulk-sync`; `/super-admin/users`; `/super-admin/system/audit/logins`; analytics finance, demographics, activity and comparison | |
 
 ## Diagram
@@ -34,7 +34,7 @@ flowchart TD
   D -->|POST ok| E[toast 'School Provisioned', reset fields, reload]
   D -->|POST error e.g. 409 code| D2[red toast 'Provisioning Failed: msg']
   E --> F["Open 'Details' -> /platform/schools/:id"]
-  F --> G["Principal: 'Not assigned' (no action available)"]
+  F --> G["Principal: name, or 'Invited' with Resend/Revoke, or 'Not assigned' with Assign principal"]
   F --> H["Modules tab: switch per module"]
   B --> I["Row 'Modules' -> Drawer, toggle with optimistic update + revert on error"]
   B --> J["Row ... -> Deactivate School (no confirmation)"]
@@ -66,7 +66,6 @@ flowchart TD
 ## Issues
 
 - **Onboarding dead end.** After provisioning, there is no UI to:
-  - assign a Principal;
   - create academic years, terms or classes (needed before admission and invoicing);
   - seed fee types or structures.
 

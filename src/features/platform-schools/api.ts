@@ -18,12 +18,18 @@ export const platformSchoolsApi = {
   async updateSchool(schoolId: string, update: SchoolProfileUpdate) {
     await apiClient.patch(schoolPath(schoolId), update);
   },
-  /** Invites the school's principal; refused when it already has an active one. */
+  /** Invites the school's principal; refused when it has an active one or an open invitation. */
   async assignPrincipal(
     schoolId: string,
     head: { firstName: string; lastName: string; email: string; phone?: string },
   ) {
     await apiClient.post(`${schoolPath(schoolId)}/school-head`, head);
+  },
+  async resendInvitation(invitationId: string) {
+    await apiClient.post(`/invitations/${encodeURIComponent(invitationId)}/resend`, {});
+  },
+  async revokeInvitation(invitationId: string) {
+    await apiClient.patch(`/invitations/${encodeURIComponent(invitationId)}/revoke`, {});
   },
   async uploadLogo(schoolId: string, file: File) {
     const form = new FormData();

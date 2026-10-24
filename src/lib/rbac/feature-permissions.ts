@@ -48,6 +48,8 @@ export const FEATURE_GRANTS: Record<Role, readonly FeaturePermission[]> = {
     'enquiries:manage',
     'marks:read',
     'marks:enter',
+    // The backend's phase 1 grants give the Principal grading too (docs/api/results.md).
+    'grading:manage',
     'reports:generate',
     'question_bank:read',
     'question_bank:manage',

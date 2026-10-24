@@ -123,6 +123,7 @@ export const roleConfig: Record<
       'archive',
       'questions',
       'templates',
+      'grading',
       'setup',
     ],
     featured: ['enrollment', 'performance', 'attendance', 'communication'],
@@ -293,6 +294,7 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   templates: 'templates',
   calendar: 'calendar',
   setup: 'setup',
+  grading: 'resultsSetup',
 };
 
 /** The live page that serves `area` for this viewer, if any. */

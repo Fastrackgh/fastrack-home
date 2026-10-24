@@ -12,6 +12,8 @@ export const MODULES = [
   'other_income',
   'expenses',
   'payroll',
+  /** Marks, grading and term reports (docs/api/results.md). */
+  'results',
 ] as const;
 
 export type ModuleKey = (typeof MODULES)[number];

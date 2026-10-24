@@ -63,6 +63,11 @@ export const APP_ROUTES = {
     label: 'School setup',
     rule: { audiences: ['staff'], permission: 'classes:manage' },
   },
+  resultsSetup: {
+    path: '/school-admin/results/setup',
+    label: 'Grading setup',
+    rule: { audiences: ['staff'], permission: 'grading:manage', module: 'results' },
+  },
   account: {
     path: '/school-admin/account',
     label: 'My account',

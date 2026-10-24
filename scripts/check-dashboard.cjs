@@ -650,4 +650,38 @@ check('results engine gives the worked answers in docs/api/results-fixtures.json
       c.name,
     );
 });
+check('grading setup is for heads with the results module; its maths matches the engine', () => {
+  const path = '/school-admin/results/setup';
+  assert.equal(rbac.findRoute(path).path, path);
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), role);
+  for (const role of ['TEACHER', 'SECRETARY', 'ACCOUNT_OFFICER', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), false, role);
+  assert.equal(rbac.canAccessPath({ ...viewer('PRINCIPAL'), modules: [] }, path), false);
+
+  const sm = load('src/features/results/setup-model.ts');
+  const parts = (weights) =>
+    weights.map((weight, i) => ({ key: `c${i}`, label: `C${i}`, shortLabel: '', weight, defaultMaxRaw: 10, entry: 'single', bestOf: null, group: 'exam' }));
+  assert.deepEqual(sm.evenSplit(parts([0, 0, 0])).map((c) => c.weight), [33.33, 33.33, 33.34]);
+  assert.equal(sm.weightTotal(sm.evenSplit(parts([0, 0, 0]))), 100);
+  assert.equal(sm.weightsProblem({ components: parts([30, 65]), bands: [] }, 'numeric'), 'The weights add up to 95, not 100.');
+  const band = (label, minScore) => ({ label, remark: '', minScore, points: null, isPass: true, description: null });
+  const bands = [band('A', 80), band('B', 70), band('F', 0)];
+  assert.equal(sm.bandsProblem({ components: [], bands }, 'numeric'), null);
+  assert.equal(sm.bandsProblem({ components: [], bands: [band('A', 80), band('B', 85), band('F', 0)] }, 'numeric'), 'B must start below A (80).');
+  assert.equal(sm.bandsProblem({ components: [], bands: [band('A', 80), band('F', 5)] }, 'numeric'), 'The lowest grade, F, must start at 0.');
+  const preset = { scheme: { mode: 'numeric', components: parts([30, 70]) }, scale: { mode: 'numeric', bands } };
+  assert.equal(sm.overridesFor(preset, sm.editFrom(preset)), undefined);
+  const edit = sm.editFrom(preset);
+  edit.components[0].weight = 40;
+  edit.components[1].weight = 60;
+  edit.bands[0].minScore = 85;
+  assert.deepEqual(sm.overridesFor(preset, edit), {
+    components: { c0: { weight: 40 }, c1: { weight: 60 } },
+    bands: [{ index: 0, minScore: 85 }],
+  });
+  // 79.5 is an A at whole numbers and a B at one decimal, as in the fixtures.
+  assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 0), { printed: 80, grade: 'A' });
+  assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 1), { printed: 79.5, grade: 'B' });
+});
 console.log(`${checks} dashboard and access checks passed.`);

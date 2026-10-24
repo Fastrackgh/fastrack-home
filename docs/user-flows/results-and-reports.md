@@ -1,0 +1,69 @@
+# Flow: Results and term reports
+
+**Status (24 Oct 2026):** being built in phases. See [`docs/api/results.md`](../api/results.md) for the contract, the rules the product owner set, and the calculation.
+
+| Part | Where | Status |
+| --- | --- | --- |
+| Subjects and what each class takes | School setup → Subjects | Live (phase 0); see [school-setup.md](./school-setup.md#subjects-tab-added-24-oct-results-phase-0) |
+| Grading setup (weights, grades, positions) | `/school-admin/results/setup` | Built against the agreed phase 1 contract with simulated responses; backend in progress |
+| Mark entry | — | Phase 2 |
+| Term reports: review, remarks, publish | — | Phase 3 |
+| Parent reports | Parent portal → Reports | Built earlier on sample data; goes live in phase 4 |
+
+## Grading setup
+
+Code: `src/features/results/SetupWizardPage.tsx`, with its logic in `setup-model.ts` (checked in `scripts/check-dashboard.cjs`).
+
+**Who:** `grading:manage` (Principal and Academic Head), with the school's `results` module on. Teachers, secretaries, accountants and parents can't open it. The Grading configuration area links here.
+
+```mermaid
+flowchart TD
+  A[Open Grading setup] --> B{Current academic year?}
+  B -->|no| B1["'No current academic year': link to School setup"]
+  B -->|yes| C{Policy rows for the year?}
+  C -->|yes| D["Summary: who uses which weights and grades; 'Run setup again'"]
+  C -->|no| E[1 Presets]
+  D -->|Run setup again| E
+  E --> F[2 Weights]
+  F -->|total not 100| F1[Next disabled, 'The weights add up to 95, not 100.']
+  F --> G[3 Grades]
+  G -->|bands out of order or no 0| G1[Next disabled, e.g. 'B must start below A (85).']
+  G --> H[4 Positions and rounding]
+  H --> I[5 Review]
+  I -->|Set up grading| J["POST /results-setup/apply"]
+  J -->|ok| K["'Grading is set up': counts, link to class subjects"]
+  J -->|400| L[Red toast with the backend's message, stays on Review]
+```
+
+**The steps:**
+1. **Presets.** A preset for the whole school, which is required (rule 9), and optionally one per department.
+   - Each department suggests one from its code: Pre-School gets Montessori or early years, primary gets GES, JHS gets BECE.
+   - The school default starts as the suggestion for the department with the most classes.
+2. **Weights.** For each preset in use: the parts (class score, exam…), their weights, and "best N" for class tests.
+   - A running total shows, and **Split evenly** gives 33.33 / 33.33 / 33.34.
+   - A worked example shows a made-up pupil's marks becoming a total and a grade, using the same engine as reports.
+   - Descriptor presets list their strands instead; they have no weights.
+3. **Grades.** Each grade's label, where it starts, its remark, and points where the preset has them (BECE). The lowest grade is fixed at 0.
+   - **Try a score** shows how a total prints and grades at the chosen rounding, e.g. 79.5 → 80 → A at whole numbers.
+4. **Positions and rounding.**
+   - Class and subject positions: shown to parents, staff only, or not worked out.
+   - Score and average decimals.
+   - Rank by average, total or aggregate; aggregate is offered when a BECE-style preset is in use.
+   - Whether absence counts as 0.
+   - The BECE "best other subjects" count.
+5. **Review.** A plain summary per level, and a box (ticked by default) to also add each preset's usual subjects to its department's classes.
+
+**What is sent:**
+- Only changes from the preset go as overrides.
+- Departments on the school's preset are left out, because they inherit it.
+- The full settings are always sent.
+
+**States:**
+
+| | Loading | Empty | Error | Success |
+| --- | --- | --- | --- | --- |
+| Page | `Loader` | "No current academic year" alert | Alert + Try again | — |
+| Steps | — | — | Red alert listing what to fix; Next disabled | — |
+| Apply | Button loading | — | Red toast with the backend's message (stays open) | Green alert with counts; Done shows the summary |
+
+**Not yet:** advanced editing of a single class's or subject's grading, the remark bank, and per-version history. These come with the "Advanced" tabs after phase 1 is live.

@@ -51,7 +51,7 @@ export function ApplySubjectsModal({
           : { subjectIds, classIds },
       );
       notifications.show({
-        title: 'Subjects added',
+        title: result?.added ? 'Subjects added' : 'Nothing new to add',
         message:
           `${result?.added ?? 0} added` +
           (result?.alreadyThere

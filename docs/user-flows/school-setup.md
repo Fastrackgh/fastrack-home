@@ -36,7 +36,7 @@ Verified against `fastrack-space/fastrack-backend` on `fix/invoice-run-class-lab
 | Term add / edit | `POST …/academic-years/:yearId/terms`, `PATCH …/terms/:id` `{termSequence,startDate,endDate,isCurrent}` | ✓ A duplicate sequence in the year returns 409. Making a term current also makes its year current. No bounds, overlap or order checks |
 | Departments | `GET /schools/me/departments?limit=100`, `POST`, `PATCH /:id`, `DELETE /:id` | ✓ Code is upper-cased and unique (409). Delete sets the department of its classes to null |
 | Standard departments | `POST /schools/me/departments/seed-defaults` | ✓ Adds only the codes that are missing |
-| Classes | `GET /schools/me/classes?page&limit&search`, `POST`, `PATCH /:id` | ✓ Code is unique but **case-sensitive**. Each class has a `sequenceOrder` (the **Order** field and column, added 24 Oct for QA-207); lists come back in that order, and a new class with no order goes after the last one. Promotion moves pupils to the class with the next number. The backend's bulk create (`classes[]`) is unused |
+| Classes | `GET /schools/me/classes?page&limit&search`, `POST`, `PATCH /:id` | ✓ Code is unique but **case-sensitive**. Each class has a `sequenceOrder` (the **Order** field and column, added 24 Oct for QA-207); lists come back in that order, and a new class with no order goes after the last one. Order numbers are unique per school (QA-245): a used number returns 409 "Order 2 is already used by Primary 2. Give each class its own number.", shown under the Order field. 0 means not ordered yet and may repeat; promotion asks for a target for such a class. Swapping two numbers needs a free number in between (1 → 99, 2 → 1, 99 → 2). Promotion moves pupils to the class with the next number. The backend's bulk create (`classes[]`) is unused |
 | Teacher pickers | `GET /schools/me/staff?role=TEACHER&isActive=true&limit=100` | ✓ First 100 only |
 | Checklist | the year and class calls above, plus `GET /schools/me/fee-types` | ✓ |
 | Not available anywhere | delete a year, a term or a class; "set current" without opening the edit form | The backend has no delete route for years, terms or classes |
@@ -109,6 +109,7 @@ flowchart TD
 - **Current year and current term can disagree (QA-236).** Making another year current, or unticking "current" on a year, leaves the current term in the old year. Confirmed in the browser 22 Oct.
 - **The current term can be unticked, leaving none (QA-237).** It saves with "Term updated" and no warning.
 - *Fixed 22 Oct (QA-206):* saving "current" used to return "Internal server error" and leave two current years or terms.
+- *Fixed 24 Oct (QA-246):* the checklist no longer asks for fee types when the school has no fees module, which used to give a 403 on load and on every class save.
 - **Errors look like progress.** A failed checklist read removes the step; a failed teacher read empties the pickers silently.
 - Class teachers who are inactive, or outside the first 100 teachers, show as "Assigned" without a name.
 - "Invite your staff" counts only active teachers, so pending invitations and non-teaching staff don't tick it.

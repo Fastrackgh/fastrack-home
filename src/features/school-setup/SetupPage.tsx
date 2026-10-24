@@ -17,7 +17,7 @@ import { CheckCircle2, Circle } from 'lucide-react';
 import { feesApi } from '@/features/fees/api';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
-import { APP_ROUTES } from '@/lib/rbac';
+import { APP_ROUTES, hasModule } from '@/lib/rbac';
 import { errorMessage, setupApi, type Department, type StaffOption } from './api';
 import { ClassesPanel } from './ClassesPanel';
 import { DepartmentsPanel } from './DepartmentsPanel';
@@ -39,7 +39,9 @@ interface Step {
  * and terms, departments and classes, with a checklist of what is missing.
  */
 export function SetupPage() {
-  const { can, school } = useAuth();
+  const { user, can, school } = useAuth();
+  // Fee types 403 for a school without the fees module (QA-246).
+  const hasFees = !!user && hasModule(user, 'fees');
   const canProfile = can('school_profile:manage');
   const [tab, setTab] = useState<TabKey>(canProfile ? 'profile' : 'years');
   const [departments, setDepartments] = useState<Department[] | null>(null);
@@ -61,7 +63,9 @@ export function SetupPage() {
     const [years, classes, feeTypes] = await Promise.all([
       setupApi.listYears().catch(() => null),
       setupApi.listClasses(1, '').catch(() => null),
-      can('fee_types:read') ? feesApi.listFeeTypes().catch(() => null) : Promise.resolve(null),
+      hasFees && can('fee_types:read')
+        ? feesApi.listFeeTypes().catch(() => null)
+        : Promise.resolve(null),
     ]);
     const current = years?.find((y) => y.isCurrent);
     const list: Step[] = [];
@@ -102,7 +106,7 @@ export function SetupPage() {
         href: APP_ROUTES.staff.path,
       });
     setSteps(list);
-  }, [can, canProfile, school, departments, staff]);
+  }, [can, canProfile, hasFees, school, departments, staff]);
 
   useEffect(() => {
     loadDepartments();

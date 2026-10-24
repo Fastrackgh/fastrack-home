@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import { Button, Group, Modal, NumberInput, Select, Stack, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { ApiError } from '@/lib/api-client';
 import { errorMessage, setupApi, type Department, type SchoolClass, type StaffOption } from './api';
 
 /** Adds a class, or edits `schoolClass` when given. Rendered only while open. */
@@ -31,6 +32,7 @@ export function ClassModal({
   const [sequenceOrder, setSequenceOrder] = useState<number | string>(
     schoolClass?.sequenceOrder ?? '',
   );
+  const [orderError, setOrderError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -43,6 +45,7 @@ export function ClassModal({
       sequenceOrder: sequenceOrder === '' ? undefined : Number(sequenceOrder),
     };
     if (!input.classCode || !input.className) return;
+    setOrderError(null);
     setSaving(true);
     try {
       if (schoolClass) await setupApi.updateClass(schoolClass.id, input);
@@ -54,6 +57,11 @@ export function ClassModal({
       });
       onSaved();
     } catch (err) {
+      // Order numbers are unique (QA-245); the backend names the class using it.
+      if (err instanceof ApiError && err.statusCode === 409 && /order/i.test(err.message)) {
+        setOrderError(err.message);
+        return;
+      }
       notifications.show({
         title: 'Could not save the class',
         message: errorMessage(err, 'Try again.'),
@@ -98,12 +106,16 @@ export function ClassModal({
           </Group>
           <NumberInput
             label="Order"
-            description="Promotion moves pupils to the class with the next number. Leave empty to put a new class last."
+            description="Each class needs its own number, in the order pupils move up. Leave empty to put a new class last."
             placeholder="After the last class"
             min={0}
             allowDecimal={false}
             value={sequenceOrder}
-            onChange={setSequenceOrder}
+            onChange={(value) => {
+              setSequenceOrder(value);
+              setOrderError(null);
+            }}
+            error={orderError}
             radius="md"
           />
           <Select

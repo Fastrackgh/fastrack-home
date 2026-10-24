@@ -92,9 +92,11 @@ The definitions behind every number on a report. The fixture file has a worked c
 5. **Aggregate** (BECE / WASSCE style, lower is better, optional):
    - Add the points of the `core` subjects, then the lowest `bestOtherCount` points from the `pool` subjects.
    - A core subject without points, or too few pool subjects, gives `null`.
+   - The core count is the number of the class's subjects marked `core`. A class with no `core` or `pool` subjects (a primary class, say) has no aggregate.
 6. **Positions.**
    - Competition ranking (1, 2, 2, 4) on the printed value, with no tie-breaks.
    - Rank by `average`, `total` or `aggregate` (ascending).
+   - With `rankBy: aggregate`, a class with no aggregate subjects is ranked **by average** instead (decided 24 Oct), so a school ranking JHS by aggregate still ranks its primary classes. The engine's `classPositions` takes `classHasAggregate` for this.
    - A pupil is ranked only with results in at least `minSubjectsForRankingPct`% of the class's assessed subjects.
    - "Number on roll" counts everyone in the class for the term, ranked or not.
    - Subject positions rank among the class's pupils with a result in that subject.
@@ -144,20 +146,44 @@ The backend adds an any-of permission decorator for the GETs, because its permis
 
 **Presets.** `GET /results-presets` returns static backend data; the backend is the source of truth.
 - Keys: `ges_basic_30_70`, `ges_standards_based`, `bece_jhs`, `waec_shs`, `cambridge_style`, `montessori_descriptors`, `early_years_descriptors`.
-- Each preset has `{key, name, description, suggestedForDepartmentCodes: string[], scheme, scale, settings, subjects}`.
+- Each preset has this shape:
+
+  ```ts
+  { key, name, description, suggestedForDepartmentCodes: string[],
+    scheme: { name, mode: 'numeric' | 'descriptor',
+              components: [{ key, label, shortLabel, weight, defaultMaxRaw, entry: 'single' | 'items', bestOf: number | null, group: 'continuous' | 'exam' }] },
+    scale:  { name, mode, bands: [{ label, remark, minScore: number | null, points: number | null, isPass, description: string | null }] },  // highest first
+    settings: Partial<Settings>,
+    subjects: [{ subjectCode, subjectName, shortName?, category? }] }
+  ```
+
+  In a descriptor scheme the components are strands: every weight is 0 and `defaultMaxRaw` is null. The "weights total 100.00" rule is for numeric schemes; a descriptor scheme must have every weight at 0, here and on the scheme routes.
 - The wizard pre-picks a preset per department from `suggestedForDepartmentCodes`, e.g. PRE_SCHOOL → Montessori or early years, JHS → `bece_jhs`.
 
 **Apply.** `POST /results-setup/apply` runs in one transaction.
-- Body: `{academicYearId, defaultPresetKey, departments?: [{departmentId, presetKey, overrides?}], settings?, subjects?: boolean}`.
+- Body: `{academicYearId, defaultPresetKey, defaultOverrides?, departments?: [{departmentId, presetKey, overrides?}], settings?, subjects?: boolean}`.
+- The overrides shape (all optional):
+
+  ```ts
+  { schemeName?, scaleName?,
+    components?: { [componentKey]: { label?, shortLabel?, weight?, bestOf? } },  // matched by key
+    bands?: [{ index, label?, remark?, minScore?, points?, isPass? }] }          // index = position in the preset's bands
+  ```
+
+  The frontend sends only what the school changed, and leaves out departments that use the school's preset.
 - `defaultPresetKey` is required: it becomes the school row (rule 9).
-- **Copies.** Apply creates school-owned copies tagged with `preset_key`. Re-applying a preset reuses the school's family for it if that family is unchanged; if the school has edited it, apply creates a new family.
+- **Families.** Apply creates school-owned copies tagged with `preset_key`. For the default and each department, the backend works out the content (the preset plus its overrides). It reuses a school family whose latest version has the same `preset_key` and identical content; otherwise it creates one.
+  - The rule is the same within one call and across calls. So the default and departments with identical overrides share one family, and a re-run reuses it.
+  - A family made from different content is named e.g. "GES 30/70 (Lower Primary)", unless `schemeName` or `scaleName` is given. Names needn't be unique.
 - **Overrides allowed:**
   - scheme and scale `name`;
-  - component `label`, `shortLabel`, `weight`, `bestOf` (not `key` or `group`);
-  - band `label`, `remark`, `minScore`, `points`, `isPass`;
-  - settings.
+  - component `label`, `shortLabel`, `weight` and `bestOf`, but not `key` or `group`. `weight` and `bestOf` are numeric-only and get 400 on a descriptor preset;
+  - band `label`, `remark`, `minScore`, `points` and `isPass`. An `index` outside the preset's bands gets 400.
 
-  Overrides pass the same validation as the normal routes. Components and bands are added or removed afterwards, on the scheme and scale routes.
+  Overrides carry no settings; those go in `settings`.
+- **Validation.** Overrides pass the same checks as the normal routes. Bands are checked again after the overrides are applied (one at 0, no repeated minimums) and stored highest first. A 400 names where the problem is, e.g. "Lower Primary: weights add up to 95, not 100." or "School default: …". Components and bands are added or removed afterwards, on the scheme and scale routes.
+- **Settings.** The order is built-in defaults < the default preset's settings < apply `settings`. Department presets' settings are ignored, because there is one settings row per school. The wizard pre-fills from them (e.g. an aggregate when a department uses `bece_jhs`) and always sends the full settings.
+- **Re-running** apply for a year replaces that year's policy rows in one transaction, like the PUT, and reuses families by the rule above. `settings` merges like a PATCH. `subjects: true` only adds subjects, never removes them. Other years and sheets already frozen are untouched.
 - **Subjects.** With `subjects: true`, each preset's subjects are matched to the catalogue by code or name (ignoring case), created if missing, and added to that department's classes, as `/class-subjects/apply` does.
 - Returns `{schemesCreated, scalesCreated, assignments, subjects: {created, existing}, classSubjects: {added, alreadyThere}}`.
 

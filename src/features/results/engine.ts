@@ -237,15 +237,22 @@ export interface RankablePupil {
   subjectsWithResult: number;
 }
 
-/** Class positions; pupils with too few results, or nothing to rank by, get null. */
+/**
+ * Class positions; pupils with too few results, or nothing to rank by, get
+ * null. A class with no aggregate subjects (no core or pool) ranks by average
+ * when the school ranks by aggregate, so primary classes are still ranked.
+ */
 export function classPositions(
   pupils: RankablePupil[],
   subjectsAssessed: number,
   settings: ResultsSettings,
+  classHasAggregate = true,
 ): (number | null)[] {
+  const rankBy =
+    settings.rankBy === 'aggregate' && !classHasAggregate ? 'average' : settings.rankBy;
   const eligible = (p: RankablePupil) =>
     subjectsAssessed > 0 &&
     (p.subjectsWithResult * 100) / subjectsAssessed >= settings.minSubjectsForRankingPct;
-  const values = pupils.map((p) => (eligible(p) ? p[settings.rankBy] : null));
-  return competitionRanks(values, settings.rankBy === 'aggregate');
+  const values = pupils.map((p) => (eligible(p) ? p[rankBy] : null));
+  return competitionRanks(values, rankBy === 'aggregate');
 }

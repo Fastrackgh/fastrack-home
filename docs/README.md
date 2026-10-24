@@ -29,7 +29,7 @@ Each flow has a Mermaid diagram, its loading, empty, error and success states, i
 | [Online admissions](./user-flows/online-admissions-preview.md) | Preview only |
 | [Attendance](./user-flows/attendance.md) (daily register, term totals, parent month view) | Live (backend on `feat/attendance`) |
 | [Password reset and invite acceptance](./user-flows/password-reset-and-invite-acceptance.md) | Invite acceptance live; password reset backend live, frontend uncommitted |
-| [Results and term reports](./api/results.md) (API contract, the calculation rules and their [worked answers](./api/results-fixtures.json)) | Designed 24 Oct; not built yet |
+| [Results and term reports](./user-flows/results-and-reports.md) ([API contract](./api/results.md), calculation and [worked answers](./api/results-fixtures.json)) | Subjects live; grading setup built, backend in progress; marks and reports to come |
 
 ## Key facts at a glance
 

@@ -645,7 +645,7 @@ check('results engine gives the worked answers in docs/api/results-fixtures.json
     assert.deepEqual(engine.competitionRanks(c.values, c.lowerIsBetter), c.expected, c.name);
   for (const c of fx.positions)
     assert.deepEqual(
-      engine.classPositions(c.pupils, c.subjectsAssessed, settings(c)),
+      engine.classPositions(c.pupils, c.subjectsAssessed, settings(c), c.classHasAggregate),
       c.expected,
       c.name,
     );

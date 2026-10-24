@@ -386,6 +386,31 @@
         { "average": 72, "total": 288, "aggregate": null, "subjectsWithResult": 4 }
       ],
       "expected": [null, 1, 2]
+    },
+    {
+      "name": "ranking by aggregate in a class with no aggregate subjects falls back to the average",
+      "why": "A primary class has no core or pool subjects, so nobody has an aggregate; it is ranked by average instead of leaving everyone unranked.",
+      "settings": { "rankBy": "aggregate", "aggregate": { "coreCount": 4, "bestOtherCount": 2 } },
+      "classHasAggregate": false,
+      "subjectsAssessed": 6,
+      "pupils": [
+        { "average": 71.5, "total": 429, "aggregate": null, "subjectsWithResult": 6 },
+        { "average": 80, "total": 480, "aggregate": null, "subjectsWithResult": 6 },
+        { "average": 71.5, "total": 429, "aggregate": null, "subjectsWithResult": 6 }
+      ],
+      "expected": [2, 1, 2]
+    },
+    {
+      "name": "ranking by aggregate in a JHS class: lower is better, no aggregate means not ranked",
+      "settings": { "rankBy": "aggregate", "aggregate": { "coreCount": 4, "bestOtherCount": 2 } },
+      "classHasAggregate": true,
+      "subjectsAssessed": 8,
+      "pupils": [
+        { "average": 70, "total": 560, "aggregate": 14, "subjectsWithResult": 8 },
+        { "average": 75, "total": 600, "aggregate": 9, "subjectsWithResult": 8 },
+        { "average": 72, "total": 576, "aggregate": null, "subjectsWithResult": 8 }
+      ],
+      "expected": [2, 1, null]
     }
   ]
 }

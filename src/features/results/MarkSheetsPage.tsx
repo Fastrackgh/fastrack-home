@@ -10,17 +10,17 @@ import {
   Group,
   Loader,
   Progress,
-  Select,
   SimpleGrid,
   Stack,
   Switch,
   Text,
 } from '@mantine/core';
-import { errorMessage, setupApi, type AcademicTerm } from '@/features/school-setup/api';
+import { errorMessage } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES } from '@/lib/rbac';
 import { marksApi, type SheetCard } from './marks-api';
+import { TermPicker, useTerms } from './TermPicker';
 
 export const STATUS: Record<SheetCard['status'], { label: string; color: string }> = {
   not_started: { label: 'Not started', color: 'gray' },
@@ -40,22 +40,10 @@ export const sheetHref = (termId: string, classId: string, subjectId: string) =>
 export function MarkSheetsPage() {
   const { can } = useAuth();
   const isHead = can('reports:approve');
-  const [terms, setTerms] = useState<(AcademicTerm & { yearLabel: string })[] | null>(null);
-  const [termId, setTermId] = useState<string | null>(null);
+  const { terms, termId, setTermId, error: termsError } = useTerms();
   const [all, setAll] = useState(isHead);
   const [cards, setCards] = useState<SheetCard[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setupApi
-      .listYears()
-      .then((years) => {
-        const list = years.flatMap((y) => y.terms.map((t) => ({ ...t, yearLabel: y.yearLabel })));
-        setTerms(list);
-        setTermId((current) => current ?? list.find((t) => t.isCurrent)?.id ?? list[0]?.id ?? null);
-      })
-      .catch((err) => setError(errorMessage(err, 'Could not load the terms.')));
-  }, []);
 
   const load = useCallback(async () => {
     if (!termId) return;
@@ -86,18 +74,7 @@ export function MarkSheetsPage() {
         subtitle="Enter each class's marks for the term, then submit them."
       />
       <Group justify="space-between" mb="md" align="flex-end">
-        <Select
-          label="Term"
-          data={(terms ?? []).map((t) => ({
-            value: t.id,
-            label: `${t.termLabel}, ${t.yearLabel}${t.isCurrent ? ' (current)' : ''}`,
-          }))}
-          value={termId}
-          onChange={setTermId}
-          allowDeselect={false}
-          radius="md"
-          w={280}
-        />
+        <TermPicker terms={terms} termId={termId} onChange={setTermId} />
         <Switch
           label="All classes"
           description={isHead ? undefined : 'Find a subject nobody teaches yet'}
@@ -106,10 +83,10 @@ export function MarkSheetsPage() {
           color="fastrackRed"
         />
       </Group>
-      {error ? (
+      {error || termsError ? (
         <Alert color="red" title="Unable to load the mark sheets">
           <Stack gap="xs" align="flex-start">
-            <Text size="sm">{error}</Text>
+            <Text size="sm">{error ?? termsError}</Text>
             <Button size="xs" variant="light" color="red" onClick={load}>
               Try again
             </Button>

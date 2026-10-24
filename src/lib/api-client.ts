@@ -37,6 +37,16 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * The structured `details` of a failed request (e.g. `{cells}` on a 422).
+ * `ApiError.details` holds the whole error body, so they sit one level in.
+ */
+export function errorDetails<T>(err: unknown): T | undefined {
+  return err instanceof ApiError
+    ? ((err.details as { details?: T } | undefined)?.details ?? undefined)
+    : undefined;
+}
+
 /** Every browser-storage key that belongs to a signed-in session. */
 export const SESSION_STORAGE_KEYS = {
   accessToken: 'fastrack_access_token',

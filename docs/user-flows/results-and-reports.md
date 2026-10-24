@@ -7,7 +7,7 @@
 | Subjects and what each class takes | School setup → Subjects | Live (phase 0); see [school-setup.md](./school-setup.md#subjects-tab-added-24-oct-results-phase-0) |
 | Grading setup (weights, grades, positions) | `/school-admin/results/setup` | Live (phase 1; backend `99e912b`, not pushed yet), tested on PRM-001 on 24 Oct |
 | Mark entry | `/school-admin/results/marks` | Live (phase 2; backend `6b0e07d` and `6e673c7`, not pushed yet), tested on PRM-001 on 24 Oct, with marks and with descriptors |
-| Term reports: review, remarks, publish | — | Phase 3 |
+| Term reports: review, remarks, publish | `/school-admin/results/reports` | Built against the agreed phase 3 contract and checked with simulated responses; backend in progress |
 | Parent reports | Parent portal → Reports | Built earlier on sample data; goes live in phase 4 |
 
 ## Grading setup
@@ -147,4 +147,50 @@ Code: `src/features/results/MarkSheetsPage.tsx` and `MarkGridPage.tsx`, with the
 - **Submit and after:** the teacher filled the rest and submitted. As the principal, the banner read "Submitted: changing marks as a head", the exam changed to 60 (48 E), and **Return to teacher** worked. The teacher then saw "Returned by a head: Check the exam marks." and could edit again.
 - **Descriptor sheet** (Class A English, Montessori areas): the live scale bands had no `id`, so a descriptor choice can't be saved. The grid crashed ("Each option must have value property"); it now says "This sheet can't be marked yet" instead. Band ids were added by the backend (`6e673c7`). Re-tested: Akwasi's five strands (four descriptors and one Absent) saved in one request; the teacher submitted; the principal returned it with "Please check Sensorial for Akwasi.", which the teacher then saw.
 - **Fixed during the run:** submit, return and not-assessed now send `rowVersion`, as the backend requires.
+
+## Term reports
+
+Code: `src/features/results/ReportsBoardPage.tsx` and `ClassReportPage.tsx`.
+
+**Who:**
+- **Viewing:** anyone with `reports:read` and the `results` module (Principal, Academic Head, Teacher, Secretary). The Reports & results area opens it.
+- **Working out and printing:** `reports:generate` (heads and secretaries).
+- **Remarks:** the class's own class teacher, or a head.
+- **Head's remark, approve, publish, reopen, withhold:** heads only.
+
+**Board.** A term picker, then one row per class:
+- its status: not started, marking, ready to approve, approved, published, reopened;
+- "n of m submitted" mark sheets and "n of m" remarks;
+- what it's waiting on ("Marks: English Language · 3 remarks to write").
+
+**Class review** (`/school-admin/results/reports/class?termId&classId`).
+- **Before the first compute:** "Work out reports". After it, "Update from the marks", until approved.
+- **Pupil table:**
+  - columns: average, position ("1st of 2", among ranked pupils), attendance ("58 of 60" or "Not recorded") and the class teacher's remark;
+  - a status badge for each pupil: Ready, Incomplete or Left, and Withheld where it applies.
+- **Waiting on mark sheets:** a yellow alert names the unsubmitted subjects. Reports can still be worked out and previewed, but **Approve** is refused, with the backend's blockers.
+- **A pupil's drawer:**
+  - their subjects with total, grade and position, or "Marks missing", "INC", "EX" or "Not assessed";
+  - the class teacher's remark, with saved remarks from the remark bank that suit the pupil's average;
+  - conduct, attitude and interest, with suggestions;
+  - the head's remark (heads only);
+  - on the year's last term, promotion: promoted to a class, repeats, or graduates;
+  - days present and school days, typed in only when the register has none (present can't exceed school days).
+- **Saving** sends only the fields that changed.
+- **Preview report** shows the school's report design in a sandboxed frame, with "Open to print".
+- **Withholding (heads):** a head can withhold a report with a reason. A left pupil's report starts withheld, and **Issue report anyway** releases it.
+- **Approve → Publish to parents → Reopen (with a reason):**
+  - after approval, remarks are read-only;
+  - after publishing, a green note explains that parents see this version until it's published again;
+  - a reopen shows its reason.
+- **Print all** opens the whole class's reports in a new tab.
+
+**Checked with simulated responses (24 Oct, PRM-001, principal@prm.test, Class C):**
+- **The happy path:** the board, then working out the reports (Ready, Incomplete, and a Left pupil withheld), then an approval refused while English wasn't submitted.
+- **Remarks for Benewaa:** a saved remark matching her 61 average was offered. 70 of 60 days was refused. The save sent only the changed fields: remark, conduct, head's remark and attendance 55/60.
+- **Kweku (left):** "Issue report anyway" released his report, and the preview rendered.
+- **Approve, publish, reopen:** publishing locked remarks, and reopening showed the reason. Print all opened the class's reports.
+- **Found and fixed during the run:**
+  - the remark boxes crashed on typing, the same mistake as QA-212: reading the value after React cleared it;
+  - error details weren't read correctly, because `ApiError.details` holds the whole error body. The new `errorDetails()` in `src/lib/api-client.ts` fixes this for the mark grid's refused cells and submit list, and for the approve blockers.
 

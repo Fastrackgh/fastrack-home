@@ -788,6 +788,15 @@ check('mark sheets: teachers and heads with results; cell typing, missing marks 
   // A mark carried from another class keeps its own total and says so (QA, phase 2).
   assert.equal(mm.showMark(mark('class', 1, 40, 50), 20), '40/50');
   assert.equal(mm.showMark(mark('class', 1, 8, 10), 10), '8');
+  // ApiError.details holds the whole error body; the backend's own details sit one level in.
+  const client = load('src/lib/api-client.ts');
+  const refused = new client.ApiError(422, 'Above the maximum of 20.', {
+    success: false,
+    message: 'Above the maximum of 20.',
+    details: { cells: [{ schoolStudentId: 'p1', componentKey: 'class', itemIndex: 1, message: 'Above the maximum of 20.' }] },
+  });
+  assert.equal(client.errorDetails(refused).cells[0].message, 'Above the maximum of 20.');
+  assert.equal(client.errorDetails(new Error('x')), undefined);
   // After a 409, a change is kept only if nobody else changed that cell meanwhile.
   const fresh = [row([mark('class', 1, 9), mark('class', 2, 6)])];
   const { keep, conflicts } = mm.rebase(

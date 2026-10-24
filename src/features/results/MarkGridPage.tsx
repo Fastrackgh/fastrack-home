@@ -28,7 +28,7 @@ import { notifications } from '@mantine/notifications';
 import { ArrowLeft, MoreVertical, Plus } from 'lucide-react';
 import { errorMessage } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, errorDetails } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES } from '@/lib/rbac';
 import {
@@ -195,7 +195,7 @@ export function MarkGridPage() {
           if (pending.current.size) timer.current = setTimeout(flush, 0);
         }
       } else if (err instanceof ApiError && err.statusCode === 422) {
-        const cells = ((err.details as { cells?: CellError[] })?.cells ?? []).map((c) => ({
+        const cells = (errorDetails<{ cells?: CellError[] }>(err)?.cells ?? []).map((c) => ({
           key: cellKey(c.schoolStudentId, c.componentKey, c.itemIndex),
           message: c.message,
         }));
@@ -337,9 +337,7 @@ export function MarkGridPage() {
       load();
     } catch (err) {
       const list =
-        (err instanceof ApiError &&
-          (err.details as { missing?: { fullName: string; missing: number }[] })?.missing) ||
-        [];
+        errorDetails<{ missing?: { fullName: string; missing: number }[] }>(err)?.missing ?? [];
       notifications.show({
         color: 'red',
         title: 'Not submitted',

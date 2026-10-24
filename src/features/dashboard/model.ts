@@ -298,6 +298,7 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   setup: 'setup',
   grading: 'resultsSetup',
   gradebook: 'marks',
+  reports: 'reports',
 };
 
 /** The live page that serves `area` for this viewer, if any. */

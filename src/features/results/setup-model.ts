@@ -1,5 +1,14 @@
 import { gradeFor, roundHalfUp, subjectResult, type ItemMark } from './engine';
-import type { Band, Component, Preset, PresetOverrides, Settings } from './api';
+import type {
+  Band,
+  Component,
+  PolicyRow,
+  Preset,
+  PresetOverrides,
+  Scale,
+  Scheme,
+  Settings,
+} from './api';
 
 /** A school's working copy of one preset's weights and bands while it sets up. */
 export interface PresetEdit {
@@ -117,4 +126,78 @@ export function sampleResult(edit: PresetEdit, settings: Settings) {
       { ...settings, aggregate: null },
     ),
   };
+}
+
+/** The school's current setup for the year, as the wizard reads it back. */
+export interface CurrentSetup {
+  rows: PolicyRow[];
+  schemes: Scheme[];
+  scales: Scale[];
+}
+
+/** A preset's working copy holding what the school has stored, matched by part key and band position. */
+export function editFromStored(preset: Preset, scheme?: Scheme, scale?: Scale): PresetEdit {
+  const edit = editFrom(preset);
+  if (scheme)
+    edit.components = edit.components.map((c) => {
+      const stored = scheme.components.find((s) => s.key === c.key);
+      return stored
+        ? {
+            ...c,
+            label: stored.label,
+            shortLabel: stored.shortLabel,
+            weight: stored.weight,
+            bestOf: stored.bestOf,
+          }
+        : c;
+    });
+  if (scale && scale.bands.length === edit.bands.length)
+    edit.bands = scale.bands.map((b) => ({ ...b }));
+  return edit;
+}
+
+export function sameEdit(a: PresetEdit, b: PresetEdit) {
+  const parts = (e: PresetEdit) =>
+    e.components.map((c) => [c.key, c.label, c.weight, c.bestOf ?? null].join('|')).join(';');
+  const bands = (e: PresetEdit) =>
+    e.bands
+      .map((x) => [x.label, x.minScore, x.remark, x.points ?? null, x.isPass].join('|'))
+      .join(';');
+  return parts(a) === parts(b) && bands(a) === bands(b);
+}
+
+/**
+ * Starts "Run setup again" from what the school has (QA-257), not from the
+ * suggestions, so applying it unchanged changes nothing. Levels the wizard
+ * can't show (one class, one subject, or a department overriding only its
+ * scale) are counted, because applying replaces the year's rows.
+ */
+export function prefillFrom(current: CurrentSetup, presets: Preset[]) {
+  const scheme = (familyId: string | null) => current.schemes.find((s) => s.familyId === familyId);
+  const scale = (familyId: string | null) => current.scales.find((s) => s.familyId === familyId);
+  const presetFor = (row: PolicyRow) => {
+    const key = scheme(row.schemeFamilyId)?.presetKey ?? scale(row.scaleFamilyId)?.presetKey;
+    return presets.find((p) => p.key === key);
+  };
+  const edits: Record<string, PresetEdit> = {};
+  const deptKeys: Record<string, string> = {};
+  let defaultKey: string | undefined;
+  let notShown = 0;
+  const take = (row: PolicyRow, preset: Preset) => {
+    const edit = editFromStored(preset, scheme(row.schemeFamilyId), scale(row.scaleFamilyId));
+    if (!edits[preset.key]) edits[preset.key] = edit;
+    // One working copy per preset: a second, different copy can't be shown.
+    else if (!sameEdit(edits[preset.key], edit)) notShown++;
+  };
+  for (const row of current.rows) {
+    const preset = presetFor(row);
+    if (row.scope === 'school' && preset) {
+      defaultKey = preset.key;
+      take(row, preset);
+    } else if (row.scope === 'department' && row.departmentId && row.schemeFamilyId && preset) {
+      deptKeys[row.departmentId] = preset.key;
+      take(row, preset);
+    } else if (row.scope !== 'school') notShown++;
+  }
+  return { defaultKey, deptKeys, edits, notShown };
 }

@@ -47,6 +47,9 @@ import {
 import {
   bandsProblem,
   editFrom,
+  editFromStored,
+  prefillFrom,
+  sameEdit,
   evenSplit,
   overridesFor,
   sampleResult,
@@ -68,6 +71,7 @@ interface Existing {
   rows: PolicyRow[];
   schemes: Scheme[];
   scales: Scale[];
+  settings: Settings;
 }
 
 /**
@@ -96,12 +100,13 @@ export function SetupWizardPage() {
       setDepartments(depts);
       setPresets(list);
       if (current) {
-        const [rows, schemes, scales] = await Promise.all([
+        const [rows, schemes, scales, settings] = await Promise.all([
           resultsApi.getPolicy(current.id),
           resultsApi.listSchemes(),
           resultsApi.listScales(),
+          resultsApi.getSettings(),
         ]);
-        setExisting(rows.length ? { rows, schemes, scales } : null);
+        setExisting(rows.length ? { rows, schemes, scales, settings } : null);
       }
       setYear(current);
     } catch (err) {
@@ -149,6 +154,7 @@ export function SetupWizardPage() {
           year={year}
           departments={departments}
           presets={presets}
+          existing={existing}
           onDone={() => {
             setRerun(false);
             load();
@@ -235,29 +241,39 @@ function Wizard({
   year,
   departments,
   presets,
+  existing,
   onDone,
 }: {
   year: AcademicYear;
   departments: Department[];
   presets: Preset[];
+  /** Set when running setup again: the wizard starts from it (QA-257). */
+  existing: Existing | null;
   onDone: () => void;
 }) {
+  const [prefill] = useState(() => (existing ? prefillFrom(existing, presets) : null));
   const suggested = (codes: string[]) =>
     presets.find((p) => codes.some((c) => p.suggestedForDepartmentCodes.includes(c)))?.key;
   // The school default follows the department with the most classes.
   const biggest = [...departments].sort((a, b) => b.classCount - a.classCount)[0];
   const [step, setStep] = useState(0);
   const [defaultKey, setDefaultKey] = useState<string>(
-    (biggest && suggested([biggest.code])) ?? presets[0]?.key ?? '',
+    prefill?.defaultKey ?? (biggest && suggested([biggest.code])) ?? presets[0]?.key ?? '',
   );
   const [deptKeys, setDeptKeys] = useState<Record<string, string>>(() =>
-    Object.fromEntries(departments.map((d) => [d.id, suggested([d.code]) ?? SAME])),
+    Object.fromEntries(
+      departments.map((d) => [
+        d.id,
+        prefill ? (prefill.deptKeys[d.id] ?? SAME) : (suggested([d.code]) ?? SAME),
+      ]),
+    ),
   );
   const [edits, setEdits] = useState<Record<string, PresetEdit>>(() =>
-    Object.fromEntries(presets.map((p) => [p.key, editFrom(p)])),
+    Object.fromEntries(presets.map((p) => [p.key, prefill?.edits[p.key] ?? editFrom(p)])),
   );
-  const [settings, setSettings] = useState<Settings>(DEFAULT_SETTINGS);
-  const [settingsTouched, setSettingsTouched] = useState(false);
+  // A re-run keeps the school's settings rather than the presets' suggestions.
+  const [settings, setSettings] = useState<Settings>(existing?.settings ?? DEFAULT_SETTINGS);
+  const [settingsTouched, setSettingsTouched] = useState(!!existing);
   const [addSubjects, setAddSubjects] = useState(true);
   const [applying, setApplying] = useState(false);
   const [done, setDone] = useState<ApplyResult | null>(null);
@@ -279,6 +295,53 @@ function Wizard({
     setSettings({ ...DEFAULT_SETTINGS, ...fromDefault, aggregate });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [defaultKey, used, settingsTouched]);
+
+  // What applying would change from the current setup, level by level (QA-257).
+  const changes = useMemo(() => {
+    if (!existing) return null;
+    const schemeOf = (id: string | null) => existing.schemes.find((s) => s.familyId === id);
+    const scaleOf = (id: string | null) => existing.scales.find((s) => s.familyId === id);
+    const nowText = (row?: PolicyRow) =>
+      row?.schemeFamilyId
+        ? [schemeOf(row.schemeFamilyId)?.name, scaleOf(row.scaleFamilyId)?.name]
+            .filter(Boolean)
+            .join(' with ')
+        : 'same as the whole school';
+    const planText = (key: string | null) => {
+      if (!key) return 'same as the whole school';
+      const p = preset(key);
+      const o = overridesFor(p, edits[key]);
+      return [o?.schemeName ?? p.scheme.name, o?.scaleName ?? p.scale.name].join(' with ');
+    };
+    const unchanged = (row: PolicyRow | undefined, key: string | null) => {
+      if (!key) return !row?.schemeFamilyId;
+      const scheme = row ? schemeOf(row.schemeFamilyId) : undefined;
+      return (
+        !!scheme &&
+        scheme.presetKey === key &&
+        sameEdit(edits[key], editFromStored(preset(key), scheme, scaleOf(row!.scaleFamilyId)))
+      );
+    };
+    const levels: { name: string; row?: PolicyRow; key: string | null }[] = [
+      {
+        name: 'Whole school',
+        row: existing.rows.find((r) => r.scope === 'school'),
+        key: defaultKey,
+      },
+      ...departments.map((d) => ({
+        name: d.name,
+        row: existing.rows.find((r) => r.scope === 'department' && r.departmentId === d.id),
+        key:
+          deptKeys[d.id] && deptKeys[d.id] !== SAME && deptKeys[d.id] !== defaultKey
+            ? deptKeys[d.id]
+            : null,
+      })),
+    ];
+    return levels
+      .filter((l) => !unchanged(l.row, l.key))
+      .map((l) => `${l.name}: ${nowText(l.row)} → ${planText(l.key)}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [existing, defaultKey, deptKeys, edits, departments]);
 
   const changeSettings = (change: Partial<Settings>) => {
     setSettingsTouched(true);
@@ -422,6 +485,8 @@ function Wizard({
           }
           edits={edits}
           settings={settings}
+          changes={changes}
+          notShown={prefill?.notShown ?? 0}
           addSubjects={addSubjects}
           setAddSubjects={setAddSubjects}
         />
@@ -917,6 +982,8 @@ function ReviewStep({
   deptPreset,
   edits,
   settings,
+  changes,
+  notShown,
   addSubjects,
   setAddSubjects,
 }: {
@@ -926,6 +993,9 @@ function ReviewStep({
   deptPreset: (deptId: string) => Preset | null;
   edits: Record<string, PresetEdit>;
   settings: Settings;
+  /** Null on a first setup; otherwise the levels this would change. */
+  changes: string[] | null;
+  notShown: number;
   addSubjects: boolean;
   setAddSubjects: (on: boolean) => void;
 }) {
@@ -941,6 +1011,31 @@ function ReviewStep({
   return (
     <Card withBorder radius="lg" p="lg">
       <Stack gap="sm">
+        {changes &&
+          (changes.length > 0 ? (
+            <Alert color="yellow" title="This changes your current setup">
+              {changes.map((c) => (
+                <Text key={c} size="sm">
+                  {c}
+                </Text>
+              ))}
+            </Alert>
+          ) : (
+            <Alert color="gray" title="No change to weights or grades">
+              <Text size="sm">
+                Applying keeps the current setup; only the settings below are saved.
+              </Text>
+            </Alert>
+          ))}
+        {notShown > 0 && (
+          <Alert color="red" title="Some settings will be removed">
+            <Text size="sm">
+              {notShown} setting{notShown === 1 ? '' : 's'} for a single class or subject, or a
+              department&apos;s own grades, can&apos;t be shown here and will be removed when you
+              apply.
+            </Text>
+          </Alert>
+        )}
         <Group gap="xs">
           <ScaleIcon size={16} />
           <Text fw={700}>For {year.yearLabel}</Text>

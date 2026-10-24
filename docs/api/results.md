@@ -174,7 +174,7 @@ The backend adds an any-of permission decorator for the GETs, because its permis
 - `defaultPresetKey` is required: it becomes the school row (rule 9).
 - **Families.** Apply creates school-owned copies tagged with `preset_key`. For the default and each department, the backend works out the content (the preset plus its overrides). It reuses a school family whose latest version has the same `preset_key` and identical content; otherwise it creates one.
   - The rule is the same within one call and across calls. So the default and departments with identical overrides share one family, and a re-run reuses it.
-  - A family made from different content is named e.g. "GES 30/70 (Lower Primary)", unless `schemeName` or `scaleName` is given. Names needn't be unique.
+  - An edited copy without `schemeName` or `scaleName` is named after its content (backend QA-256, matching the wizard): a numeric scheme "<label> <weight> / …" (e.g. "Class score 40 / Exam 60"), a descriptor scheme "<preset name> (edited)", a scale "<scale name> (edited)". Names needn't be unique.
 - **Overrides allowed:**
   - scheme and scale `name`;
   - component `label`, `shortLabel`, `weight` and `bestOf`, but not `key` or `group`. `weight` and `bestOf` are numeric-only and get 400 on a descriptor preset;

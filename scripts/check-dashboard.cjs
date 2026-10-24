@@ -686,6 +686,26 @@ check('grading setup is for heads with the results module; its maths matches the
   const renamed = sm.editFrom(preset);
   renamed.components[0].label = 'Classwork';
   assert.deepEqual(sm.overridesFor(preset, renamed), { components: { c0: { label: 'Classwork' } } });
+  // Running setup again starts from what is stored (QA-257).
+  const stored = sm.editFrom(preset);
+  stored.components[0].weight = 40;
+  stored.components[1].weight = 60;
+  const current = {
+    rows: [
+      { scope: 'school', schemeFamilyId: 's1', scaleFamilyId: 'g1' },
+      { scope: 'department', departmentId: 'lp', schemeFamilyId: 's1', scaleFamilyId: 'g1' },
+      { scope: 'class', classId: 'p4', schemeFamilyId: null, scaleFamilyId: 'g1' },
+    ],
+    schemes: [{ familyId: 's1', presetKey: 'ges', components: stored.components }],
+    scales: [{ familyId: 'g1', presetKey: 'ges', bands }],
+  };
+  const pre = sm.prefillFrom(current, [{ ...preset, key: 'ges' }]);
+  assert.equal(pre.defaultKey, 'ges');
+  assert.deepEqual(pre.deptKeys, { lp: 'ges' });
+  assert.deepEqual(pre.edits.ges.components.map((c) => c.weight), [40, 60]);
+  assert.equal(pre.notShown, 1);
+  assert.ok(sm.sameEdit(pre.edits.ges, stored));
+  assert.equal(sm.sameEdit(pre.edits.ges, sm.editFrom(preset)), false);
   // 79.5 is an A at whole numbers and a B at one decimal, as in the fixtures.
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 0), { printed: 80, grade: 'A' });
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 1), { printed: 79.5, grade: 'B' });

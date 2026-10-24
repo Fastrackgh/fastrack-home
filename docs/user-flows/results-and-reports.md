@@ -23,7 +23,7 @@ flowchart TD
   B -->|yes| C{Policy rows for the year?}
   C -->|yes| D["Summary: who uses which weights and grades; 'Run setup again'"]
   C -->|no| E[1 Presets]
-  D -->|Run setup again| E
+  D -->|"Run setup again: starts from the current setup"| E
   E --> F[2 Weights]
   F -->|total not 100| F1[Next disabled, 'The weights add up to 95, not 100.']
   F --> G[3 Grades]
@@ -52,6 +52,13 @@ flowchart TD
    - Whether absence counts as 0.
    - The BECE "best other subjects" count.
 5. **Review.** A plain summary per level, and a box (ticked by default) to also add each preset's usual subjects to its department's classes.
+
+**Running setup again (QA-257, fixed 24 Oct).** The wizard starts from the school's current setup, not from the suggestions:
+- **What it reads:** the presets at each level, the stored weights and grades, and the stored settings.
+- **Review step:** it says "No change to weights or grades", or lists each level that would change, e.g. "Junior High School: JHS 30/70 with BECE grades 1–9 → same as the whole school".
+- **Warning:** settings it can't show (one class, one subject, or a department overriding only its grades) are counted in a red warning, because applying replaces the year's rows.
+- **Re-tested on PRM-001:** a re-run applied unchanged created nothing and left the summary as it was. Changing JHS to the school default was listed before applying.
+- **Before the fix:** the re-run started from the suggestions, so applying it could quietly replace departments' settings (QA found this on QAS-300).
 
 **What is sent:**
 - Only changes from the preset go as overrides.

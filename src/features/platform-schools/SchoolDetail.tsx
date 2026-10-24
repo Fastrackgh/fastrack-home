@@ -248,11 +248,15 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
 function OverviewTab({ school, onChanged }: { school: PlatformSchool; onChanged: () => void }) {
   const head = school.schoolHead;
   const invite = head ? null : school.pendingPrincipalInvite;
+  // The invitee never set up, so their email is taken: invite them again rather than anew (QA-253).
+  const lapsed = head || invite ? null : school.lapsedPrincipalInvite;
   const [assigning, setAssigning] = useState(false);
+  const [confirmingRevoke, setConfirmingRevoke] = useState(false);
   const [logoBusy, setLogoBusy] = useState(false);
   const [inviteBusy, setInviteBusy] = useState<'resend' | 'revoke' | null>(null);
 
   const inviteAction = async (action: 'resend' | 'revoke', invitationId: string) => {
+    setConfirmingRevoke(false);
     setInviteBusy(action);
     try {
       if (action === 'resend') await api.resendInvitation(invitationId);
@@ -383,7 +387,7 @@ function OverviewTab({ school, onChanged }: { school: PlatformSchool; onChanged:
                 color="red"
                 loading={inviteBusy === 'revoke'}
                 disabled={inviteBusy !== null}
-                onClick={() => inviteAction('revoke', invite.invitationId)}
+                onClick={() => setConfirmingRevoke(true)}
               >
                 Revoke
               </Button>
@@ -394,10 +398,62 @@ function OverviewTab({ school, onChanged }: { school: PlatformSchool; onChanged:
             <Text c="dimmed" size="sm">
               Not assigned. The school can&apos;t sign in until it has a principal.
             </Text>
-            <Button size="xs" color="fastrackRed" onClick={() => setAssigning(true)}>
-              Assign principal
-            </Button>
+            {lapsed && (
+              <Text size="sm">
+                {lapsed.firstName} {lapsed.lastName}{' '}
+                <Text span c="dimmed" size="xs">
+                  {lapsed.email} · invitation {lapsed.status === 'REVOKED' ? 'revoked' : 'expired'}
+                </Text>
+              </Text>
+            )}
+            <Group gap="xs">
+              {lapsed && (
+                <Button
+                  size="xs"
+                  color="fastrackRed"
+                  loading={inviteBusy === 'resend'}
+                  onClick={() => inviteAction('resend', lapsed.invitationId)}
+                >
+                  Invite again
+                </Button>
+              )}
+              <Button
+                size="xs"
+                color="fastrackRed"
+                variant={lapsed ? 'light' : 'filled'}
+                disabled={inviteBusy !== null}
+                onClick={() => setAssigning(true)}
+              >
+                {lapsed ? 'Assign someone else' : 'Assign principal'}
+              </Button>
+            </Group>
           </Stack>
+        )}
+        {invite && (
+          <Modal
+            opened={confirmingRevoke}
+            onClose={() => setConfirmingRevoke(false)}
+            title="Revoke the invitation?"
+            radius="lg"
+            centered
+          >
+            <Text size="sm">
+              Revoke the invitation to {invite.firstName} {invite.lastName}? Their link stops
+              working; you can invite them again.
+            </Text>
+            <Group justify="flex-end" mt="lg">
+              <Button variant="default" radius="md" onClick={() => setConfirmingRevoke(false)}>
+                Cancel
+              </Button>
+              <Button
+                color="red"
+                radius="md"
+                onClick={() => inviteAction('revoke', invite.invitationId)}
+              >
+                Revoke
+              </Button>
+            </Group>
+          </Modal>
         )}
       </Card>
       <Card withBorder radius="md" padding="lg">

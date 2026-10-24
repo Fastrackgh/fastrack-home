@@ -30,6 +30,21 @@ export interface PlatformSchool {
     expiresAt: string;
     resendCount: number;
   } | null;
+  /**
+   * The last invitation, revoked or expired before it was accepted; only set
+   * with no head and no open invitation. Resending it reopens it (QA-253).
+   */
+  lapsedPrincipalInvite: {
+    invitationId: string;
+    userId: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    sentAt: string;
+    expiresAt: string;
+    resendCount: number;
+    status: 'REVOKED' | 'EXPIRED';
+  } | null;
   studentsCount: number;
   staffCount: number;
   enabledModules: string[];

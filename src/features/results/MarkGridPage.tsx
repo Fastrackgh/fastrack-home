@@ -44,6 +44,7 @@ import {
   emptyComponents,
   localPreview,
   missingFor,
+  otherTotal,
   parseCell,
   rebase,
   showMark,
@@ -232,13 +233,24 @@ export function MarkGridPage() {
     if (key in drafts) return drafts[key];
     return showMark(
       row.marks.find((m) => m.componentKey === item.componentKey && m.itemIndex === item.itemIndex),
+      item.maxRaw,
     );
+  };
+
+  const carriedHint = (row: RosterRow, item: Item) => {
+    const mark = row.marks.find(
+      (m) => m.componentKey === item.componentKey && m.itemIndex === item.itemIndex,
+    );
+    if (!otherTotal(mark, item.maxRaw)) return '';
+    const from = row.flags.movedFrom ? ` in ${row.flags.movedFrom.className}` : ' in another class';
+    return `Marked out of ${mark!.maxRaw}${from}; it counts as ${mark!.rawScore} of ${mark!.maxRaw}. Type a new mark to replace it.`;
   };
 
   const commit = (row: RosterRow, item: Item, text: string) => {
     const key = cellKey(row.schoolStudentId, item.componentKey, item.itemIndex);
     const base = showMark(
       row.marks.find((m) => m.componentKey === item.componentKey && m.itemIndex === item.itemIndex),
+      item.maxRaw,
     );
     setConflicts((s) => {
       if (!s.has(key)) return s;
@@ -246,13 +258,17 @@ export function MarkGridPage() {
       next.delete(key);
       return next;
     });
+    // Leaving a cell as it was never re-saves it, even a carried "40/50".
+    if (text.trim() === base) {
+      setCellErrors((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== key)));
+      return;
+    }
     const parsed = parseCell(text, item.maxRaw);
     if ('error' in parsed) {
       setCellErrors((all) => ({ ...all, [key]: parsed.error }));
       return;
     }
     setCellErrors((all) => Object.fromEntries(Object.entries(all).filter(([k]) => k !== key)));
-    if (text.trim() === base) return;
     queue(
       {
         schoolStudentId: row.schoolStudentId,
@@ -749,9 +765,11 @@ export function MarkGridPage() {
                                       err ??
                                       (conflicts.has(key)
                                         ? 'Changed by someone else; check it'
-                                        : '')
+                                        : carriedHint(row, item))
                                     }
-                                    disabled={!err && !conflicts.has(key)}
+                                    disabled={
+                                      !err && !conflicts.has(key) && !carriedHint(row, item)
+                                    }
                                     color={err ? 'red' : 'orange'}
                                   >
                                     <TextInput

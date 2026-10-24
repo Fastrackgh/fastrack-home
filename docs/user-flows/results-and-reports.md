@@ -112,6 +112,7 @@ Code: `src/features/results/MarkSheetsPage.tsx` and `MarkGridPage.tsx`, with the
   - **From <class>:** marks came with the pupil.
   - **Left <date>:** greyed; never needed.
   - **+n kept:** carried marks with no matching test here.
+  - **A carried mark out of a different total** fills the test with the same number and shows as e.g. "40/50" under a "/20" test, with the hint "Marked out of 50 in Basic Two…". It counts as 40 of 50. Leaving the cell alone keeps it, and typing replaces it (QA, phase 2).
 - **Tests:**
   - **+** in a part's header adds a test (name, marked out of, date taken). The date decides who doesn't need it.
   - Each test's menu edits or removes it.

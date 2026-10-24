@@ -31,13 +31,26 @@ export function parseCell(text: string, maxRaw: number | null): Parsed {
   return { change: { status: 'scored', rawScore: raw } };
 }
 
-/** How a stored mark shows in its cell. */
-export function showMark(mark: Pick<Mark, 'status' | 'rawScore'> | undefined | null): string {
+/**
+ * How a stored mark shows in its cell. A mark carried from another class can
+ * be out of a different total than this test; it then shows as "40/50".
+ */
+export function showMark(
+  mark: Pick<Mark, 'status' | 'rawScore' | 'maxRaw'> | undefined | null,
+  itemMax?: number | null,
+): string {
   if (!mark) return '';
   if (mark.status === 'absent') return 'ABS';
   if (mark.status === 'exempt') return 'EX';
-  return mark.rawScore == null ? '' : String(mark.rawScore);
+  if (mark.rawScore == null) return '';
+  return otherTotal(mark, itemMax) ? `${mark.rawScore}/${mark.maxRaw}` : String(mark.rawScore);
 }
+
+/** A mark kept out of a different total than the test it now fills. */
+export const otherTotal = (
+  mark: Pick<Mark, 'maxRaw'> | undefined | null,
+  itemMax?: number | null,
+) => !!mark && mark.maxRaw != null && itemMax != null && mark.maxRaw !== itemMax;
 
 const isNotRequired = (row: RosterRow, item: Item) =>
   row.notRequired.some(
@@ -136,7 +149,7 @@ export function rebase(
     const item = items.find(
       (i) => i.componentKey === p.change.componentKey && i.itemIndex === p.change.itemIndex,
     );
-    const now = row && item ? showMark(markFor(row, item)) : '';
+    const now = row && item ? showMark(markFor(row, item), item.maxRaw) : '';
     if (now === p.base) keep.push(p);
     else
       conflicts.push(cellKey(p.change.schoolStudentId, p.change.componentKey, p.change.itemIndex));

@@ -785,6 +785,9 @@ check('mark sheets: teachers and heads with results; cell typing, missing marks 
   ]);
   assert.deepEqual(changed.marks.map((m) => [m.componentKey, m.status]), [['exam', 'absent']]);
 
+  // A mark carried from another class keeps its own total and says so (QA, phase 2).
+  assert.equal(mm.showMark(mark('class', 1, 40, 50), 20), '40/50');
+  assert.equal(mm.showMark(mark('class', 1, 8, 10), 10), '8');
   // After a 409, a change is kept only if nobody else changed that cell meanwhile.
   const fresh = [row([mark('class', 1, 9), mark('class', 2, 6)])];
   const { keep, conflicts } = mm.rebase(

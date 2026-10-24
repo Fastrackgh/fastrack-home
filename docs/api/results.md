@@ -301,7 +301,7 @@ Agreed with the backend session on 24 Oct, including the shapes the frontend pro
 
 ### Term reports
 
-Agreed with the backend session on 24 Oct. The ★ items were proposed by the frontend and await the backend's confirmation.
+Agreed with the backend session on 24 Oct, including the shapes the frontend proposed.
 
 **Status.**
 - `open`: compute and remarks.
@@ -318,7 +318,7 @@ Agreed with the backend session on 24 Oct. The ★ items were proposed by the fr
   - publishing again writes revision *n*+1, and parents keep seeing *n* until then.
 
 **Compute** (`POST /report-batches/:termId/:classId/compute`, `reports:generate`, idempotent; 409 once approved).
-- **Who gets a report:** every pupil on the roster. Left pupils have status `left`; they aren't ranked but count in the number on roll. ★ Their report starts withheld ("Left the school"), and a head can release it to issue it anyway (the approved plan).
+- **Who gets a report:** every pupil on the roster. Left pupils have status `left`; they aren't ranked but count in the number on roll. Their report starts withheld ("Left the school"), and a head can release it to issue it anyway (the approved plan): it stays `left` and unranked, but gets a document and a publish email.
 - **Subject results:**
   - Worked out from each sheet with the engine. A draft or missing sheet still computes from the marks entered, so heads can preview, and its status shows.
   - Not-assessed subjects are left off.
@@ -330,27 +330,30 @@ Agreed with the backend session on 24 Oct. The ★ items were proposed by the fr
 - **Positions in documents:** staff JSON always carries positions. Documents follow the parent visibility (rule 5), since printed reports go home: positions are removed when the setting is `hide` or `staff_only`.
 
 **Shapes.**
-- ★ batch = `{termId, classId, status, revision, computedAt, approvedAt, approvedBy: {id, name} | null, publishedAt, publishedBy | null, reopenReason | null, onRoll, rankedCount, isLastTerm}`
+- batch = `{termId, classId, status, revision, computedAt, approvedAt, approvedBy: {id, name} | null, publishedAt, publishedBy | null, reopenReason | null, onRoll, rankedCount, isLastTerm}`
+  - `onRoll` counts every report, left pupils included; `rankedCount` counts pupils with a class position.
+  - `isLastTerm`: the term has the highest `term_sequence` in its year.
+  - `reopenReason` holds the last reopen's reason until the next publish.
 - pupil row = `{termReportId, schoolStudentId, fullName, status, withheld, withheldReason, average, total, aggregate, position, subjects: [{subjectId, subjectName, total, grade, position, status}], classTeacherRemark, headRemark, conduct, attitude, interest, promotion, attendance}`
-  - ★ `status`: `ready` (every counted subject has a result), `incomplete` or `left`.
-  - ★ `subjects[].status`: the engine's statuses (ok, incomplete, exempt, missing) plus `not_assessed`.
-  - ★ `promotion`: `{status: 'promoted' | 'repeated' | 'graduated', toClassId, toClassName}`, or null when it isn't the last term.
-  - ★ `attendance`: `{present, total, source: 'register' | 'manual'}`, or null.
+  - `status`: `ready` (every counted subject has a result), `incomplete` or `left`.
+  - `subjects[].status`: the engine's statuses (ok, incomplete, exempt, missing) plus `not_assessed`.
+  - `promotion`: `{status: 'promoted' | 'repeated' | 'graduated', toClassId, toClassName}`, or null when it isn't the last term.
+  - `attendance`: `{present, total, source: 'register' | 'manual'}`, or null.
 - board row = `{classId, className, status, sheetsSubmitted, sheetsTotal, remarksDone, pupils, blockers}`
   - `remarksDone` counts pupils with a class teacher's remark.
-  - `blockers`: `{type: 'sheet_not_submitted', subjectId, subjectName}`; ★ also `{type: 'remarks_missing', count}`, a warning that doesn't block approval.
-  - ★ Every class that takes subjects is listed, with status `not_started` until computed.
+  - `blockers`: `{type: 'sheet_not_submitted', subjectId, subjectName}`; also `{type: 'remarks_missing', count}`, a warning that doesn't block approval.
+  - Every class that takes subjects is listed, with status `not_started` until computed.
 
 | Method & path | Permission | Notes |
 | --- | --- | --- |
 | `GET /report-batches?termId` | `reports:read` | board rows |
-| `GET /report-batches/:termId/:classId` | `reports:read` | `{batch, pupils}`. ★ Before the first compute: `{batch: null, pupils: []}`, not 404. |
-| `POST /report-batches/:termId/:classId/compute` | `reports:generate` | See Compute. |
-| `PUT /term-reports/:id/remarks` | `reports:remark` for the class's homeroom teacher or a head; `headRemark` needs `reports:approve` | `{classTeacherRemark?, headRemark?, conduct?, attitude?, interest?, promotion?, attendance?}`. ★ Partial: a field left out stays, `null` clears it. 409 once approved or published. Returns the pupil row. |
+| `GET /report-batches/:termId/:classId` | `reports:read` | `{batch, pupils}`. Before the first compute: `{batch: null, pupils: []}`, not 404. |
+| `POST /report-batches/:termId/:classId/compute` | `reports:generate` | See Compute. Before any grading setup: 409 "Results aren't set up for <year>." |
+| `PUT /term-reports/:id/remarks` | `reports:remark` for the class's homeroom teacher or a head; `headRemark` needs `reports:approve` | `{classTeacherRemark?, headRemark?, conduct?, attitude?, interest?, promotion?, attendance?}`. Partial: a field left out stays, `null` clears it. 409 once approved or published. Returns the pupil row. |
 | `PUT /report-batches/:termId/:classId/remarks` | as above | `{reports: [{termReportId, …}]}`; returns the changed rows. |
 | `POST /report-batches/:termId/:classId/approve`, `/publish`, `/reopen {reason}` | `reports:approve` | See Status. |
 | `POST /term-reports/:id/withhold {reason}`, `/release` | `reports:approve` | A withheld report is hidden from parents but still ranked (left pupils excepted). |
-| `GET /term-reports/:id/document` | `reports:read` | `{html}` from the school's published `exam.report` design, or the default. ★ Works at any status: before publishing it renders the live computed data. |
+| `GET /term-reports/:id/document` | `reports:read` | `{html}` from the school's published `exam.report` design, or the default. Works at any status: before publishing it renders the live computed data. Positions follow parent visibility here too. |
 | `GET /report-batches/:termId/:classId/documents` | `reports:generate` | `{html}`: the whole class, one report per page, leaving out left and withheld pupils. |
 
 ### Parent routes

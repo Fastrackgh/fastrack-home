@@ -101,6 +101,7 @@ export function ClassesPanel({
             <Table verticalSpacing="sm" horizontalSpacing="md" highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
+                  <Table.Th w={70}>Order</Table.Th>
                   <Table.Th>Class</Table.Th>
                   <Table.Th>Department</Table.Th>
                   <Table.Th>Class teacher</Table.Th>
@@ -110,6 +111,11 @@ export function ClassesPanel({
               <Table.Tbody>
                 {result.items.map((c) => (
                   <Table.Tr key={c.id}>
+                    <Table.Td>
+                      <Text size="sm" c="dimmed">
+                        {c.sequenceOrder}
+                      </Text>
+                    </Table.Td>
                     <Table.Td>
                       <Text size="sm" fw={600}>
                         {c.className}

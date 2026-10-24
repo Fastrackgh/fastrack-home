@@ -299,6 +299,7 @@ check('each role reaches only its own pages', () => {
   assert.deepEqual(routes(secretary), [
     'dashboard',
     'students',
+    'promotions',
     'attendance',
     'account',
     'admissions',
@@ -598,5 +599,15 @@ check('only fee staff review parents\' optional-service requests', () => {
     assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['fees'] }, path), role);
   for (const role of ['TEACHER', 'SECRETARY', 'PARENT'])
     assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['fees'] }, path), false, role);
+});
+check('only enrolment managers move whole classes up', () => {
+  const path = '/school-admin/students/promote';
+  // Its own rule guards it, not the wider Students rule that teachers pass.
+  assert.equal(rbac.findRoute(path).path, path);
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD', 'SECRETARY'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['students'] }, path), role);
+  for (const role of ['TEACHER', 'ACCOUNT_OFFICER', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['students'] }, path), false, role);
+  assert.equal(rbac.canAccessPath({ ...viewer('PRINCIPAL'), modules: [] }, path), false);
 });
 console.log(`${checks} dashboard and access checks passed.`);

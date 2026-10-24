@@ -118,3 +118,13 @@ Added 23 Oct 2026 (backend `a89ee57`, frontend `0fd3b0d`). Code: `src/features/s
 - **Known gaps (re-test 23 Oct):**
   - All fixed 23 Oct: QA-239 (a restored session refreshes permissions from `/auth/profile`), QA-240 (a block unlinks and covers every account on the same phone or email; the dialog names them), QA-241 (linking an already-linked parent is a 409 "already linked"), QA-242 (a blocked parent gets "blocked … Lift the block first").
 
+## Moving classes up (QA-207)
+
+Added 24 Oct 2026 (backend `23504b6`). Code: `src/features/promotions/`, at `/school-admin/students/promote`, reached by **Move classes up** on Students. Only roles with `enrollment:manage` (Principal, Academic Head, Secretary) and the `students` module get it.
+
+- **Preview:** `GET /schools/me/promotions/preview` lists every class in order with its pupils and a suggestion: the next class by Order, **Graduates** when no class comes after it, or a required choice when several classes share the next number.
+- **Per class:** the target picker is pre-filled from the suggestion. Options are the suggested class(es), Graduates (leaves the school), Don't move, or any other class. Classes with no pupils are left out. Expanding a class lists its pupils, all ticked; unticked pupils repeat the year and are sent as `exceptStudentIds`.
+- **Term:** "Start in term" defaults to the term after the current one by date. With no current or no next term it's empty and must be picked. The optional leaving date is sent as `exitDate` for graduates.
+- **Confirm:** a summary ("N pupils move up, M graduate, K stay" plus each class's move), then one `POST /schools/me/promotions`. The buttons lock while it runs, and the results table shows moved and stayed counts per class.
+- **All or nothing:** a failed run moves nobody. The toast says "Nothing was moved" with the backend's message.
+- **Not checked live:** the final run, which would move FIS-001's real pupils. The request body and results screen were checked with a substituted response.

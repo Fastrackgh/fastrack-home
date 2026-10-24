@@ -40,6 +40,8 @@ export interface SchoolClass {
   departmentId: string | null;
   departmentName: string | null;
   homeroomStaffId: string | null;
+  /** Promotion moves pupils to the class with the next number (QA-207). */
+  sequenceOrder: number;
 }
 
 /** A teacher who can head a department or a class. */
@@ -77,6 +79,8 @@ export interface ClassInput {
   className: string;
   departmentId: string | null;
   homeroomStaffId: string | null;
+  /** Left out on a new class, which then goes after the last one. */
+  sequenceOrder?: number;
 }
 
 export type SchoolDetailsInput = Partial<Omit<SchoolDetails, 'code' | 'logoUrl'>>;
@@ -95,6 +99,7 @@ const toClass = (raw: Raw): SchoolClass => {
     departmentId: text(raw.departmentId),
     departmentName: department?.name ?? null,
     homeroomStaffId: text(raw.homeroomStaffId),
+    sequenceOrder: Number(raw.sequenceOrder ?? 0),
   };
 };
 
@@ -168,8 +173,10 @@ export const setupApi = {
       rows.push(...(res.data ?? []).map(toClass));
       if (!res.meta?.hasNext) break;
     }
-    return rows.sort((a, b) =>
-      a.className.localeCompare(b.className, undefined, { numeric: true }),
+    return rows.sort(
+      (a, b) =>
+        a.sequenceOrder - b.sequenceOrder ||
+        a.className.localeCompare(b.className, undefined, { numeric: true }),
     );
   },
   async createClass(input: ClassInput) {

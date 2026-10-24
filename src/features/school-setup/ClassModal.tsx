@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Group, Modal, Select, Stack, TextInput } from '@mantine/core';
+import { Button, Group, Modal, NumberInput, Select, Stack, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage, setupApi, type Department, type SchoolClass, type StaffOption } from './api';
 
@@ -27,6 +27,10 @@ export function ClassModal({
   const [homeroomStaffId, setHomeroomStaffId] = useState<string | null>(
     schoolClass?.homeroomStaffId ?? null,
   );
+  // Empty on a new class: the backend puts it after the last one.
+  const [sequenceOrder, setSequenceOrder] = useState<number | string>(
+    schoolClass?.sequenceOrder ?? '',
+  );
   const [saving, setSaving] = useState(false);
 
   const submit = async (e: React.FormEvent) => {
@@ -36,6 +40,7 @@ export function ClassModal({
       className: className.trim(),
       departmentId,
       homeroomStaffId,
+      sequenceOrder: sequenceOrder === '' ? undefined : Number(sequenceOrder),
     };
     if (!input.classCode || !input.className) return;
     setSaving(true);
@@ -91,6 +96,16 @@ export function ClassModal({
               radius="md"
             />
           </Group>
+          <NumberInput
+            label="Order"
+            description="Promotion moves pupils to the class with the next number. Leave empty to put a new class last."
+            placeholder="After the last class"
+            min={0}
+            allowDecimal={false}
+            value={sequenceOrder}
+            onChange={setSequenceOrder}
+            radius="md"
+          />
           <Select
             label="Department"
             placeholder="None"

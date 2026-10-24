@@ -29,6 +29,11 @@ export const APP_ROUTES = {
     label: 'Students',
     rule: { audiences: ['staff'], permission: 'students:read', module: 'students' },
   },
+  promotions: {
+    path: '/school-admin/students/promote',
+    label: 'Move classes up',
+    rule: { audiences: ['staff'], permission: 'enrollment:manage', module: 'students' },
+  },
   attendance: {
     path: '/school-admin/attendance',
     label: 'Attendance',

@@ -36,7 +36,7 @@ Verified against `fastrack-space/fastrack-backend` on `fix/invoice-run-class-lab
 | Term add / edit | `POST …/academic-years/:yearId/terms`, `PATCH …/terms/:id` `{termSequence,startDate,endDate,isCurrent}` | ✓ A duplicate sequence in the year returns 409. Making a term current also makes its year current. No bounds, overlap or order checks |
 | Departments | `GET /schools/me/departments?limit=100`, `POST`, `PATCH /:id`, `DELETE /:id` | ✓ Code is upper-cased and unique (409). Delete sets the department of its classes to null |
 | Standard departments | `POST /schools/me/departments/seed-defaults` | ✓ Adds only the codes that are missing |
-| Classes | `GET /schools/me/classes?page&limit&search`, `POST`, `PATCH /:id` | ✓ Code is unique but **case-sensitive**. The backend's bulk create (`classes[]`) is unused |
+| Classes | `GET /schools/me/classes?page&limit&search`, `POST`, `PATCH /:id` | ✓ Code is unique but **case-sensitive**. Each class has a `sequenceOrder` (the **Order** field and column, added 24 Oct for QA-207); lists come back in that order, and a new class with no order goes after the last one. Promotion moves pupils to the class with the next number. The backend's bulk create (`classes[]`) is unused |
 | Teacher pickers | `GET /schools/me/staff?role=TEACHER&isActive=true&limit=100` | ✓ First 100 only |
 | Checklist | the year and class calls above, plus `GET /schools/me/fee-types` | ✓ |
 | Not available anywhere | delete a year, a term or a class; "set current" without opening the edit form | The backend has no delete route for years, terms or classes |

@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import Link from 'next/link';
 import {
   Alert,
   Avatar,
@@ -31,6 +32,7 @@ import { notifications } from '@mantine/notifications';
 import {
   AlertCircle,
   ArrowLeft,
+  ArrowUpCircle,
   ArrowRight,
   CheckCircle,
   Filter,
@@ -46,6 +48,7 @@ import { StudentDrawer } from '@/features/students/StudentDrawer';
 import { PageHeader } from '@/features/workspace';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
+import { APP_ROUTES, canAccessRoute } from '@/lib/rbac';
 
 interface StudentListItem {
   id: string;
@@ -133,7 +136,7 @@ const initialFormData = {
 };
 
 export default function StudentsPage() {
-  const { can } = useAuth();
+  const { user, can } = useAuth();
   const [students, setStudents] = useState<StudentListItem[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [academicContext, setAcademicContext] = useState<AcademicContext | null>(null);
@@ -429,6 +432,17 @@ export default function StudentsPage() {
             >
               Refresh
             </Button>
+            {canAccessRoute(user, 'promotions') && (
+              <Button
+                component={Link}
+                href={APP_ROUTES.promotions.path}
+                leftSection={<ArrowUpCircle size={16} />}
+                variant="default"
+                radius="md"
+              >
+                Move classes up
+              </Button>
+            )}
             {can('students:create') && (
               <Button
                 leftSection={<UserPlus size={16} />}

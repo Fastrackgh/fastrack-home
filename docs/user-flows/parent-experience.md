@@ -14,7 +14,15 @@ As of 21 October 2026 these are live against the backend too (checked on localho
 
 **Reports** are live since results phase 4 (24 Oct; see [results-and-reports.md](./results-and-reports.md)). Parents see only published, not-withheld reports, always the last published version. To see every screen on sample data, set `NEXT_PUBLIC_PARENT_API_MOCK=1`.
 
-**An area the school hasn't turned on** (a 403 from a ward's endpoint) shows "Not offered by this school" with no Try again, and its Home tile is hidden (QA-262). The tab itself still shows, because the ward record doesn't yet say which modules the school has.
+**An area the school hasn't turned on** is left out (QA-262):
+- the ward record carries `school.enabledModules` (backend `83aa165`+), so the Fees, Reports and Attendance tabs and their Home tiles show only when the child's school has `fees`, `results` or `attendance` turned on;
+- if a page is opened anyway, or for an older ward record without the list, a 403 shows "Not offered by this school" with no Try again.
+
+Checked 24 Oct:
+- FIS-001 (no results): Home, Fees, Attendance and More;
+- QAR (no fees): Home, Reports, Attendance and More;
+- PRM-001 (no attendance): Home, Fees, Reports and More;
+- no 403s in any of them.
 
 Code: `src/features/parent/*`, with routes in `src/app/parent/*`.
 

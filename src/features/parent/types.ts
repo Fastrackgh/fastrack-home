@@ -8,6 +8,14 @@ import type { Pesewas } from '@/features/fees/money';
 export type WardStatus =
   'Pending_Admission' | 'Active' | 'Inactive' | 'Stopped' | 'Transferred_Out' | 'Graduated';
 
+/**
+ * Whether the ward's school offers an area: `fees`, `attendance` or `results`.
+ * Unknown (an older response) counts as offered; the page then says
+ * "Not offered by this school" if the school refuses (QA-262).
+ */
+export const schoolOffers = (ward: Pick<Ward, 'school'> | null | undefined, module: string) =>
+  !ward?.school.enabledModules || ward.school.enabledModules.includes(module);
+
 /** A child linked to the signed-in parent (`ParentWardResponseDto`). */
 export interface Ward {
   /** Global student id; every ward-scoped endpoint is keyed by it. */
@@ -20,7 +28,8 @@ export interface Ward {
   gender?: string | null;
   status: WardStatus | string;
   relationship?: string | null;
-  school: { id: string; code: string; name: string };
+  /** `enabledModules` lists the school's turned-on areas; absent on older responses. */
+  school: { id: string; code: string; name: string; enabledModules?: string[] };
   currentClass?: { id: string; name: string; department?: string | null } | null;
 }
 

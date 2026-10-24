@@ -19,8 +19,16 @@ import {
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES, canAccessRoute, type AppRouteKey } from '@/lib/rbac';
 import { useActiveWard } from '../ActiveWardProvider';
+import { schoolOffers } from '../types';
 import { wardInitials, wardName } from '../format';
 import classes from './ParentShell.module.css';
+
+/** The school module behind each area tab. */
+const MODULE_FOR: Partial<Record<AppRouteKey, string>> = {
+  parentFees: 'fees',
+  parentReports: 'results',
+  parentAttendance: 'attendance',
+};
 
 interface Tab {
   key: AppRouteKey;
@@ -110,7 +118,13 @@ export function ParentShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
   const { user } = useAuth();
   const { online } = useNetwork();
-  const tabs = TABS.filter((tab) => canAccessRoute(user, tab.key));
+  const { activeWard } = useActiveWard();
+  // Tabs the child's school hasn't turned on are left out (QA-262).
+  const tabs = TABS.filter(
+    (tab) =>
+      canAccessRoute(user, tab.key) &&
+      (!MODULE_FOR[tab.key] || schoolOffers(activeWard, MODULE_FOR[tab.key]!)),
+  );
 
   const nav = tabs.map((tab) => {
     const Icon = tab.icon;

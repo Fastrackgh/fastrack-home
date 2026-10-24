@@ -28,6 +28,7 @@ import { wardInitials, wardName, wardPlacement, wardStatusColor, wardStatusLabel
 import { InstallCard } from '../pwa';
 import { gradeColor } from '../reports/ReportsPage';
 import type { Ward } from '../types';
+import { schoolOffers } from '../types';
 import { useParentQuery, type ParentQuery } from '../useParentQuery';
 
 function greeting() {
@@ -162,9 +163,15 @@ function WardSummary({ ward }: { ward: Ward }) {
   const { wards, selectWard } = useActiveWard();
   const id = ward.studentId;
   const month = monthOf(todayIso());
-  const showFees = canAccessRoute(user, 'parentFees');
-  const showReports = parentAreaReady.reports && canAccessRoute(user, 'parentReports');
-  const showAttendance = parentAreaReady.attendance && canAccessRoute(user, 'parentAttendance');
+  const showFees = canAccessRoute(user, 'parentFees') && schoolOffers(ward, 'fees');
+  const showReports =
+    parentAreaReady.reports &&
+    canAccessRoute(user, 'parentReports') &&
+    schoolOffers(ward, 'results');
+  const showAttendance =
+    parentAreaReady.attendance &&
+    canAccessRoute(user, 'parentAttendance') &&
+    schoolOffers(ward, 'attendance');
   const showCalendar = can('calendar:read');
 
   // Share the list pages' offline copies, so the tiles match what those pages show.

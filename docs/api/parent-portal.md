@@ -93,10 +93,12 @@ Only reports the school has **published** are visible. Drafts stay hidden.
 
 **Since results phase 4 (24 Oct, backend `a0220a2`)** — live, and additive:
 - **Visibility:** withheld reports are hidden too, and a reopened report keeps showing its last published version. An unlinked child or a hidden report id gets 404; a school without `results` gets 403.
-- **List and detail:** `revision`, `updatedAt`, `positionTied`, `components: [{key, label, shortLabel, weight, group}]`, `aggregate`, and `promotion: {status: 'Promoted' | 'Repeated' | 'Graduated', toClass}` (or null when it isn't the year's last term). The status is capitalised here.
+- **List and detail:** `revision`, `updatedAt`, `positionTied`, `components: [{key, label, shortLabel, weight, group}]`, `aggregate`, and `promotion: {status, toClass}` (or null when it isn't the year's last term; see Wards below for the status values).
 - **Per subject:** `status` (ok, incomplete or exempt; not-assessed subjects are left out), `mode`, `componentScores: [{key, score, display}]` (match them by `key`; `display` is "12", "EX" or "—"), `points`, `descriptor`, `strands: [{label, descriptor}]` and `positionTied`.
 - **Positions** follow the school's visibility setting at the time of reading.
 - **The full contract** is in [`results.md`](./results.md).
+
+**Wards:** `GET /parents/me/wards` and `/wards/:studentId` include `school.enabledModules: string[]`, sorted, e.g. `['fees', 'results', 'students']`. The link-verify response doesn't carry it, so re-read `/wards` after linking. A report's `promotion.status` is lower case: `promoted`, `repeated` or `graduated`.
 
 ## Attendance
 

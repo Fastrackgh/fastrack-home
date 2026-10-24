@@ -234,6 +234,12 @@ export default function StudentsPage() {
     fetchStudents();
   }, [fetchStudents]);
 
+  // The backend needs one parent reachable by name and phone (QA-210).
+  const GUARDIAN_REQUIRED = "Add the mother's or father's name and phone number.";
+  const hasGuardian = () =>
+    (!!formData.motherName.trim() && !!formData.motherContact.trim()) ||
+    (!!formData.fatherName.trim() && !!formData.fatherContact.trim());
+
   // Stepper navigation and step validation
   const validateStep = (step: number): boolean => {
     setFormError(null);
@@ -249,6 +255,10 @@ export default function StudentsPage() {
         return false;
       }
     }
+    if (step === 2 && !hasGuardian()) {
+      setFormError(GUARDIAN_REQUIRED);
+      return false;
+    }
     return true;
   };
 
@@ -256,6 +266,23 @@ export default function StudentsPage() {
     if (validateStep(activeStep)) {
       setActiveStep((current) => (current < 3 ? current + 1 : current));
     }
+  };
+
+  // Enter in a field moves to the next step; before the last step there is no
+  // submit button, so the browser would otherwise do nothing.
+  const handleFormKeyDown = (e: React.KeyboardEvent<HTMLFormElement>) => {
+    const target = e.target as HTMLElement;
+    if (
+      e.key !== 'Enter' ||
+      e.defaultPrevented ||
+      activeStep >= 3 ||
+      target.tagName !== 'INPUT' ||
+      target.getAttribute('aria-expanded') === 'true'
+    ) {
+      return;
+    }
+    e.preventDefault();
+    handleNextStep();
   };
 
   const handlePrevStep = () => {
@@ -266,6 +293,11 @@ export default function StudentsPage() {
   // Handle admit submission
   const handleAdmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Enter in a field submits the form from any step; only the last step admits.
+    if (activeStep < 3) {
+      handleNextStep();
+      return;
+    }
     setFormError(null);
 
     if (!formData.firstName.trim() || !formData.surname.trim()) {
@@ -276,6 +308,11 @@ export default function StudentsPage() {
     if (!formData.classId) {
       setFormError('Please select a class for admission.');
       setActiveStep(1);
+      return;
+    }
+    if (!hasGuardian()) {
+      setFormError(GUARDIAN_REQUIRED);
+      setActiveStep(2);
       return;
     }
     if (!academicContext?.yearId || !academicContext?.termId) {
@@ -733,7 +770,7 @@ export default function StudentsPage() {
         radius="lg"
         centered
       >
-        <form onSubmit={handleAdmit}>
+        <form onSubmit={handleAdmit} onKeyDown={handleFormKeyDown}>
           <Stack gap="md">
             {formError ? (
               <Alert
@@ -1242,7 +1279,11 @@ export default function StudentsPage() {
               </Group>
 
               {activeStep < 3 ? (
+                // Distinct keys so React replaces the button instead of turning the
+                // clicked Next Step into a submit mid-click (QA-210).
                 <Button
+                  key="next"
+                  type="button"
                   rightSection={<ArrowRight size={16} />}
                   color="fastrackRed"
                   onClick={handleNextStep}
@@ -1253,6 +1294,7 @@ export default function StudentsPage() {
                 </Button>
               ) : (
                 <Button
+                  key="submit"
                   type="submit"
                   color="fastrackRed"
                   radius="md"

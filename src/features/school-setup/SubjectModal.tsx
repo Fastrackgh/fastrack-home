@@ -7,6 +7,10 @@ import { ApiError } from '@/lib/api-client';
 import { errorMessage, setupApi, type Subject } from './api';
 import { SUBJECT_CATEGORIES } from './common-subjects';
 
+// The backend's rule; it upper-cases the code itself.
+const CODE_PATTERN = /^[A-Za-z0-9-]{2,20}$/;
+const CODE_RULE = 'Use 2–20 letters, digits or hyphens.';
+
 /** Adds a subject to the catalogue, or edits `subject` when given. Rendered only while open. */
 export function SubjectModal({
   subject,
@@ -37,6 +41,10 @@ export function SubjectModal({
       ...(subject ? { isActive } : {}),
     };
     if (!input.subjectCode || !input.subjectName) return;
+    if (!CODE_PATTERN.test(input.subjectCode)) {
+      setCodeError(CODE_RULE);
+      return;
+    }
     setCodeError(null);
     setNameError(null);
     setSaving(true);
@@ -51,6 +59,10 @@ export function SubjectModal({
       onSaved();
     } catch (err) {
       // Codes and names are unique in the school; show which one clashed by its field.
+      if (err instanceof ApiError && err.statusCode === 400 && /code/i.test(err.message)) {
+        setCodeError(err.message);
+        return;
+      }
       if (err instanceof ApiError && err.statusCode === 409) {
         if (/name/i.test(err.message)) setNameError(err.message);
         else setCodeError(err.message);
@@ -125,7 +137,7 @@ export function SubjectModal({
                 setCodeError(null);
               }}
               error={codeError}
-              description="Letters, digits or hyphens"
+              description="2–20 letters, digits or hyphens"
               maxLength={20}
               required
               radius="md"

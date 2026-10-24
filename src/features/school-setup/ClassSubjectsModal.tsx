@@ -3,6 +3,7 @@
 import { useState } from 'react';
 import {
   ActionIcon,
+  Badge,
   Button,
   Checkbox,
   Group,
@@ -77,6 +78,8 @@ export function ClassSubjectsModal({
   );
   const [saving, setSaving] = useState(false);
 
+  // Subjects turned off since the class took them; the school may want to remove them.
+  const inactive = new Set(catalogue.filter((s) => !s.isActive).map((s) => s.id));
   const addable = catalogue.filter((s) => s.isActive && !rows.some((r) => r.subjectId === s.id));
   // Teachers no longer on the staff list still show, so saving doesn't silently drop them.
   const teacherOptions = [
@@ -227,6 +230,11 @@ export function ClassSubjectsModal({
                     <Text size="sm" fw={600}>
                       {row.subjectName}
                     </Text>
+                    {inactive.has(row.subjectId) && (
+                      <Badge size="xs" variant="light" color="gray">
+                        Not in use
+                      </Badge>
+                    )}
                   </Table.Td>
                   <Table.Td miw={200}>
                     <MultiSelect

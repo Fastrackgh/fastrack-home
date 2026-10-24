@@ -263,11 +263,12 @@ export const setupApi = {
     await apiClient.patch(`/schools/me/classes/${id(classId)}`, change);
   },
 
+  /** The whole catalogue in one list; it isn't paged, and `limit` is refused. */
   async listSubjects(includeInactive = false): Promise<Subject[]> {
     const rows =
       (
         await apiClient.get<Raw[]>(
-          `/schools/me/subjects?${ALL}${includeInactive ? '&includeInactive=true' : ''}`,
+          `/schools/me/subjects${includeInactive ? '?includeInactive=true' : ''}`,
         )
       ).data ?? [];
     return rows

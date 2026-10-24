@@ -610,4 +610,44 @@ check('only enrolment managers move whole classes up', () => {
     assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['students'] }, path), false, role);
   assert.equal(rbac.canAccessPath({ ...viewer('PRINCIPAL'), modules: [] }, path), false);
 });
+check('results engine gives the worked answers in docs/api/results-fixtures.json', () => {
+  const engine = load('src/features/results/engine.ts');
+  const fx = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '..', 'docs/api/results-fixtures.json'), 'utf8'),
+  );
+  const settings = (c) => ({ ...fx.defaults.settings, ...c.settings });
+  for (const c of fx.round) assert.equal(engine.roundHalfUp(c.x, c.decimals), c.expected, c.name);
+  for (const c of fx.grade)
+    assert.equal(engine.gradeFor(c.total, c.bands ?? fx.defaults.bands)?.label, c.expected, c.name);
+  for (const c of fx.subject) {
+    const r = engine.subjectResult(
+      c.components ?? fx.defaults.components,
+      c.marks,
+      c.bands ?? fx.defaults.bands,
+      settings(c),
+    );
+    const scores = Object.fromEntries(r.componentScores.map((s) => [s.key, s.score]));
+    assert.deepEqual(
+      {
+        status: r.status,
+        componentScores: scores,
+        total: r.total,
+        grade: r.grade,
+        reweighted: r.reweighted,
+      },
+      c.expected,
+      c.name,
+    );
+  }
+  for (const c of fx.summary)
+    assert.deepEqual(engine.pupilSummary(c.subjects, settings(c)), c.expected, c.name);
+  for (const c of fx.ranks)
+    assert.deepEqual(engine.competitionRanks(c.values, c.lowerIsBetter), c.expected, c.name);
+  for (const c of fx.positions)
+    assert.deepEqual(
+      engine.classPositions(c.pupils, c.subjectsAssessed, settings(c)),
+      c.expected,
+      c.name,
+    );
+});
 console.log(`${checks} dashboard and access checks passed.`);

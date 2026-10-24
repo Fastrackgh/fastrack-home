@@ -1,0 +1,391 @@
+{
+  "about": "Worked examples for the results calculation in docs/api/results.md. The backend engine and src/features/results/engine.ts must both give these answers (checked by scripts/check-dashboard.cjs). Settings not listed in a case are the defaults below. Marks are {status, raw, maxRaw}; null is a mark not yet entered.",
+  "defaults": {
+    "settings": {
+      "scoreDecimals": 0,
+      "averageDecimals": 1,
+      "absentCountsAsZero": true,
+      "minCountedWeight": 50,
+      "averageBasis": "all_taken",
+      "rankBy": "average",
+      "minSubjectsForRankingPct": 50,
+      "aggregate": null
+    },
+    "bands": [
+      { "label": "A", "minScore": 80, "remark": "Excellent" },
+      { "label": "B", "minScore": 70, "remark": "Very good" },
+      { "label": "C", "minScore": 60, "remark": "Good" },
+      { "label": "D", "minScore": 50, "remark": "Credit" },
+      { "label": "E", "minScore": 40, "remark": "Pass" },
+      { "label": "F", "minScore": 0, "remark": "Fail" }
+    ],
+    "components": [
+      { "key": "class", "weight": 30, "bestOf": 4 },
+      { "key": "exam", "weight": 70 }
+    ]
+  },
+  "round": [
+    { "name": "half rounds up", "x": 79.5, "decimals": 0, "expected": 80 },
+    { "name": "just under half rounds down", "x": 79.49, "decimals": 0, "expected": 79 },
+    { "name": "one decimal place", "x": 79.45, "decimals": 1, "expected": 79.5 },
+    {
+      "name": "binary noise: 0.795 x 100 is 79.49999999999999",
+      "x": 79.49999999999999,
+      "decimals": 0,
+      "expected": 80
+    },
+    { "name": "binary noise at two places: 2.675", "x": 2.675, "decimals": 2, "expected": 2.68 }
+  ],
+  "grade": [
+    { "name": "exactly on the A line", "total": 80, "expected": "A" },
+    { "name": "just under the A line", "total": 79.9, "expected": "B" },
+    { "name": "zero is the lowest band", "total": 0, "expected": "F" },
+    {
+      "name": "a school whose A starts at 85",
+      "total": 84,
+      "bands": [
+        { "label": "A", "minScore": 85 },
+        { "label": "B", "minScore": 75 },
+        { "label": "C", "minScore": 0 }
+      ],
+      "expected": "B"
+    }
+  ],
+  "subject": [
+    {
+      "name": "GES 30/70: printed parts add up to the total",
+      "why": "Class tests average 0.75, so 22.5 rounds to 23; exam 56/70 = 56; total 23 + 56 = 79.",
+      "marks": {
+        "class": [
+          { "status": "scored", "raw": 8, "maxRaw": 10 },
+          { "status": "scored", "raw": 9, "maxRaw": 10 },
+          { "status": "scored", "raw": 7, "maxRaw": 10 },
+          { "status": "scored", "raw": 6, "maxRaw": 10 }
+        ],
+        "exam": [{ "status": "scored", "raw": 56, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "class": 23, "exam": 56 },
+        "total": 79,
+        "grade": "B",
+        "reweighted": false
+      }
+    },
+    {
+      "name": "79.5 at no decimals prints 80 and is an A",
+      "marks": {
+        "class": [{ "status": "scored", "raw": 24, "maxRaw": 30 }],
+        "exam": [{ "status": "scored", "raw": 55.5, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "class": 24, "exam": 56 },
+        "total": 80,
+        "grade": "A",
+        "reweighted": false
+      }
+    },
+    {
+      "name": "the same marks at one decimal print 79.5 and are a B",
+      "settings": { "scoreDecimals": 1 },
+      "marks": {
+        "class": [{ "status": "scored", "raw": 24, "maxRaw": 30 }],
+        "exam": [{ "status": "scored", "raw": 55.5, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "class": 24, "exam": 55.5 },
+        "total": 79.5,
+        "grade": "B",
+        "reweighted": false
+      }
+    },
+    {
+      "name": "best 3 of 5 class tests",
+      "why": "The best three are 1.0, 0.9 and 0.8, averaging 0.9, so 27; exam 49/70 = 49; total 76.",
+      "components": [
+        { "key": "class", "weight": 30, "bestOf": 3 },
+        { "key": "exam", "weight": 70 }
+      ],
+      "marks": {
+        "class": [
+          { "status": "scored", "raw": 10, "maxRaw": 10 },
+          { "status": "scored", "raw": 2, "maxRaw": 10 },
+          { "status": "scored", "raw": 8, "maxRaw": 10 },
+          { "status": "scored", "raw": 9, "maxRaw": 10 },
+          { "status": "scored", "raw": 5, "maxRaw": 10 }
+        ],
+        "exam": [{ "status": "scored", "raw": 49, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "class": 27, "exam": 49 },
+        "total": 76,
+        "grade": "B",
+        "reweighted": false
+      }
+    },
+    {
+      "name": "best 4 when only 2 tests were given uses both",
+      "why": "6/10 and 8/20 are 0.6 and 0.4, averaging 0.5, so 15; exam 35/70 = 35; total 50.",
+      "marks": {
+        "class": [
+          { "status": "scored", "raw": 6, "maxRaw": 10 },
+          { "status": "scored", "raw": 8, "maxRaw": 20 }
+        ],
+        "exam": [{ "status": "scored", "raw": 35, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "class": 15, "exam": 35 },
+        "total": 50,
+        "grade": "D",
+        "reweighted": false
+      }
+    },
+    {
+      "name": "tests out of different maximums count equally; an unexcused exam absence counts as 0",
+      "why": "9/10 and 30/50 are 0.9 and 0.6, averaging 0.75, so 22.5 rounds to 23 (adding the marks first, 39/60, would give 19.5); absent exam = 0.",
+      "marks": {
+        "class": [
+          { "status": "scored", "raw": 9, "maxRaw": 10 },
+          { "status": "scored", "raw": 30, "maxRaw": 50 }
+        ],
+        "exam": [{ "status": "absent", "raw": null, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "class": 23, "exam": 0 },
+        "total": 23,
+        "grade": "F",
+        "reweighted": false
+      }
+    },
+    {
+      "name": "an absent test is skipped when the school doesn't count absence as 0",
+      "settings": { "absentCountsAsZero": false },
+      "marks": {
+        "class": [
+          { "status": "scored", "raw": 8, "maxRaw": 10 },
+          { "status": "absent", "raw": null, "maxRaw": 10 }
+        ],
+        "exam": [{ "status": "scored", "raw": 63, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "class": 24, "exam": 63 },
+        "total": 87,
+        "grade": "A",
+        "reweighted": false
+      }
+    },
+    {
+      "name": "exempt from the mid-term: the rest is scaled up to 100",
+      "why": "Classwork 0.9 x 20 = 18 and exam 0.8 x 50 = 40 cover 70 of the weight, so the total is 58 x 100 / 70 = 82.857..., printed 82.9.",
+      "settings": { "scoreDecimals": 1 },
+      "components": [
+        { "key": "classwork", "weight": 20 },
+        { "key": "midterm", "weight": 30 },
+        { "key": "exam", "weight": 50 }
+      ],
+      "bands": [
+        { "label": "A*", "minScore": 90 },
+        { "label": "A", "minScore": 80 },
+        { "label": "B", "minScore": 70 },
+        { "label": "C", "minScore": 60 },
+        { "label": "D", "minScore": 50 },
+        { "label": "E", "minScore": 40 },
+        { "label": "U", "minScore": 0 }
+      ],
+      "marks": {
+        "classwork": [{ "status": "scored", "raw": 18, "maxRaw": 20 }],
+        "midterm": [{ "status": "exempt", "raw": null, "maxRaw": 30 }],
+        "exam": [{ "status": "scored", "raw": 40, "maxRaw": 50 }]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "classwork": 18, "midterm": null, "exam": 40 },
+        "total": 82.9,
+        "grade": "A",
+        "reweighted": true
+      }
+    },
+    {
+      "name": "exempt from the exam leaves only 30 of the weight: incomplete",
+      "marks": {
+        "class": [{ "status": "scored", "raw": 9, "maxRaw": 10 }],
+        "exam": [{ "status": "exempt", "raw": null, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "incomplete",
+        "componentScores": { "class": 27, "exam": null },
+        "total": null,
+        "grade": null,
+        "reweighted": false
+      }
+    },
+    {
+      "name": "exempt from everything: exempt from the subject",
+      "marks": {
+        "class": [{ "status": "exempt", "raw": null, "maxRaw": 10 }],
+        "exam": [{ "status": "exempt", "raw": null, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "exempt",
+        "componentScores": { "class": null, "exam": null },
+        "total": null,
+        "grade": null,
+        "reweighted": false
+      }
+    },
+    {
+      "name": "a mark not entered yet blocks the result",
+      "marks": {
+        "class": [{ "status": "scored", "raw": 9, "maxRaw": 10 }, null],
+        "exam": [{ "status": "scored", "raw": 60, "maxRaw": 70 }]
+      },
+      "expected": {
+        "status": "missing",
+        "componentScores": { "class": null, "exam": null },
+        "total": null,
+        "grade": null,
+        "reweighted": false
+      }
+    },
+    {
+      "name": "no class tests given yet blocks the result",
+      "marks": { "class": [], "exam": [{ "status": "scored", "raw": 60, "maxRaw": 70 }] },
+      "expected": {
+        "status": "missing",
+        "componentScores": { "class": null, "exam": null },
+        "total": null,
+        "grade": null,
+        "reweighted": false
+      }
+    }
+  ],
+  "summary": [
+    {
+      "name": "average over subjects with a result",
+      "why": "79 + 80 + 65 = 224 over 3 subjects is 74.666..., printed 74.7; the incomplete subject is left out.",
+      "subjects": [{ "total": 79 }, { "total": 80 }, { "total": null }, { "total": 65 }],
+      "expected": {
+        "subjectsCounted": 3,
+        "total": 224,
+        "outOf": 300,
+        "average": 74.7,
+        "aggregate": null
+      }
+    },
+    {
+      "name": "a school that averages core subjects only",
+      "settings": { "averageBasis": "core_only" },
+      "subjects": [
+        { "total": 80, "isCore": true },
+        { "total": 70, "isCore": true },
+        { "total": 50, "isCore": false }
+      ],
+      "expected": {
+        "subjectsCounted": 2,
+        "total": 150,
+        "outOf": 200,
+        "average": 75,
+        "aggregate": null
+      }
+    },
+    {
+      "name": "a subject set not to count in the average",
+      "subjects": [{ "total": 90 }, { "total": 60, "countsInAverage": false }],
+      "expected": {
+        "subjectsCounted": 1,
+        "total": 90,
+        "outOf": 100,
+        "average": 90,
+        "aggregate": null
+      }
+    },
+    {
+      "name": "BECE aggregate: 4 core subjects plus the best 2 others",
+      "why": "Core points 1 + 2 + 3 + 2 = 8; the best two others are 1 and 4; 8 + 5 = 13.",
+      "settings": { "aggregate": { "coreCount": 4, "bestOtherCount": 2 } },
+      "subjects": [
+        { "total": 85, "points": 1, "aggregateRole": "core" },
+        { "total": 75, "points": 2, "aggregateRole": "core" },
+        { "total": 68, "points": 3, "aggregateRole": "core" },
+        { "total": 77, "points": 2, "aggregateRole": "core" },
+        { "total": 60, "points": 4, "aggregateRole": "pool" },
+        { "total": 90, "points": 1, "aggregateRole": "pool" },
+        { "total": 50, "points": 6, "aggregateRole": "pool" }
+      ],
+      "expected": {
+        "subjectsCounted": 7,
+        "total": 505,
+        "outOf": 700,
+        "average": 72.1,
+        "aggregate": 13
+      }
+    },
+    {
+      "name": "no aggregate when a core subject has no result",
+      "settings": { "aggregate": { "coreCount": 4, "bestOtherCount": 2 } },
+      "subjects": [
+        { "total": 85, "points": 1, "aggregateRole": "core" },
+        { "total": 75, "points": 2, "aggregateRole": "core" },
+        { "total": 68, "points": 3, "aggregateRole": "core" },
+        { "total": null, "points": null, "aggregateRole": "core" },
+        { "total": 60, "points": 4, "aggregateRole": "pool" },
+        { "total": 90, "points": 1, "aggregateRole": "pool" }
+      ],
+      "expected": {
+        "subjectsCounted": 5,
+        "total": 378,
+        "outOf": 500,
+        "average": 75.6,
+        "aggregate": null
+      }
+    }
+  ],
+  "ranks": [
+    {
+      "name": "ties share a position and the next one is skipped",
+      "values": [80, 75.5, 75.5, 60, null],
+      "expected": [1, 2, 2, 4, null]
+    },
+    {
+      "name": "aggregates: lower is better",
+      "values": [13, 9, 13, 20],
+      "lowerIsBetter": true,
+      "expected": [2, 1, 2, 4]
+    },
+    {
+      "name": "a class of one",
+      "values": [55],
+      "expected": [1]
+    }
+  ],
+  "positions": [
+    {
+      "name": "a pupil with results in under half the subjects is not ranked",
+      "why": "8 subjects assessed; 3 results is 37.5%, under the 50% needed; the other two are ranked among themselves.",
+      "subjectsAssessed": 8,
+      "pupils": [
+        { "average": 90, "total": 270, "aggregate": null, "subjectsWithResult": 3 },
+        { "average": 70, "total": 560, "aggregate": null, "subjectsWithResult": 8 },
+        { "average": 72, "total": 288, "aggregate": null, "subjectsWithResult": 4 }
+      ],
+      "expected": [null, 2, 1]
+    },
+    {
+      "name": "ranking by total instead of average",
+      "settings": { "rankBy": "total" },
+      "subjectsAssessed": 8,
+      "pupils": [
+        { "average": 90, "total": 270, "aggregate": null, "subjectsWithResult": 3 },
+        { "average": 70, "total": 560, "aggregate": null, "subjectsWithResult": 8 },
+        { "average": 72, "total": 288, "aggregate": null, "subjectsWithResult": 4 }
+      ],
+      "expected": [null, 1, 2]
+    }
+  ]
+}

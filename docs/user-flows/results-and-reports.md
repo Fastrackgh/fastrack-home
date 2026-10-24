@@ -5,7 +5,7 @@
 | Part | Where | Status |
 | --- | --- | --- |
 | Subjects and what each class takes | School setup → Subjects | Live (phase 0); see [school-setup.md](./school-setup.md#subjects-tab-added-24-oct-results-phase-0) |
-| Grading setup (weights, grades, positions) | `/school-admin/results/setup` | Built against the agreed phase 1 contract with simulated responses; backend in progress |
+| Grading setup (weights, grades, positions) | `/school-admin/results/setup` | Live (phase 1; backend `99e912b`, not pushed yet), tested on PRM-001 on 24 Oct |
 | Mark entry | — | Phase 2 |
 | Term reports: review, remarks, publish | — | Phase 3 |
 | Parent reports | Parent portal → Reports | Built earlier on sample data; goes live in phase 4 |
@@ -55,6 +55,7 @@ flowchart TD
 
 **What is sent:**
 - Only changes from the preset go as overrides.
+- An edited copy is named after what it now holds, so the preset's name doesn't describe old numbers: "Class score 40 / Exam 60" when weights change, "GES A–F (edited)" when grades change. A renamed part alone keeps the preset's names.
 - Departments on the school's preset are left out, because they inherit it.
 - The full settings are always sent.
 
@@ -65,5 +66,10 @@ flowchart TD
 | Page | `Loader` | "No current academic year" alert | Alert + Try again | — |
 | Steps | — | — | Red alert listing what to fix; Next disabled | — |
 | Apply | Button loading | — | Red toast with the backend's message (stays open) | Green alert with counts; Done shows the summary |
+
+**Tested live (24 Oct, PRM-001, results module turned on there by the backend session):**
+- **First apply:** GES as the school default, changed to 40/60 with A from 85; BECE for JHS; Montessori for Pre-School, as suggested; WASSCE for SHS, as suggested. It created 4 weightings and 4 grade scales. The summary lists the school and the three departments.
+- **Re-runs:** a re-run with the same choices created nothing (families reused). Before the naming fix, the edited copy was still called "GES 30/70"; afterwards it is "Class score 40 / Exam 60" and "GES A–F (edited)". PRM-001 keeps two unused families from that first run.
+- **A bad apply** (weights adding to 95, sent to the API) gets 400 "School default: Weights add up to 95, not 100."
 
 **Not yet:** advanced editing of a single class's or subject's grading, the remark bank, and per-version history. These come with the "Advanced" tabs after phase 1 is live.

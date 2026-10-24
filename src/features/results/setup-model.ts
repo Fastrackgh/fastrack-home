@@ -79,6 +79,11 @@ export function overridesFor(preset: Preset, edit: PresetEdit): PresetOverrides 
   const result: PresetOverrides = {};
   if (Object.keys(components).length) result.components = components;
   if (bands.length) result.bands = bands;
+  // The preset's name would describe the old numbers ("GES 30/70" holding 40/60),
+  // so an edited copy is named after what it now holds.
+  if (Object.values(components).some((c) => c.weight !== undefined))
+    result.schemeName = edit.components.map((c) => `${c.label} ${c.weight}`).join(' / ');
+  if (bands.length) result.scaleName = `${preset.scale.name} (edited)`;
   return Object.keys(result).length ? result : undefined;
 }
 

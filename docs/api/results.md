@@ -170,7 +170,7 @@ The backend adds an any-of permission decorator for the GETs, because its permis
     bands?: [{ index, label?, remark?, minScore?, points?, isPass? }] }          // index = position in the preset's bands
   ```
 
-  The frontend sends only what the school changed, and leaves out departments that use the school's preset.
+  The frontend sends only what the school changed, and leaves out departments that use the school's preset. Because the preset's name would describe the old numbers, it names an edited copy itself: `schemeName` like "Class score 40 / Exam 60" when weights change, and `scaleName` like "GES A–F (edited)" when bands change.
 - `defaultPresetKey` is required: it becomes the school row (rule 9).
 - **Families.** Apply creates school-owned copies tagged with `preset_key`. For the default and each department, the backend works out the content (the preset plus its overrides). It reuses a school family whose latest version has the same `preset_key` and identical content; otherwise it creates one.
   - The rule is the same within one call and across calls. So the default and departments with identical overrides share one family, and a re-run reuses it.

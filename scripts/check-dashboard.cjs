@@ -670,7 +670,7 @@ check('grading setup is for heads with the results module; its maths matches the
   assert.equal(sm.bandsProblem({ components: [], bands }, 'numeric'), null);
   assert.equal(sm.bandsProblem({ components: [], bands: [band('A', 80), band('B', 85), band('F', 0)] }, 'numeric'), 'B must start below A (80).');
   assert.equal(sm.bandsProblem({ components: [], bands: [band('A', 80), band('F', 5)] }, 'numeric'), 'The lowest grade, F, must start at 0.');
-  const preset = { scheme: { mode: 'numeric', components: parts([30, 70]) }, scale: { mode: 'numeric', bands } };
+  const preset = { scheme: { name: 'GES 30/70', mode: 'numeric', components: parts([30, 70]) }, scale: { name: 'GES A–F', mode: 'numeric', bands } };
   assert.equal(sm.overridesFor(preset, sm.editFrom(preset)), undefined);
   const edit = sm.editFrom(preset);
   edit.components[0].weight = 40;
@@ -679,7 +679,13 @@ check('grading setup is for heads with the results module; its maths matches the
   assert.deepEqual(sm.overridesFor(preset, edit), {
     components: { c0: { weight: 40 }, c1: { weight: 60 } },
     bands: [{ index: 0, minScore: 85 }],
+    schemeName: 'C0 40 / C1 60',
+    scaleName: 'GES A–F (edited)',
   });
+  // A renamed part alone keeps the preset's names.
+  const renamed = sm.editFrom(preset);
+  renamed.components[0].label = 'Classwork';
+  assert.deepEqual(sm.overridesFor(preset, renamed), { components: { c0: { label: 'Classwork' } } });
   // 79.5 is an A at whole numbers and a B at one decimal, as in the fixtures.
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 0), { printed: 80, grade: 'A' });
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 1), { printed: 79.5, grade: 'B' });

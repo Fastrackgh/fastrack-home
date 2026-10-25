@@ -788,6 +788,15 @@ check('mark sheets: teachers and heads with results; cell typing, missing marks 
   // A mark carried from another class keeps its own total and says so (QA, phase 2).
   assert.equal(mm.showMark(mark('class', 1, 40, 50), 20), '40/50');
   assert.equal(mm.showMark(mark('class', 1, 8, 10), 10), '8');
+  // A descriptor cell shows the band id or absent/exempt, and saves the matching change.
+  const band = { ...mark('class', 1, null), descriptorBandId: 'b-secure' };
+  assert.equal(mm.descriptorValue(band), 'b-secure');
+  assert.equal(mm.descriptorValue({ ...band, status: 'absent' }), 'absent');
+  assert.equal(mm.descriptorValue(undefined), null);
+  assert.deepEqual(mm.descriptorChange('b-secure'), { status: 'scored', descriptorBandId: 'b-secure' });
+  assert.deepEqual(mm.descriptorChange('exempt'), { status: 'exempt', descriptorBandId: null });
+  assert.deepEqual(mm.descriptorChange(null), { status: null, descriptorBandId: null });
+  assert.equal(mm.markFor(row([mark('exam', 1, 50, 70)]), item('exam', 1, 70)).rawScore, 50);
   // ApiError.details holds the whole error body; the backend's own details sit one level in.
   const client = load('src/lib/api-client.ts');
   const refused = new client.ApiError(422, 'Above the maximum of 20.', {

@@ -85,7 +85,7 @@ flowchart TD
 
 ## Mark entry
 
-Code: `src/features/results/MarkSheetsPage.tsx` and `MarkGridPage.tsx`, with the grid's logic in `marks-model.ts` (checked in `scripts/check-dashboard.cjs`).
+Code: `src/features/results/MarkSheetsPage.tsx` and `MarkGridPage.tsx`. Loading and autosave (409 rebase, 422 cells, retry) are in `useMarkSheet.ts`, the cells in `MarkCells.tsx` and the add-test and return modals in `MarkSheetModals.tsx`. The grid's logic is in `marks-model.ts`, checked in `scripts/check-dashboard.cjs`.
 
 **Who:** `marks:enter` with the `results` module on: Principal, Academic Head and Teacher. Secretaries can read results for reports but don't open mark sheets. The Gradebook area opens this page.
 

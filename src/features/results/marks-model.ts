@@ -52,13 +52,28 @@ export const otherTotal = (
   itemMax?: number | null,
 ) => !!mark && mark.maxRaw != null && itemMax != null && mark.maxRaw !== itemMax;
 
-const isNotRequired = (row: RosterRow, item: Item) =>
+/** True when the pupil needs no mark for this item (e.g. they joined after it). */
+export const isNotRequired = (row: RosterRow, item: Item) =>
   row.notRequired.some(
     (n) => n.componentKey === item.componentKey && n.itemIndex === item.itemIndex,
   );
 
-const markFor = (row: RosterRow, item: Item) =>
+/** The pupil's saved mark for one item, if any. */
+export const markFor = (row: RosterRow, item: Item) =>
   row.marks.find((m) => m.componentKey === item.componentKey && m.itemIndex === item.itemIndex);
+
+/** A descriptor cell's picker value: the band id, "absent", "exempt", or null when empty. */
+export const descriptorValue = (mark: Mark | undefined): string | null =>
+  mark ? (mark.status === 'scored' ? mark.descriptorBandId : mark.status) : null;
+
+/** What choosing a value in a descriptor cell saves; null clears the mark. */
+export function descriptorChange(
+  value: string | null,
+): Pick<MarkChange, 'status' | 'descriptorBandId'> {
+  if (!value) return { status: null, descriptorBandId: null };
+  if (value === 'absent' || value === 'exempt') return { status: value, descriptorBandId: null };
+  return { status: 'scored', descriptorBandId: value };
+}
 
 /** Marks still needed from a pupil; leavers never need any (rule 13). */
 export function missingFor(row: RosterRow, items: Item[]): number {

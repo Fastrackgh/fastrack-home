@@ -412,7 +412,7 @@ function MoveButtons({
 const DATE_LINES: Record<DateLine['key'], { name: string; auto: string; source: string }> = {
   termPeriod: {
     name: 'Term period',
-    auto: 'term start–end',
+    auto: 'term dates',
     source: "Left empty, it uses the term's start and end dates.",
   },
   dueDate: {
@@ -427,7 +427,7 @@ const DATE_LINES: Record<DateLine['key'], { name: string; auto: string; source: 
   },
   reopening: {
     name: 'Reopening date',
-    auto: 'next term start',
+    auto: 'next term',
     source: "Left empty, it uses the next term's start date.",
   },
 };

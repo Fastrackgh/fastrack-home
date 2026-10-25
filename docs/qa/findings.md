@@ -23,9 +23,9 @@
 |---|---|---|---|---|
 | Critical | 8 | 7 | 1 | 0 |
 | High | 31 | 27 | 3 | 1 |
-| Medium | 80 | 38 | 13 | 29 |
+| Medium | 80 | 38 | 14 | 28 |
 | Low | 39 | 21 | 6 | 12 |
-| **Total** | **158** | **93** | **23** | **42** |
+| **Total** | **158** | **93** | **24** | **41** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -96,7 +96,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-056 | Medium | FLOW | Both | Browser ✔ | Platform staff counts are wrong (overview says 3 staff, school page says 1) — **fixed** (reconciled 24 Oct) |
 | QA-057 | Medium | FLOW | BE | Browser ✔ | Bill & report designs page returns 500: uncommitted entity column `layout` has no migration — **fixed** (backend 5bae8a2) |
 | QA-062 | Medium | Money | BE | Code ✔ | Extra-bill duplicate check ignores term bills, so a fee can be charged twice — **open** (code re-checked 24 Oct) |
-| QA-067 | Medium | EDGE | Both | Code ✔ | Template edits have no conflict check; last save wins — **open** (code re-checked 24 Oct) |
+| QA-067 | Medium | EDGE | Both | Code ✔ | Template edits have no conflict check; last save wins — **partly fixed** (25 Oct; BE `0cb9bdc`, FE `9ec374e`: the visual builder is covered, the code editor isn't) |
 | QA-068 | Medium | FLOW | BE | Code ✔ | A published design that fails on real data breaks the parent bill; no fallback — **open** (code re-checked 24 Oct) |
 | QA-069 | Medium | FLOW | Both | Code ✔ | Code editor silently converts a visual design into a code design — **open** (code re-checked 24 Oct) |
 | QA-070 | Medium | UX/EDGE | FE | Code ✔ | Design builder error states: sticky preview errors, kind-switch races, silent rename failures — **fixed** (25 Oct; FE `55c49bb`, re-tested in the browser; see QA-064 status) |
@@ -1213,7 +1213,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-064 | Fixed | 25 Oct, FE `55c49bb`. Re-tested in the browser on QPM-402 throwaway drafts. (1) A section duplicated on v10, then a switch to v6 within 120 ms, sent one PATCH to v10 (blocks 10 → 11) and none to v6, which stayed at 6 blocks. |
 | QA-065 | Fixed | 25 Oct, FE `55c49bb`. (3) An edit on v10, then the Overview link within 120 ms: the PATCH was sent before leaving (DB blocks 12). (4) With PATCH forced to 500, the status read "Not saved" with Try again. A kind switch retried the save, then asked "Your last change to this design could not be saved. Leave it anyway?". Declining stayed on v10, and Try again (with the failure removed) saved it, showing "All changes saved" (DB 13). (5) Reloading 100 ms after an edit raised the browser's leave warning; staying kept the page, and the edit saved (DB 14). |
 | QA-066 | Fixed | 25 Oct, FE `55c49bb`. (2) An edit on v6, then Publish within 120 ms: PATCH v6 (7 blocks), then publish v6. The DB shows v6 PUBLISHED with the 7-block layout, the one on screen, and the page shows the "live and can't be changed. Use Edit a copy" notice. |
-| QA-067 | Open | no version/updatedAt check on template saves |
+| QA-067 | Partly fixed | Re-tested 25 Oct (BE `0cb9bdc`, FE `9ec374e`) with two tabs on the QPM-402 draft "Conflict check". The API alone: a stale `expectedUpdatedAt` gets 409 "This design was changed somewhere else. Reload to see the latest."; a fresh stamp or none gets 200. In the browser: A's edit saves with the check (200, 5 blocks). B's edit then gets 409, and B shows "Changed somewhere else" with the banner "This design was changed in another tab or by someone else. Reload to see theirs (your unsaved change is dropped), or keep yours and replace theirs. · Reload · Keep mine". While B is in conflict, further edits send nothing, Publish publishes nothing (still DRAFT), and switching kind asks "Your last change to this design could not be saved. Leave it anyway?". **Keep mine** saves without the check (200; B's layout, 6 blocks). A's next edit then gets 409 and the banner; **Reload** loads the server's version, and A's next edit saves with the check (200, 7). Renaming then editing in one tab raises no false conflict. Still open: code-mode designs (TemplateEditor) don't send the check yet. |
 | QA-068 | Open | a render error on real data still throws with no fallback to the default design |
 | QA-069 | Open | code editor still edits any draft and clears its visual layout |
 | QA-070 | Fixed | 25 Oct, FE `55c49bb`. (6) An edit, then a switch to Terminal report within 120 ms: the PATCH went first and no preview call failed with 400 during the whole run. Rename: Design name has maxlength 120 (typing 125 characters keeps 120). A rename saves on blur, and the version picker updates ("v10 · QA rename check"). A forced failure shows the toast "Name not saved · Simulated failure". The name was restored afterwards. Not re-tested: QA-067 (two editors at once), which still needs a backend version check. Note: the earlier tab closures during this re-test came from the test harness itself; two Playwright connections both handled the confirm dialog and crashed the launcher. That isn't an app issue. |

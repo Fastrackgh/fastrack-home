@@ -1,9 +1,11 @@
 # Flow: School setup (Principal / Academic Head)
 
+> **Updated 25 Oct 2026 (academic calendar, backend `f6cf1d2`).** The school picks a **term pattern** (e.g. 3 terms, 2 semesters or one whole-year period, set with "Change" above the years). A new year gets those periods automatically, **without dates**. They show "Dates not set" with a **Set dates** button, and every term picker in the app lists them as "· dates not set", disabled. The backend now checks order, overlap and year bounds, and its messages show as they are (e.g. "Term 2 must start after Term 1 ends (2027-12-17)"). The current term's "current" switch is locked ("make another term current instead"). Years can be **archived** (not the current one, nor one with bills, pupils or marks) and **restored**; "Show archived years" lists them read-only. This resolves QA-018, QA-236 and QA-237.
+>
 > **Updated 22 Oct 2026 (QA-206).** Setting a year or term current no longer returns 500 or leaves two current. The backend clears the old one in the same transaction, and unique indexes allow one current year and one current term per school (backend `bcb2e0b`, on `main`). Re-tested in the browser on BIS-001. Still open: QA-236 (a current year doesn't move the term) and QA-237 (the current term can be unticked to leave none).
 
 Code:
-- `src/features/school-setup/*` (`SetupPage`, `SchoolProfilePanel`, `YearsPanel` + `DatesModal`, `DepartmentsPanel` + `DepartmentModal`, `ClassesPanel` + `ClassModal`, `api.ts`)
+- `src/features/school-setup/*` (`SetupPage`, `SchoolProfilePanel`, `YearsPanel` + `DatesModal` + `TermPatternModal`, `DepartmentsPanel` + `DepartmentModal`, `ClassesPanel` + `ClassModal`, `api.ts`)
 - Route `/school-admin/setup` (`src/app/school-admin/(app)/(school)/setup/page.tsx`), registered as `APP_ROUTES.setup` in `src/lib/rbac/routes.ts`
 - Not committed yet: the feature, the route and the `school_profile:manage` permission are untracked or modified on `feat/rbac-workspace`.
 
@@ -33,8 +35,10 @@ Verified against `fastrack-space/fastrack-backend` on `fix/invoice-run-class-lab
 | Profile save | `PATCH /schools/me` (changed fields only, trimmed) | ✓ `@Role(PRINCIPAL)` + `school_profile:manage`. The DTO also accepts `code` and `logoUrl`, which the UI doesn't send |
 | Logo | `PUT /schools/me/logo` (multipart), `DELETE /schools/me/logo` | ✓ Principal only |
 | Years list | `GET /schools/me/academic-years?limit=100`, then `GET …/:id/terms?limit=100` **per year** | ✓ N+1 requests |
-| Year add / edit | `POST /schools/me/academic-years`, `PATCH …/:id` `{startDate,endDate,isCurrent}` | ✓ The label (`2026/27`) comes from the start year; a duplicate label returns 409. No date-order, overlap or term-bounds checks |
-| Term add / edit | `POST …/academic-years/:yearId/terms`, `PATCH …/terms/:id` `{termSequence,startDate,endDate,isCurrent}` | ✓ A duplicate sequence in the year returns 409. Making a term current also makes its year current. No bounds, overlap or order checks |
+| Year add / edit | `POST /schools/me/academic-years`, `PATCH …/:id` `{startDate,endDate,isCurrent}` | ✓ The label (`2026/27`) comes from the start year. Creating one adds the pattern's periods, undated. Overlapping another year → 409; shortening past a term → 400 |
+| Term pattern | `GET` / `PUT /schools/me/term-pattern` `{wholeYear, periodName, periodCount}` | ✓ Applies to years created afterwards |
+| Archive / restore | `POST …/academic-years/:id/archive`, `…/restore`; lists take `includeArchived=true` | ✓ Refused for the current year or one in use (409) |
+| Term add / edit / set dates | `POST …/academic-years/:yearId/terms`, `PATCH …/terms/:id` `{termSequence?,startDate,endDate,isCurrent}` | ✓ Terms have `datesSet`; undated ones have null dates and need both. Order, overlap and year bounds are checked (400 with a readable message). An undated term can't be made current |
 | Departments | `GET /schools/me/departments?limit=100`, `POST`, `PATCH /:id`, `DELETE /:id` | ✓ Code is upper-cased and unique (409). Delete sets the department of its classes to null |
 | Standard departments | `POST /schools/me/departments/seed-defaults` | ✓ Adds only the codes that are missing |
 | Classes | `GET /schools/me/classes?page&limit&search`, `POST`, `PATCH /:id` | ✓ Code is unique but **case-sensitive**. Each class has a `sequenceOrder` (the **Order** field and column, added 24 Oct for QA-207); lists come back in that order, and a new class with no order goes after the last one. Order numbers are unique per school (QA-245): a used number returns 409 "Order 2 is already used by Primary 2. Give each class its own number.", shown under the Order field. 0 means not ordered yet and may repeat; promotion asks for a target for such a class. Swapping two numbers needs a free number in between (1 → 99, 2 → 1, 99 → 2). Promotion moves pupils to the class with the next number. The backend's bulk create (`classes[]`) is unused |
@@ -90,8 +94,8 @@ flowchart TD
 | Year start / end | Both required; end ≥ start | `IsDateString` only; no end ≥ start, no overlap with other years; label must be unique |
 | Year edit | Same | Doesn't check that existing terms still fit inside the new dates |
 | Term number | `NumberInput` 1–6, default next free number; an empty value is sent as `0` | `IsInt`, `Min(1)`, unique within the year; no maximum |
-| Term dates | Required, end ≥ start, inside the year | `IsDateString` only: no bounds, overlap or order-vs-number check (see QA-018) |
-| Current year / term | Switch in the edit form | One current per school, enforced by unique indexes since QA-206. A current term forces its year current; **a current year does not move or clear the current term** (QA-236). Unticking the current term leaves none (QA-237). |
+| Term dates | Required, end ≥ start, inside the year; a pattern-made period's number isn't editable | Checked: inside the year, after the previous term, before the next; can be moved, not cleared |
+| Current year / term | Switch in the edit form; locked on for the current one | One current per school. Unticking the current one → 400; making a year current moves the current term into it (none until one of its terms is dated) |
 | Department code | Required, trimmed, upper-cased, ≤30 | `IsNotEmpty`, ≤30, unique per school (upper-cased) |
 | Department name | Required, trimmed, ≤100 | ≤100; duplicates allowed |
 | Display order | ≥0, blank → 0 | `Min(0)` |
@@ -126,9 +130,9 @@ Code: `src/features/school-setup/SubjectsPanel.tsx` and its modals. The rules co
 ## Known gaps
 
 - **QA-033 is partly resolved.** Years, terms, departments, classes and the school profile can now be set up in the UI; the Principal can be assigned from the platform console; the checklist links to Fees and Staff. Still missing: deleting a mistaken year, term or class (no backend route either); bulk class entry; a fee step that checks structures, not just fee types; any ordering guidance (fees need classes and terms).
-- **Term and year dates aren't consistent (QA-018).** Overlapping terms, terms out of order, overlapping years, and year edits that leave terms outside the year are all accepted.
-- **Current year and current term can disagree (QA-236).** Making another year current, or unticking "current" on a year, leaves the current term in the old year. Confirmed in the browser 22 Oct.
-- **The current term can be unticked, leaving none (QA-237).** It saves with "Term updated" and no warning.
+- *Fixed 25 Oct (backend `f6cf1d2`):* **Term and year dates aren't consistent (QA-018).** Overlapping terms, terms out of order, overlapping years, and year edits that leave terms outside the year are all accepted.
+- *Fixed 25 Oct:* **Current year and current term can disagree (QA-236).** Making another year current, or unticking "current" on a year, leaves the current term in the old year. Confirmed in the browser 22 Oct.
+- *Fixed 25 Oct:* **The current term can be unticked, leaving none (QA-237).** It saves with "Term updated" and no warning.
 - *Fixed 22 Oct (QA-206):* saving "current" used to return "Internal server error" and leave two current years or terms.
 - *Fixed 24 Oct (QA-246):* the checklist no longer asks for fee types when the school has no fees module, which used to give a 403 on load and on every class save.
 - **Errors look like progress.** A failed checklist read removes the step; a failed teacher read empties the pickers silently.

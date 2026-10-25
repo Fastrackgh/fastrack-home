@@ -37,6 +37,7 @@ import { FeeMetrics } from './FeeMetrics';
 import { FeeTypesPanel } from './FeeTypesPanel';
 import { GenerateInvoicesModal } from './GenerateInvoicesModal';
 import { optionalFeeRequestsApi } from '@/features/optional-fee-requests/api';
+import type { TermInYear } from '@/features/school-setup/api';
 import { BroadcastLinksModal } from './BroadcastLinksModal';
 import { InvoiceDrawer } from './InvoiceDrawer';
 import { ModifyInvoiceModal } from './ModifyInvoiceModal';
@@ -72,7 +73,7 @@ export function FeesPage() {
 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [term, setTerm] = useState<AcademicContext | null>(null);
-  const [terms, setTerms] = useState<AcademicContext[]>([]);
+  const [terms, setTerms] = useState<TermInYear[]>([]);
   const [students, setStudents] = useState<StudentOption[]>([]);
   const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
   const [feeTypesLoading, setFeeTypesLoading] = useState(false);

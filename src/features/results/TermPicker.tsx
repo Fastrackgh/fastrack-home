@@ -2,23 +2,24 @@
 
 import { useEffect, useState } from 'react';
 import { Select } from '@mantine/core';
-import { setupApi, type AcademicTerm } from '@/features/school-setup/api';
+import { isDated, setupApi, termOption, type TermInYear } from '@/features/school-setup/api';
 import { errorMessage } from '@/lib/api-client';
-
-export type TermOption = AcademicTerm & { yearLabel: string };
 
 /** Every term of every year, choosing the current one first; `error` when they can't load. */
 export function useTerms() {
-  const [terms, setTerms] = useState<TermOption[] | null>(null);
+  const [terms, setTerms] = useState<TermInYear[] | null>(null);
   const [termId, setTermId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   useEffect(() => {
     setupApi
-      .listYears()
-      .then((years) => {
-        const list = years.flatMap((y) => y.terms.map((t) => ({ ...t, yearLabel: y.yearLabel })));
+      .listTerms()
+      .then((list) => {
         setTerms(list);
-        setTermId((current) => current ?? list.find((t) => t.isCurrent)?.id ?? list[0]?.id ?? null);
+        // Marks and reports need a dated term, so an undated one is never the default.
+        setTermId(
+          (current) =>
+            current ?? list.find((t) => t.isCurrent)?.termId ?? list.find(isDated)?.termId ?? null,
+        );
       })
       .catch((err) => setError(errorMessage(err, 'Could not load the terms.')));
   }, []);
@@ -30,22 +31,19 @@ export function TermPicker({
   termId,
   onChange,
 }: {
-  terms: TermOption[] | null;
+  terms: TermInYear[] | null;
   termId: string | null;
   onChange: (termId: string) => void;
 }) {
   return (
     <Select
       label="Term"
-      data={(terms ?? []).map((t) => ({
-        value: t.id,
-        label: `${t.termLabel}, ${t.yearLabel}${t.isCurrent ? ' (current)' : ''}`,
-      }))}
+      data={(terms ?? []).map(termOption)}
       value={termId}
       onChange={(v) => v && onChange(v)}
       allowDeselect={false}
       radius="md"
-      w={280}
+      w={320}
     />
   );
 }

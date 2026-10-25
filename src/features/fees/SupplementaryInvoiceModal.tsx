@@ -14,7 +14,8 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '@/lib/api-client';
-import { feesApi, type AcademicContext, type FeeType } from './api';
+import { termOption, type TermInYear } from '@/features/school-setup/api';
+import { feesApi, type FeeType } from './api';
 import { toPesewas } from './money';
 
 type Target = 'school' | 'class' | 'student';
@@ -32,7 +33,7 @@ export function SupplementaryInvoiceModal({
   onClose,
   onGenerated,
 }: {
-  terms: AcademicContext[];
+  terms: TermInYear[];
   currentTermId: string | null;
   feeTypes: FeeType[];
   classOptions: { value: string; label: string }[];
@@ -99,10 +100,7 @@ export function SupplementaryInvoiceModal({
           <Group grow align="flex-start">
             <Select
               label="Term"
-              data={terms.map((t) => ({
-                value: t.termId,
-                label: `${t.yearLabel} · ${t.termLabel}`,
-              }))}
+              data={terms.map(termOption)}
               value={termId}
               onChange={setTermId}
               required

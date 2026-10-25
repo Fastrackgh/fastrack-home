@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '@/lib/api-client';
-import { feesApi, type AcademicContext, type Discount, type FeeType, type Page } from './api';
+import type { TermInYear } from '@/features/school-setup/api';
+import { feesApi, type Discount, type FeeType, type Page } from './api';
 import { ConfirmModal } from './ConfirmModal';
 import { DiscountModal } from './DiscountModal';
 import { discountLabel, DiscountsTab, type DiscountFilters } from './DiscountsTab';
@@ -22,7 +23,7 @@ export function DiscountsPanel({
   active: boolean;
   /** Changes when the page asks every tab to reload. */
   reloadKey: number;
-  terms: AcademicContext[];
+  terms: TermInYear[];
   currentTermId: string | null;
   studentOptions: { value: string; label: string }[];
   feeTypes: FeeType[];

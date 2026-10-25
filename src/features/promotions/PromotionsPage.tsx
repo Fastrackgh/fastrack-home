@@ -23,7 +23,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { ArrowLeft, ArrowUpCircle, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
 
-import { setupApi, type AcademicTerm } from '@/features/school-setup/api';
+import { setupApi, termOption, type TermInYear } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { APP_ROUTES } from '@/lib/rbac';
 import { errorMessage } from '@/lib/api-client';
@@ -47,10 +47,6 @@ interface Plan {
   kept: Set<string>;
 }
 
-interface TermOption extends AcademicTerm {
-  yearLabel: string;
-}
-
 const defaultTarget = (c: PromotionClass): string | null => {
   if (c.pupilCount === 0) return SKIP;
   if (c.suggestion.action === 'graduate') return GRADUATE;
@@ -58,15 +54,18 @@ const defaultTarget = (c: PromotionClass): string | null => {
   return null;
 };
 
-/** Every term in date order, so "next term" is simply the one after the current. */
-const flattenTerms = (years: Awaited<ReturnType<typeof setupApi.listYears>>): TermOption[] =>
-  years
-    .flatMap((year) => year.terms.map((term) => ({ ...term, yearLabel: year.yearLabel })))
-    .sort((a, b) => a.startDate.localeCompare(b.startDate));
+/**
+ * Every term oldest first (years by start date, terms by number), so "next
+ * term" is the one after the current. Undated terms keep their place.
+ */
+const termsInOrder = (terms: TermInYear[]) => {
+  const years = [...new Set(terms.map((t) => t.yearId))].reverse();
+  return years.flatMap((yearId) => terms.filter((t) => t.yearId === yearId));
+};
 
 export function PromotionsPage() {
   const [classes, setClasses] = useState<PromotionClass[] | null>(null);
-  const [terms, setTerms] = useState<TermOption[]>([]);
+  const [terms, setTerms] = useState<TermInYear[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [plans, setPlans] = useState<Record<string, Plan>>({});
   const [termId, setTermId] = useState<string | null>(null);
@@ -84,8 +83,8 @@ export function PromotionsPage() {
     setError(null);
     setClasses(null);
     try {
-      const [preview, years] = await Promise.all([promotionsApi.preview(), setupApi.listYears()]);
-      const allTerms = flattenTerms(years);
+      const [preview, listed] = await Promise.all([promotionsApi.preview(), setupApi.listTerms()]);
+      const allTerms = termsInOrder(listed);
       const current = allTerms.findIndex((t) => t.isCurrent);
       setClasses(preview);
       setTerms(allTerms);
@@ -94,8 +93,9 @@ export function PromotionsPage() {
           preview.map((c) => [c.classId, { target: defaultTarget(c), kept: new Set() }]),
         ),
       );
-      // The next term after the current one; with no current or no next term, the user picks.
-      setTermId(current >= 0 && allTerms[current + 1] ? allTerms[current + 1].id : null);
+      // The next term after the current one, once it has dates; otherwise the user picks.
+      const next = current >= 0 ? allTerms[current + 1] : undefined;
+      setTermId(next?.datesSet ? next.termId : null);
     } catch (err) {
       setError(errorMessage(err, 'Could not load the classes.'));
     }
@@ -189,8 +189,8 @@ export function PromotionsPage() {
   };
 
   const termLabel = (id: string | null) => {
-    const term = terms.find((t) => t.id === id);
-    return term ? `${term.termLabel}, ${term.yearLabel}` : '';
+    const term = terms.find((t) => t.termId === id);
+    return term ? `${term.yearLabel} · ${term.termLabel}` : '';
   };
 
   const back = (
@@ -303,10 +303,7 @@ export function PromotionsPage() {
                 label="Start in term"
                 description="The term pupils begin in their new class"
                 placeholder="Pick a term"
-                data={terms.map((t) => ({
-                  value: t.id,
-                  label: `${t.termLabel}, ${t.yearLabel}${t.isCurrent ? ' (current)' : ''}`,
-                }))}
+                data={terms.map(termOption)}
                 value={termId}
                 onChange={setTermId}
                 required

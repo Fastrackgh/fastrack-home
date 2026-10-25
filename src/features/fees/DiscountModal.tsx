@@ -16,13 +16,8 @@ import {
 import { notifications } from '@mantine/notifications';
 import { Info } from 'lucide-react';
 import { errorMessage } from '@/lib/api-client';
-import {
-  DISCOUNT_TYPES,
-  feesApi,
-  type AcademicContext,
-  type DiscountType,
-  type FeeType,
-} from './api';
+import { termOption, type TermInYear } from '@/features/school-setup/api';
+import { DISCOUNT_TYPES, feesApi, type DiscountType, type FeeType } from './api';
 import { toPesewas } from './money';
 
 const WHOLE_BILL = 'all';
@@ -39,7 +34,7 @@ export function DiscountModal({
 }: {
   studentOptions: { value: string; label: string }[];
   feeTypes: FeeType[];
-  terms: AcademicContext[];
+  terms: TermInYear[];
   initialTermId: string | null;
   onClose: () => void;
   onSaved: () => void;
@@ -127,13 +122,7 @@ export function DiscountModal({
             <Grid.Col span={{ base: 12, sm: 6 }}>
               <Select
                 label="Term"
-                data={[
-                  ...terms.map((t) => ({
-                    value: t.termId,
-                    label: `${t.yearLabel} · ${t.termLabel}`,
-                  })),
-                  { value: EVERY_TERM, label: 'Every term' },
-                ]}
+                data={[...terms.map(termOption), { value: EVERY_TERM, label: 'Every term' }]}
                 value={termId}
                 onChange={(v) => setTermId(v ?? EVERY_TERM)}
                 allowDeselect={false}

@@ -1,4 +1,4 @@
-import { setupApi } from '@/features/school-setup/api';
+import { setupApi, type DatedTerm, type TermInYear } from '@/features/school-setup/api';
 import { apiClient } from '@/lib/api-client';
 
 /** Values of the backend's `SchoolEventType` enum. */
@@ -74,14 +74,8 @@ export interface SchoolDays {
   schoolDays: number;
 }
 
-export interface Term {
-  termId: string;
-  termLabel: string;
-  yearLabel: string;
-  startDate: string;
-  endDate: string;
-  isCurrent: boolean;
-}
+/** The term the calendar shows; only a dated term has months to draw. */
+export type Term = DatedTerm;
 
 export interface SchoolClass {
   id: string;
@@ -135,8 +129,8 @@ export const calendarApi = {
   async deleteEvent(id: string) {
     await apiClient.delete(`${BASE}/events/${encodeURIComponent(id)}`);
   },
-  /** Every term of every academic year, newest year first. */
-  async listTerms(): Promise<Term[]> {
+  /** Every term of every academic year, newest year first, undated ones included. */
+  async listTerms(): Promise<TermInYear[]> {
     return setupApi.listTerms();
   },
   /** The school's current term id, or null when none is set up. */

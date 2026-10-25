@@ -17,6 +17,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { CalendarDays, List, MapPin, Pencil, PlusCircle, Trash2 } from 'lucide-react';
+import { isDated, termOption, type TermInYear } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/api-client';
@@ -43,7 +44,7 @@ export function CalendarPage() {
   const { can } = useAuth();
   const canManage = can('calendar:manage');
 
-  const [terms, setTerms] = useState<Term[]>([]);
+  const [terms, setTerms] = useState<TermInYear[]>([]);
   const [termId, setTermId] = useState<string | null>(null);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [classId, setClassId] = useState<string | null>(null);
@@ -57,7 +58,8 @@ export function CalendarPage() {
   /** Set when loading failed, so a failure never reads as an empty calendar. */
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const term = terms.find((t) => t.termId === termId) ?? null;
+  const picked = terms.find((t) => t.termId === termId);
+  const term: Term | null = picked && isDated(picked) ? picked : null;
   const months = useMemo(() => (term ? monthsBetween(term.startDate, term.endDate) : []), [term]);
 
   const loadSetup = useCallback(() => {
@@ -67,8 +69,9 @@ export function CalendarPage() {
       .then(([allTerms, currentId, allClasses]) => {
         setTerms(allTerms);
         setClasses(allClasses);
-        setTermId(currentId ?? allTerms[0]?.termId ?? null);
-        if (!currentId && allTerms.length === 0) setLoading(false);
+        const firstDated = allTerms.find(isDated)?.termId ?? null;
+        setTermId(currentId ?? firstDated);
+        if (!currentId && !firstDated) setLoading(false);
       })
       .catch((err) => {
         setLoadError(errorMessage(err, 'Could not load the calendar.'));
@@ -113,10 +116,7 @@ export function CalendarPage() {
     value: c.id,
     label: `${c.className} (${c.classCode})`,
   }));
-  const termOptions = terms.map((t) => ({
-    value: t.termId,
-    label: `${t.yearLabel} · ${t.termLabel}${t.isCurrent ? ' (current)' : ''}`,
-  }));
+  const termOptions = terms.map(termOption);
   const remove = async (event: SchoolEvent) => {
     try {
       await calendarApi.deleteEvent(event.id);

@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Button, Group, Modal, NumberInput, Stack, Switch, TextInput } from '@mantine/core';
+import { Button, Group, Modal, NumberInput, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '@/lib/api-client';
 import { type DatesInput } from './api';
@@ -20,6 +20,7 @@ export function DatesModal({
   initial,
   withSequence = false,
   bounds,
+  note,
   onClose,
   onSubmit,
 }: {
@@ -30,6 +31,8 @@ export function DatesModal({
   withSequence?: boolean;
   /** A term must fall inside its year. */
   bounds?: { startDate: string; endDate: string };
+  /** A line under the dates, e.g. what adding a year creates. */
+  note?: string;
   onClose: () => void;
   onSubmit: (value: DatesValue) => Promise<void>;
 }) {
@@ -38,6 +41,8 @@ export function DatesModal({
   const [termSequence, setTermSequence] = useState<number | string>(initial?.termSequence ?? 1);
   const [isCurrent, setIsCurrent] = useState(initial?.isCurrent ?? false);
   const [saving, setSaving] = useState(false);
+  // The backend refuses to untick the current one; another must be made current.
+  const alreadyCurrent = !!initial?.isCurrent;
 
   const invalid =
     !startDate ||
@@ -106,10 +111,20 @@ export function DatesModal({
               radius="md"
             />
           </Group>
+          {note && (
+            <Text size="sm" c="dimmed">
+              {note}
+            </Text>
+          )}
           <Switch
             label={withSequence ? 'This is the current term' : 'This is the current academic year'}
-            description="Bills, attendance and the calendar open on the current one. Only one can be current."
+            description={
+              alreadyCurrent
+                ? `To change it, make another ${withSequence ? 'term' : 'year'} current instead.`
+                : 'Bills, attendance and the calendar open on the current one. Only one can be current.'
+            }
             checked={isCurrent}
+            disabled={alreadyCurrent}
             onChange={(e) => setIsCurrent(e.currentTarget.checked)}
             color="fastrackRed"
           />

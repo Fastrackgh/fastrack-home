@@ -4,7 +4,8 @@ import { useState } from 'react';
 import { Button, Group, Modal, SegmentedControl, Select, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '@/lib/api-client';
-import { feesApi, type AcademicContext } from './api';
+import { termOption, type TermInYear } from '@/features/school-setup/api';
+import { feesApi } from './api';
 
 type Channel = 'SMS' | 'EMAIL' | 'BOTH';
 
@@ -15,7 +16,7 @@ export function BroadcastLinksModal({
   classOptions,
   onClose,
 }: {
-  terms: AcademicContext[];
+  terms: TermInYear[];
   currentTermId: string | null;
   classOptions: { value: string; label: string }[];
   onClose: () => void;
@@ -60,7 +61,7 @@ export function BroadcastLinksModal({
         </Text>
         <Select
           label="Term"
-          data={terms.map((t) => ({ value: t.termId, label: `${t.yearLabel} · ${t.termLabel}` }))}
+          data={terms.map(termOption)}
           value={termId}
           onChange={setTermId}
           required

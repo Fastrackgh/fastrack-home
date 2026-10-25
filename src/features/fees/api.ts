@@ -1,4 +1,4 @@
-import { setupApi } from '@/features/school-setup/api';
+import { setupApi, type TermInYear } from '@/features/school-setup/api';
 import { apiClient, PageMeta } from '@/lib/api-client';
 import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { toCedis, toPesewas, type Pesewas } from './money';
@@ -435,7 +435,7 @@ export const feesApi = {
     return (await apiClient.get<StudentOption[]>('/schools/me/students?limit=100')).data ?? [];
   },
   /** Every term of every academic year, newest year first. */
-  async listTerms(): Promise<AcademicContext[]> {
+  async listTerms(): Promise<TermInYear[]> {
     return setupApi.listTerms();
   },
   /** The current year and term, or null when either is not set up. */

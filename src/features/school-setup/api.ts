@@ -6,9 +6,11 @@ export interface AcademicTerm {
   academicYearId: string;
   termSequence: number;
   termLabel: string;
-  /** YYYY-MM-DD. */
-  startDate: string;
-  endDate: string;
+  /** YYYY-MM-DD; null until the school sets the period's dates. */
+  startDate: string | null;
+  endDate: string | null;
+  /** False for a period created with its year and not dated yet; it can't be used until it is. */
+  datesSet: boolean;
   isCurrent: boolean;
 }
 
@@ -19,7 +21,21 @@ export interface AcademicYear {
   startDate: string;
   endDate: string;
   isCurrent: boolean;
+  /** When the year was archived; null while it's live. Archived years are read-only. */
+  archivedAt: string | null;
   terms: AcademicTerm[];
+}
+
+/**
+ * How the school divides a year (`/term-pattern`). Applies to years created
+ * afterwards, which get their periods automatically, undated.
+ */
+export interface TermPattern {
+  /** One period, "Whole year", carrying the year's dates. */
+  wholeYear: boolean;
+  /** "Term", "Semester"…; ignored for a whole-year school. */
+  periodName: string;
+  periodCount: number;
 }
 
 /** A term with its year, as pickers and filters use it. */
@@ -27,12 +43,33 @@ export interface TermInYear {
   termId: string;
   termLabel: string;
   termSequence: number;
-  startDate: string;
-  endDate: string;
+  startDate: string | null;
+  endDate: string | null;
+  datesSet: boolean;
   isCurrent: boolean;
   yearId: string;
   yearLabel: string;
 }
+
+/** A term whose dates are set: the only kind that bills, registers or calendars can use. */
+export type DatedTerm = TermInYear & { startDate: string; endDate: string };
+
+export const isDated = (term: TermInYear): term is DatedTerm =>
+  term.datesSet && !!term.startDate && !!term.endDate;
+
+/** "2026/27 · Term 2 (current)"; every term picker uses this wording. */
+export const termName = (term: Pick<TermInYear, 'yearLabel' | 'termLabel' | 'isCurrent'>) =>
+  `${term.yearLabel} · ${term.termLabel}${term.isCurrent ? ' (current)' : ''}`;
+
+/**
+ * A term as a picker option. A period without dates can't be used for bills,
+ * attendance, marks or anything else yet, so it shows but can't be chosen.
+ */
+export const termOption = (term: TermInYear) => ({
+  value: term.termId,
+  label: term.datesSet ? termName(term) : `${termName(term)} · dates not set`,
+  disabled: !term.datesSet,
+});
 
 /** The school's current year and term. */
 export interface CurrentTerm {
@@ -205,11 +242,14 @@ const toClassSubject = (raw: Raw): ClassSubject => ({
 });
 
 export const setupApi = {
-  /** Every academic year with its terms, newest first. */
-  async listYears(): Promise<AcademicYear[]> {
+  /** Every live academic year with its terms, newest first; archived ones on request. */
+  async listYears({ includeArchived = false } = {}): Promise<AcademicYear[]> {
     const years =
-      (await apiClient.get<Omit<AcademicYear, 'terms'>[]>(`/schools/me/academic-years?${ALL}`))
-        .data ?? [];
+      (
+        await apiClient.get<Omit<AcademicYear, 'terms'>[]>(
+          `/schools/me/academic-years?${ALL}${includeArchived ? '&includeArchived=true' : ''}`,
+        )
+      ).data ?? [];
     const withTerms = await Promise.all(
       years.map(async (year) => {
         const terms =
@@ -233,6 +273,7 @@ export const setupApi = {
         termSequence: term.termSequence,
         startDate: term.startDate,
         endDate: term.endDate,
+        datesSet: term.datesSet,
         isCurrent: term.isCurrent,
         yearId: year.id,
         yearLabel: year.yearLabel,
@@ -256,6 +297,19 @@ export const setupApi = {
       termId: term.id,
       termLabel: term.termLabel,
     };
+  },
+  async getTermPattern(): Promise<TermPattern> {
+    return (await apiClient.get<TermPattern>('/schools/me/term-pattern')).data;
+  },
+  async setTermPattern(pattern: TermPattern): Promise<TermPattern> {
+    return (await apiClient.put<TermPattern>('/schools/me/term-pattern', pattern)).data;
+  },
+  /** Refused for the current year, or one that already has bills, pupils, marks… */
+  async archiveYear(yearId: string) {
+    await apiClient.post(`/schools/me/academic-years/${pathId(yearId)}/archive`);
+  },
+  async restoreYear(yearId: string) {
+    await apiClient.post(`/schools/me/academic-years/${pathId(yearId)}/restore`);
   },
   async createYear(input: DatesInput) {
     await apiClient.post('/schools/me/academic-years', input);

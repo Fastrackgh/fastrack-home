@@ -110,7 +110,7 @@ export function SetupPage() {
         tab: 'years',
       });
       list.push({
-        label: 'Add its terms and mark the current term',
+        label: 'Set its terms’ dates and mark the current term',
         done: !!current?.terms.some((t) => t.isCurrent),
         tab: 'years',
       });
@@ -202,7 +202,11 @@ export function SetupPage() {
             </Tabs.Panel>
           )}
           <Tabs.Panel value="years">
-            <YearsPanel canManage={canManageYears} onChanged={loadChecks} />
+            <YearsPanel
+              canManage={canManageYears}
+              canManageTerms={can('academic_terms:manage')}
+              onChanged={loadChecks}
+            />
           </Tabs.Panel>
           <Tabs.Panel value="departments">
             <DepartmentsPanel

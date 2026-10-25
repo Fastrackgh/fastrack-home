@@ -3,7 +3,8 @@
 import { useCallback, useEffect, useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '@/lib/api-client';
-import { feesApi, type AcademicContext, type FeeStructure, type FeeType, type Page } from './api';
+import { termOption, type TermInYear } from '@/features/school-setup/api';
+import { feesApi, type FeeStructure, type FeeType, type Page } from './api';
 import { ConfirmModal } from './ConfirmModal';
 import { EditFeeStructureModal } from './EditFeeStructureModal';
 import { FeeStructureModal } from './FeeStructureModal';
@@ -25,7 +26,7 @@ export function StructuresPanel({
   active: boolean;
   /** Changes when the page asks every tab to reload. */
   reloadKey: number;
-  terms: AcademicContext[];
+  terms: TermInYear[];
   currentTermId: string | null;
   classOptions: { value: string; label: string }[];
   feeTypes: FeeType[];
@@ -67,10 +68,7 @@ export function StructuresPanel({
     if (active) load();
   }, [active, load, reloadKey]);
 
-  const termOptions = terms.map((t) => ({
-    value: t.termId,
-    label: `${t.yearLabel} · ${t.termLabel}`,
-  }));
+  const termOptions = terms.map(termOption);
 
   return (
     <>

@@ -5,7 +5,12 @@ import { Button, Card, Group, Select, Stack, Table, Text, TextInput } from '@man
 import { notifications } from '@mantine/notifications';
 import { todayIso } from '@/features/calendar/dates';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
-import { setupApi, type SchoolClass } from '@/features/school-setup/api';
+import {
+  setupApi,
+  termOption,
+  type SchoolClass,
+  type TermInYear,
+} from '@/features/school-setup/api';
 import { errorMessage } from '@/lib/api-client';
 import {
   EXIT_STATUSES,
@@ -14,12 +19,6 @@ import {
   type StudentDetail,
   type StudentStatus,
 } from './api';
-
-interface TermOption {
-  value: string;
-  label: string;
-  isCurrent: boolean;
-}
 
 /** Class history, moving the student to another class, and recording that they left. */
 export function EnrolmentTab({
@@ -34,7 +33,7 @@ export function EnrolmentTab({
   onChanged: () => void;
 }) {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
-  const [terms, setTerms] = useState<TermOption[]>([]);
+  const [terms, setTerms] = useState<TermInYear[]>([]);
   const [targetClassId, setTargetClassId] = useState<string | null>(null);
   const [promoteTermId, setPromoteTermId] = useState<string | null>(null);
   const [exitTermId, setExitTermId] = useState<string | null>(null);
@@ -47,18 +46,11 @@ export function EnrolmentTab({
 
   useEffect(() => {
     if (!canPromote && !canExit) return;
-    Promise.all([setupApi.allClasses(), setupApi.listYears()])
-      .then(([allClasses, years]) => {
+    Promise.all([setupApi.allClasses(), setupApi.listTerms()])
+      .then(([allClasses, allTerms]) => {
         setClasses(allClasses);
-        const options = years.flatMap((y) =>
-          y.terms.map((t) => ({
-            value: t.id,
-            label: `${y.yearLabel} · ${t.termLabel}${t.isCurrent ? ' (current)' : ''}`,
-            isCurrent: t.isCurrent,
-          })),
-        );
-        setTerms(options);
-        const current = options.find((t) => t.isCurrent)?.value ?? null;
+        setTerms(allTerms);
+        const current = allTerms.find((t) => t.isCurrent)?.termId ?? null;
         setPromoteTermId(current);
         setExitTermId(current);
       })
@@ -138,7 +130,7 @@ export function EnrolmentTab({
             />
             <Select
               label="From term"
-              data={terms}
+              data={terms.map(termOption)}
               value={promoteTermId}
               onChange={setPromoteTermId}
               radius="md"
@@ -186,7 +178,7 @@ export function EnrolmentTab({
               />
               <Select
                 label="Term"
-                data={terms}
+                data={terms.map(termOption)}
                 value={exitTermId}
                 onChange={setExitTermId}
                 radius="md"

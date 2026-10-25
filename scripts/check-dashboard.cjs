@@ -838,6 +838,13 @@ check('with results on, Academic performance gives way to the live term reports'
   }
 });
 check('design columns: two or three by ratio, and switching to two keeps the middle', () => {
+  // Undated terms (made from the term pattern) show in pickers but can't be chosen.
+  const setup = load('src/features/school-setup/api.ts');
+  const t = (extra) => ({ termId: 't1', termLabel: 'Term 2', termSequence: 2, startDate: '2027-01-08', endDate: '2027-04-09', datesSet: true, isCurrent: false, yearId: 'y', yearLabel: '2026/27', ...extra });
+  assert.deepEqual(setup.termOption(t({ isCurrent: true })), { value: 't1', label: '2026/27 · Term 2 (current)', disabled: false });
+  assert.deepEqual(setup.termOption(t({ startDate: null, endDate: null, datesSet: false })), { value: 't1', label: '2026/27 · Term 2 · dates not set', disabled: true });
+  assert.equal(setup.isDated(t({ startDate: null, endDate: null, datesSet: false })), false);
+  assert.equal(setup.isDated(t()), true);
   const ops = load('src/features/document-templates/builder/layout-ops.ts');
   const cols = (ratio) => ({ id: 'c', type: 'columns', props: { ratio, gap: 16 }, children: { left: [], right: [] } });
   assert.deepEqual(ops.columnSides(cols('50-50')), ['left', 'right']);

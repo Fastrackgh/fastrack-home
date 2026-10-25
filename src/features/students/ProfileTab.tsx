@@ -69,7 +69,12 @@ export function ProfileTab({
         student.id,
         Object.fromEntries(changed.map((f) => [f, draft[f]])) as Partial<Profile>,
       );
-      notifications.show({ title: 'Student updated', message: student.fullName, color: 'green' });
+      // The name as just saved; `student` still holds the one from before.
+      const name = [draft.firstName, draft.otherName, draft.surname]
+        .map((part) => part?.trim())
+        .filter(Boolean)
+        .join(' ');
+      notifications.show({ title: 'Student updated', message: name, color: 'green' });
       onSaved();
     } catch (err) {
       notifications.show({

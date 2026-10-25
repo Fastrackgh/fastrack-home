@@ -852,6 +852,7 @@ export default function PlatformConsolePage() {
       <Drawer
         opened={drawerOpened}
         onClose={closeDrawer}
+        closeButtonProps={{ 'aria-label': 'Close modules' }}
         position="right"
         size="md"
         title={
@@ -905,6 +906,7 @@ export default function PlatformConsolePage() {
                     </Text>
                   </div>
                   <Switch
+                    aria-label={`${item.moduleName} for ${selectedSchool?.name ?? 'this school'}`}
                     checked={item.isEnabled}
                     disabled={togglingModuleId === item.moduleId}
                     onChange={() => handleToggleModule(item.moduleId, item.isEnabled)}

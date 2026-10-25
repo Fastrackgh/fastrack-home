@@ -71,8 +71,77 @@ export interface NewPlatformUser {
   phone?: string;
 }
 
+/** A school as the platform console lists it. */
+export interface SchoolItem {
+  id: string;
+  name: string;
+  code: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  logoUrl: string | null;
+  isActive: boolean;
+  createdAt: string;
+  studentsCount?: number;
+  staffCount?: number;
+}
+
+export interface PlatformAnalytics {
+  totalStudents: number;
+  activeStudents: number;
+  totalStaff: number;
+  totalSchools: number;
+  totalInvoiced: number;
+  totalCollected: number;
+  outstandingBalance: number;
+  collectionRate: number;
+  netOperatingCashflow: number;
+  attendanceRate: number;
+  staffStudentRatio: string;
+}
+
+export interface PlatformModule {
+  id: string;
+  moduleKey: string;
+  name: string;
+  description: string;
+  category: string;
+  isCore: boolean;
+}
+
+export interface NewSchool {
+  name: string;
+  code?: string;
+  address?: string;
+  phone?: string;
+  email?: string;
+  website?: string;
+}
+
 /** Super Admin calls that span every school. */
 export const platformApi = {
+  /** Every school, a full page at a time (the list endpoint returns at most 100). */
+  async listSchools(): Promise<SchoolItem[]> {
+    const rows: SchoolItem[] = [];
+    for (let page = 1; ; page++) {
+      const res = await apiClient.get<SchoolItem[], { hasNext?: boolean }>(
+        `/super-admin/schools?page=${page}&limit=100`,
+      );
+      rows.push(...(res.data ?? []));
+      if (!res.meta?.hasNext) return rows;
+    }
+  },
+  async createSchool(school: NewSchool) {
+    await apiClient.post('/super-admin/schools', school);
+  },
+  async overview() {
+    return (await apiClient.get<PlatformAnalytics>('/super-admin/analytics/overview')).data;
+  },
+  async listModules(): Promise<PlatformModule[]> {
+    return (await apiClient.get<PlatformModule[]>('/super-admin/modules?limit=50')).data ?? [];
+  },
+
   async finance() {
     return (await apiClient.get<PlatformFinance>('/super-admin/analytics/finance')).data;
   },

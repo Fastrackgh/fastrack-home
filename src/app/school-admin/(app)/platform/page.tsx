@@ -55,61 +55,17 @@ import { useAuth } from '@/lib/auth';
 import { AnalyticsPanel } from '@/features/platform/AnalyticsPanel';
 import { LoginAuditPanel } from '@/features/platform/LoginAuditPanel';
 import { PlatformUsersPanel } from '@/features/platform/PlatformUsersPanel';
-import { apiClient } from '@/lib/api-client';
 import { formatCedis } from '@/features/fees/money';
 import { formatDate } from '@/lib/format';
 import { emailInputProps } from '@/lib/email-input';
 import type { ModuleEntitlement } from '@/features/platform-schools/model';
-
-interface SchoolItem {
-  id: string;
-  name: string;
-  code: string;
-  address: string | null;
-  phone: string | null;
-  email: string | null;
-  website: string | null;
-  logoUrl: string | null;
-  isActive: boolean;
-  createdAt: string;
-  studentsCount?: number;
-  staffCount?: number;
-}
-
-interface PlatformAnalytics {
-  totalStudents: number;
-  activeStudents: number;
-  totalStaff: number;
-  totalSchools: number;
-  totalInvoiced: number;
-  totalCollected: number;
-  outstandingBalance: number;
-  collectionRate: number;
-  netOperatingCashflow: number;
-  attendanceRate: number;
-  staffStudentRatio: string;
-}
-
-interface PlatformModule {
-  id: string;
-  moduleKey: string;
-  name: string;
-  description: string;
-  category: string;
-  isCore: boolean;
-}
-
-/** Every school, a full page at a time (the list endpoint returns at most 100). */
-async function listAllSchools(): Promise<SchoolItem[]> {
-  const rows: SchoolItem[] = [];
-  for (let page = 1; ; page++) {
-    const res = await apiClient.get<SchoolItem[], { hasNext?: boolean }>(
-      `/super-admin/schools?page=${page}&limit=100`,
-    );
-    rows.push(...(res.data ?? []));
-    if (!res.meta?.hasNext) return rows;
-  }
-}
+import { platformSchoolsApi } from '@/features/platform-schools/api';
+import {
+  platformApi,
+  type PlatformAnalytics,
+  type PlatformModule,
+  type SchoolItem,
+} from '@/features/platform/api';
 
 export default function PlatformConsolePage() {
   const { user, logout } = useAuth();
@@ -147,9 +103,9 @@ export default function PlatformConsolePage() {
     setLoading(true);
     try {
       const [schoolsRes, analyticsRes, modulesRes] = await Promise.allSettled([
-        listAllSchools(),
-        apiClient.get<PlatformAnalytics>('/super-admin/analytics/overview'),
-        apiClient.get<PlatformModule[]>('/super-admin/modules?limit=50'),
+        platformApi.listSchools(),
+        platformApi.overview(),
+        platformApi.listModules(),
       ]);
 
       if (schoolsRes.status === 'fulfilled') setSchools(schoolsRes.value);
@@ -160,12 +116,9 @@ export default function PlatformConsolePage() {
             : 'Could not load the schools.'
           : null,
       );
-      if (analyticsRes.status === 'fulfilled' && analyticsRes.value.data) {
-        setAnalytics(analyticsRes.value.data);
-      }
-      if (modulesRes.status === 'fulfilled' && modulesRes.value.data) {
-        setPlatformModules(modulesRes.value.data || []);
-      }
+      if (analyticsRes.status === 'fulfilled' && analyticsRes.value)
+        setAnalytics(analyticsRes.value);
+      if (modulesRes.status === 'fulfilled') setPlatformModules(modulesRes.value);
     } catch {
       notifications.show({
         color: 'red',
@@ -188,10 +141,7 @@ export default function PlatformConsolePage() {
     setDrawerLoading(true);
     openDrawer();
     try {
-      const res = await apiClient.get<ModuleEntitlement[]>(
-        `/super-admin/modules/schools/${school.id}`,
-      );
-      setSchoolModules(res.data || []);
+      setSchoolModules(await platformSchoolsApi.listModules(school.id));
     } catch {
       notifications.show({
         color: 'red',
@@ -215,10 +165,7 @@ export default function PlatformConsolePage() {
     );
 
     try {
-      await apiClient.post(`/super-admin/modules/schools/${selectedSchool.id}/toggle`, {
-        moduleId,
-        isEnabled: nextState,
-      });
+      await platformSchoolsApi.setModule(selectedSchool.id, moduleId, nextState);
       notifications.show({
         color: 'green',
         title: 'Module Entitlement Updated',
@@ -242,9 +189,8 @@ export default function PlatformConsolePage() {
 
   // Toggle School Activation
   const handleToggleSchoolStatus = async (school: SchoolItem) => {
-    const action = school.isActive ? 'deactivate' : 'activate';
     try {
-      await apiClient.patch(`/super-admin/schools/${school.id}/${action}`, {});
+      await platformSchoolsApi.setActive(school.id, !school.isActive);
       notifications.show({
         color: 'green',
         title: `School ${school.isActive ? 'Deactivated' : 'Activated'}`,
@@ -275,7 +221,7 @@ export default function PlatformConsolePage() {
 
     setProvisionSubmitting(true);
     try {
-      await apiClient.post('/super-admin/schools', {
+      await platformApi.createSchool({
         name: newSchoolName.trim(),
         code: newSchoolCode.trim() || undefined,
         address: newSchoolAddress.trim() || undefined,

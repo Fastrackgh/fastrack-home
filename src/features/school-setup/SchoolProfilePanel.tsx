@@ -20,6 +20,7 @@ import { School, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { emailInputProps } from '@/lib/email-input';
 import { errorMessage } from '@/lib/api-client';
+import { nullableFieldSetter } from '@/lib/state';
 import { setupApi, type SchoolDetails } from './api';
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
@@ -35,6 +36,7 @@ export function SchoolProfilePanel({
   const { refreshSchool } = useAuth();
   const [school, setSchool] = useState<SchoolDetails | null>(null);
   const [draft, setDraft] = useState<SchoolDetails | null>(null);
+  const setDraftField = nullableFieldSetter(setDraft);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [logoBusy, setLogoBusy] = useState(false);
@@ -70,7 +72,7 @@ export function SchoolProfilePanel({
   const field = (key: 'name' | 'address' | 'phone' | 'email' | 'website') => ({
     value: draft[key] ?? '',
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setDraft({ ...draft, [key]: e.currentTarget.value }),
+      setDraftField(key, e.currentTarget.value),
     readOnly: !canManage,
     radius: 'md' as const,
   });

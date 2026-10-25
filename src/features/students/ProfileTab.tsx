@@ -14,6 +14,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import { todayIso } from '@/features/calendar/dates';
 import { errorMessage } from '@/lib/api-client';
+import { fieldSetter } from '@/lib/state';
 import { PROFILE_FIELDS, studentsApi, type Profile, type StudentDetail } from './api';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
@@ -30,6 +31,7 @@ export function ProfileTab({
   onSaved: () => void;
 }) {
   const [draft, setDraft] = useState<Profile>(student.profile);
+  const setDraftField = fieldSetter(setDraft);
   const [saving, setSaving] = useState(false);
 
   // The backend refuses a birth date after today (QA-209).
@@ -40,7 +42,7 @@ export function ProfileTab({
     <TextInput
       label={label}
       value={draft[field]}
-      onChange={(e) => setDraft({ ...draft, [field]: e.currentTarget.value })}
+      onChange={(e) => setDraftField(field, e.currentTarget.value)}
       readOnly={!canEdit}
       radius="md"
       {...extra}
@@ -51,7 +53,7 @@ export function ProfileTab({
       label={label}
       data={data}
       value={draft[field] || null}
-      onChange={(v) => setDraft({ ...draft, [field]: v ?? '' })}
+      onChange={(v) => setDraftField(field, v ?? '')}
       readOnly={!canEdit}
       clearable={field !== 'gender'}
       placeholder="Not recorded"
@@ -107,7 +109,7 @@ export function ProfileTab({
       <Textarea
         label="Allergies and medical notes"
         value={draft.allergiesMedicalNotes}
-        onChange={(e) => setDraft({ ...draft, allergiesMedicalNotes: e.currentTarget.value })}
+        onChange={(e) => setDraftField('allergiesMedicalNotes', e.currentTarget.value)}
         readOnly={!canEdit}
         autosize
         minRows={2}

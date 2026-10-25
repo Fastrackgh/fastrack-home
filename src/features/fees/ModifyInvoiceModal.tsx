@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, Group, Modal, NumberInput, Stack, Table, Text, Textarea } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '@/lib/api-client';
+import { fieldSetter } from '@/lib/state';
 import { feesApi, type Invoice } from './api';
 import { formatGhs, sumPesewas, toCedis, toPesewas } from './money';
 
@@ -24,6 +25,7 @@ export function ModifyInvoiceModal({
   const [amounts, setAmounts] = useState<Record<string, number | string>>(
     Object.fromEntries(items.map((item) => [item.id, toCedis(item.amount)])),
   );
+  const setAmountsField = fieldSetter(setAmounts);
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -91,7 +93,7 @@ export function ModifyInvoiceModal({
                       min={0}
                       decimalScale={2}
                       value={amounts[item.id]}
-                      onChange={(v) => setAmounts({ ...amounts, [item.id]: v })}
+                      onChange={(v) => setAmountsField(item.id, v)}
                       prefix="GHS "
                       radius="md"
                     />

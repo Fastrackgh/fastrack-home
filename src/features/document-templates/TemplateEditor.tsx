@@ -23,6 +23,7 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { Copy, Eye, FilePlus2, Rocket, Save, Upload } from 'lucide-react';
 import { errorMessage } from '@/lib/api-client';
+import { nullableFieldSetter } from '@/lib/state';
 import {
   KIND_LABELS,
   type DocumentKind,
@@ -86,6 +87,7 @@ export function TemplateEditor({
   const [samples, setSamples] = useState<TemplateSample[]>([]);
   const [selected, setSelected] = useState<DocumentTemplate | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
+  const setDraftField = nullableFieldSetter(setDraft);
   const [invoiceId, setInvoiceId] = useState('');
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -411,7 +413,7 @@ export function TemplateEditor({
                 label="Name"
                 value={draft.name}
                 readOnly={!editable}
-                onChange={(e) => setDraft({ ...draft, name: e.currentTarget.value })}
+                onChange={(e) => setDraftField('name', e.currentTarget.value)}
                 mb="xs"
               />
               <Tabs defaultValue="html">
@@ -429,7 +431,7 @@ export function TemplateEditor({
                     styles={codeStyles}
                     value={draft.html}
                     readOnly={!editable}
-                    onChange={(e) => setDraft({ ...draft, html: e.currentTarget.value })}
+                    onChange={(e) => setDraftField('html', e.currentTarget.value)}
                   />
                 </Tabs.Panel>
                 <Tabs.Panel value="css" pt="xs">
@@ -440,7 +442,7 @@ export function TemplateEditor({
                     styles={codeStyles}
                     value={draft.css}
                     readOnly={!editable}
-                    onChange={(e) => setDraft({ ...draft, css: e.currentTarget.value })}
+                    onChange={(e) => setDraftField('css', e.currentTarget.value)}
                   />
                 </Tabs.Panel>
                 <Tabs.Panel value="settings" pt="xs">
@@ -454,7 +456,7 @@ export function TemplateEditor({
                     styles={codeStyles}
                     value={draft.settingsText}
                     readOnly={!editable}
-                    onChange={(e) => setDraft({ ...draft, settingsText: e.currentTarget.value })}
+                    onChange={(e) => setDraftField('settingsText', e.currentTarget.value)}
                   />
                 </Tabs.Panel>
                 <Tabs.Panel value="fields" pt="xs">

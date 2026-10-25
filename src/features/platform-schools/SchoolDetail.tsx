@@ -48,6 +48,7 @@ import type {
   SchoolProfileUpdate,
 } from './model';
 import { SchoolDesigns } from '@/features/document-templates';
+import { fieldSetter } from '@/lib/state';
 import { AssignPrincipalModal } from './AssignPrincipalModal';
 import styles from './SchoolDetail.module.css';
 
@@ -721,6 +722,7 @@ function ProfileEditor({
     email: school.email ?? '',
     website: school.website ?? '',
   });
+  const setDraftField = fieldSetter(setDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fields: [keyof SchoolProfileUpdate, string][] = [
@@ -772,7 +774,7 @@ function ProfileEditor({
               label={label}
               required={key === 'name' || key === 'code'}
               value={draft[key]}
-              onChange={(e) => setDraft({ ...draft, [key]: e.currentTarget.value })}
+              onChange={(e) => setDraftField(key, e.currentTarget.value)}
             />
           ))}
         </div>

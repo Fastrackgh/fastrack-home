@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Button, Group, Modal, Select, SimpleGrid, Stack, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '@/lib/api-client';
+import { fieldSetter } from '@/lib/state';
 import { staffApi, type StaffCategory, type StaffMember, type StaffUpdate } from './api';
 
 const fromMember = (m: StaffMember): StaffUpdate => ({
@@ -30,6 +31,7 @@ export function EditStaffModal({
   // Job details exist for teachers only; the backend ignores them for other roles.
   const isTeacher = member.role === 'TEACHER';
   const [draft, setDraft] = useState<StaffUpdate>(initial);
+  const setDraftField = fieldSetter(setDraft);
   const [saving, setSaving] = useState(false);
 
   const changedKeys = (Object.keys(draft) as (keyof StaffUpdate)[]).filter(
@@ -40,7 +42,7 @@ export function EditStaffModal({
     <TextInput
       label={label}
       value={draft[key]}
-      onChange={(e) => setDraft({ ...draft, [key]: e.currentTarget.value })}
+      onChange={(e) => setDraftField(key, e.currentTarget.value)}
       maxLength={max}
       required={key === 'firstName' || key === 'lastName'}
       radius="md"
@@ -104,7 +106,7 @@ export function EditStaffModal({
                 { value: 'Non-Teaching', label: 'Non-teaching' },
               ]}
               value={draft.staffCategory}
-              onChange={(v) => setDraft({ ...draft, staffCategory: (v as StaffCategory) ?? null })}
+              onChange={(v) => setDraftField('staffCategory', (v as StaffCategory) ?? null)}
               placeholder="Not set"
               radius="md"
             />

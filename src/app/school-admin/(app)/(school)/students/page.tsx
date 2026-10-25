@@ -52,6 +52,7 @@ import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
 import { emailInputProps } from '@/lib/email-input';
 import { APP_ROUTES, canAccessRoute } from '@/lib/rbac';
+import { fieldSetter } from '@/lib/state';
 
 interface StudentListItem {
   id: string;
@@ -170,6 +171,8 @@ export default function StudentsPage() {
   const [formError, setFormError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState(initialFormData);
+
+  const setFormDataField = fieldSetter(setFormData);
 
   // Fetch initial classes and academic context
   useEffect(() => {
@@ -853,9 +856,7 @@ export default function StudentsPage() {
                         placeholder="e.g. Kwame"
                         required
                         value={formData.firstName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, firstName: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('firstName', e.currentTarget.value)}
                         radius="md"
                         id="modal-first-name"
                       />
@@ -866,9 +867,7 @@ export default function StudentsPage() {
                         placeholder="e.g. Mensah"
                         required
                         value={formData.surname}
-                        onChange={(e) =>
-                          setFormData({ ...formData, surname: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('surname', e.currentTarget.value)}
                         radius="md"
                         id="modal-surname"
                       />
@@ -878,9 +877,7 @@ export default function StudentsPage() {
                         label="Middle / Other Name"
                         placeholder="e.g. Kofi"
                         value={formData.otherName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, otherName: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('otherName', e.currentTarget.value)}
                         radius="md"
                         id="modal-other-name"
                       />
@@ -890,7 +887,7 @@ export default function StudentsPage() {
                         label="Gender"
                         data={['Male', 'Female']}
                         value={formData.gender || null}
-                        onChange={(v) => setFormData({ ...formData, gender: v ?? '' })}
+                        onChange={(v) => setFormDataField('gender', v ?? '')}
                         radius="md"
                         id="modal-gender"
                       />
@@ -902,9 +899,7 @@ export default function StudentsPage() {
                         max={todayIso()}
                         error={birthInFuture() ? BIRTH_IN_FUTURE : undefined}
                         value={formData.birthDate}
-                        onChange={(e) =>
-                          setFormData({ ...formData, birthDate: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('birthDate', e.currentTarget.value)}
                         radius="md"
                         id="modal-birth-date"
                       />
@@ -914,9 +909,7 @@ export default function StudentsPage() {
                         label="National ID / Ghana Card"
                         placeholder="e.g. GHA-723456789-1"
                         value={formData.nationalId}
-                        onChange={(e) =>
-                          setFormData({ ...formData, nationalId: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('nationalId', e.currentTarget.value)}
                         radius="md"
                         id="modal-national-id"
                       />
@@ -926,9 +919,7 @@ export default function StudentsPage() {
                         label="Nationality"
                         placeholder="e.g. Ghanaian"
                         value={formData.nationality}
-                        onChange={(e) =>
-                          setFormData({ ...formData, nationality: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('nationality', e.currentTarget.value)}
                         radius="md"
                         id="modal-nationality"
                       />
@@ -938,7 +929,7 @@ export default function StudentsPage() {
                         label="Religion"
                         data={['Christian', 'Muslim', 'Traditional', 'Other']}
                         value={formData.religion || null}
-                        onChange={(v) => setFormData({ ...formData, religion: v ?? '' })}
+                        onChange={(v) => setFormDataField('religion', v ?? '')}
                         radius="md"
                         id="modal-religion"
                       />
@@ -948,9 +939,7 @@ export default function StudentsPage() {
                         label="Residential Address"
                         placeholder="e.g. Hse 14, Airport Residential, Accra"
                         value={formData.residence}
-                        onChange={(e) =>
-                          setFormData({ ...formData, residence: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('residence', e.currentTarget.value)}
                         radius="md"
                         id="modal-residence"
                       />
@@ -960,9 +949,7 @@ export default function StudentsPage() {
                         label="Digital Address (GhanaPost GPS)"
                         placeholder="e.g. GA-183-9020"
                         value={formData.digitalAddress}
-                        onChange={(e) =>
-                          setFormData({ ...formData, digitalAddress: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('digitalAddress', e.currentTarget.value)}
                         radius="md"
                         id="modal-digital-address"
                       />
@@ -991,7 +978,7 @@ export default function StudentsPage() {
                         placeholder="Assign to classroom cohort"
                         data={modalClassOptions}
                         value={formData.classId}
-                        onChange={(v) => setFormData({ ...formData, classId: v || '' })}
+                        onChange={(v) => setFormDataField('classId', v || '')}
                         required
                         radius="md"
                         id="modal-class-select"
@@ -1010,7 +997,7 @@ export default function StudentsPage() {
                           'Senior High (Business)',
                         ]}
                         value={formData.department || null}
-                        onChange={(v) => setFormData({ ...formData, department: v ?? '' })}
+                        onChange={(v) => setFormDataField('department', v ?? '')}
                         radius="md"
                         id="modal-department"
                       />
@@ -1020,9 +1007,7 @@ export default function StudentsPage() {
                         label="Previous School Attended"
                         placeholder="e.g. Morning Star Preparatory"
                         value={formData.previousSchool}
-                        onChange={(e) =>
-                          setFormData({ ...formData, previousSchool: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('previousSchool', e.currentTarget.value)}
                         radius="md"
                         id="modal-previous-school"
                       />
@@ -1032,7 +1017,7 @@ export default function StudentsPage() {
                         label="Boarding Status"
                         data={['Day', 'Boarding']}
                         value={formData.boardingStatus || null}
-                        onChange={(v) => setFormData({ ...formData, boardingStatus: v ?? '' })}
+                        onChange={(v) => setFormDataField('boardingStatus', v ?? '')}
                         radius="md"
                         id="modal-boarding-status"
                       />
@@ -1049,7 +1034,7 @@ export default function StudentsPage() {
                         ]}
                         value={formData.transportRoute}
                         onChange={(v) =>
-                          setFormData({ ...formData, transportRoute: v || 'None (Self Transport)' })
+                          setFormDataField('transportRoute', v || 'None (Self Transport)')
                         }
                         radius="md"
                         id="modal-transport-route"
@@ -1061,7 +1046,7 @@ export default function StudentsPage() {
                         placeholder="e.g. Admitted on merit; strong literacy"
                         value={formData.entranceExamNotes}
                         onChange={(e) =>
-                          setFormData({ ...formData, entranceExamNotes: e.currentTarget.value })
+                          setFormDataField('entranceExamNotes', e.currentTarget.value)
                         }
                         radius="md"
                         id="modal-exam-notes"
@@ -1089,9 +1074,7 @@ export default function StudentsPage() {
                         label="Mother's Full Name"
                         placeholder="e.g. Akosua Mensah"
                         value={formData.motherName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, motherName: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('motherName', e.currentTarget.value)}
                         radius="md"
                         id="modal-mother-name"
                       />
@@ -1101,9 +1084,7 @@ export default function StudentsPage() {
                         label="Mother's Phone Contact"
                         placeholder="e.g. +233244111222"
                         value={formData.motherContact}
-                        onChange={(e) =>
-                          setFormData({ ...formData, motherContact: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('motherContact', e.currentTarget.value)}
                         radius="md"
                         id="modal-mother-phone"
                       />
@@ -1115,9 +1096,7 @@ export default function StudentsPage() {
                         {...emailInputProps}
                         autoComplete="off"
                         value={formData.motherEmail}
-                        onChange={(e) =>
-                          setFormData({ ...formData, motherEmail: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('motherEmail', e.currentTarget.value)}
                         radius="md"
                         id="modal-mother-email"
                       />
@@ -1128,7 +1107,7 @@ export default function StudentsPage() {
                         placeholder="e.g. Chartered Accountant"
                         value={formData.motherOccupation}
                         onChange={(e) =>
-                          setFormData({ ...formData, motherOccupation: e.currentTarget.value })
+                          setFormDataField('motherOccupation', e.currentTarget.value)
                         }
                         radius="md"
                         id="modal-mother-occupation"
@@ -1144,9 +1123,7 @@ export default function StudentsPage() {
                         label="Father's Full Name"
                         placeholder="e.g. Kojo Mensah"
                         value={formData.fatherName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, fatherName: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('fatherName', e.currentTarget.value)}
                         radius="md"
                         id="modal-father-name"
                       />
@@ -1156,9 +1133,7 @@ export default function StudentsPage() {
                         label="Father's Phone Contact"
                         placeholder="e.g. +233244333444"
                         value={formData.fatherContact}
-                        onChange={(e) =>
-                          setFormData({ ...formData, fatherContact: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('fatherContact', e.currentTarget.value)}
                         radius="md"
                         id="modal-father-phone"
                       />
@@ -1170,9 +1145,7 @@ export default function StudentsPage() {
                         {...emailInputProps}
                         autoComplete="off"
                         value={formData.fatherEmail}
-                        onChange={(e) =>
-                          setFormData({ ...formData, fatherEmail: e.currentTarget.value })
-                        }
+                        onChange={(e) => setFormDataField('fatherEmail', e.currentTarget.value)}
                         radius="md"
                         id="modal-father-email"
                       />
@@ -1183,7 +1156,7 @@ export default function StudentsPage() {
                         placeholder="e.g. Civil Engineer"
                         value={formData.fatherOccupation}
                         onChange={(e) =>
-                          setFormData({ ...formData, fatherOccupation: e.currentTarget.value })
+                          setFormDataField('fatherOccupation', e.currentTarget.value)
                         }
                         radius="md"
                         id="modal-father-occupation"
@@ -1212,7 +1185,7 @@ export default function StudentsPage() {
                         label="Blood Group"
                         data={['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-']}
                         value={formData.bloodGroup || null}
-                        onChange={(v) => setFormData({ ...formData, bloodGroup: v ?? '' })}
+                        onChange={(v) => setFormDataField('bloodGroup', v ?? '')}
                         radius="md"
                         id="modal-blood-group"
                       />
@@ -1222,7 +1195,7 @@ export default function StudentsPage() {
                         label="Genotype"
                         data={['AA', 'AS', 'SS', 'AC']}
                         value={formData.genotype || null}
-                        onChange={(v) => setFormData({ ...formData, genotype: v ?? '' })}
+                        onChange={(v) => setFormDataField('genotype', v ?? '')}
                         radius="md"
                         id="modal-genotype"
                       />
@@ -1234,7 +1207,7 @@ export default function StudentsPage() {
                         minRows={2}
                         value={formData.allergiesMedicalNotes}
                         onChange={(e) =>
-                          setFormData({ ...formData, allergiesMedicalNotes: e.currentTarget.value })
+                          setFormDataField('allergiesMedicalNotes', e.currentTarget.value)
                         }
                         radius="md"
                         id="modal-allergies-notes"
@@ -1255,7 +1228,7 @@ export default function StudentsPage() {
                         placeholder="e.g. Uncle Kwame Mensah"
                         value={formData.emergencyContactName}
                         onChange={(e) =>
-                          setFormData({ ...formData, emergencyContactName: e.currentTarget.value })
+                          setFormDataField('emergencyContactName', e.currentTarget.value)
                         }
                         radius="md"
                         id="modal-emergency-name"
@@ -1267,7 +1240,7 @@ export default function StudentsPage() {
                         placeholder="e.g. +233244999888"
                         value={formData.emergencyContactPhone}
                         onChange={(e) =>
-                          setFormData({ ...formData, emergencyContactPhone: e.currentTarget.value })
+                          setFormDataField('emergencyContactPhone', e.currentTarget.value)
                         }
                         radius="md"
                         id="modal-emergency-phone"
@@ -1286,9 +1259,7 @@ export default function StudentsPage() {
                           'Family Friend',
                         ]}
                         value={formData.emergencyContactRelationship || null}
-                        onChange={(v) =>
-                          setFormData({ ...formData, emergencyContactRelationship: v ?? '' })
-                        }
+                        onChange={(v) => setFormDataField('emergencyContactRelationship', v ?? '')}
                         radius="md"
                         id="modal-emergency-relationship"
                       />

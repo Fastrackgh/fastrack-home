@@ -21,6 +21,7 @@ import { notifications } from '@mantine/notifications';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import { emailInputProps } from '@/lib/email-input';
 import { errorMessage } from '@/lib/api-client';
+import { fieldSetter } from '@/lib/state';
 import {
   GUARDIAN_FIELDS,
   accountsSharingContact,
@@ -86,6 +87,7 @@ export function GuardiansTab({
   // Redacted contacts arrive blank: never let them be saved over real ones.
   const editable = canEdit && canReadSensitive;
   const [draft, setDraft] = useState<Guardians>(student.guardians);
+  const setDraftField = fieldSetter(setDraft);
   const [saving, setSaving] = useState(false);
   const [linking, setLinking] = useState<'mother' | 'father' | null>(null);
   const [removing, setRemoving] = useState<LinkedParent | null>(null);
@@ -97,7 +99,7 @@ export function GuardiansTab({
     <TextInput
       label={label}
       value={draft[field]}
-      onChange={(e) => setDraft({ ...draft, [field]: e.currentTarget.value })}
+      onChange={(e) => setDraftField(field, e.currentTarget.value)}
       readOnly={!editable}
       radius="md"
       {...extra}

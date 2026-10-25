@@ -4,6 +4,7 @@ import { useMemo } from 'react';
 import { Alert } from '@mantine/core';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
+import { hasModule } from '@/lib/rbac';
 import { documentTemplatesApi } from './api';
 import { TemplateBuilder } from './builder/TemplateBuilder';
 
@@ -20,7 +21,11 @@ export function DocumentTemplatesPage() {
         subtitle="Design how fee bills and terminal reports look to parents: pick a starting design, arrange the sections, then publish."
       />
       {api ? (
-        <TemplateBuilder api={api} canManage={can('document_templates:manage')} />
+        <TemplateBuilder
+          api={api}
+          canManage={can('document_templates:manage')}
+          feesEnabled={!!user && hasModule(user, 'fees')}
+        />
       ) : (
         <Alert color="red">Your account is not linked to a school.</Alert>
       )}

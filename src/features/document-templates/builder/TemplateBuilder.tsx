@@ -89,11 +89,14 @@ export function TemplateBuilder({
   api,
   canManage,
   isStaff = false,
+  feesEnabled = true,
 }: {
   api: DocumentTemplatesApi;
   canManage: boolean;
   /** Fastrack staff also get the Advanced (code) editor. */
   isStaff?: boolean;
+  /** Without the fees module there are no fee types to group by, so none are asked for (QA-265). */
+  feesEnabled?: boolean;
 }) {
   const [advanced, setAdvanced] = useState(false);
   const [kind, setKind] = useState<DocumentKind>('invoice.bill');
@@ -129,29 +132,61 @@ export function TemplateBuilder({
   /** Only the newest load may open a design, so a slow one can't show another kind (QA-070). */
   const loadTicket = useRef(0);
 
+  // Kinds, images and fee types are the same for bills and reports, so they load once (QA-264).
+  useEffect(() => {
+    let cancelled = false;
+    Promise.all([
+      api.kinds(),
+      api.images(),
+      feesEnabled ? api.feeTypes().catch(() => []) : Promise.resolve([]),
+    ])
+      .then(([allKinds, imageList, fees]) => {
+        if (cancelled) return;
+        setKinds(allKinds);
+        setImages(imageList);
+        setFeeTypes(fees);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) setLoadError(errorMessage(e, 'Could not load designs.'));
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, feesEnabled]);
+
+  /** The kind's versions; only the newest load may open one. */
   const load = useCallback(async (): Promise<DocumentTemplate[] | null> => {
     const ticket = ++loadTicket.current;
     setLoadError(null);
     try {
-      const [allKinds, list, sampleList, imageList, fees] = await Promise.all([
-        api.kinds(),
-        api.list(kind),
-        api.samples(kind),
-        api.images(),
-        kind === 'invoice.bill' ? api.feeTypes().catch(() => []) : Promise.resolve([]),
-      ]);
+      const list = await api.list(kind);
       if (ticket !== loadTicket.current) return null;
-      setKinds(allKinds);
       setVersions(list);
-      setSamples(sampleList);
-      setImages(imageList);
-      setFeeTypes(fees);
       return list;
     } catch (e) {
       if (ticket === loadTicket.current) setLoadError(errorMessage(e, 'Could not load designs.'));
       return null;
     }
   }, [api, kind]);
+
+  // The school's sample is fetched only when it's on screen, and again after an upload.
+  const [samplesStamp, setSamplesStamp] = useState(0);
+  const showingSample = view !== 'preview';
+  useEffect(() => {
+    if (!showingSample) return;
+    let cancelled = false;
+    api
+      .samples(kind)
+      .then((list) => {
+        if (!cancelled) setSamples(list);
+      })
+      .catch(() => {
+        if (!cancelled) setSamples([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [api, kind, showingSample, samplesStamp]);
 
   const open = useCallback(
     (template: DocumentTemplate | null) => {
@@ -549,10 +584,11 @@ export function TemplateBuilder({
                   accept="application/pdf,image/png,image/jpeg,image/webp"
                   onChange={(file) =>
                     file &&
-                    void act(
-                      'School sample uploaded',
-                      async () => void (await api.uploadSample(kind, file)),
-                    )
+                    void act('School sample uploaded', async () => {
+                      await api.uploadSample(kind, file);
+                      setSamplesStamp((n) => n + 1);
+                      setView((v) => (v === 'preview' ? 'both' : v));
+                    })
                   }
                 >
                   {(props) => (

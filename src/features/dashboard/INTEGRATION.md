@@ -12,7 +12,11 @@ Every school user (staff and parents) signs in and lands on `/school-admin/dashb
 | `/school-admin/dashboard/<area>` | `AreaView`                                       | Sample (UI preview)  |
 | `/school-admin/students`         | Students page                                    | Live API             |
 | `/school-admin/fees`             | Fees & Billing page                              | Live API             |
-| `/school-admin/attendance`       | Attendance page                                  | Sample (UI preview)  |
+| `/school-admin/attendance`       | Attendance page                                  | Live API             |
+| `/school-admin/setup`            | School setup: profile, years, classes, subjects  | Live API             |
+| `/school-admin/results/...`      | Grading setup, mark sheets, term reports         | Live API             |
+| `/school-admin/templates`        | Bill & report designs                            | Live API             |
+| `/school-admin/calendar`         | School calendar                                  | Live API             |
 | `/school-admin/staff`            | Staff page: directory and invitations            | Live API             |
 | `/school-admin/admissions`       | `AdmissionPortal` (applicant-facing preview)     | Sample (UI preview)  |
 | `/school-admin/platform/...`     | Super Admin console (own layout)                 | Live API             |

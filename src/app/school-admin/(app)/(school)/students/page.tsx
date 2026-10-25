@@ -47,6 +47,7 @@ import { todayIso } from '@/features/calendar/dates';
 import { setupApi } from '@/features/school-setup/api';
 import { StudentDrawer } from '@/features/students/StudentDrawer';
 import { PageHeader } from '@/features/workspace';
+import { notifyLoadError } from '@/features/fees/notify';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
 import { emailInputProps } from '@/lib/email-input';
@@ -194,7 +195,7 @@ export default function StudentsPage() {
           });
         }
       } catch (err) {
-        console.error('Failed to load classes or calendar:', err);
+        notifyLoadError('the classes and current term', err);
       }
     }
     loadPrerequisites();

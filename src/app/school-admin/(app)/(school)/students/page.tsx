@@ -174,29 +174,17 @@ export default function StudentsPage() {
   // Fetch initial classes and academic context
   useEffect(() => {
     async function loadPrerequisites() {
-      try {
-        const [classesRes, yearRes, termRes] = await Promise.allSettled([
-          setupApi.allClasses(),
-          apiClient.get<{ id: string; yearLabel: string }>('/schools/me/academic-years/current'),
-          apiClient.get<{ id: string; termLabel: string }>('/schools/me/academic-terms/current'),
-        ]);
-
-        if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
-
-        const year = yearRes.status === 'fulfilled' ? yearRes.value.data : null;
-        const term = termRes.status === 'fulfilled' ? termRes.value.data : null;
-
-        if (year && term) {
-          setAcademicContext({
-            yearId: year.id,
-            yearLabel: year.yearLabel,
-            termId: term.id,
-            termLabel: term.termLabel,
-          });
-        }
-      } catch (err) {
-        notifyLoadError('the classes and current term', err);
-      }
+      // Each part shows on its own; a failure of either is reported, not swallowed.
+      const [classesRes, currentRes] = await Promise.allSettled([
+        setupApi.allClasses(),
+        setupApi.currentTerm(),
+      ]);
+      if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
+      if (currentRes.status === 'fulfilled' && currentRes.value)
+        setAcademicContext(currentRes.value);
+      const failed = [classesRes, currentRes].find((r) => r.status === 'rejected');
+      if (failed?.status === 'rejected')
+        notifyLoadError('the classes and current term', failed.reason);
     }
     loadPrerequisites();
   }, []);

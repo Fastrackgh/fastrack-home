@@ -1,5 +1,5 @@
 import { setupApi } from '@/features/school-setup/api';
-import { ApiError, apiClient } from '@/lib/api-client';
+import { apiClient } from '@/lib/api-client';
 
 /** Values of the backend's `SchoolEventType` enum. */
 export type EventType =
@@ -137,41 +137,11 @@ export const calendarApi = {
   },
   /** Every term of every academic year, newest year first. */
   async listTerms(): Promise<Term[]> {
-    const years =
-      (await apiClient.get<{ id: string; yearLabel: string }[]>('/schools/me/academic-years'))
-        .data ?? [];
-    const termsByYear = await Promise.all(
-      years.map(async (year) => {
-        const res = await apiClient.get<
-          {
-            id: string;
-            termLabel: string;
-            startDate: string;
-            endDate: string;
-            isCurrent: boolean;
-          }[]
-        >(`/schools/me/academic-years/${encodeURIComponent(year.id)}/terms`);
-        return (res.data ?? []).map((term) => ({
-          termId: term.id,
-          termLabel: term.termLabel,
-          yearLabel: year.yearLabel,
-          startDate: term.startDate,
-          endDate: term.endDate,
-          isCurrent: term.isCurrent,
-        }));
-      }),
-    );
-    return termsByYear.flat();
+    return setupApi.listTerms();
   },
   /** The school's current term id, or null when none is set up. */
   async currentTermId(): Promise<string | null> {
-    try {
-      const res = await apiClient.get<{ id: string }>('/schools/me/academic-terms/current');
-      return res.data?.id ?? null;
-    } catch (err) {
-      if (err instanceof ApiError && err.statusCode === 404) return null;
-      throw err;
-    }
+    return (await setupApi.currentTerm())?.termId ?? null;
   },
   /** Every class (the list endpoint pages, at most 100 a page). */
   async listClasses(): Promise<SchoolClass[]> {

@@ -46,7 +46,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/atoms';
-import { apiClient } from '@/lib/api-client';
+import { setupApi } from '@/features/school-setup/api';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES, ROLE_LABELS, dataScopeOf, findRoute } from '@/lib/rbac';
 import { activeNavItem, workspaceNavigation, type NavItem } from './navigation';
@@ -90,15 +90,13 @@ function useAcademicSession(schoolId: string | null) {
   useEffect(() => {
     if (!schoolId) return;
     let active = true;
-    Promise.allSettled([
-      apiClient.get<{ yearLabel: string }>('/schools/me/academic-years/current'),
-      apiClient.get<{ termLabel: string }>('/schools/me/academic-terms/current'),
-    ]).then(([year, term]) => {
-      if (!active) return;
-      const yearLabel = year.status === 'fulfilled' ? year.value.data?.yearLabel : undefined;
-      const termLabel = term.status === 'fulfilled' ? term.value.data?.termLabel : undefined;
-      setSession(yearLabel && termLabel ? { year: yearLabel, term: termLabel } : null);
-    });
+    // The header badge is a hint, so a failed read just leaves it out.
+    setupApi
+      .currentTerm()
+      .catch(() => null)
+      .then((current) => {
+        if (active) setSession(current && { year: current.yearLabel, term: current.termLabel });
+      });
     return () => {
       active = false;
     };

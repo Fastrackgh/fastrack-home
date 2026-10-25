@@ -1,4 +1,4 @@
-import { apiClient, type PageMeta, pathId } from '@/lib/api-client';
+import { ApiError, apiClient, pathId, type PageMeta } from '@/lib/api-client';
 import { pageParams, toPage, type Raw } from '@/lib/pagination';
 
 export interface AcademicTerm {
@@ -21,6 +21,32 @@ export interface AcademicYear {
   isCurrent: boolean;
   terms: AcademicTerm[];
 }
+
+/** A term with its year, as pickers and filters use it. */
+export interface TermInYear {
+  termId: string;
+  termLabel: string;
+  termSequence: number;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  yearId: string;
+  yearLabel: string;
+}
+
+/** The school's current year and term. */
+export interface CurrentTerm {
+  yearId: string;
+  yearLabel: string;
+  termId: string;
+  termLabel: string;
+}
+
+/** A 404 means "not set up yet", which callers treat as nothing. */
+const orNullIfMissing = (err: unknown) => {
+  if (err instanceof ApiError && err.statusCode === 404) return null;
+  throw err;
+};
 
 export interface Department {
   id: string;
@@ -196,6 +222,40 @@ export const setupApi = {
       }),
     );
     return withTerms.sort((a, b) => b.startDate.localeCompare(a.startDate));
+  },
+  /** Every term of every year, newest year first, terms in order. */
+  async listTerms(): Promise<TermInYear[]> {
+    const years = await setupApi.listYears();
+    return years.flatMap((year) =>
+      year.terms.map((term) => ({
+        termId: term.id,
+        termLabel: term.termLabel,
+        termSequence: term.termSequence,
+        startDate: term.startDate,
+        endDate: term.endDate,
+        isCurrent: term.isCurrent,
+        yearId: year.id,
+        yearLabel: year.yearLabel,
+      })),
+    );
+  },
+  /** The current year and term, or null when either isn't set up. */
+  async currentTerm(): Promise<CurrentTerm | null> {
+    const [year, term] = await Promise.all([
+      apiClient
+        .get<{ id: string; yearLabel: string }>('/schools/me/academic-years/current')
+        .then((res) => res.data ?? null, orNullIfMissing),
+      apiClient
+        .get<{ id: string; termLabel: string }>('/schools/me/academic-terms/current')
+        .then((res) => res.data ?? null, orNullIfMissing),
+    ]);
+    if (!year || !term) return null;
+    return {
+      yearId: year.id,
+      yearLabel: year.yearLabel,
+      termId: term.id,
+      termLabel: term.termLabel,
+    };
   },
   async createYear(input: DatesInput) {
     await apiClient.post('/schools/me/academic-years', input);

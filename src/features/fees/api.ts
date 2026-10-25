@@ -436,36 +436,10 @@ export const feesApi = {
   },
   /** Every term of every academic year, newest year first. */
   async listTerms(): Promise<AcademicContext[]> {
-    const years =
-      (await apiClient.get<{ id: string; yearLabel: string }[]>('/schools/me/academic-years'))
-        .data ?? [];
-    const termsByYear = await Promise.all(
-      years.map(async (year) => {
-        const res = await apiClient.get<{ id: string; termLabel: string }[]>(
-          `/schools/me/academic-years/${encodeURIComponent(year.id)}/terms`,
-        );
-        return (res.data ?? []).map((term) => ({
-          yearId: year.id,
-          yearLabel: year.yearLabel,
-          termId: term.id,
-          termLabel: term.termLabel,
-        }));
-      }),
-    );
-    return termsByYear.flat();
+    return setupApi.listTerms();
   },
   /** The current year and term, or null when either is not set up. */
   async currentTerm(): Promise<AcademicContext | null> {
-    const [year, term] = await Promise.all([
-      apiClient.get<{ id: string; yearLabel: string }>('/schools/me/academic-years/current'),
-      apiClient.get<{ id: string; termLabel: string }>('/schools/me/academic-terms/current'),
-    ]);
-    if (!year.data || !term.data) return null;
-    return {
-      yearId: year.data.id,
-      yearLabel: year.data.yearLabel,
-      termId: term.data.id,
-      termLabel: term.data.termLabel,
-    };
+    return setupApi.currentTerm();
   },
 };

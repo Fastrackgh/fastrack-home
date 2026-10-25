@@ -18,6 +18,7 @@ export function DatesModal({
   title,
   submitLabel,
   initial,
+  kind,
   withSequence = false,
   bounds,
   note,
@@ -28,6 +29,8 @@ export function DatesModal({
   submitLabel: string;
   initial?: DatesValue;
   /** Terms have a number (Term 1, Term 2, …); years don't. */
+  /** What is being dated; it words the 'current' switch. */
+  kind: 'year' | 'term';
   withSequence?: boolean;
   /** A term must fall inside its year. */
   bounds?: { startDate: string; endDate: string };
@@ -117,10 +120,12 @@ export function DatesModal({
             </Text>
           )}
           <Switch
-            label={withSequence ? 'This is the current term' : 'This is the current academic year'}
+            label={
+              kind === 'term' ? 'This is the current term' : 'This is the current academic year'
+            }
             description={
               alreadyCurrent
-                ? `To change it, make another ${withSequence ? 'term' : 'year'} current instead.`
+                ? `To change it, make another ${kind} current instead.`
                 : 'Bills, attendance and the calendar open on the current one. Only one can be current.'
             }
             checked={isCurrent}

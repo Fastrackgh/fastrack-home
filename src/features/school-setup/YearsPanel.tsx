@@ -321,6 +321,7 @@ export function YearsPanel({
 
       {editor?.kind === 'year' && (
         <DatesModal
+          kind="year"
           title={editor.year ? `Edit ${editor.year.yearLabel}` : 'Add academic year'}
           submitLabel={editor.year ? 'Save changes' : 'Add year'}
           note={
@@ -341,6 +342,7 @@ export function YearsPanel({
       )}
       {editor?.kind === 'term' && (
         <DatesModal
+          kind="term"
           title={
             editor.term
               ? `${editor.term.datesSet ? 'Edit' : 'Set the dates of'} ${editor.term.termLabel}, ${editor.year.yearLabel}`

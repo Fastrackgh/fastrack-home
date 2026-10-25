@@ -828,4 +828,27 @@ check('with results on, Academic performance gives way to the live term reports'
     assert.ok(m.canAccess(off(role), 'performance'), role);
   }
 });
+check('design columns: two or three by ratio, and switching to two keeps the middle', () => {
+  const ops = load('src/features/document-templates/builder/layout-ops.ts');
+  const cols = (ratio) => ({ id: 'c', type: 'columns', props: { ratio, gap: 16 }, children: { left: [], right: [] } });
+  assert.deepEqual(ops.columnSides(cols('50-50')), ['left', 'right']);
+  assert.deepEqual(ops.columnSides(cols('25-50-25')), ['left', 'middle', 'right']);
+  const text = (id) => ({ id, type: 'text', props: {} });
+  let layout = { version: 1, theme: {}, blocks: [cols('33-33-33')] };
+  layout = ops.insertBlock(layout, text('a'), { parentId: 'c', side: 'left' });
+  layout = ops.insertBlock(layout, text('m'), { parentId: 'c', side: 'middle' });
+  layout = ops.insertBlock(layout, text('r'), { parentId: 'c', side: 'right' });
+  assert.deepEqual(ops.locate(layout, 'm').slot, { parentId: 'c', side: 'middle' });
+  // Duplicating gives every column's sections new ids.
+  const dup = ops.duplicateBlock(layout, 'c');
+  assert.notEqual(dup.blocks[1].children.middle[0].id, 'm');
+  // A columns section can't go inside a column.
+  const nested = ops.insertBlock(layout, cols('50-50'), { parentId: 'c', side: 'middle' });
+  assert.equal(nested.blocks.length, 2);
+  // Back to two columns: the middle's sections join the left column.
+  const two = ops.updateProps(layout, 'c', { ratio: '60-40', gap: 16 });
+  assert.deepEqual(two.blocks[0].children.left.map((b) => b.id), ['a', 'm']);
+  assert.equal(two.blocks[0].children.middle, undefined);
+  assert.deepEqual(ops.moveTo(two, 'r', { slot: { parentId: 'c', side: 'left' } }).blocks[0].children.left.map((b) => b.id), ['a', 'm', 'r']);
+});
 console.log(`${checks} dashboard and access checks passed.`);

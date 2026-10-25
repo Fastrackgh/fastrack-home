@@ -1,9 +1,17 @@
-import type { BlockSchema, DocumentLayout, LayoutBlock, PropSchema } from '../api';
+import type { BlockSchema, ColumnSide, DocumentLayout, LayoutBlock, PropSchema } from '../api';
 
-/** Where a section lives: the page itself, or one side of a two-column section. */
+/** Where a section lives: the page itself, or one column of a columns section. */
 export interface BlockSlot {
   parentId: string | null;
-  side?: 'left' | 'right';
+  side?: ColumnSide;
+}
+
+const ALL_SIDES: ColumnSide[] = ['left', 'middle', 'right'];
+
+/** A columns section's columns, in order: its ratio's parts decide two or three ("25-50-25"). */
+export function columnSides(block: Pick<LayoutBlock, 'props'>): ColumnSide[] {
+  const parts = String(block.props.ratio ?? '50-50').split('-').length;
+  return parts === 3 ? ALL_SIDES : ['left', 'right'];
 }
 
 export const newBlockId = () =>
@@ -27,7 +35,11 @@ export function createBlock(definition: BlockSchema): LayoutBlock {
 function listOf(layout: DocumentLayout, slot: BlockSlot): LayoutBlock[] | undefined {
   if (!slot.parentId) return layout.blocks;
   const parent = layout.blocks.find((b) => b.id === slot.parentId);
-  return parent?.children?.[slot.side ?? 'left'];
+  if (!parent?.children) return undefined;
+  const side = slot.side ?? 'left';
+  // A middle column exists only once something is put in it.
+  if (side === 'middle') parent.children.middle ??= [];
+  return parent.children[side];
 }
 
 /** Finds a section and the slot it is in. */
@@ -38,7 +50,7 @@ export function locate(
   const top = layout.blocks.findIndex((b) => b.id === id);
   if (top >= 0) return { block: layout.blocks[top], slot: { parentId: null }, index: top };
   for (const parent of layout.blocks) {
-    for (const side of ['left', 'right'] as const) {
+    for (const side of ALL_SIDES) {
       const list = parent.children?.[side] ?? [];
       const index = list.findIndex((b) => b.id === id);
       if (index >= 0) return { block: list[index], slot: { parentId: parent.id, side }, index };
@@ -61,7 +73,7 @@ export function insertBlock(
   index?: number,
 ): DocumentLayout {
   return edit(layout, (draft) => {
-    // Two-column sections can't go inside columns.
+    // Columns sections can't go inside columns.
     const target = block.children ? draft.blocks : (listOf(draft, slot) ?? draft.blocks);
     target.splice(index ?? target.length, 0, block);
   });
@@ -74,7 +86,14 @@ export function updateProps(
 ): DocumentLayout {
   return edit(layout, (draft) => {
     const found = locate(draft, id);
-    if (found) found.block.props = props;
+    if (!found) return;
+    found.block.props = props;
+    // Going from three columns to two keeps the middle's sections, in the left column.
+    const children = found.block.children;
+    if (children && columnSides(found.block).length === 2 && children.middle) {
+      children.left.push(...children.middle);
+      delete children.middle;
+    }
   });
 }
 
@@ -112,8 +131,7 @@ export function duplicateBlock(layout: DocumentLayout, id: string): DocumentLayo
     if (!found) return;
     const copy = structuredClone(found.block);
     copy.id = newBlockId();
-    copy.children?.left.forEach((b) => (b.id = newBlockId()));
-    copy.children?.right.forEach((b) => (b.id = newBlockId()));
+    for (const side of ALL_SIDES) copy.children?.[side]?.forEach((b) => (b.id = newBlockId()));
     listOf(draft, found.slot)?.splice(found.index + 1, 0, copy);
   });
 }

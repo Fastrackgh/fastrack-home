@@ -70,8 +70,11 @@ export interface LayoutBlock {
   hidden?: boolean;
   /** Placement on the page; absent when everything is at its default. */
   style?: Record<string, unknown>;
-  children?: { left: LayoutBlock[]; right: LayoutBlock[] };
+  /** A columns section's contents; `middle` only when its ratio has three parts. */
+  children?: { left: LayoutBlock[]; middle?: LayoutBlock[]; right: LayoutBlock[] };
 }
+
+export type ColumnSide = 'left' | 'middle' | 'right';
 
 export interface DocumentLayout {
   version: 1;

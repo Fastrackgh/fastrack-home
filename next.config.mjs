@@ -1,6 +1,8 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  // The dev badge sits over the parent app's Home tab at phone width (QA-263).
+  devIndicators: false,
   async headers() {
     return [
       {

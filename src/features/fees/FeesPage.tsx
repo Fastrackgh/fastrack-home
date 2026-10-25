@@ -89,6 +89,8 @@ export function FeesPage() {
   const [invoicesLoading, setInvoicesLoading] = useState(true);
   const [invoicesError, setInvoicesError] = useState<string | null>(null);
   const [summary, setSummary] = useState<InvoiceSummary | null>(null);
+  /** Bumped after a write, so the cards reload once alongside the table. */
+  const [summaryKey, setSummaryKey] = useState(0);
 
   const [paymentFilters, setPaymentFilters] = useState<PaymentFilters>({
     studentId: null,
@@ -205,7 +207,7 @@ export function FeesPage() {
     return () => {
       current = false;
     };
-  }, [search, classId, status, invoicesTotal]);
+  }, [search, classId, status, summaryKey]);
 
   useEffect(() => {
     if (activeTab === 'payments' && may.readPayments) loadPayments();
@@ -240,8 +242,14 @@ export function FeesPage() {
     }
   };
 
-  const refresh = () => {
+  /** After a write: the table and the cards, once each. */
+  const reloadInvoices = () => {
     loadInvoices();
+    setSummaryKey((key) => key + 1);
+  };
+
+  const refresh = () => {
+    reloadInvoices();
     if (may.readPayments) loadPayments();
     if (may.readFeeTypes) loadFeeTypes();
     setReloadKey((key) => key + 1);
@@ -449,7 +457,7 @@ export function FeesPage() {
           onSaved={(updated) => {
             setCorrecting(null);
             setBreakdown(updated);
-            loadInvoices();
+            reloadInvoices();
           }}
         />
       )}
@@ -463,7 +471,7 @@ export function FeesPage() {
           onClose={() => setExtraBill(false)}
           onGenerated={() => {
             setExtraBill(false);
-            loadInvoices();
+            reloadInvoices();
           }}
         />
       )}
@@ -480,7 +488,7 @@ export function FeesPage() {
         onClose={() => setGenerating(false)}
         term={term}
         classOptions={classOptions}
-        onGenerated={loadInvoices}
+        onGenerated={reloadInvoices}
       />
       {paying && (
         <RecordPaymentModal
@@ -488,7 +496,7 @@ export function FeesPage() {
           onClose={() => setPaying(false)}
           onRecorded={(payment) => {
             setPaying(false);
-            loadInvoices();
+            reloadInvoices();
             if (may.readPayments) loadPayments();
             if (payment) setReceipt(payment);
           }}

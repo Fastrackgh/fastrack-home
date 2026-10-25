@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useState, useCallback, useMemo } from 'react';
+import React, { useEffect, useState, useCallback, useMemo, useRef } from 'react';
 import Link from 'next/link';
 import {
   Alert,
@@ -27,7 +27,7 @@ import {
   TextInput,
   Title,
 } from '@mantine/core';
-import { useDisclosure } from '@mantine/hooks';
+import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
   AlertCircle,
@@ -153,6 +153,8 @@ export default function StudentsPage() {
   });
 
   const [query, setQuery] = useState('');
+  // One request once typing pauses, not one per keystroke (QA-038, QA-264).
+  const [search] = useDebouncedValue(query.trim(), 300);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('All');
   const [page, setPage] = useState(1);
@@ -199,29 +201,26 @@ export default function StudentsPage() {
   }, []);
 
   // Fetch students with filtering & pagination
+  const latestList = useRef(0);
   const fetchStudents = useCallback(async () => {
+    const request = ++latestList.current;
     setIsLoading(true);
     setListError(null);
     try {
       const params = new URLSearchParams();
       params.append('page', String(page));
       params.append('limit', '10');
-      if (query.trim()) params.append('search', query.trim());
+      if (search) params.append('search', search);
       if (gradeFilter && gradeFilter !== 'all' && gradeFilter.trim() !== '')
         params.append('classId', gradeFilter);
       if (statusFilter && statusFilter !== 'All' && statusFilter.trim() !== '')
         params.append('status', statusFilter);
 
-      // The active count is school-wide, not the page's, so it is its own query.
-      const [res, active] = await Promise.all([
-        apiClient.get<StudentListItem[], PaginationMeta>(
-          `/schools/me/students?${params.toString()}`,
-        ),
-        apiClient.get<StudentListItem[], PaginationMeta>(
-          '/schools/me/students?status=Active&limit=1',
-        ),
-      ]);
-      setActiveCount(active.meta?.total ?? 0);
+      const res = await apiClient.get<StudentListItem[], PaginationMeta>(
+        `/schools/me/students?${params.toString()}`,
+      );
+      // A slower, older response must not replace a newer one.
+      if (request !== latestList.current) return;
       if (res.data) {
         setStudents(res.data);
       }
@@ -229,15 +228,38 @@ export default function StudentsPage() {
         setMeta(res.meta);
       }
     } catch (err: unknown) {
+      if (request !== latestList.current) return;
       setListError(err instanceof Error ? err.message : 'Could not load the students.');
     } finally {
-      setIsLoading(false);
+      if (request === latestList.current) setIsLoading(false);
     }
-  }, [page, query, gradeFilter, statusFilter]);
+  }, [page, search, gradeFilter, statusFilter]);
+
+  // The active count is school-wide, so paging and filters don't reload it.
+  const fetchActiveCount = useCallback(async () => {
+    try {
+      const active = await apiClient.get<StudentListItem[], PaginationMeta>(
+        '/schools/me/students?status=Active&limit=1',
+      );
+      setActiveCount(active.meta?.total ?? 0);
+    } catch {
+      // A hint on a card; the list shows its own error.
+    }
+  }, []);
 
   useEffect(() => {
     fetchStudents();
   }, [fetchStudents]);
+
+  useEffect(() => {
+    fetchActiveCount();
+  }, [fetchActiveCount]);
+
+  /** After a change: the list and the count. */
+  const refreshAll = useCallback(() => {
+    fetchStudents();
+    fetchActiveCount();
+  }, [fetchStudents, fetchActiveCount]);
 
   // The backend refuses a birth date after today (QA-209).
   const BIRTH_IN_FUTURE = "Birth date can't be in the future.";
@@ -407,7 +429,7 @@ export default function StudentsPage() {
       setFormData(initialFormData);
       setActiveStep(0);
       closeAdmit();
-      fetchStudents();
+      refreshAll();
     } catch (err: unknown) {
       setFormError(
         err instanceof Error ? err.message : 'Failed to admit student. Please try again.',
@@ -442,7 +464,7 @@ export default function StudentsPage() {
               leftSection={<RefreshCw size={16} />}
               variant="default"
               radius="md"
-              onClick={() => fetchStudents()}
+              onClick={refreshAll}
               loading={isLoading}
             >
               Refresh
@@ -774,7 +796,7 @@ export default function StudentsPage() {
       <StudentDrawer
         studentId={openStudentId}
         onClose={() => setOpenStudentId(null)}
-        onChanged={fetchStudents}
+        onChanged={refreshAll}
       />
 
       {/* 4-Step Comprehensive Student Admission Stepper Modal */}

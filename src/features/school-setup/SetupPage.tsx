@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
   Anchor,
@@ -18,7 +18,13 @@ import { feesApi } from '@/features/fees/api';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES, hasModule } from '@/lib/rbac';
-import { errorMessage, setupApi, type Department, type StaffOption } from './api';
+import {
+  errorMessage,
+  setupApi,
+  type AcademicYear,
+  type Department,
+  type StaffOption,
+} from './api';
 import { ClassesPanel } from './ClassesPanel';
 import { DepartmentsPanel } from './DepartmentsPanel';
 import { SchoolProfilePanel } from './SchoolProfilePanel';
@@ -49,7 +55,12 @@ export function SetupPage() {
   const [departments, setDepartments] = useState<Department[] | null>(null);
   const [departmentsError, setDepartmentsError] = useState<string | null>(null);
   const [staff, setStaff] = useState<StaffOption[]>([]);
-  const [steps, setSteps] = useState<Step[] | null>(null);
+  /** What the checklist reads; null until loaded, a field null when its read failed. */
+  const [checks, setChecks] = useState<{
+    years: AcademicYear[] | null;
+    classes: number | null;
+    feeTypes: number | null;
+  } | null>(null);
 
   const loadDepartments = useCallback(async () => {
     setDepartmentsError(null);
@@ -60,15 +71,35 @@ export function SetupPage() {
     }
   }, []);
 
-  // The checklist is a hint, so a failed read just leaves it out.
-  const loadSteps = useCallback(async () => {
+  // The checklist is a hint, so a failed read just leaves it out. It reads
+  // once on open and after a change, not again when staff arrive (QA-264).
+  const canReadFeeTypes = hasFees && can('fee_types:read');
+  const loadChecks = useCallback(async () => {
     const [years, classes, feeTypes] = await Promise.all([
       setupApi.listYears().catch(() => null),
       setupApi.listClasses(1, '').catch(() => null),
-      hasFees && can('fee_types:read')
-        ? feesApi.listFeeTypes().catch(() => null)
-        : Promise.resolve(null),
+      canReadFeeTypes ? feesApi.listFeeTypes().catch(() => null) : Promise.resolve(null),
     ]);
+    setChecks({
+      years,
+      classes: classes?.total ?? null,
+      feeTypes: feeTypes?.length ?? null,
+    });
+  }, [canReadFeeTypes]);
+
+  useEffect(() => {
+    loadDepartments();
+    loadChecks();
+    setupApi
+      .listStaffOptions()
+      .then(setStaff)
+      .catch(() => setStaff([]));
+  }, [loadDepartments, loadChecks]);
+
+  const canReadStaff = can('staff:read');
+  const steps = useMemo<Step[] | null>(() => {
+    if (!checks || !departments) return null;
+    const { years, classes, feeTypes } = checks;
     const current = years?.find((y) => y.isCurrent);
     const list: Step[] = [];
     if (canProfile)
@@ -91,36 +122,24 @@ export function SetupPage() {
     }
     list.push({
       label: 'Set up departments',
-      done: (departments?.length ?? 0) > 0,
+      done: departments.length > 0,
       tab: 'departments',
     });
-    if (classes) list.push({ label: 'Add classes', done: classes.total > 0, tab: 'classes' });
-    if (feeTypes)
+    if (classes !== null) list.push({ label: 'Add classes', done: classes > 0, tab: 'classes' });
+    if (feeTypes !== null)
       list.push({
         label: 'Add fee types and fee structures',
-        done: feeTypes.length > 0,
+        done: feeTypes > 0,
         href: APP_ROUTES.fees.path,
       });
-    if (can('staff:read'))
+    if (canReadStaff)
       list.push({
         label: 'Invite your staff',
         done: staff.length > 0,
         href: APP_ROUTES.staff.path,
       });
-    setSteps(list);
-  }, [can, canProfile, hasFees, school, departments, staff]);
-
-  useEffect(() => {
-    loadDepartments();
-    setupApi
-      .listStaffOptions()
-      .then(setStaff)
-      .catch(() => setStaff([]));
-  }, [loadDepartments]);
-
-  useEffect(() => {
-    if (departments) loadSteps();
-  }, [departments, loadSteps]);
+    return list;
+  }, [checks, departments, canProfile, canReadStaff, school, staff]);
 
   const canManageYears = can('academic_years:manage');
   const done = steps?.filter((s) => s.done).length ?? 0;
@@ -166,7 +185,13 @@ export function SetupPage() {
         </Card>
       )}
 
-      <Tabs value={tab} onChange={(v) => v && setTab(v as TabKey)} color="fastrackRed">
+      {/* Only the open tab loads its data (QA-264). */}
+      <Tabs
+        value={tab}
+        onChange={(v) => v && setTab(v as TabKey)}
+        color="fastrackRed"
+        keepMounted={false}
+      >
         <Tabs.List mb="lg">
           {canProfile && <Tabs.Tab value="profile">School profile</Tabs.Tab>}
           <Tabs.Tab value="years">Years & terms</Tabs.Tab>
@@ -178,11 +203,11 @@ export function SetupPage() {
         <Stack>
           {canProfile && (
             <Tabs.Panel value="profile">
-              <SchoolProfilePanel canManage={canProfile} onChanged={loadSteps} />
+              <SchoolProfilePanel canManage={canProfile} onChanged={loadChecks} />
             </Tabs.Panel>
           )}
           <Tabs.Panel value="years">
-            <YearsPanel canManage={canManageYears} onChanged={loadSteps} />
+            <YearsPanel canManage={canManageYears} onChanged={loadChecks} />
           </Tabs.Panel>
           <Tabs.Panel value="departments">
             <DepartmentsPanel

@@ -36,6 +36,7 @@ import {
   Users,
 } from 'lucide-react';
 import { ApiError, errorMessage } from '@/lib/api-client';
+import { formatDate } from '@/lib/format';
 import { APP_ROUTES } from '@/lib/rbac';
 import { platformSchoolsApi as api } from './api';
 import type {
@@ -49,13 +50,6 @@ import type {
 import { SchoolDesigns } from '@/features/document-templates';
 import { AssignPrincipalModal } from './AssignPrincipalModal';
 import styles from './SchoolDetail.module.css';
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 
 /** One school as the platform sees it, loaded from the Super Admin API. */
 export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {

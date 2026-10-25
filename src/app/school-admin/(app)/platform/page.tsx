@@ -56,6 +56,8 @@ import { AnalyticsPanel } from '@/features/platform/AnalyticsPanel';
 import { LoginAuditPanel } from '@/features/platform/LoginAuditPanel';
 import { PlatformUsersPanel } from '@/features/platform/PlatformUsersPanel';
 import { apiClient } from '@/lib/api-client';
+import { formatCedis } from '@/features/fees/money';
+import { formatDate } from '@/lib/format';
 import { emailInputProps } from '@/lib/email-input';
 import type { ModuleEntitlement } from '@/features/platform-schools/model';
 
@@ -500,17 +502,11 @@ export default function PlatformConsolePage() {
                   Platform Invoiced
                 </Text>
                 <Title order={3} fw={800} mt={6} style={{ color: '#0f172a' }}>
-                  GHS{' '}
-                  {(analytics?.totalInvoiced ?? 0).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}
+                  {formatCedis(analytics?.totalInvoiced)}
                 </Title>
                 <Text size="xs" c="teal" fw={600} mt={4}>
-                  GHS{' '}
-                  {(analytics?.totalCollected ?? 0).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}{' '}
-                  collected ({analytics?.collectionRate ?? 0}%)
+                  {formatCedis(analytics?.totalCollected)} collected (
+                  {analytics?.collectionRate ?? 0}%)
                 </Text>
               </div>
               <ThemeIcon size={44} radius="md" color="violet" variant="light">
@@ -693,11 +689,7 @@ export default function PlatformConsolePage() {
                               </Table.Td>
                               <Table.Td>
                                 <Text size="xs" c="dimmed">
-                                  {new Date(school.createdAt).toLocaleDateString(undefined, {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                  })}
+                                  {formatDate(school.createdAt)}
                                 </Text>
                               </Table.Td>
                               <Table.Td>

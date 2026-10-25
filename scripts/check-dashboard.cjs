@@ -858,6 +858,10 @@ check('shared formatting: ordinals and shared places', () => {
   ]);
   assert.equal(fmt.place(2, true), '2nd=');
   assert.equal(fmt.place(1, false), '1st');
+  assert.equal(fmt.formatDate('2026-03-14'), '14 Mar 2026');
+  assert.equal(fmt.formatDate(null), '');
+  assert.equal(money.formatCedis(1234.5), 'GHS 1,234.50');
+  assert.equal(money.formatCedis(undefined), 'GHS 0.00');
   const client = load('src/lib/api-client.ts');
   assert.equal(client.pathId('PRM-001/STD/2026/005'), 'PRM-001%2FSTD%2F2026%2F005');
 });

@@ -17,6 +17,7 @@ import {
   TextInput,
 } from '@mantine/core';
 import { Search } from 'lucide-react';
+import { formatCedis } from '@/features/fees/money';
 import { ROLE_LABELS } from '@/lib/rbac';
 import { errorMessage } from '@/lib/api-client';
 import {
@@ -27,8 +28,6 @@ import {
   type SchoolComparison,
 } from './api';
 
-const ghs = new Intl.NumberFormat('en-GH', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const cedis = (value: number) => `GHS ${ghs.format(value ?? 0)}`;
 const shortDay = new Intl.DateTimeFormat('en-GB', { weekday: 'short', day: 'numeric' });
 
 interface Data {
@@ -89,9 +88,9 @@ export function AnalyticsPanel() {
   return (
     <Stack gap="lg">
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} spacing="md">
-        <Figure label="Billed" value={cedis(finance.totalInvoiced)} />
-        <Figure label="Collected" value={cedis(finance.totalCollected)} />
-        <Figure label="Outstanding" value={cedis(finance.outstandingBalance)} />
+        <Figure label="Billed" value={formatCedis(finance.totalInvoiced)} />
+        <Figure label="Collected" value={formatCedis(finance.totalCollected)} />
+        <Figure label="Outstanding" value={formatCedis(finance.outstandingBalance)} />
         <Figure label="Collection rate" value={`${finance.collectionRate}%`} />
       </SimpleGrid>
 
@@ -168,7 +167,7 @@ export function AnalyticsPanel() {
                 <Table.Tr key={m.method}>
                   <Table.Td>{m.method}</Table.Td>
                   <Table.Td ta="right">{m.count}</Table.Td>
-                  <Table.Td ta="right">{cedis(m.totalAmount)}</Table.Td>
+                  <Table.Td ta="right">{formatCedis(m.totalAmount)}</Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>
@@ -236,7 +235,7 @@ export function AnalyticsPanel() {
                   </Table.Td>
                   <Table.Td ta="right">{s.studentsCount}</Table.Td>
                   <Table.Td ta="right">{s.staffCount}</Table.Td>
-                  <Table.Td ta="right">{cedis(s.totalCollected)}</Table.Td>
+                  <Table.Td ta="right">{formatCedis(s.totalCollected)}</Table.Td>
                   <Table.Td ta="right">{s.collectionRate}%</Table.Td>
                 </Table.Tr>
               ))}

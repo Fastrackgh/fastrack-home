@@ -22,18 +22,8 @@ const STATUS_LABELS: Record<string, string> = {
 export const wardStatusLabel = (status: string) => STATUS_LABELS[status] ?? status;
 export const wardStatusColor = (status: string) => (status === 'Active' ? 'green' : 'gray');
 
-const shortDate = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-});
-
-/** `14 Mar 2026` from an ISO date or timestamp; empty for a missing value. */
-export function formatDate(value: string | null | undefined): string {
-  if (!value) return '';
-  const date = new Date(value.length === 10 ? `${value}T00:00:00` : value);
-  return Number.isNaN(date.getTime()) ? value : shortDate.format(date);
-}
+/** Shared with the staff pages; kept here so parent screens import their formatting in one place. */
+export { formatDate } from '@/lib/format';
 
 const timeAgo = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
 

@@ -126,6 +126,7 @@ Every rule below is checked on the server, by `layout-compiler.ts` and `layout-p
 | Input | Rule |
 | --- | --- |
 | Layout | Version 1 only, at most 120 sections. The section type must be allowed for the kind. Block ids match `^[\w-]{1,64}$`. Columns cannot nest. |
+| Columns | The **Columns** section has two or three columns, chosen by its widths: Equal, Left wider, Right wider (two), or Three equal, Three middle wider, Three left wider, Three right wider (25/50/25 and so on). A third column is stored as `children.middle`. The outline shows Left, Middle and Right drop zones. Switching back to two moves the middle's sections into the left column. The server refuses a two-column section that still has a middle (400), which the builder never sends. Added 25 Oct (frontend `f2006b1`, backend `e10fc96`). |
 | Text / multiline / rich text | ≤500 / ≤5000 / ≤5000 characters. A `[[field]]` chip must be one of the kind's placeholders. |
 | Colour | `#rrggbb` |
 | Number | min and max from the schema. Clearing the field on the client sends `0`. |

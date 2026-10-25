@@ -560,6 +560,7 @@ export function TemplateBuilder({
                     variant="default"
                     disabled={!history.canUndo}
                     onClick={history.undo}
+                    aria-label="Undo"
                   >
                     <Undo2 size={14} />
                   </Button>
@@ -570,6 +571,7 @@ export function TemplateBuilder({
                     variant="default"
                     disabled={!history.canRedo}
                     onClick={history.redo}
+                    aria-label="Redo"
                   >
                     <Redo2 size={14} />
                   </Button>

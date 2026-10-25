@@ -55,6 +55,8 @@ function BlockList(props: OutlineProps & { list: LayoutBlock[]; slot: BlockSlot 
   const allowDrop = (e: DragEvent) => {
     if (readOnly || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
     e.preventDefault();
+    // An empty column is the target, not the Columns section around it.
+    e.stopPropagation();
     setOver(true);
   };
   return (
@@ -64,6 +66,10 @@ function BlockList(props: OutlineProps & { list: LayoutBlock[]; slot: BlockSlot 
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
         if (list.length !== 0) return;
+        // Without this the drop bubbles to the Columns section, which moves the
+        // section out of the column, to just above it on the page (QA-266).
+        e.preventDefault();
+        e.stopPropagation();
         setOver(false);
         const id = e.dataTransfer.getData(DRAG_TYPE);
         if (id) onDrop(id, { slot });

@@ -23,9 +23,9 @@
 |---|---|---|---|---|
 | Critical | 8 | 7 | 1 | 0 |
 | High | 31 | 27 | 3 | 1 |
-| Medium | 80 | 37 | 13 | 30 |
-| Low | 39 | 20 | 6 | 13 |
-| **Total** | **158** | **91** | **23** | **44** |
+| Medium | 80 | 38 | 12 | 30 |
+| Low | 39 | 21 | 6 | 12 |
+| **Total** | **158** | **93** | **22** | **43** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -74,7 +74,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-012 | Medium | SEC | BE | Live ✔ | No security headers; Swagger public; CORS `*` with credentials; unset `NODE_ENV` runs production as dev — **fixed** (24 Oct; BE `c9c06b9`: security headers; production refuses Swagger, open CORS and a missing NODE_ENV) |
 | QA-014 | Medium | SEC | BE | Live ✔ | User enumeration through register-parent, login timing and ward-link errors — **open** (code re-checked 24 Oct) |
 | QA-017 | Medium | FLOW | BE | Live ✔ | Exited students can still be paid against; their open invoices are never written off — **open** (code re-checked 24 Oct) |
-| QA-018 | Medium | EDGE | Both | Live ✔ | Terms can't be closed, term dates aren't checked for start ≤ end, and payment dates are unbounded — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-018 | Medium | EDGE | Both | Live ✔ | Terms can't be closed (term dates and payment dates are now checked) — **partly fixed** (25 Oct; BE `f6cf1d2`, `8abbe07`) |
 | QA-019 | Medium | EDGE | BE | Live ✔ | Payment input gaps: oversized amount returns 500, unvalidated `dueDate`, allocations not checked — **open** (code re-checked 24 Oct) |
 | QA-021 | Medium | SEC | BE | Suspected | A failed OTP send is never caught and can crash the API process — **fixed** (25 Oct; BE `17900c0`, code and unit tests) |
 | QA-022 | Medium | SEC/FLOW | BE | Live ✔ | Public invoice, media, optional fees and queued jobs still skip module and suspension checks (payments are fixed) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
@@ -131,7 +131,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-231 | Medium | UX/trust | BE | Browser ✔ Code ✔ | The design preview shows another school ("Fastrack International School") instead of the user's own — **open** (code re-checked 24 Oct) |
 | QA-232 | Medium | FLOW/audit | Both | Code ✔ (DB) | Invoices from one billing run share no run ID: runs can't be undone, audited or re-sent as a unit — **open** (code re-checked 24 Oct) |
 | QA-233 | Medium | FLOW | Both | Code ✔ | Subject teachers can't be assigned (`staff_subjects` and `timetable_slots` exist but have no API or UI) — **open** (code re-checked 24 Oct) |
-| QA-236 | Medium | EDGE/data | BE | Browser ✔ | The "current term" can still come from another year when the current year has no dated period yet (the flags themselves now move together) — **partly fixed** (25 Oct; BE `f6cf1d2`) |
+| QA-236 | Medium | EDGE/data | BE | Browser ✔ | Making a year current leaves the current term in another year — **fixed** (25 Oct; BE `f6cf1d2`, `8abbe07`) |
 | QA-237 | Medium | EDGE | Both | Browser ✔ | Unticking the current term leaves the school with no current term, silently — **fixed** (25 Oct; BE `f6cf1d2`, re-tested) |
 | QA-238 | Medium | FLOW/audit | FE | Browser ✔ | Guardian change history always shows "No changes recorded yet" (reads `items`, API v2 returns a list) — **fixed** (23 Oct, FE `b0ac515`) |
 | QA-239 | Medium | FLOW | FE | Browser ✔ | Staff signed in before an update lose new permissions until they sign out (contacts "hidden" yet shown, no editing) — **fixed** (23 Oct, FE `b0ac515`) |
@@ -183,7 +183,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-265 | Low | UX | FE | Browser ✔ | Bill & report designs calls the fee-types API at a school without the fees module (repeated 403s), as Setup did in QA-246 — **fixed** (25 Oct; FE `2bdcb1f`) |
 | QA-266 | Medium | UX | FE | Browser ✔ | Dragging a section onto an empty column moves it out of the Columns section, to just above it, instead of into the column — **fixed** (25 Oct; FE `f9162ee`) |
 | QA-267 | Medium | Data | FE | Browser ✔ | A head's "Remove" on a class test that already has marks deletes the test and every mark in it at once, with no confirmation — **fixed** (25 Oct; FE `3cdfbf6`) |
-| QA-268 | Low | EDGE | BE | Live ✔ | A later period can be dated before an earlier, still undated one, leaving no room for the earlier period — **open** (25 Oct) |
+| QA-268 | Low | EDGE | BE | Live ✔ | A later period can be dated before an earlier, still undated one, leaving no room for the earlier period — **fixed** (25 Oct; BE `8abbe07`) |
 | QA-269 | Low | UX | FE | Browser ✔ | "Set dates" on an undated term shows the switch "This is the current academic year", although it sets the current term — **fixed** (25 Oct; FE `78939e7`) |
 | QA-246 | Low | UX | FE | Browser ✔ | School setup calls the fee-types API on schools without the fees module (repeated 403s) — **fixed** (24 Oct; FE `e469eda`) |
 | QA-247 | Low | Data | BE | DB ✔ | A promotion into a later term records the new class history row as starting today, not on the term's start date — **fixed** (24 Oct; BE `f9e93b5`) |
@@ -1168,7 +1168,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-014 | Open | register-parent 409 "Email already registered"; login skips hashing for unknown emails |
 | QA-016 | Partly fixed | national IDs and guardian contacts hidden from teachers; list still whole-school and medical notes still shown |
 | QA-017 | Open | no student-status check on payments; no write-off on exit |
-| QA-018 | Partly fixed | current year/term switch is one transaction (bcb2e0b); terms still can't be closed, no start ≤ end check, payment dates unbounded |
+| QA-018 | Partly fixed | Re-tested 25 Oct (BE `f6cf1d2`, `8abbe07`). Term end before start gets 400 (see QA-076). A future payment date gets 400 "The payment date can't be in the future". A date before the school's first live year (1990-01-01 or 2025-08-31 on QPM-402) gets 400 "The payment date can't be before 2026/27 began (2026-09-01)". Still open: there is no way to close a finished term. Only whole years can be archived, and only when unused. |
 | QA-019 | Open | no @Max on amount, dueDate unvalidated, amount ignored when allocations sent |
 | QA-020 | Partly fixed | forms post to POST /public/leads (submitLead); waitlist success copy still promises "login credentials" (WaitlistForm.tsx:112) |
 | QA-021 | Fixed | 25 Oct, BE `17900c0`. `otp.service.ts:53` now catches the send failure and logs a warning. `otp.service.spec.ts` passes 6/6. Not triggered live, since the email client can't easily be made to fail. |
@@ -1221,7 +1221,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-072 | Open | past terms still editable on the calendar |
 | QA-073 | Open | calendar load has no abort or request id |
 | QA-074 | Open | times compared without dates; HOLIDAY accepts times; "+N more" not clickable |
-| QA-075 | Partly fixed | 25 Oct, BE `f6cf1d2`: a year can be archived (not the current one, with a confirmation) and restored, its label is freed, and both are audited. "Show archived years" lists them with Restore. Terms and classes still can't be removed (no DELETE for classes, 404), and a period beyond the pattern can be added (Semester 3 on a two-semester school, 201) but not taken away. |
+| QA-075 | Partly fixed | 25 Oct, BE `f6cf1d2`: a year can be archived (not the current one, with a confirmation) and restored, its label is freed, and both are audited. "Show archived years" lists them with Restore. Terms and classes still couldn't be removed (no DELETE for classes, 404), and a period beyond the pattern could be added (Semester 3 on a two-semester school, 201) but not taken away. Re-test 25 Oct (BE `8abbe07`): an undated period can now be removed. Semester 3 added to 2028/29 then deleted gives 204, with the row gone and `academic_term.removed` audited. A dated period (Semester 3, 2026/27) or the current one gets 400 "… has dates, so it stays for the record. Only a period without dates can be removed." Still open: classes have no delete or archive. editable-guardian-contacts is raising this with the user. |
 | QA-076 | Fixed | 25 Oct, BE `f6cf1d2`, re-tested on QRG-501: an end before the start gets 400 "Semester 1: the end date must be on or after the start date"; a term outside its year gets 400 "Semester 1 (2026-08-01 to 2027-01-31) must fall within 2026/27 (2026-09-01 to 2027-07-31)"; Semester 1 dated after Semester 2 gets 400 "Semester 2 must start after Semester 1 ends"; an overlapping year gets 409 "These dates overlap 2026/27 (…)"; and a year shortened so it strands a term gets 400. Gap: QA-268. |
 | QA-077 | Fixed | 25 Oct, BE `f6cf1d2`: unticking the current year gets 400 "2026/27 is the current year. Make another year current instead.", and making another year current moves the current-term flag with it. The one leftover is under QA-236. |
 | QA-078 | Open | failed reads still dropped silently on School setup |
@@ -1256,7 +1256,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-233 | Open | no API or UI for subject teachers |
 | QA-234 | Open | still one homeroom teacher per class |
 | QA-235 | Open | no class-teacher history per term |
-| QA-236 | Partly fixed | 25 Oct, BE `f6cf1d2`. Making a year current now moves the term flag: dating 2027/28 Semester 1 made it current, and switching back to 2026/27 restored its Semester 2. But when an **undated** year (2028/29) was made current, the DB rightly had no current term, yet `GET /academic-terms/current` returned 2027/28 Semester 1, a term in another year. Pages that open on the current term (billing, attendance, calendar) would use that year. The fallback should stay inside the current year, or return none. |
+| QA-236 | Fixed | 25 Oct, BE `f6cf1d2` + `8abbe07` (re-tested: an undated current year now gives 404, not another year's term). Making a year current now moves the term flag: dating 2027/28 Semester 1 made it current, and switching back to 2026/27 restored its Semester 2. But when an **undated** year (2028/29) was made current, the DB rightly had no current term, yet `GET /academic-terms/current` returned 2027/28 Semester 1, a term in another year. Pages that open on the current term (billing, attendance, calendar) would use that year. The fallback should stay inside the current year, or return none. <br>Re-test 25 Oct (BE `8abbe07`): **fixed**. With the undated 2028/29 current, `GET /academic-terms/current` gets 404 "No active or current academic term found". Dating its Semester 1 makes that the current term (in 2028/29), and switching back to 2026/27 returns its Semester 2. |
 | QA-237 | Fixed | 25 Oct, BE `f6cf1d2`: unticking the current term gets 400 "Semester 2 is the current term. Make another term current instead." |
 | QA-244 | Fixed | 24 Oct, FE `01ce719`; re-tested in the browser (credit bill reads "GHS 200.00 credit · Nothing to pay") |
 | QA-263 | Fixed | 25 Oct, FE `7558121` (Turbopack dev, no dev badge); :3001 restarted on Turbopack with the user's approval and re-timed (first visits 0.47–0.84 s, was 1.3–3.6 s) |
@@ -1264,7 +1264,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-265 | Fixed | 25 Oct, FE `2bdcb1f`; re-tested on a production build (no fee-types call without fees) |
 | QA-266 | Fixed | 25 Oct, FE `f9162ee`; re-tested with real drags into empty Right and Middle columns |
 | QA-267 | Fixed | 25 Oct, FE `3cdfbf6`. An unmarked test is removed at once. A marked one asks "Remove Marked Quiz? Marked Quiz and its 3 marks will be deleted. This can't be undone." "Keep it" keeps the test and its 3 marks; "Remove test and marks" deletes them (DB 0). |
-| QA-268 | Open | found 25 Oct; period order only checked against dated periods |
+| QA-268 | Fixed | 25 Oct, BE `8abbe07`. On QRG-501 2028/29 (both semesters undated), dating Semester 2 first gets 400 "Set Semester 1's dates first: terms are dated in order". Semester 1, then Semester 2, saves. |
 | QA-269 | Fixed | 25 Oct, FE `78939e7`, re-tested on QRG-501. "Set the dates of Semester 2, 2027/28" (undated) and "Edit Semester 1, 2027/28" (dated) both say "This is the current term". "Edit 2026/27" (the current year) says "This is the current academic year", with the switch locked: "To change it, make another year current instead." |
 
 | QA-254 | Fixed | dev email preview moved to 127.0.0.1:4080 (5af0b93); re-tested 24 Oct |

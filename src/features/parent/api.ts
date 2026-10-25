@@ -2,7 +2,6 @@ import { apiClient, pathId, type PageMeta } from '@/lib/api-client';
 import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { toInvoice, toPayment } from '@/features/fees/api';
 import { toCedis, toPesewas } from '@/features/fees/money';
-import { mockParentApi } from './mock';
 import type {
   AcademicTerm,
   AttendanceRecord,
@@ -73,7 +72,7 @@ export interface ParentApi {
   cancelOptionalFeeRequest(studentId: string, requestId: string): Promise<OptionalFeeRequest>;
 }
 
-const ward = (studentId: string) => `/parents/me/wards/${encodeURIComponent(studentId)}`;
+const ward = (studentId: string) => `/parents/me/wards/${pathId(studentId)}`;
 
 const toParentInvoice = (raw: Raw): ParentInvoice => ({
   ...(raw as unknown as ParentInvoice),
@@ -247,4 +246,18 @@ export const parentAreaReady = {
   attendance: true,
 };
 
-export const parentApi: ParentApi = isParentApiMocked ? mockParentApi : liveParentApi;
+/**
+ * The sample data, loaded only when the mock is switched on, so its module
+ * stays out of the production bundle. Every ParentApi method returns a
+ * promise, so a lazy wrapper keeps the same shape.
+ */
+const lazyMockParentApi = new Proxy({} as ParentApi, {
+  get:
+    (_target, method: keyof ParentApi) =>
+    async (...args: unknown[]) => {
+      const { mockParentApi } = await import('./mock');
+      return (mockParentApi[method] as (...a: unknown[]) => Promise<unknown>)(...args);
+    },
+});
+
+export const parentApi: ParentApi = isParentApiMocked ? lazyMockParentApi : liveParentApi;

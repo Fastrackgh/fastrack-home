@@ -172,7 +172,7 @@ See the findings register for the evidence and repro steps behind each item.
   - **Reload:** opens the draft as the server has it. The unsaved edit is dropped.
   - **Keep mine:** saves without the check, replacing the other change.
 
-  Edits made meanwhile wait, and Publish and switching refuse until one is chosen. A rename moves the stored `updatedAt`, so the next autosave doesn't clash with it. Tested with two tabs on QPM-402: B's stale edit got 409 and the banner; Keep mine saved; A then got 409; Reload cleared it and A's next edit saved.
+  Edits made meanwhile wait, and Publish and switching refuse until one is chosen. The **code editor** (Advanced, Fastrack staff) does the same on Save draft: the edits stay in the boxes, with the same Reload / Keep mine banner. A rename moves the stored `updatedAt`, so the next autosave doesn't clash with it. Tested with two tabs on QPM-402: B's stale edit got 409 and the banner; Keep mine saved; A then got 409; Reload cleared it and A's next edit saved.
 - *Fixed 25 Oct:* an uploaded **PDF** sample showed blank. The API serves media with `X-Frame-Options: SAMEORIGIN`, and the app runs on another origin, so the browser refused to frame its URL. The sample pane now fetches the PDF (CORS allows it) and shows that copy, with "Open it in a new tab" if the fetch fails. Image samples were never affected.
 - *Fixed 25 Oct (QA-264 Templates part, QA-265):*
   - The builder loads kinds, images and fee types once, not on every bill/report switch; a switch fetches only that kind's versions.

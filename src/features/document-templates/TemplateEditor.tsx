@@ -22,7 +22,7 @@ import {
 import { useDebouncedValue } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { Copy, Eye, FilePlus2, Rocket, Save, Upload } from 'lucide-react';
-import { errorMessage } from '@/lib/api-client';
+import { ApiError, errorMessage } from '@/lib/api-client';
 import { nullableFieldSetter } from '@/lib/state';
 import {
   KIND_LABELS,
@@ -93,6 +93,8 @@ export function TemplateEditor({
   const [previewError, setPreviewError] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  /** The open draft was changed elsewhere since it was opened (QA-067). */
+  const [conflict, setConflict] = useState(false);
 
   const kindInfo = kinds.find((k) => k.kind === kind);
   const editable = canManage && selected?.status === 'DRAFT';
@@ -122,6 +124,16 @@ export function TemplateEditor({
   const open = (template: DocumentTemplate) => {
     setSelected(template);
     setDraft(toDraft(template));
+    setConflict(false);
+  };
+
+  /** Opens the draft again as the server has it, dropping the unsaved edits (QA-067). */
+  const reloadSelected = async () => {
+    if (!selected) return;
+    const list = await api.list(kind);
+    setVersions(list);
+    const fresh = list.find((t) => t.id === selected.id);
+    if (fresh) open(fresh);
   };
 
   // Live preview of what is in the editor (or the live/default design).
@@ -185,16 +197,31 @@ export function TemplateEditor({
     }
   };
 
-  const save = () => {
+  /**
+   * Saves the draft, checked against the version it was opened at; `overwrite`
+   * skips the check ("Keep mine"). A 409 keeps the edits and asks (QA-067).
+   */
+  const save = (overwrite = false) => {
     if (!selected || !draft) return;
     const settings = parseSettings(draft.settingsText);
     if (typeof settings === 'string') {
       notifications.show({ color: 'red', title: 'Cannot save', message: settings });
       return;
     }
-    void act('Draft saved', () =>
-      api.update(selected.id, { name: draft.name, html: draft.html, css: draft.css, settings }),
-    );
+    void act('Draft saved', async () => {
+      try {
+        return await api.update(selected.id, {
+          name: draft.name,
+          html: draft.html,
+          css: draft.css,
+          settings,
+          ...(overwrite ? {} : { expectedUpdatedAt: selected.updatedAt }),
+        });
+      } catch (e) {
+        if (e instanceof ApiError && e.statusCode === 409) setConflict(true);
+        throw e;
+      }
+    });
   };
 
   const upload = (file: File | null) => {
@@ -398,7 +425,12 @@ export function TemplateEditor({
                   </Badge>
                 </Text>
                 {editable ? (
-                  <Button size="xs" leftSection={<Save size={14} />} loading={busy} onClick={save}>
+                  <Button
+                    size="xs"
+                    leftSection={<Save size={14} />}
+                    loading={busy}
+                    onClick={() => save()}
+                  >
                     Save draft
                   </Button>
                 ) : (
@@ -409,6 +441,25 @@ export function TemplateEditor({
                   )
                 )}
               </Group>
+              {conflict && (
+                <Alert color="orange" mb="xs" title="Changed somewhere else">
+                  <Group justify="space-between" gap="xs">
+                    <Text size="sm">
+                      This design was changed in another tab or by someone else since you opened it.
+                      Reload to see theirs (your edits are dropped), or keep yours and replace
+                      theirs.
+                    </Text>
+                    <Group gap="xs">
+                      <Button size="xs" variant="default" onClick={() => void reloadSelected()}>
+                        Reload
+                      </Button>
+                      <Button size="xs" color="orange" loading={busy} onClick={() => save(true)}>
+                        Keep mine
+                      </Button>
+                    </Group>
+                  </Group>
+                </Alert>
+              )}
               <TextInput
                 label="Name"
                 value={draft.name}

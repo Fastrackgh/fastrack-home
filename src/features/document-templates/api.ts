@@ -191,9 +191,17 @@ export function documentTemplatesApi(schoolId: string, asPlatform: boolean) {
     ) {
       return (await apiClient.post<DocumentTemplate>(base, input)).data;
     },
+    /**
+     * Saves changes to a draft. With `expectedUpdatedAt` (the `updatedAt` last
+     * received), a draft changed elsewhere since is refused with 409 (QA-067).
+     */
     async update(
       id: string,
-      input: { name?: string; layout?: DocumentLayout } & Partial<TemplateParts>,
+      input: {
+        name?: string;
+        layout?: DocumentLayout;
+        expectedUpdatedAt?: string;
+      } & Partial<TemplateParts>,
     ) {
       return (await apiClient.patch<DocumentTemplate>(one(id), input)).data;
     },

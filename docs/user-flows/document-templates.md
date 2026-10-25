@@ -42,7 +42,7 @@ Backend verified against `fastrack-space/fastrack-backend`, branch `fix/invoice-
 | Load: design images | `GET /media?…&purpose=TEMPLATE_ASSET` | ✓ | same rule |
 | Load: fee types (bill only) | `GET /schools/me/fee-types` or `/super-admin/schools/:id/fee-types` | ✓ | Needs module `fees` plus `fee_types:read`. Errors are swallowed and the list becomes `[]`. |
 | New design (starter) | `POST {base}` `{kind, starter, name}` | ✓ | manage. Version = max + 1. |
-| Autosave | `PATCH {base}/:id` `{layout}` | ✓ | manage. Drafts only (409 otherwise). The layout is validated, compiled to HTML/CSS and test-rendered. |
+| Autosave | `PATCH {base}/:id` `{layout, expectedUpdatedAt}` | ✓ | manage. Drafts only (409 otherwise). A changed-elsewhere draft → 409 "This design was changed somewhere else…" (QA-067). The layout is validated, compiled to HTML/CSS and test-rendered. |
 | Rename | `PATCH {base}/:id` `{name}` | ✓ | Sent on blur. Name ≤120 characters; a blank name is ignored by the server. |
 | Live preview (unsaved) | `POST {base}/preview` `{kind, layout, invoiceId?}` | ✓ | **manage** (not read). `invoiceId` must be a UUID of this school's invoice. |
 | Preview of a saved or code version | `POST {base}/:id/preview` | ✓ | **manage** |
@@ -168,7 +168,11 @@ See the findings register for the evidence and repro steps behind each item.
   - **Publish** saves first and refuses with "Not published" if it can't, so parents never get an older design.
   - **The status** reads "Unsaved changes", "Saving…", "All changes saved" or "Not saved", with Try again.
   - **Tested live** on QPM-402: an edit then a quick switch saved to the first draft only; an edit then Publish sent PATCH, then publish; leaving through the menu sent the PATCH; a forced 500 showed "Not saved" and asked before switching.
-- **Concurrency:** two editors on the same draft (Principal and Fastrack staff, or two tabs) overwrite each other without warning. There is no version check.
+- *Fixed 25 Oct (QA-067; backend `0cb9bdc`):* **Concurrency.** Each autosave and rename sends the `updatedAt` it last received as `expectedUpdatedAt`. If the draft changed elsewhere (another tab, or Principal and Fastrack staff), the backend refuses with 409. The status then reads "Changed somewhere else", and an orange banner offers:
+  - **Reload:** opens the draft as the server has it. The unsaved edit is dropped.
+  - **Keep mine:** saves without the check, replacing the other change.
+
+  Edits made meanwhile wait, and Publish and switching refuse until one is chosen. A rename moves the stored `updatedAt`, so the next autosave doesn't clash with it. Tested with two tabs on QPM-402: B's stale edit got 409 and the banner; Keep mine saved; A then got 409; Reload cleared it and A's next edit saved.
 - *Fixed 25 Oct:* an uploaded **PDF** sample showed blank. The API serves media with `X-Frame-Options: SAMEORIGIN`, and the app runs on another origin, so the browser refused to frame its URL. The sample pane now fetches the PDF (CORS allows it) and shows that copy, with "Open it in a new tab" if the fetch fails. Image samples were never affected.
 - *Fixed 25 Oct (QA-264 Templates part, QA-265):*
   - The builder loads kinds, images and fee types once, not on every bill/report switch; a switch fetches only that kind's versions.

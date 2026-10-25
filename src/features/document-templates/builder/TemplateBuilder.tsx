@@ -126,7 +126,7 @@ export function TemplateBuilder({
   const info = kinds.find((k) => k.kind === kind);
   const editable = canManage && current?.status === 'DRAFT' && current.mode === 'visual';
   const autosave = useDraftAutosave({ api, templateId: current?.id ?? null, layout, editable });
-  const { flush, markSaved } = autosave;
+  const { flush, markSaved, noteUpdatedAt } = autosave;
   /** Only the newest load may open a design, so a slow one can't show another kind (QA-070). */
   const loadTicket = useRef(0);
 
@@ -188,7 +188,7 @@ export function TemplateBuilder({
 
   const open = useCallback(
     (template: DocumentTemplate | null) => {
-      markSaved(template?.id ?? null, template?.layout ?? null);
+      markSaved(template);
       setCurrent(template);
       setSelectedId(null);
       setPreviewProblem(null);
@@ -268,13 +268,21 @@ export function TemplateBuilder({
     }
   };
 
+  /** Opens the open design again as the server now has it, dropping the unsaved edit (QA-067). */
+  const reloadCurrent = async () => {
+    const id = current?.id;
+    const list = await load();
+    open(list?.find((t) => t.id === id) ?? null);
+  };
+
   /** Renames a design, keeping the version list in step; a failure is said, not swallowed (QA-070). */
   const rename = async (id: string, name: string) => {
     const trimmed = name.trim();
     const before = versions?.find((v) => v.id === id)?.name;
     if (!trimmed || trimmed === before) return;
     try {
-      await api.update(id, { name: trimmed });
+      const saved = await api.update(id, { name: trimmed });
+      noteUpdatedAt(id, saved.updatedAt);
       setVersions((list) => list?.map((v) => (v.id === id ? { ...v, name: trimmed } : v)) ?? list);
     } catch (e) {
       notifications.show({
@@ -535,6 +543,7 @@ export function TemplateBuilder({
                       saving: 'Saving…',
                       saved: 'All changes saved',
                       error: 'Not saved',
+                      conflict: 'Changed somewhere else',
                     }[autosave.state]
                   }
                 </Text>
@@ -672,6 +681,24 @@ export function TemplateBuilder({
         <Alert color="blue" py={6}>
           Reports preview with example pupil data until grading is set up. A design published now
           will be used for real reports.
+        </Alert>
+      )}
+      {autosave.state === 'conflict' && current && (
+        <Alert color="orange" py={6} title="Changed somewhere else">
+          <Group justify="space-between" gap="xs">
+            <Text size="sm">
+              This design was changed in another tab or by someone else. Reload to see theirs (your
+              unsaved change is dropped), or keep yours and replace theirs.
+            </Text>
+            <Group gap="xs">
+              <Button size="xs" variant="default" onClick={() => void reloadCurrent()}>
+                Reload
+              </Button>
+              <Button size="xs" color="orange" onClick={() => void autosave.keepMine()}>
+                Keep mine
+              </Button>
+            </Group>
+          </Group>
         </Alert>
       )}
       {autosave.error && (

@@ -2,7 +2,7 @@
 
 20 Oct 2026. Full detail: [findings.md](./findings.md) (151 findings; QA-060 to QA-088 and QA-200 to QA-262 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
-**Status on 25 Oct 2026, reconciled against the code and re-tests:** 79 fixed, 21 partly fixed, 54 open (154 findings). No Critical is fully open: QA-020 is partly fixed (the leads are now saved, but the waitlist still promises login credentials). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
+**Status on 25 Oct 2026, reconciled against the code and re-tests:** 79 fixed, 21 partly fixed, 55 open (155 findings). No Critical is fully open: QA-020 is partly fixed (the leads are now saved, but the waitlist still promises login credentials). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
 - **Open:** QA-061. The design builder ones (QA-064, QA-065, QA-066) were fixed and re-tested in the browser on 25 Oct.
 - **Partly fixed:** QA-007, QA-016, QA-030 and QA-034.
 

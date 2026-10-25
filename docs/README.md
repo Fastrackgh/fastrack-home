@@ -44,7 +44,7 @@ Each flow has a Mermaid diagram, its loading, empty, error and success states, i
 | Document | What it covers |
 | --- | --- |
 | [qa/pm-summary.md](./qa/pm-summary.md) | Verdict, top risks, friction themes, frontend/backend disagreements, roadmap (start here) |
-| [qa/findings.md](./qa/findings.md) | All 154 findings (QA-001 to QA-088, QA-200 to QA-265) with severity, evidence, reproduction steps and fixes |
+| [qa/findings.md](./qa/findings.md) | All 155 findings (QA-001 to QA-088, QA-200 to QA-266) with severity, evidence, reproduction steps and fixes |
 | [qa/e2e-bismark-international.md](./qa/e2e-bismark-international.md) | 21 Oct end-to-end UI run: a new school (BIS-001) set up and taken through every feature, step by step, with a ledger reconciliation |
 | [qa/test-matrix.md](./qa/test-matrix.md) | Role × route/endpoint, security, money and lifecycle scenarios with results |
 | [qa/live-test-log.md](./qa/live-test-log.md) | How the live run was set up, every request made and response received, and the browser walk-through ([scripts](./qa/browser-walkthrough/), [screenshots](./qa/screenshots/)) |

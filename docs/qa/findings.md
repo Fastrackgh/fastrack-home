@@ -22,10 +22,10 @@
 | Severity | Count | Fixed | Partly fixed | Open |
 |---|---|---|---|---|
 | Critical | 8 | 7 | 1 | 0 |
-| High | 31 | 26 | 4 | 1 |
-| Medium | 79 | 29 | 11 | 39 |
-| Low | 37 | 18 | 5 | 14 |
-| **Total** | **155** | **80** | **21** | **54** |
+| High | 31 | 27 | 3 | 1 |
+| Medium | 79 | 33 | 11 | 35 |
+| Low | 37 | 19 | 6 | 12 |
+| **Total** | **155** | **85** | **20** | **50** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -42,7 +42,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-004 | High | SEC/EDGE | Both | Live ✔ | Payments can be double-submitted; a client-chosen receipt number causes a 500 — FE half **fixed** (41eeb3b); rest in QA-086 |
 | QA-005 | High | SEC | BE | Live ✔ | AdminJS was mounted in production, unthrottled, with in-memory sessions and an editable ledger — **fixed** (24 Oct; BE `44b2a3f`: off in production unless ADMIN_ENABLED=true, sessions in Redis, SameSite=Lax, 8h) |
 | QA-006 | High | SEC | BE | Code ✔ | Notification client logs OTPs and invite tokens and serves them on a LAN port — **fixed** (24 Oct; BE `8dfd574`, `5af0b93`: no OTP/link logging; dev preview on 127.0.0.1:4080–4089 only; never dev in production) |
-| QA-007 | High | SEC | BE | Code ✔ | Invite acceptance checks the expiry date, not the status, so a superseded (EXPIRED-status) token is still accepted — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-007 | High | SEC | BE | Code ✔ | Invite acceptance checks the expiry date, not the status, so a superseded (EXPIRED-status) token is still accepted — **fixed** (25 Oct; BE `17900c0`, re-tested) |
 | QA-008 | High | EDGE/SEC | Both | Live ✔ (partly); race not reproduced in browser | Multi-tab use: a refresh race logs out every session; signing in another tab swaps the identity — **fixed** (reconciled 24 Oct) |
 | QA-009 | High | SEC | Both | Live ✔ Browser ✔ | Logout and password change never end the session on the server; tokens sit in localStorage with no CSP — **fixed** (reconciled 24 Oct) |
 | QA-010 | High | SEC | BE | Live ✔ | Public invoice opens by its database UUID, never expires, isn't throttled, and exposes a staff email — **fixed** (24 Oct; BE `a417fb0`: token-only links, rotated on resend, rate-limited, no staff email, 404 when suspended) |
@@ -70,17 +70,17 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-214 | High | SEC | Both | Browser ✔ | Staff unlink doesn't stick: the parent relinks immediately (safeguarding) — **fixed** (23 Oct; shared-contact gap QA-240 also fixed) |
 | QA-222 | High | Money/UX | FE | Browser ✔ | Parent app "paid of" total counts carried bills again every term — **fixed** (23 Oct; FE `b945bd8`, BE `25eb632`) |
 | QA-227 | High | Money/SEC | BE | Browser ✔ | An old "tamper-proof" public bill changes later (live class and balance) — **fixed** (24 Oct; BE `eb0f25c` on `main`; older bills keep showing the current class by choice) |
-| QA-011 | Medium | SEC | BE | Live ✔ | Invoice job status can be read across schools (sequential ids) — **open** (code re-checked 24 Oct) |
+| QA-011 | Medium | SEC | BE | Live ✔ | Invoice job status can be read across schools (sequential ids) — **fixed** (25 Oct; BE `17900c0`, re-tested) |
 | QA-012 | Medium | SEC | BE | Live ✔ | No security headers; Swagger public; CORS `*` with credentials; unset `NODE_ENV` runs production as dev — **fixed** (24 Oct; BE `c9c06b9`: security headers; production refuses Swagger, open CORS and a missing NODE_ENV) |
 | QA-014 | Medium | SEC | BE | Live ✔ | User enumeration through register-parent, login timing and ward-link errors — **open** (code re-checked 24 Oct) |
 | QA-017 | Medium | FLOW | BE | Live ✔ | Exited students can still be paid against; their open invoices are never written off — **open** (code re-checked 24 Oct) |
 | QA-018 | Medium | EDGE | Both | Live ✔ | Terms can't be closed, term dates aren't checked for start ≤ end, and payment dates are unbounded — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-019 | Medium | EDGE | BE | Live ✔ | Payment input gaps: oversized amount returns 500, unvalidated `dueDate`, allocations not checked — **open** (code re-checked 24 Oct) |
-| QA-021 | Medium | SEC | BE | Suspected | A failed OTP send is never caught and can crash the API process — **open** (code re-checked 24 Oct) |
+| QA-021 | Medium | SEC | BE | Suspected | A failed OTP send is never caught and can crash the API process — **fixed** (25 Oct; BE `17900c0`, code and unit tests) |
 | QA-022 | Medium | SEC/FLOW | BE | Live ✔ | Public invoice, media, optional fees and queued jobs still skip module and suspension checks (payments are fixed) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-023 | Medium | SEC | BE | Code ✔ | The main throttler is still in memory, keyed on IP+email and spoofable, with no lockout (only AdminJS has one) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
-| QA-024 | Medium | SEC | BE | Live ✔ | `PATCH /students/:id` lets a Secretary graduate or transfer a student, bypassing `students:exit` — **open** (code re-checked 24 Oct) |
-| QA-025 | Medium | SEC | BE | Code ✔ | `POST /users` can link a parent login to any child without the guardian-contact check — **open** (code re-checked 24 Oct) |
+| QA-024 | Medium | SEC | BE | Live ✔ | `PATCH /students/:id` lets a Secretary graduate or transfer a student, bypassing `students:exit` — **fixed** (25 Oct; BE `17900c0`, re-tested) |
+| QA-025 | Medium | SEC | BE | Code ✔ | `POST /users` can link a parent login to any child without the guardian-contact check — **fixed** (25 Oct; BE `17900c0`, re-tested) |
 | QA-029 | Medium | EDGE/UX | Both | Live ✔ | Staff payments accept any overpayment as credit with no confirmation (online payments are capped) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-035 | Medium | EDGE | Both | Browser ✔ | Permissions refresh only on app load: no refetch on focus or 403, unknown modules allowed, stored permission lists drift — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-036 | Medium | FLOW | Both | Browser ✔ | Non-teacher staff (Academic Head, Account Officer, Secretary) can't be listed, edited or re-activated — **fixed** (reconciled 24 Oct) |
@@ -149,8 +149,8 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-043 | Low | FLOW | BE | Code ✔ | Discounts stack to 100%, silently overwrite, and don't re-price issued invoices — **open** (code re-checked 24 Oct) |
 | QA-046 | Low | SEC | BE | Code ✔ | Super Admin skips the permissions guard, and revoke or pending resend have no rank check (staff isActive and reopen are checked) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-047 | Low | SEC/data | BE | Code ✔ / Live ✔ | Config hygiene: seed passwords, JWT secret fallbacks, DB TLS not verified, $argon2 skip, emails in logs (email case is fixed) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
-| QA-048 | Low | EDGE | BE | Code ✔ | Arrays have no `ArrayMaxSize`; optional-fee `feeTypeId` not validated — **open** (code re-checked 24 Oct) |
-| QA-049 | Low | EDGE/SEC | BE | Code ✔ | Invite acceptance isn't atomic; media residuals (non-revocable signed URLs, no upload limit) — **open** (code re-checked 24 Oct) |
+| QA-048 | Low | EDGE | BE | Code ✔ | Arrays have no `ArrayMaxSize`; optional-fee `feeTypeId` not validated — **fixed** (25 Oct; BE `17900c0`, re-tested) |
+| QA-049 | Low | EDGE/SEC | BE | Code ✔ | Media residuals (non-revocable signed URLs, no upload limit); invite acceptance is now atomic — **partly fixed** (25 Oct; BE `17900c0`) |
 | QA-050 | Low | UX | FE | Code ✔ | Four currency formats, four date formats, partial dark mode, accessibility gaps — **open** (code re-checked 24 Oct) |
 | QA-051 | Low | DOC/SEC | FE | Code ✔ | API URL defaults to localhost:3000, there is no middleware route guard, and the permission script is a hand copy — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-052 | Low | DOC | BE | Code ✔ | Architecture docs out of date; three different list envelope shapes — **open** (code re-checked 24 Oct) |
@@ -1150,13 +1150,13 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-001 | Fixed | per-student advisory lock + row lock before reading balance (student-fee-account.repository.ts:46-57, payments.service.ts:86-111); e2e test; 18b3c9a, 5deed77 |
 | QA-002 | Fixed | two term rollovers carried arrears exactly once and the ledger reconciles (browser, 21 Oct run) |
 | QA-003 | Fixed | suspended schools are refused at login and mid-session with 403 (browser, 21 Oct run) |
-| QA-005 | Fixed (re-tested 24 Oct after 44b2a3f) | Redis login lockout and read-only ledger resources (18b3c9a); still always mounted (no ADMIN_ENABLED), in-memory sessions, no sameSite, no audit log Re-test 24 Oct: the cookie is HttpOnly and SameSite=Lax with an 8h expiry; the session is in Redis (`adminjs:sess:*`, TTL 28800) and still worked after the 16:40 restart. Re-test 25 Oct (BE `d4a85d9` on main, throwaway data only): **pass**. **Audit:** as the seeded Super Admin, creating, editing, deleting and bulk-deleting Departments on QPM-402 wrote `admin.record.created`, `.updated` and `.deleted` rows, with entity_type `Department`, the record id and actor SUPER_ADMIN. The edit's `changes` were `{"name":{"from":"QA Audit Dept","to":"QA Audit Dept (renamed)"},"description":{"from":null,"to":"edited in AdminJS"}}`. Changing a throwaway admin's password logged `{"password":{"from":"[hidden]","to":"[changed]"}}`; no password text appears in audit_logs, and the stored value is `$argon2id…`. Bulk delete wrote one row per record. Failed creates (a missing school, a duplicate email) wrote no row. Minor: saving an edit with no change still writes an `.updated` row with empty `changes`. **Sign-out:** a throwaway super admin (qa-sa@qpm.test, now deleted) was signed in, then deactivated by the seeded admin. Their next `/admin/api` call within 30 s got 401 "Your session has ended. Sign in again.", `/admin` redirected to `/admin/login`, and signing in again was refused. The seeded admin was unaffected. Not checked: an audit write failure leaving the change in place. |
+| QA-005 | Fixed (re-tested 24 Oct after 44b2a3f) | Redis login lockout and read-only ledger resources (18b3c9a); still always mounted (no ADMIN_ENABLED), in-memory sessions, no sameSite, no audit log Re-test 24 Oct: the cookie is HttpOnly and SameSite=Lax with an 8h expiry; the session is in Redis (`adminjs:sess:*`, TTL 28800) and still worked after the 16:40 restart. Re-test 25 Oct (BE `d4a85d9` on main, throwaway data only): **pass**. **Audit:** as the seeded Super Admin, creating, editing, deleting and bulk-deleting Departments on QPM-402 wrote `admin.record.created`, `.updated` and `.deleted` rows, with entity_type `Department`, the record id and actor SUPER_ADMIN. The edit's `changes` were `{"name":{"from":"QA Audit Dept","to":"QA Audit Dept (renamed)"},"description":{"from":null,"to":"edited in AdminJS"}}`. Changing a throwaway admin's password logged `{"password":{"from":"[hidden]","to":"[changed]"}}`; no password text appears in audit_logs, and the stored value is `$argon2id…`. Bulk delete wrote one row per record. Failed creates (a missing school, a duplicate email) wrote no row. Minor: saving an edit with no change still wrote an `.updated` row with empty `changes`. Fixed in BE `17900c0`: re-tested 25 Oct, an edit with the same values writes no row, and a real rename writes one with `{"name":{"from":…,"to":…}}`. **Sign-out:** a throwaway super admin (qa-sa@qpm.test, now deleted) was signed in, then deactivated by the seeded admin. Their next `/admin/api` call within 30 s got 401 "Your session has ended. Sign in again.", `/admin` redirected to `/admin/login`, and signing in again was refused. The seeded admin was unaffected. Not checked: an audit write failure leaving the change in place. |
 | QA-006 | Fixed (re-tested 24 Oct after 5af0b93) | notification dev mode still on when NODE_ENV≠production or no API key; client not patched |
-| QA-007 | Partly fixed | deactivation revokes invites, accept refuses accounts with a password, reopen needs rank (e14ddfc); accept still checks expiresAt not status |
+| QA-007 | Fixed | 25 Oct, BE `17900c0` (pushed to main). Re-tested on throwaway QRG-501. A teacher invite was verified valid, then its row set to EXPIRED (as a supersede does) while still in date. Verify returned `valid:false` "This invitation link is no longer valid. Use the link in the latest invitation email.", and setup-password got 400 with the same text. After a Resend, the old token gets "not found" and the new one is valid. |
 | QA-008 | Fixed | refresh under Web Locks + storage listener reloads on user change (6b1713d); 30s rotation grace (08954f5); code only, not re-tested in a browser |
 | QA-009 | Fixed | sign-out calls /auth/logout and the old refresh token gets 401 (browser, 21 Oct run) |
 | QA-010 | Fixed (re-tested 24 Oct after 44b2a3f) | public invoice still opens by UUID, links built from invoice.id, no expiry or throttle, signedByEmail returned |
-| QA-011 | Open | job status read with no school check (invoices.controller.ts:140-165) |
+| QA-011 | Fixed | 25 Oct, BE `17900c0`. `POST /schools/me/invoices/generate/async` on QPM-402 returned jobId `54a2403f-…` (a UUID). The own school reads it (200). BIS-001's principal gets 404 "Job with ID … not found", and a random UUID or "1" gets 404. |
 | QA-012 | Fixed (re-tested 24 Oct after 44b2a3f) | no helmet, Swagger always on, CORS origin ?? '*' with credentials, NODE_ENV defaults to development |
 | QA-013 | Fixed (re-tested 24 Oct after 44b2a3f) | Academic Head limited to Teacher/Secretary/Parent (18b3c9a); any creator can still set a password that activates at once |
 | QA-014 | Open | register-parent 409 "Email already registered"; login skips hashing for unknown emails |
@@ -1165,11 +1165,11 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-018 | Partly fixed | current year/term switch is one transaction (bcb2e0b); terms still can't be closed, no start ≤ end check, payment dates unbounded |
 | QA-019 | Open | no @Max on amount, dueDate unvalidated, amount ignored when allocations sent |
 | QA-020 | Partly fixed | forms post to POST /public/leads (submitLead); waitlist success copy still promises "login credentials" (WaitlistForm.tsx:112) |
-| QA-021 | Open | OTP send still fire-and-forget with no .catch (otp.service.ts:85,141) |
+| QA-021 | Fixed | 25 Oct, BE `17900c0`. `otp.service.ts:53` now catches the send failure and logs a warning. `otp.service.spec.ts` passes 6/6. Not triggered live, since the email client can't easily be made to fail. |
 | QA-022 | Partly fixed | payments check suspension (18b3c9a); public invoice, media, optional fees, queued jobs still unchecked |
 | QA-023 | Partly fixed | only AdminJS has a Redis lockout; main throttler still IP+email, in memory, no lockout |
-| QA-024 | Open | UpdateStudentDto still accepts status and classId under students:update |
-| QA-025 | Open | POST /users still links a parent to any child of the school without the guardian-contact check |
+| QA-024 | Fixed | 25 Oct, BE `17900c0`. On QPM-402, `PATCH /schools/me/students/:id` with `status: Graduated` or `classId` gets 400 "property … should not exist" for both the Principal and the Secretary, and the DB is unchanged. `otherName` still saves (200). `/promote` (Ama → Primary 3) gets 201, and `/exit` (Smoke Cleanup, Transferred_Out) gets 201. |
+| QA-025 | Fixed | 25 Oct, BE `17900c0`. `POST /users` PARENT with `studentIds:[Kofi]` (QPM-402) and an email or phone not on Kofi's record gets 400 "The parent's phone or email must match a guardian contact on the student's record (Kofi RetestP1)", and no account is created. With phone 0249970402, the mother's on record, it gets 201 with relationship Mother; "+233249970402" also matches. After an unlink with preventRelink, a new account on that phone gets 409 "This parent is blocked from linking to the student. Lift the block first." |
 | QA-026 | Fixed | parent portal live: ward-scoped parents/me/wards/:id routes with module checks (parent-fees.controller.ts, ward-access.service.ts); reports still "coming soon" |
 | QA-027 | Fixed | forgot/verify/reset on the backend (auth.controller.ts:47-85); FE /auth/forgot-password and /auth/reset-password with links on both logins; used in the 23–24 Oct tests |
 | QA-028 | Fixed | the toast reads "Successfully generated N term invoice(s)…" (browser, 21 Oct run) |
@@ -1192,8 +1192,8 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-045 | Open | BaseRepository still unscoped when no school in context; middleware reads x-school-id before auth |
 | QA-046 | Partly fixed | staff isActive and invite reopen are rank-checked; Super Admin skips the permissions guard; revoke/resend not rank-checked |
 | QA-047 | Partly fixed | emails case-insensitive (e226f97); seed passwords, JWT fallbacks, DB TLS off, $argon2 skip, emails in logs remain |
-| QA-048 | Open | no @ArrayMaxSize on the listed arrays; optional-fee feeTypeId unchecked |
-| QA-049 | Open | accept invite not transactional; media upload unthrottled |
+| QA-048 | Fixed | 25 Oct, BE `17900c0`. 51 `studentIds` get 400 "must contain no more than 50 elements", and 101 `includeOptionalFeeTypeIds` get 400 (max 100). Switching an optional fee on for Yaa (toggle and PUT): an unknown fee type or BIS-001's fee type gets 400 "Fee type not found in this school", compulsory QA Tuition gets 400 "QA Tuition is not an optional fee…", and optional QA Bus gets 200. |
+| QA-049 | Partly fixed | 25 Oct, BE `17900c0`. Two simultaneous setup-password calls with the same new token gave one 200 and one 400 "Invitation has already been accepted", and a third gets 400. Still open: signed media URLs can't be revoked, and uploads have no size or rate limit. |
 | QA-050 | Open | colour-scheme keys differ; currency formatted in several places |
 | QA-051 | Partly fixed | permission list updated; API URL default, no middleware guard, hand-copied permission script remain |
 | QA-052 | Open | fees-and-billing.md still has OVERPAID and DELETE fee-types; PermissionsGuard not documented |

@@ -2,8 +2,8 @@
 
 20 Oct 2026. Full detail: [findings.md](./findings.md) (151 findings; QA-060 to QA-088 and QA-200 to QA-262 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
-**Status on 24 Oct 2026, reconciled against the code and re-tests:** 75 fixed, 21 partly fixed, 58 open (154 findings). No Critical is fully open: QA-020 is partly fixed (the leads are now saved, but the waitlist still promises login credentials). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
-- **Open:** QA-061, QA-064, QA-065 and QA-066.
+**Status on 25 Oct 2026, reconciled against the code and re-tests:** 79 fixed, 21 partly fixed, 54 open (154 findings). No Critical is fully open: QA-020 is partly fixed (the leads are now saved, but the waitlist still promises login credentials). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
+- **Open:** QA-061. The design builder ones (QA-064, QA-065, QA-066) were fixed and re-tested in the browser on 25 Oct.
 - **Partly fixed:** QA-007, QA-016, QA-030 and QA-034.
 
 Details are under "Status reconciliation" in findings.md.
@@ -162,7 +162,7 @@ A brand-new school was set up from nothing and taken through every built feature
 
 A code-reading pass over the features built after the audit added QA-064 to QA-088: 3 High, 14 Medium, 8 Low. Full detail is in [findings.md](./findings.md#edge-case-pass-on-the-newer-features-21-october-2026).
 
-- **Fix first: the design builder's autosave** (QA-064 to QA-066). Switching version can save one design onto another, recent edits are lost, and Publish can push an older design. All three come from the 1.2 s debounce not being tied to the template being edited.
+- **Fix first: the design builder's autosave** (QA-064 to QA-066). Switching version can save one design onto another, recent edits are lost, and Publish can push an older design. All three come from the 1.2 s debounce not being tied to the template being edited. **Fixed 25 Oct** (FE `55c49bb`): each edit is saved to the design it was made on, leaving or publishing saves first, and a failed save asks before anything is lost.
 - **Money and data.**
   - Renaming a fee type rewrites issued invoices (QA-084).
   - The bill prints a hard-coded 10% penalty, ignoring the structure's penalty (QA-085).

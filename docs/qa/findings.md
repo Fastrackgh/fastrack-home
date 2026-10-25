@@ -22,10 +22,10 @@
 | Severity | Count | Fixed | Partly fixed | Open |
 |---|---|---|---|---|
 | Critical | 8 | 7 | 1 | 0 |
-| High | 31 | 23 | 4 | 4 |
-| Medium | 78 | 27 | 11 | 40 |
+| High | 31 | 26 | 4 | 1 |
+| Medium | 78 | 28 | 11 | 39 |
 | Low | 37 | 18 | 5 | 14 |
-| **Total** | **154** | **75** | **21** | **58** |
+| **Total** | **154** | **79** | **21** | **54** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -59,9 +59,9 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-055 | High | FLOW/money | FE | Browser ✔ | Record Payment overwrites the amount the cashier typed once the balance finishes loading — **fixed** (41eeb3b) |
 | QA-060 | High | Bug | BE | Live ✔ | Staff list of optional-service requests returned 500 — **fixed** (08c9ee3) |
 | QA-061 | High | Data | Data, FE | Live ✔ | Flagged current term doesn't contain today; billing forms default to it (9 robotics bills went to Term 2) — **open** (code re-checked 24 Oct) |
-| QA-064 | High | EDGE/data | FE | Code ✔ | Design builder can save the previous design onto the version just opened — **open** (code re-checked 24 Oct) |
-| QA-065 | High | EDGE/data | FE | Code ✔ | Design edits in the last 1.2 s are lost on switch or leave; no unsaved-changes guard — **open** (code re-checked 24 Oct) |
-| QA-066 | High | FLOW | FE | Code ✔ | Publish can push an older design than the one on screen — **open** (code re-checked 24 Oct) |
+| QA-064 | High | EDGE/data | FE | Code ✔ | Design builder can save the previous design onto the version just opened — **fixed** (25 Oct; FE `55c49bb`, re-tested in the browser; see QA-064 status) |
+| QA-065 | High | EDGE/data | FE | Code ✔ | Design edits in the last 1.2 s are lost on switch or leave; no unsaved-changes guard — **fixed** (25 Oct; FE `55c49bb`, re-tested in the browser; see QA-064 status) |
+| QA-066 | High | FLOW | FE | Code ✔ | Publish can push an older design than the one on screen — **fixed** (25 Oct; FE `55c49bb`, re-tested in the browser; see QA-064 status) |
 | QA-201 | High | SEC/UX | BE | Browser ✔ | Emails are case- and space-sensitive: capitalised login fails; duplicate accounts per mailbox — **fixed** (24 Oct; BE `e226f97`, FE `df392ad`) |
 | QA-207 | High | FLOW | Both | Browser ✔ | Classes have no order; promotion is one pupil at a time with no next-class suggestion — **fixed** (24 Oct; BE `23504b6`, FE `a2f0bff`; follow-ups QA-245, QA-247) |
 | QA-208 | High | FLOW | Both | Browser ✔ | Revoking an invite locks that person out for good (Reactivate gives an account with no password) — **fixed** (22 Oct; backend `e14ddfc` on `main`) |
@@ -99,7 +99,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-067 | Medium | EDGE | Both | Code ✔ | Template edits have no conflict check; last save wins — **open** (code re-checked 24 Oct) |
 | QA-068 | Medium | FLOW | BE | Code ✔ | A published design that fails on real data breaks the parent bill; no fallback — **open** (code re-checked 24 Oct) |
 | QA-069 | Medium | FLOW | Both | Code ✔ | Code editor silently converts a visual design into a code design — **open** (code re-checked 24 Oct) |
-| QA-070 | Medium | UX/EDGE | FE | Code ✔ | Design builder error states: sticky preview errors, kind-switch races, silent rename failures — **open** (code re-checked 24 Oct) |
+| QA-070 | Medium | UX/EDGE | FE | Code ✔ | Design builder error states: sticky preview errors, kind-switch races, silent rename failures — **fixed** (25 Oct; FE `55c49bb`, re-tested in the browser; see QA-064 status) |
 | QA-072 | Medium | EDGE | Both | Code ✔ | Past terms stay editable on the calendar; closures change attendance totals after the fact — **open** (code re-checked 24 Oct) |
 | QA-073 | Medium | EDGE | FE | Suspected | Calendar term/class switch can show another term's events and stats — **open** (code re-checked 24 Oct) |
 | QA-075 | Medium | FLOW | Both | Code ✔ | A mistaken year, term or class can't be deleted — **open** (code re-checked 24 Oct) |
@@ -1202,13 +1202,13 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-059 | Partly fixed | breadcrumb fixed, empty submit shows a message; wrong password still shows both an alert and a toast |
 | QA-061 | Open | FIS-001 still flags the Jan 2027 term current while today is in Term 1; billing forms still default to the flagged term with no dates shown |
 | QA-062 | Open | duplicate check still only looks at extra bills, not term bills (invoice-line-item.repository.ts:58) |
-| QA-064 | Open | layout debounce can still save onto a newly opened version (TemplateBuilder.tsx:153-201) |
-| QA-065 | Open | 1200 ms debounce, no flush on switch or leave, no unsaved-changes guard |
-| QA-066 | Open | Publish enabled during the debounce and after a failed save |
+| QA-064 | Fixed | 25 Oct, FE `55c49bb`. Re-tested in the browser on QPM-402 throwaway drafts. (1) A section duplicated on v10, then a switch to v6 within 120 ms, sent one PATCH to v10 (blocks 10 → 11) and none to v6, which stayed at 6 blocks. |
+| QA-065 | Fixed | 25 Oct, FE `55c49bb`. (3) An edit on v10, then the Overview link within 120 ms: the PATCH was sent before leaving (DB blocks 12). (4) With PATCH forced to 500, the status read "Not saved" with Try again. A kind switch retried the save, then asked "Your last change to this design could not be saved. Leave it anyway?". Declining stayed on v10, and Try again (with the failure removed) saved it, showing "All changes saved" (DB 13). (5) Reloading 100 ms after an edit raised the browser's leave warning; staying kept the page, and the edit saved (DB 14). |
+| QA-066 | Fixed | 25 Oct, FE `55c49bb`. (2) An edit on v6, then Publish within 120 ms: PATCH v6 (7 blocks), then publish v6. The DB shows v6 PUBLISHED with the 7-block layout, the one on screen, and the page shows the "live and can't be changed. Use Edit a copy" notice. |
 | QA-067 | Open | no version/updatedAt check on template saves |
 | QA-068 | Open | a render error on real data still throws with no fallback to the default design |
 | QA-069 | Open | code editor still edits any draft and clears its visual layout |
-| QA-070 | Open | shared error state, no cancellation, rename failure swallowed |
+| QA-070 | Fixed | 25 Oct, FE `55c49bb`. (6) An edit, then a switch to Terminal report within 120 ms: the PATCH went first and no preview call failed with 400 during the whole run. Rename: Design name has maxlength 120 (typing 125 characters keeps 120). A rename saves on blur, and the version picker updates ("v10 · QA rename check"). A forced failure shows the toast "Name not saved · Simulated failure". The name was restored afterwards. Not re-tested: QA-067 (two editors at once), which still needs a backend version check. Note: the earlier tab closures during this re-test came from the test harness itself; two Playwright connections both handled the confirm dialog and crashed the launcher. That isn't an app issue. |
 | QA-071 | Open | one failed side-load still fails the whole builder load |
 | QA-072 | Open | past terms still editable on the calendar |
 | QA-073 | Open | calendar load has no abort or request id |

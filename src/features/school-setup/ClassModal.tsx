@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Button, Group, Modal, NumberInput, Select, Stack, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { ApiError } from '@/lib/api-client';
-import { errorMessage, setupApi, type Department, type SchoolClass, type StaffOption } from './api';
+import { ApiError, errorMessage } from '@/lib/api-client';
+import { setupApi, type Department, type SchoolClass, type StaffOption } from './api';
 
 /** Adds a class, or edits `schoolClass` when given. Rendered only while open. */
 export function ClassModal({

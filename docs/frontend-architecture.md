@@ -150,6 +150,9 @@ sequenceDiagram
 
 - **Errors**: when the response is not ok, the client throws `ApiError(status, message, body)` and joins NestJS's validation message arrays with `", "`. A network failure throws the native `TypeError("Failed to fetch")`, which is not an `ApiError`. Pages show `err.message`, so users see "Failed to fetch".
 - **No timeouts, no cancellation (`AbortSignal` is never passed), no retry for idempotent GETs, no idempotency key on POSTs.**
+- **Error helpers** (in `api-client.ts`):
+  - `errorMessage(error, fallback)` gives a failed request's message, or the fallback for anything that isn't an `Error`. Since 25 Oct it's the only copy; there used to be 13 copies across features.
+  - `errorDetails<T>(error)` reads the backend's structured `details` (for example `{cells}` on a 422). `ApiError.details` holds the whole error body, so those sit one level in.
 
 ## Session storage
 

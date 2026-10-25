@@ -26,9 +26,9 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ArrowLeft, MoreVertical, Plus } from 'lucide-react';
-import { errorMessage } from '@/features/school-setup/api';
+
 import { PageHeader } from '@/features/workspace';
-import { ApiError, errorDetails } from '@/lib/api-client';
+import { ApiError, errorDetails, errorMessage } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES } from '@/lib/rbac';
 import {

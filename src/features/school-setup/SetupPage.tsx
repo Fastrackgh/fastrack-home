@@ -18,13 +18,8 @@ import { feesApi } from '@/features/fees/api';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES, hasModule } from '@/lib/rbac';
-import {
-  errorMessage,
-  setupApi,
-  type AcademicYear,
-  type Department,
-  type StaffOption,
-} from './api';
+import { errorMessage } from '@/lib/api-client';
+import { setupApi, type AcademicYear, type Department, type StaffOption } from './api';
 import { ClassesPanel } from './ClassesPanel';
 import { DepartmentsPanel } from './DepartmentsPanel';
 import { SchoolProfilePanel } from './SchoolProfilePanel';

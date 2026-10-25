@@ -13,9 +13,9 @@ import {
   TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type AcademicContext, type FeeType } from './api';
 import { toPesewas } from './money';
-import { errorMessage } from './notify';
 
 type Target = 'school' | 'class' | 'student';
 

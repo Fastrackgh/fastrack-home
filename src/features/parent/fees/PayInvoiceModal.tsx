@@ -3,8 +3,9 @@
 import { useState } from 'react';
 import { Alert, Button, Modal, NumberInput, SegmentedControl, Stack, Text } from '@mantine/core';
 import { AlertCircle, Lock } from 'lucide-react';
-import { errorMessage } from '@/features/fees/notify';
+
 import { formatGhs, toCedis, toPesewas } from '@/features/fees/money';
+import { errorMessage } from '@/lib/api-client';
 import { parentApi } from '../api';
 import { PAYMENT_CHANNELS, type ParentInvoice, type PaymentChannel } from '../types';
 

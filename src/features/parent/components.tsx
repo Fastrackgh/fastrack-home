@@ -15,8 +15,8 @@ import {
   Title,
 } from '@mantine/core';
 import { AlertCircle, CloudOff, UserPlus } from 'lucide-react';
-import { ApiError } from '@/lib/api-client';
-import { errorMessage } from '@/features/fees/notify';
+import { ApiError, errorMessage } from '@/lib/api-client';
+
 import { useActiveWard } from './ActiveWardProvider';
 import { formatAge } from './format';
 import type { Ward } from './types';

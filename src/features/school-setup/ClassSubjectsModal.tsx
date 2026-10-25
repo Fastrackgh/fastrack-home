@@ -18,8 +18,8 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ArrowDown, ArrowUp, X } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import {
-  errorMessage,
   setupApi,
   type AggregateRole,
   type ClassSubject,

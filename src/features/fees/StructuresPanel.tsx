@@ -2,12 +2,13 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { notifications } from '@mantine/notifications';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type AcademicContext, type FeeStructure, type FeeType, type Page } from './api';
 import { ConfirmModal } from './ConfirmModal';
 import { EditFeeStructureModal } from './EditFeeStructureModal';
 import { FeeStructureModal } from './FeeStructureModal';
 import { formatGhs } from './money';
-import { errorMessage } from './notify';
+
 import { StructuresTab, type FeeStructureFilters } from './StructuresTab';
 
 /** The Fee Structures tab: loads while `active`, and owns its filters and forms. */

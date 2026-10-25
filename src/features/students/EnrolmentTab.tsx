@@ -6,10 +6,10 @@ import { notifications } from '@mantine/notifications';
 import { todayIso } from '@/features/calendar/dates';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import { setupApi, type SchoolClass } from '@/features/school-setup/api';
+import { errorMessage } from '@/lib/api-client';
 import {
   EXIT_STATUSES,
   STATUS_LABELS,
-  errorMessage,
   studentsApi,
   type StudentDetail,
   type StudentStatus,

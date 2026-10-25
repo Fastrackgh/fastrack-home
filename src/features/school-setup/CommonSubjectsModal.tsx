@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Button, Checkbox, Group, Modal, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { errorMessage, setupApi, type Subject } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { setupApi, type Subject } from './api';
 import { COMMON_SUBJECTS } from './common-subjects';
 
 const key = (value: string) => value.trim().toLowerCase();

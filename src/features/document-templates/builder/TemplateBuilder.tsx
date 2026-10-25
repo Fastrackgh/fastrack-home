@@ -31,6 +31,7 @@ import {
   Undo2,
   Upload,
 } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import {
   KIND_LABELS,
   type DesignImage,
@@ -65,9 +66,6 @@ import { StarterGallery } from './StarterGallery';
 import classes from './TemplateBuilder.module.css';
 import { useDraftAutosave } from './useDraftAutosave';
 import { useLayoutHistory } from './useLayoutHistory';
-
-const errorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
 
 const statusColor: Record<TemplateStatus, string> = {
   DRAFT: 'orange',

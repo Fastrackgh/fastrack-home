@@ -13,7 +13,8 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { todayIso } from '@/features/calendar/dates';
-import { PROFILE_FIELDS, errorMessage, studentsApi, type Profile, type StudentDetail } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { PROFILE_FIELDS, studentsApi, type Profile, type StudentDetail } from './api';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const GENOTYPES = ['AA', 'AS', 'AC', 'SS', 'SC'];

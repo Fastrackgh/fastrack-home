@@ -37,6 +37,11 @@ export class ApiError extends Error {
   }
 }
 
+/** A failed request's message, or `fallback` for anything that isn't an Error. */
+export function errorMessage(error: unknown, fallback: string): string {
+  return error instanceof Error ? error.message : fallback;
+}
+
 /**
  * The structured `details` of a failed request (e.g. `{cells}` on a 422).
  * `ApiError.details` holds the whole error body, so they sit one level in.

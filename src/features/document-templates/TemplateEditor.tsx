@@ -22,6 +22,7 @@ import {
 import { useDebouncedValue } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { Copy, Eye, FilePlus2, Rocket, Save, Upload } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import {
   KIND_LABELS,
   type DocumentKind,
@@ -31,9 +32,6 @@ import {
   type TemplateSample,
   type TemplateStatus,
 } from './api';
-
-const errorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
 
 const statusColor: Record<TemplateStatus, string> = {
   DRAFT: 'orange',

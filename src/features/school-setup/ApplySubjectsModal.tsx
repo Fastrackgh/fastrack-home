@@ -12,7 +12,8 @@ import {
   Text,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { errorMessage, setupApi, type Department, type SchoolClass, type Subject } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { setupApi, type Department, type SchoolClass, type Subject } from './api';
 
 /**
  * Adds subjects to many classes at once, e.g. English for every class in

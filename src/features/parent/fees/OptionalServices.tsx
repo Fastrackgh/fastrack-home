@@ -16,8 +16,9 @@ import {
 import { useNetwork } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import { AlertCircle, Bus, Info } from 'lucide-react';
-import { errorMessage } from '@/features/fees/notify';
+
 import { formatGhs } from '@/features/fees/money';
+import { errorMessage } from '@/lib/api-client';
 import { parentApi } from '../api';
 import { EmptyState, QueryView } from '../components';
 import { formatDate } from '../format';

@@ -3,10 +3,11 @@
 import { useCallback, useEffect, useState } from 'react';
 import Link from 'next/link';
 import { Alert, Badge, Button, Card, Group, Loader, Stack, Table, Text } from '@mantine/core';
-import { errorMessage } from '@/features/school-setup/api';
+
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES } from '@/lib/rbac';
+import { errorMessage } from '@/lib/api-client';
 import { reportsApi, type BoardRow } from './reports-api';
 import { TermPicker, useTerms } from './TermPicker';
 

@@ -20,8 +20,9 @@ import {
 import { notifications } from '@mantine/notifications';
 import { AlertCircle, ArrowLeft, Check, Inbox, X } from 'lucide-react';
 import { PageHeader } from '@/features/workspace';
-import { errorMessage } from '@/features/fees/notify';
+
 import { PAGE_SIZE } from '@/lib/pagination';
+import { errorMessage } from '@/lib/api-client';
 import {
   optionalFeeRequestsApi,
   type OptionalFeeRequestStatus,

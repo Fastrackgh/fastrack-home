@@ -18,9 +18,10 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { CheckCircle } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, PAYMENT_METHODS, type Invoice, type Payment } from './api';
 import { formatGhs, toCedis, toPesewas } from './money';
-import { errorMessage, notifyLoadError } from './notify';
+import { notifyLoadError } from './notify';
 
 /** Rendered only while open, so every payment starts from an empty form. */
 export function RecordPaymentModal({

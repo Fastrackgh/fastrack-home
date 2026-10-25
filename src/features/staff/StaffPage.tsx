@@ -23,6 +23,7 @@ import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { emailInputProps } from '@/lib/email-input';
 import { ROLE_LABELS } from '@/lib/rbac';
+import { errorMessage } from '@/lib/api-client';
 import {
   INVITABLE_ROLES,
   staffApi,
@@ -32,9 +33,6 @@ import {
   canManageMember,
 } from './api';
 import { EditStaffModal } from './EditStaffModal';
-
-const errorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
 
 const statusColor: Record<Invitation['status'], string> = {
   PENDING: 'orange',

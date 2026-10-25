@@ -16,7 +16,8 @@ import {
 import { useDebouncedValue } from '@mantine/hooks';
 import { PlusCircle, Search } from 'lucide-react';
 import { PAGE_SIZE, type Page } from '@/lib/pagination';
-import { errorMessage, setupApi, type Department, type SchoolClass, type StaffOption } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { setupApi, type Department, type SchoolClass, type StaffOption } from './api';
 import { ClassModal } from './ClassModal';
 
 /** The school's classes, a page at a time, with search by code or name. */

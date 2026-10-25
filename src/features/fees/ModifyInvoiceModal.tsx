@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import { Button, Group, Modal, NumberInput, Stack, Table, Text, Textarea } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type Invoice } from './api';
 import { formatGhs, sumPesewas, toCedis, toPesewas } from './money';
-import { errorMessage } from './notify';
 
 /**
  * Corrects the amounts on an issued bill. The Principal must give a reason,

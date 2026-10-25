@@ -19,7 +19,8 @@ import { notifications } from '@mantine/notifications';
 import { School, Trash2, Upload } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
 import { emailInputProps } from '@/lib/email-input';
-import { errorMessage, setupApi, type SchoolDetails } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { setupApi, type SchoolDetails } from './api';
 
 const MAX_LOGO_BYTES = 2 * 1024 * 1024;
 

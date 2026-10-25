@@ -18,10 +18,10 @@ import {
 import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
 import { ExternalLink, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type Invoice } from './api';
 import { invoiceStatusColor, invoiceStatusLabel } from './InvoicesTab';
 import { formatGhs } from './money';
-import { errorMessage } from './notify';
 
 export function InvoiceDrawer({
   invoice,

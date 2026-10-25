@@ -19,7 +19,8 @@ import { useDebouncedValue } from '@mantine/hooks';
 import { Search } from 'lucide-react';
 import { ROLE_LABELS } from '@/lib/rbac';
 import { PAGE_SIZE, type Page } from '@/lib/pagination';
-import { errorMessage, platformApi, type LoginLog, type LoginLogFilters } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { platformApi, type LoginLog, type LoginLogFilters } from './api';
 
 const when = new Intl.DateTimeFormat('en-GB', {
   day: 'numeric',

@@ -15,10 +15,11 @@ import {
   Switch,
   Text,
 } from '@mantine/core';
-import { errorMessage } from '@/features/school-setup/api';
+
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES } from '@/lib/rbac';
+import { errorMessage } from '@/lib/api-client';
 import { marksApi, type SheetCard } from './marks-api';
 import { TermPicker, useTerms } from './TermPicker';
 

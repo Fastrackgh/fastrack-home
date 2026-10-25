@@ -19,13 +19,8 @@ import { notifications } from '@mantine/notifications';
 import { Trash2, Upload } from 'lucide-react';
 import { feesApi, type FeeType } from '@/features/fees/api';
 import { useAuth } from '@/lib/auth';
-import {
-  STATUS_LABELS,
-  errorMessage,
-  studentsApi,
-  type FeePreference,
-  type StudentDetail,
-} from './api';
+import { errorMessage } from '@/lib/api-client';
+import { STATUS_LABELS, studentsApi, type FeePreference, type StudentDetail } from './api';
 import { EnrolmentTab } from './EnrolmentTab';
 import { GuardiansTab } from './GuardiansTab';
 import { ProfileTab } from './ProfileTab';

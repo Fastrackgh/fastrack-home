@@ -20,9 +20,9 @@ import {
 import { notifications } from '@mantine/notifications';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import { emailInputProps } from '@/lib/email-input';
+import { errorMessage } from '@/lib/api-client';
 import {
   GUARDIAN_FIELDS,
-  errorMessage,
   accountsSharingContact,
   studentsApi,
   type Guardians,

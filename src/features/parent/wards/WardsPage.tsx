@@ -16,7 +16,8 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { EllipsisVertical, Unlink, UserPlus, Users } from 'lucide-react';
-import { errorMessage } from '@/features/fees/notify';
+
+import { errorMessage } from '@/lib/api-client';
 import { useActiveWard } from '../ActiveWardProvider';
 import { parentApi } from '../api';
 import { EmptyState, PageTitle, QueryView } from '../components';

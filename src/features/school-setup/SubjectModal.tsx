@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Autocomplete, Button, Group, Modal, Stack, Switch, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { ApiError } from '@/lib/api-client';
-import { errorMessage, setupApi, type Subject } from './api';
+import { ApiError, errorMessage } from '@/lib/api-client';
+import { setupApi, type Subject } from './api';
 import { SUBJECT_CATEGORIES } from './common-subjects';
 
 // The backend's rule; it upper-cases the code itself.

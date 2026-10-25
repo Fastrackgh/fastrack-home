@@ -5,7 +5,8 @@ import { Alert, Button, Card, Group, Loader, Stack, Table, Text } from '@mantine
 import { notifications } from '@mantine/notifications';
 import { PlusCircle, Sparkles } from 'lucide-react';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
-import { errorMessage, setupApi, type Department, type StaffOption } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { setupApi, type Department, type StaffOption } from './api';
 import { DepartmentModal } from './DepartmentModal';
 
 /**

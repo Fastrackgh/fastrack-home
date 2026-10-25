@@ -35,7 +35,7 @@ import {
   Settings2,
   Users,
 } from 'lucide-react';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, errorMessage } from '@/lib/api-client';
 import { APP_ROUTES } from '@/lib/rbac';
 import { platformSchoolsApi as api } from './api';
 import type {
@@ -49,9 +49,6 @@ import type {
 import { SchoolDesigns } from '@/features/document-templates';
 import { AssignPrincipalModal } from './AssignPrincipalModal';
 import styles from './SchoolDetail.module.css';
-
-const errorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
 
 const formatDate = (iso: string) =>
   new Date(iso).toLocaleDateString('en-GB', {

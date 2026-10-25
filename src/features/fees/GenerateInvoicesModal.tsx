@@ -15,8 +15,8 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { CheckCircle, Clock } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type AcademicContext } from './api';
-import { errorMessage } from './notify';
 
 export function GenerateInvoicesModal({
   opened,

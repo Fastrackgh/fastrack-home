@@ -16,13 +16,11 @@ import {
 import { notifications } from '@mantine/notifications';
 import { Trash2, Upload } from 'lucide-react';
 import { PageHeader } from '@/features/workspace';
-import { apiClient } from '@/lib/api-client';
+import { apiClient, errorMessage } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
 import { ROLE_LABELS } from '@/lib/rbac';
 
 const MAX_AVATAR_BYTES = 2 * 1024 * 1024;
-const errorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;
 
 /** The signed-in user's own account: their photo and password. */
 export function AccountPage() {

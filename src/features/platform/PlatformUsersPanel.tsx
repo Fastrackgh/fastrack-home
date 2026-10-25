@@ -22,7 +22,8 @@ import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import { useAuth } from '@/lib/auth';
 import { emailInputProps } from '@/lib/email-input';
 import { PAGE_SIZE, type Page } from '@/lib/pagination';
-import { errorMessage, platformApi, type PlatformUser } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { platformApi, type PlatformUser } from './api';
 
 /** Fastrack's own Super Admin accounts. Nobody can switch off their own account here. */
 export function PlatformUsersPanel() {

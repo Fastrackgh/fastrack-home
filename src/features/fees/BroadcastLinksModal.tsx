@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Button, Group, Modal, SegmentedControl, Select, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type AcademicContext } from './api';
-import { errorMessage } from './notify';
 
 type Channel = 'SMS' | 'EMAIL' | 'BOTH';
 

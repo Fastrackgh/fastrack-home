@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from 'react';
 import { Alert, Badge, Button, Card, Group, Loader, Stack, Table, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Pencil, PlusCircle } from 'lucide-react';
-import { errorMessage, setupApi, type AcademicTerm, type AcademicYear } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { setupApi, type AcademicTerm, type AcademicYear } from './api';
 import { DatesModal, type DatesValue } from './DatesModal';
 
 type Editor =

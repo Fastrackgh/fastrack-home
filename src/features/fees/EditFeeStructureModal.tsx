@@ -4,9 +4,9 @@ import { useState } from 'react';
 import { Alert, Button, Group, Modal, NumberInput, Stack, Text, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Info } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type FeeStructure } from './api';
 import { toCedis, toPesewas } from './money';
-import { errorMessage } from './notify';
 
 /** Changes one class's fee for one term. Rendered only while open. */
 export function EditFeeStructureModal({

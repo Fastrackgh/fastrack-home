@@ -12,7 +12,8 @@ import {
   Textarea,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { errorMessage, setupApi, type Department, type StaffOption } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { setupApi, type Department, type StaffOption } from './api';
 
 /** Adds a department, or edits `department` when given. Rendered only while open. */
 export function DepartmentModal({

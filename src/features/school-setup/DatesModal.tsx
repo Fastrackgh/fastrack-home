@@ -3,7 +3,8 @@
 import { useState } from 'react';
 import { Button, Group, Modal, NumberInput, Stack, Switch, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { errorMessage, type DatesInput } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { type DatesInput } from './api';
 
 export interface DatesValue extends DatesInput {
   termSequence?: number;

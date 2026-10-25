@@ -2,11 +2,11 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { notifications } from '@mantine/notifications';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type AcademicContext, type Discount, type FeeType, type Page } from './api';
 import { ConfirmModal } from './ConfirmModal';
 import { DiscountModal } from './DiscountModal';
 import { discountLabel, DiscountsTab, type DiscountFilters } from './DiscountsTab';
-import { errorMessage } from './notify';
 
 /** The Discounts tab: loads while `active`, and owns its filters and forms. */
 export function DiscountsPanel({

@@ -22,10 +22,11 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ArrowLeft, ArrowUpCircle, ChevronDown, ChevronRight, RefreshCw } from 'lucide-react';
-import { errorMessage } from '@/features/fees/notify';
+
 import { setupApi, type AcademicTerm } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { APP_ROUTES } from '@/lib/rbac';
+import { errorMessage } from '@/lib/api-client';
 import {
   promotionsApi,
   type PromotionClass,

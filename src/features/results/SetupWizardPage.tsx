@@ -23,14 +23,10 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { CheckCircle2, Scale as ScaleIcon } from 'lucide-react';
-import {
-  errorMessage,
-  setupApi,
-  type AcademicYear,
-  type Department,
-} from '@/features/school-setup/api';
+import { setupApi, type AcademicYear, type Department } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { APP_ROUTES } from '@/lib/rbac';
+import { errorMessage } from '@/lib/api-client';
 import {
   DEFAULT_SETTINGS,
   resultsApi,

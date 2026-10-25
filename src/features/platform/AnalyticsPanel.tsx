@@ -18,8 +18,8 @@ import {
 } from '@mantine/core';
 import { Search } from 'lucide-react';
 import { ROLE_LABELS } from '@/lib/rbac';
+import { errorMessage } from '@/lib/api-client';
 import {
-  errorMessage,
   platformApi,
   type PlatformActivity,
   type PlatformDemographics,

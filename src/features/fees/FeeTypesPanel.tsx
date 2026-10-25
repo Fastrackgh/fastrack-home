@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type FeeType } from './api';
 import { FeeTypeModal } from './FeeTypeModal';
 import { FeeTypesTab } from './FeeTypesTab';
-import { errorMessage } from './notify';
 
 /**
  * The Fee Types tab. The page owns the list, since fee structure and

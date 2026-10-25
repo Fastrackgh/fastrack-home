@@ -20,6 +20,7 @@ import {
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES } from '@/lib/rbac';
+import { errorMessage } from '@/lib/api-client';
 import {
   feesApi,
   type AcademicContext,
@@ -41,7 +42,7 @@ import { InvoiceDrawer } from './InvoiceDrawer';
 import { ModifyInvoiceModal } from './ModifyInvoiceModal';
 import { SupplementaryInvoiceModal } from './SupplementaryInvoiceModal';
 import { InvoicesTab, type InvoiceFilters } from './InvoicesTab';
-import { errorMessage, notifyLoadError } from './notify';
+import { notifyLoadError } from './notify';
 import { PaymentsTab, type PaymentFilters } from './PaymentsTab';
 import { ReceiptModal } from './ReceiptModal';
 import { RecordPaymentModal } from './RecordPaymentModal';

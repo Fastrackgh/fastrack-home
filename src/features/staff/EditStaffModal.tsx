@@ -3,10 +3,8 @@
 import { useState } from 'react';
 import { Button, Group, Modal, Select, SimpleGrid, Stack, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { errorMessage } from '@/lib/api-client';
 import { staffApi, type StaffCategory, type StaffMember, type StaffUpdate } from './api';
-
-const errorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
 
 const fromMember = (m: StaffMember): StaffUpdate => ({
   firstName: m.firstName,

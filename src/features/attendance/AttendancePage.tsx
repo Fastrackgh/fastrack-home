@@ -21,10 +21,11 @@ import { notifications } from '@mantine/notifications';
 import { CheckCheck, RefreshCw, Save } from 'lucide-react';
 import { addDays, formatDay, isWeekend, todayIso } from '@/features/calendar/dates';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
-import { errorMessage } from '@/features/fees/notify';
+
 import { setupApi, type SchoolClass } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
+import { errorMessage } from '@/lib/api-client';
 import {
   NO_ARRIVAL,
   STATUSES,

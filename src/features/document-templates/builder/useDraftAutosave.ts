@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { errorMessage } from '@/lib/api-client';
 import type { DocumentLayout, DocumentTemplatesApi } from '../api';
 
 export type SaveState = 'idle' | 'pending' | 'saving' | 'saved' | 'error';
@@ -11,9 +12,6 @@ interface Draft {
   layout: DocumentLayout;
   json: string;
 }
-
-const errorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
 
 /**
  * Saves a draft design shortly after each edit. An edit is kept with the id

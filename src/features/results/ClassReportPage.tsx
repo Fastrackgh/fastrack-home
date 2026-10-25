@@ -23,9 +23,9 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { ArrowLeft, CheckCircle2, Printer } from 'lucide-react';
-import { errorMessage, setupApi, type SchoolClass } from '@/features/school-setup/api';
+import { setupApi, type SchoolClass } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
-import { errorDetails } from '@/lib/api-client';
+import { errorDetails, errorMessage } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES } from '@/lib/rbac';
 import {

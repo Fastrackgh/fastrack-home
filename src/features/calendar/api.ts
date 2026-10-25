@@ -178,6 +178,3 @@ export const calendarApi = {
     return setupApi.allClasses();
   },
 };
-
-export const errorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;

@@ -15,6 +15,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Info } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import {
   DISCOUNT_TYPES,
   feesApi,
@@ -23,7 +24,6 @@ import {
   type FeeType,
 } from './api';
 import { toPesewas } from './money';
-import { errorMessage } from './notify';
 
 const WHOLE_BILL = 'all';
 const EVERY_TERM = 'every';

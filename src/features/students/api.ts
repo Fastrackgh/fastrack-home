@@ -259,6 +259,3 @@ export const studentsApi = {
     await apiClient.put(`${base(studentId)}/optional-fees`, { feeTypeId, enabled });
   },
 };
-
-export const errorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;

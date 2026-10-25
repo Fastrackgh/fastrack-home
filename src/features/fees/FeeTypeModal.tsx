@@ -3,8 +3,8 @@
 import { useState } from 'react';
 import { Button, Group, Modal, Stack, Switch, TextInput, Textarea } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type FeeType } from './api';
-import { errorMessage } from './notify';
 
 /** Creates a fee type, or edits `feeType` when given. Rendered only while open. */
 export function FeeTypeModal({

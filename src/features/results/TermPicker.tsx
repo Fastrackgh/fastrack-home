@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { Select } from '@mantine/core';
-import { errorMessage, setupApi, type AcademicTerm } from '@/features/school-setup/api';
+import { setupApi, type AcademicTerm } from '@/features/school-setup/api';
+import { errorMessage } from '@/lib/api-client';
 
 export type TermOption = AcademicTerm & { yearLabel: string };
 

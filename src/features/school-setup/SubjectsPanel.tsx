@@ -15,8 +15,8 @@ import {
   Text,
 } from '@mantine/core';
 import { Layers, ListPlus, PlusCircle } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import {
-  errorMessage,
   setupApi,
   type ClassSubject,
   type Department,

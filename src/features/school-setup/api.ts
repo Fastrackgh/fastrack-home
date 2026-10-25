@@ -358,6 +358,3 @@ export const setupApi = {
     await apiClient.delete('/schools/me/logo');
   },
 };
-
-export const errorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;

@@ -19,11 +19,11 @@ import { notifications } from '@mantine/notifications';
 import { CalendarDays, List, MapPin, Pencil, PlusCircle, Trash2 } from 'lucide-react';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
+import { errorMessage } from '@/lib/api-client';
 import {
   AUDIENCES,
   STATUSES,
   calendarApi,
-  errorMessage,
   typeInfo,
   type SchoolClass,
   type SchoolDays,

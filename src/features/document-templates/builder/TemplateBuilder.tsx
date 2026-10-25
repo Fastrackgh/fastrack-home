@@ -891,11 +891,7 @@ function SamplePane({ samples }: { samples: TemplateSample[] }) {
         />
       )}
       {sample.mimeType === 'application/pdf' ? (
-        <iframe
-          title="School sample"
-          src={sample.url}
-          style={{ width: '100%', flex: 1, minHeight: 0, border: 0 }}
-        />
+        <PdfSample key={sample.url} url={sample.url} />
       ) : (
         <div style={{ flex: 1, minHeight: 0, overflowY: 'auto' }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -903,5 +899,55 @@ function SamplePane({ samples }: { samples: TemplateSample[] }) {
         </div>
       )}
     </Stack>
+  );
+}
+
+/**
+ * A PDF sample. The API serves files with `X-Frame-Options: SAMEORIGIN`, so
+ * the browser won't show its URL in a frame on the app's own address; a copy
+ * fetched into the page shows instead (CORS allows the fetch).
+ */
+function PdfSample({ url }: { url: string }) {
+  const [blobUrl, setBlobUrl] = useState<string | null>(null);
+  const [failed, setFailed] = useState(false);
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let cancelled = false;
+    fetch(url)
+      .then((res) => {
+        if (!res.ok) throw new Error(String(res.status));
+        return res.blob();
+      })
+      .then((blob) => {
+        if (cancelled) return;
+        objectUrl = URL.createObjectURL(blob);
+        setBlobUrl(objectUrl);
+      })
+      .catch(() => {
+        if (!cancelled) setFailed(true);
+      });
+    return () => {
+      cancelled = true;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+  if (failed)
+    return (
+      <Stack flex={1} justify="center" align="center">
+        <Text size="sm" c="dimmed">
+          The sample couldn&apos;t be shown here.
+        </Text>
+        <Button component="a" href={url} target="_blank" rel="noreferrer" size="xs" variant="light">
+          Open it in a new tab
+        </Button>
+      </Stack>
+    );
+  if (!blobUrl) return <Loader size="sm" m="auto" />;
+  return (
+    <iframe
+      title="School sample"
+      src={blobUrl}
+      style={{ width: '100%', flex: 1, minHeight: 0, border: 0 }}
+    />
   );
 }

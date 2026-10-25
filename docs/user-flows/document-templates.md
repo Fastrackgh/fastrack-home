@@ -168,6 +168,7 @@ See the findings register for the evidence and repro steps behind each item.
   - **The status** reads "Unsaved changes", "Saving…", "All changes saved" or "Not saved", with Try again.
   - **Tested live** on QPM-402: an edit then a quick switch saved to the first draft only; an edit then Publish sent PATCH, then publish; leaving through the menu sent the PATCH; a forced 500 showed "Not saved" and asked before switching.
 - **Concurrency:** two editors on the same draft (Principal and Fastrack staff, or two tabs) overwrite each other without warning. There is no version check.
+- *Fixed 25 Oct:* an uploaded **PDF** sample showed blank. The API serves media with `X-Frame-Options: SAMEORIGIN`, and the app runs on another origin, so the browser refused to frame its URL. The sample pane now fetches the PDF (CORS allows it) and shows that copy, with "Open it in a new tab" if the fetch fails. Image samples were never affected.
 - *Fixed 25 Oct (QA-264 Templates part, QA-265):*
   - The builder loads kinds, images and fee types once, not on every bill/report switch; a switch fetches only that kind's versions.
   - The school sample is fetched only when "School sample" or "Side by side" is open, and again after an upload.

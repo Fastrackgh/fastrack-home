@@ -12,6 +12,7 @@ import {
   Group,
   Loader,
   Menu,
+  Modal,
   ScrollArea,
   Stack,
   Switch,
@@ -60,6 +61,8 @@ export function MarkGridPage() {
   const { data, setData, load, items, rows, drafts, cellErrors, conflicts } = marks;
   const [itemModal, setItemModal] = useState<{ componentKey: string; item?: Item } | null>(null);
   const [returning, setReturning] = useState(false);
+  /** A test a head asked to remove that already has marks, waiting for "yes". */
+  const [removing, setRemoving] = useState<{ item: Item; marks: number } | null>(null);
 
   const sheet = data?.sheet ?? null;
   const editable =
@@ -146,8 +149,16 @@ export function MarkGridPage() {
     }
   };
 
+  /** Removing a test with marks deletes them too, so a head is asked first (QA-267). */
+  const askToRemove = (item: Item) => {
+    const marks = rows.filter((r) => markFor(r, item)).length;
+    if (marks && isHead) setRemoving({ item, marks });
+    else removeItem(item);
+  };
+
   const removeItem = async (item: Item) => {
     if (!sheet) return;
+    setRemoving(null);
     const marked = rows.some((r) => markFor(r, item));
     try {
       const res = await marksApi.deleteItem(sheet.id, item.id, sheet.rowVersion, marked && isHead);
@@ -365,7 +376,7 @@ export function MarkGridPage() {
                                       Edit
                                     </Menu.Item>
                                     {c.entry === 'items' && (
-                                      <Menu.Item color="red" onClick={() => removeItem(item)}>
+                                      <Menu.Item color="red" onClick={() => askToRemove(item)}>
                                         Remove
                                       </Menu.Item>
                                     )}
@@ -562,6 +573,29 @@ export function MarkGridPage() {
           }}
         />
       )}
+
+      <Modal
+        opened={!!removing}
+        onClose={() => setRemoving(null)}
+        title={removing ? `Remove ${removing.item.label}?` : ''}
+        radius="lg"
+        centered
+      >
+        <Stack gap="md">
+          <Text size="sm">
+            {removing &&
+              `${removing.item.label} and its ${removing.marks} mark${removing.marks === 1 ? '' : 's'} will be deleted. This can't be undone.`}
+          </Text>
+          <Group justify="flex-end">
+            <Button variant="default" radius="md" onClick={() => setRemoving(null)}>
+              Keep it
+            </Button>
+            <Button color="red" radius="md" onClick={() => removing && removeItem(removing.item)}>
+              Remove test and marks
+            </Button>
+          </Group>
+        </Stack>
+      </Modal>
 
       {returning && sheet && (
         <ReturnModal

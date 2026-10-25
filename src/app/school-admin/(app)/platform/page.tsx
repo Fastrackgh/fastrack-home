@@ -11,16 +11,13 @@ import {
   Card,
   Container,
   Divider,
-  Drawer,
   Group,
   LoadingOverlay,
   Menu,
-  Modal,
   Paper,
   ScrollArea,
   SimpleGrid,
   Stack,
-  Switch,
   Table,
   Tabs,
   Text,
@@ -55,10 +52,10 @@ import { useAuth } from '@/lib/auth';
 import { AnalyticsPanel } from '@/features/platform/AnalyticsPanel';
 import { LoginAuditPanel } from '@/features/platform/LoginAuditPanel';
 import { PlatformUsersPanel } from '@/features/platform/PlatformUsersPanel';
+import { ProvisionSchoolModal } from '@/features/platform/ProvisionSchoolModal';
+import { SchoolModulesDrawer } from '@/features/platform/SchoolModulesDrawer';
 import { formatCedis } from '@/features/fees/money';
 import { formatDate } from '@/lib/format';
-import { emailInputProps } from '@/lib/email-input';
-import type { ModuleEntitlement } from '@/features/platform-schools/model';
 import { platformSchoolsApi } from '@/features/platform-schools/api';
 import {
   platformApi,
@@ -81,24 +78,10 @@ export default function PlatformConsolePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
-  // Provision School Modal
   const [provisionOpened, { open: openProvision, close: closeProvision }] = useDisclosure(false);
-  const [provisionSubmitting, setProvisionSubmitting] = useState(false);
-  const [newSchoolName, setNewSchoolName] = useState('');
-  const [newSchoolCode, setNewSchoolCode] = useState('');
-  const [newSchoolAddress, setNewSchoolAddress] = useState('');
-  const [newSchoolPhone, setNewSchoolPhone] = useState('');
-  const [newSchoolEmail, setNewSchoolEmail] = useState('');
-  const [newSchoolWebsite, setNewSchoolWebsite] = useState('');
-
-  // Module Entitlements Drawer
   const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
   const [selectedSchool, setSelectedSchool] = useState<SchoolItem | null>(null);
-  const [schoolModules, setSchoolModules] = useState<ModuleEntitlement[]>([]);
-  const [drawerLoading, setDrawerLoading] = useState(false);
-  const [togglingModuleId, setTogglingModuleId] = useState<string | null>(null);
 
-  // Load Data
   const loadPlatformData = useCallback(async () => {
     setLoading(true);
     try {
@@ -135,56 +118,9 @@ export default function PlatformConsolePage() {
     loadPlatformData();
   }, [loadPlatformData]);
 
-  // Open Modules Drawer
-  const handleOpenModules = async (school: SchoolItem) => {
+  const handleOpenModules = (school: SchoolItem) => {
     setSelectedSchool(school);
-    setDrawerLoading(true);
     openDrawer();
-    try {
-      setSchoolModules(await platformSchoolsApi.listModules(school.id));
-    } catch {
-      notifications.show({
-        color: 'red',
-        title: 'Failed to load modules',
-        message: 'Could not fetch module entitlements for this school.',
-      });
-    } finally {
-      setDrawerLoading(false);
-    }
-  };
-
-  // Toggle Module
-  const handleToggleModule = async (moduleId: string, currentEnabled: boolean) => {
-    if (!selectedSchool) return;
-    const nextState = !currentEnabled;
-    setTogglingModuleId(moduleId);
-
-    // Optimistic update
-    setSchoolModules((prev) =>
-      prev.map((m) => (m.moduleId === moduleId ? { ...m, isEnabled: nextState } : m)),
-    );
-
-    try {
-      await platformSchoolsApi.setModule(selectedSchool.id, moduleId, nextState);
-      notifications.show({
-        color: 'green',
-        title: 'Module Entitlement Updated',
-        message: `Module ${nextState ? 'enabled' : 'disabled'} for ${selectedSchool.name}.`,
-      });
-    } catch (err: unknown) {
-      // Revert optimistic update
-      setSchoolModules((prev) =>
-        prev.map((m) => (m.moduleId === moduleId ? { ...m, isEnabled: currentEnabled } : m)),
-      );
-      const msg = err instanceof Error ? err.message : 'Failed to update module entitlement';
-      notifications.show({
-        color: 'red',
-        title: 'Update Failed',
-        message: msg,
-      });
-    } finally {
-      setTogglingModuleId(null);
-    }
   };
 
   // Toggle School Activation
@@ -204,55 +140,6 @@ export default function PlatformConsolePage() {
         title: 'Error',
         message: msg,
       });
-    }
-  };
-
-  // Provision School Submit
-  const handleProvisionSchool = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSchoolName.trim()) {
-      notifications.show({
-        color: 'red',
-        title: 'Validation Error',
-        message: 'School name is required.',
-      });
-      return;
-    }
-
-    setProvisionSubmitting(true);
-    try {
-      await platformApi.createSchool({
-        name: newSchoolName.trim(),
-        code: newSchoolCode.trim() || undefined,
-        address: newSchoolAddress.trim() || undefined,
-        phone: newSchoolPhone.trim() || undefined,
-        email: newSchoolEmail.trim() || undefined,
-        website: newSchoolWebsite.trim() || undefined,
-      });
-
-      notifications.show({
-        color: 'green',
-        title: 'School Provisioned',
-        message: `${newSchoolName} has been successfully created.`,
-      });
-
-      closeProvision();
-      setNewSchoolName('');
-      setNewSchoolCode('');
-      setNewSchoolAddress('');
-      setNewSchoolPhone('');
-      setNewSchoolEmail('');
-      setNewSchoolWebsite('');
-      loadPlatformData();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to provision school';
-      notifications.show({
-        color: 'red',
-        title: 'Provisioning Failed',
-        message: msg,
-      });
-    } finally {
-      setProvisionSubmitting(false);
     }
   };
 
@@ -769,156 +656,13 @@ export default function PlatformConsolePage() {
         </Paper>
       </Container>
 
-      {/* PROVISION SCHOOL MODAL */}
-      <Modal
+      <ProvisionSchoolModal
         opened={provisionOpened}
         onClose={closeProvision}
-        title={
-          <Group gap="xs">
-            <ThemeIcon size={28} radius="md" color="red" variant="light">
-              <Building2 size={16} />
-            </ThemeIcon>
-            <Text fw={700} size="md">
-              Provision New Tenant School
-            </Text>
-          </Group>
-        }
-        centered
-        size="md"
-        radius="md"
-        closeOnClickOutside={false}
-      >
-        <form onSubmit={handleProvisionSchool}>
-          <Stack gap="md">
-            <TextInput
-              label="School Name"
-              placeholder="e.g. Morning Star International"
-              required
-              value={newSchoolName}
-              onChange={(e) => setNewSchoolName(e.currentTarget.value)}
-            />
-            <TextInput
-              label="School Code (Optional)"
-              placeholder="e.g. MSI-001 (auto-generated if empty)"
-              value={newSchoolCode}
-              onChange={(e) => setNewSchoolCode(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Contact Email"
-              placeholder="admin@morningstar.edu.gh"
-              {...emailInputProps}
-              autoComplete="off"
-              value={newSchoolEmail}
-              onChange={(e) => setNewSchoolEmail(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Phone Number"
-              placeholder="+233 24 000 1122"
-              value={newSchoolPhone}
-              onChange={(e) => setNewSchoolPhone(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Physical Address / Campus"
-              placeholder="10 Cantonments Road, Accra"
-              value={newSchoolAddress}
-              onChange={(e) => setNewSchoolAddress(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Website URL"
-              placeholder="https://morningstar.edu.gh"
-              value={newSchoolWebsite}
-              onChange={(e) => setNewSchoolWebsite(e.currentTarget.value)}
-            />
-            <Group justify="flex-end" mt="md">
-              <Button variant="default" onClick={closeProvision}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                color="fastrackRed"
-                loading={provisionSubmitting}
-                style={{
-                  background: 'linear-gradient(135deg, #e01a2b 0%, #b31422 100%)',
-                }}
-              >
-                Provision School
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Modal>
+        onProvisioned={loadPlatformData}
+      />
 
-      {/* MODULE ENTITLEMENTS DRAWER */}
-      <Drawer
-        opened={drawerOpened}
-        onClose={closeDrawer}
-        closeButtonProps={{ 'aria-label': 'Close modules' }}
-        position="right"
-        size="md"
-        title={
-          <Group gap="xs">
-            <ThemeIcon size={28} radius="md" color="blue" variant="light">
-              <Settings2 size={16} />
-            </ThemeIcon>
-            <div>
-              <Text fw={700} size="sm">
-                Module Entitlements
-              </Text>
-              <Text size="xs" c="dimmed">
-                {selectedSchool?.name} ({selectedSchool?.code})
-              </Text>
-            </div>
-          </Group>
-        }
-      >
-        <Box pos="relative" pt="xs">
-          <LoadingOverlay visible={drawerLoading} />
-          <Text size="xs" c="dimmed" mb="md">
-            Enable or disable platform feature modules for this school tenant. Changes take effect
-            immediately.
-          </Text>
-
-          <Stack gap="sm">
-            {schoolModules.map((item) => (
-              <Card
-                key={item.moduleId}
-                radius="md"
-                withBorder
-                padding="sm"
-                style={{
-                  background: item.isEnabled ? '#f0fdf4' : '#ffffff',
-                  borderColor: item.isEnabled ? '#bbf7d0' : '#e2e8f0',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Group gap="xs">
-                      <Text fw={700} size="sm" style={{ color: '#0f172a' }}>
-                        {item.moduleName}
-                      </Text>
-                      <Badge size="xs" color={item.isEnabled ? 'teal' : 'gray'} variant="light">
-                        {item.isEnabled ? 'Active' : 'Disabled'}
-                      </Badge>
-                    </Group>
-                    <Text size="xs" c="dimmed" mt={2}>
-                      {item.description || item.moduleKey}
-                    </Text>
-                  </div>
-                  <Switch
-                    aria-label={`${item.moduleName} for ${selectedSchool?.name ?? 'this school'}`}
-                    checked={item.isEnabled}
-                    disabled={togglingModuleId === item.moduleId}
-                    onChange={() => handleToggleModule(item.moduleId, item.isEnabled)}
-                    color="teal"
-                    size="md"
-                  />
-                </Group>
-              </Card>
-            ))}
-          </Stack>
-        </Box>
-      </Drawer>
+      <SchoolModulesDrawer school={selectedSchool} opened={drawerOpened} onClose={closeDrawer} />
     </Box>
   );
 }

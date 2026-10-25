@@ -1,7 +1,7 @@
 # Flow: Platform provisioning (Super Admin)
 
 Code:
-- `src/app/school-admin/(app)/platform/page.tsx` (console)
+- `src/app/school-admin/(app)/platform/page.tsx` (console), with `src/features/platform/ProvisionSchoolModal.tsx` (new school) and `SchoolModulesDrawer.tsx` (module switches)
 - `src/features/platform-schools/*` (school detail at `/school-admin/platform/schools/:schoolId`)
 
 **Who:** `SUPER_ADMIN` only. The route rule is the platform audience plus `schools:manage`. Every backend route has class-level `@Role(SUPER_ADMIN)`.

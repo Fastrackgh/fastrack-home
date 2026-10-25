@@ -25,7 +25,7 @@ export function ModifyInvoiceModal({
   const [amounts, setAmounts] = useState<Record<string, number | string>>(
     Object.fromEntries(items.map((item) => [item.id, toCedis(item.amount)])),
   );
-  const setAmountsField = fieldSetter(setAmounts);
+  const setField = fieldSetter(setAmounts);
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
 
@@ -93,7 +93,7 @@ export function ModifyInvoiceModal({
                       min={0}
                       decimalScale={2}
                       value={amounts[item.id]}
-                      onChange={(v) => setAmountsField(item.id, v)}
+                      onChange={(v) => setField(item.id, v)}
                       prefix="GHS "
                       radius="md"
                     />

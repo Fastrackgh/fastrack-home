@@ -87,7 +87,7 @@ export function GuardiansTab({
   // Redacted contacts arrive blank: never let them be saved over real ones.
   const editable = canEdit && canReadSensitive;
   const [draft, setDraft] = useState<Guardians>(student.guardians);
-  const setDraftField = fieldSetter(setDraft);
+  const setField = fieldSetter(setDraft);
   const [saving, setSaving] = useState(false);
   const [linking, setLinking] = useState<'mother' | 'father' | null>(null);
   const [removing, setRemoving] = useState<LinkedParent | null>(null);
@@ -99,7 +99,7 @@ export function GuardiansTab({
     <TextInput
       label={label}
       value={draft[field]}
-      onChange={(e) => setDraftField(field, e.currentTarget.value)}
+      onChange={(e) => setField(field, e.currentTarget.value)}
       readOnly={!editable}
       radius="md"
       {...extra}

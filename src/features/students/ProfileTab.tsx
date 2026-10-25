@@ -31,7 +31,7 @@ export function ProfileTab({
   onSaved: () => void;
 }) {
   const [draft, setDraft] = useState<Profile>(student.profile);
-  const setDraftField = fieldSetter(setDraft);
+  const setField = fieldSetter(setDraft);
   const [saving, setSaving] = useState(false);
 
   // The backend refuses a birth date after today (QA-209).
@@ -42,7 +42,7 @@ export function ProfileTab({
     <TextInput
       label={label}
       value={draft[field]}
-      onChange={(e) => setDraftField(field, e.currentTarget.value)}
+      onChange={(e) => setField(field, e.currentTarget.value)}
       readOnly={!canEdit}
       radius="md"
       {...extra}
@@ -53,7 +53,7 @@ export function ProfileTab({
       label={label}
       data={data}
       value={draft[field] || null}
-      onChange={(v) => setDraftField(field, v ?? '')}
+      onChange={(v) => setField(field, v ?? '')}
       readOnly={!canEdit}
       clearable={field !== 'gender'}
       placeholder="Not recorded"
@@ -109,7 +109,7 @@ export function ProfileTab({
       <Textarea
         label="Allergies and medical notes"
         value={draft.allergiesMedicalNotes}
-        onChange={(e) => setDraftField('allergiesMedicalNotes', e.currentTarget.value)}
+        onChange={(e) => setField('allergiesMedicalNotes', e.currentTarget.value)}
         readOnly={!canEdit}
         autosize
         minRows={2}

@@ -1,6 +1,6 @@
 # Flow: Student admission (4-step modal)
 
-Code: `src/app/school-admin/(app)/(school)/students/page.tsx` (whole page; modal at lines 691-1245, submit at 268-364).
+Code: the page is `src/app/school-admin/(app)/(school)/students/page.tsx`; the four-step form, its checks and the submit are in `src/features/students/AdmitStudentModal.tsx`; the calls are `studentsApi.list`, `activeCount` and `admit` in `src/features/students/api.ts`.
 
 **Who:** users with `students:create`: Principal, Academic Head and Secretary. Backend: `POST /schools/me/students` with `@Role(PRINCIPAL, ACADEMIC_HEAD, SECRETARY)`, `students:create`, module `students`.
 

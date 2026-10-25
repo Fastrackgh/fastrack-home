@@ -29,7 +29,7 @@ export const ContactSection: React.FC = () => {
     organization: '',
     message: '',
   });
-  const setFormField = fieldSetter(setForm);
+  const setField = fieldSetter(setForm);
 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -220,7 +220,7 @@ export const ContactSection: React.FC = () => {
                           placeholder="e.g. Kwame Mensah"
                           required
                           value={form.name}
-                          onChange={(e) => setFormField('name', e.target.value)}
+                          onChange={(e) => setField('name', e.target.value)}
                           radius="md"
                           size="sm"
                         />
@@ -228,7 +228,7 @@ export const ContactSection: React.FC = () => {
                           label="School or Organization"
                           placeholder="e.g. St. Thomas School"
                           value={form.organization}
-                          onChange={(e) => setFormField('organization', e.target.value)}
+                          onChange={(e) => setField('organization', e.target.value)}
                           radius="md"
                           size="sm"
                         />
@@ -241,7 +241,7 @@ export const ContactSection: React.FC = () => {
                           required
                           type="email"
                           value={form.email}
-                          onChange={(e) => setFormField('email', e.target.value)}
+                          onChange={(e) => setField('email', e.target.value)}
                           radius="md"
                           size="sm"
                         />
@@ -249,7 +249,7 @@ export const ContactSection: React.FC = () => {
                           label="Phone / WhatsApp Number"
                           placeholder="0243-630-648"
                           value={form.phone}
-                          onChange={(e) => setFormField('phone', e.target.value)}
+                          onChange={(e) => setField('phone', e.target.value)}
                           radius="md"
                           size="sm"
                         />
@@ -260,7 +260,7 @@ export const ContactSection: React.FC = () => {
                         placeholder="Tell us about your student population, current challenges, or modules of interest..."
                         minRows={4}
                         value={form.message}
-                        onChange={(e) => setFormField('message', e.target.value)}
+                        onChange={(e) => setField('message', e.target.value)}
                         radius="md"
                         size="sm"
                       />

@@ -722,7 +722,7 @@ function ProfileEditor({
     email: school.email ?? '',
     website: school.website ?? '',
   });
-  const setDraftField = fieldSetter(setDraft);
+  const setField = fieldSetter(setDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fields: [keyof SchoolProfileUpdate, string][] = [
@@ -774,7 +774,7 @@ function ProfileEditor({
               label={label}
               required={key === 'name' || key === 'code'}
               value={draft[key]}
-              onChange={(e) => setDraftField(key, e.currentTarget.value)}
+              onChange={(e) => setField(key, e.currentTarget.value)}
             />
           ))}
         </div>

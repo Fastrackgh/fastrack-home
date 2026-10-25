@@ -87,7 +87,7 @@ export function TemplateEditor({
   const [samples, setSamples] = useState<TemplateSample[]>([]);
   const [selected, setSelected] = useState<DocumentTemplate | null>(null);
   const [draft, setDraft] = useState<Draft | null>(null);
-  const setDraftField = nullableFieldSetter(setDraft);
+  const setField = nullableFieldSetter(setDraft);
   const [invoiceId, setInvoiceId] = useState('');
   const [previewHtml, setPreviewHtml] = useState('');
   const [previewError, setPreviewError] = useState<string | null>(null);
@@ -413,7 +413,7 @@ export function TemplateEditor({
                 label="Name"
                 value={draft.name}
                 readOnly={!editable}
-                onChange={(e) => setDraftField('name', e.currentTarget.value)}
+                onChange={(e) => setField('name', e.currentTarget.value)}
                 mb="xs"
               />
               <Tabs defaultValue="html">
@@ -431,7 +431,7 @@ export function TemplateEditor({
                     styles={codeStyles}
                     value={draft.html}
                     readOnly={!editable}
-                    onChange={(e) => setDraftField('html', e.currentTarget.value)}
+                    onChange={(e) => setField('html', e.currentTarget.value)}
                   />
                 </Tabs.Panel>
                 <Tabs.Panel value="css" pt="xs">
@@ -442,7 +442,7 @@ export function TemplateEditor({
                     styles={codeStyles}
                     value={draft.css}
                     readOnly={!editable}
-                    onChange={(e) => setDraftField('css', e.currentTarget.value)}
+                    onChange={(e) => setField('css', e.currentTarget.value)}
                   />
                 </Tabs.Panel>
                 <Tabs.Panel value="settings" pt="xs">
@@ -456,7 +456,7 @@ export function TemplateEditor({
                     styles={codeStyles}
                     value={draft.settingsText}
                     readOnly={!editable}
-                    onChange={(e) => setDraftField('settingsText', e.currentTarget.value)}
+                    onChange={(e) => setField('settingsText', e.currentTarget.value)}
                   />
                 </Tabs.Panel>
                 <Tabs.Panel value="fields" pt="xs">

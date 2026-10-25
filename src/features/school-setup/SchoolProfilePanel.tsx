@@ -36,7 +36,7 @@ export function SchoolProfilePanel({
   const { refreshSchool } = useAuth();
   const [school, setSchool] = useState<SchoolDetails | null>(null);
   const [draft, setDraft] = useState<SchoolDetails | null>(null);
-  const setDraftField = nullableFieldSetter(setDraft);
+  const setField = nullableFieldSetter(setDraft);
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [logoBusy, setLogoBusy] = useState(false);
@@ -72,7 +72,7 @@ export function SchoolProfilePanel({
   const field = (key: 'name' | 'address' | 'phone' | 'email' | 'website') => ({
     value: draft[key] ?? '',
     onChange: (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
-      setDraftField(key, e.currentTarget.value),
+      setField(key, e.currentTarget.value),
     readOnly: !canManage,
     radius: 'md' as const,
   });

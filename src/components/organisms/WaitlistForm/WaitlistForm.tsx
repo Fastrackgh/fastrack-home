@@ -28,7 +28,7 @@ export const WaitlistForm: React.FC = () => {
     studentCount: '200 - 500 Students',
     currentSystem: 'Manual Records / Excel',
   });
-  const setFormField = fieldSetter(setForm);
+  const setField = fieldSetter(setForm);
 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -185,7 +185,7 @@ export const WaitlistForm: React.FC = () => {
               placeholder="e.g. Achimota Prep Academy"
               required
               value={form.schoolName}
-              onChange={(e) => setFormField('schoolName', e.target.value)}
+              onChange={(e) => setField('schoolName', e.target.value)}
               radius="md"
             />
             <TextInput
@@ -193,7 +193,7 @@ export const WaitlistForm: React.FC = () => {
               placeholder="e.g. Dr. Kwesi Boateng"
               required
               value={form.adminName}
-              onChange={(e) => setFormField('adminName', e.target.value)}
+              onChange={(e) => setField('adminName', e.target.value)}
               radius="md"
             />
           </SimpleGrid>
@@ -205,7 +205,7 @@ export const WaitlistForm: React.FC = () => {
               required
               type="email"
               value={form.email}
-              onChange={(e) => setFormField('email', e.target.value)}
+              onChange={(e) => setField('email', e.target.value)}
               radius="md"
             />
             <TextInput
@@ -213,7 +213,7 @@ export const WaitlistForm: React.FC = () => {
               placeholder="0243-630-648"
               required
               value={form.phone}
-              onChange={(e) => setFormField('phone', e.target.value)}
+              onChange={(e) => setField('phone', e.target.value)}
               radius="md"
             />
           </SimpleGrid>
@@ -228,14 +228,14 @@ export const WaitlistForm: React.FC = () => {
                 '1,500+ Students',
               ]}
               value={form.studentCount}
-              onChange={(val) => setFormField('studentCount', val || '')}
+              onChange={(val) => setField('studentCount', val || '')}
               radius="md"
             />
             <Select
               label="Current Administration System"
               data={['Manual Records / Excel', 'Legacy Software', 'Paper-Based Only', 'Other']}
               value={form.currentSystem}
-              onChange={(val) => setFormField('currentSystem', val || '')}
+              onChange={(val) => setField('currentSystem', val || '')}
               radius="md"
             />
           </SimpleGrid>

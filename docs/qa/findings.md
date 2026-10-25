@@ -23,9 +23,9 @@
 |---|---|---|---|---|
 | Critical | 8 | 7 | 1 | 0 |
 | High | 31 | 27 | 3 | 1 |
-| Medium | 80 | 38 | 12 | 30 |
+| Medium | 80 | 38 | 13 | 29 |
 | Low | 39 | 21 | 6 | 12 |
-| **Total** | **158** | **93** | **22** | **43** |
+| **Total** | **158** | **93** | **23** | **42** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -130,7 +130,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-229 | Medium | FLOW | Both | Browser ✔ | Paystack rejects some parent emails; raw error; no fallback — **open** (code re-checked 24 Oct) |
 | QA-231 | Medium | UX/trust | BE | Browser ✔ Code ✔ | The design preview shows another school ("Fastrack International School") instead of the user's own — **open** (code re-checked 24 Oct) |
 | QA-232 | Medium | FLOW/audit | Both | Code ✔ (DB) | Invoices from one billing run share no run ID: runs can't be undone, audited or re-sent as a unit — **open** (code re-checked 24 Oct) |
-| QA-233 | Medium | FLOW | Both | Code ✔ | Subject teachers can't be assigned (`staff_subjects` and `timetable_slots` exist but have no API or UI) — **open** (code re-checked 24 Oct) |
+| QA-233 | Medium | FLOW | Both | Code ✔ | Subject teachers can be assigned per class now; `timetable_slots` still has no API, and attendance stays with the class teacher — **partly fixed** (25 Oct; results phase 0) |
 | QA-236 | Medium | EDGE/data | BE | Browser ✔ | Making a year current leaves the current term in another year — **fixed** (25 Oct; BE `f6cf1d2`, `8abbe07`) |
 | QA-237 | Medium | EDGE | Both | Browser ✔ | Unticking the current term leaves the school with no current term, silently — **fixed** (25 Oct; BE `f6cf1d2`, re-tested) |
 | QA-238 | Medium | FLOW/audit | FE | Browser ✔ | Guardian change history always shows "No changes recorded yet" (reads `items`, API v2 returns a list) — **fixed** (23 Oct, FE `b0ac515`) |
@@ -1253,7 +1253,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-230 | Open | parent home still takes the first 3 events; no parent calendar |
 | QA-231 | Open | design samples still hard-coded to Fastrack International School |
 | QA-232 | Open | no run/batch id on invoices |
-| QA-233 | Open | no API or UI for subject teachers |
+| QA-233 | Partly fixed | Re-tested 25 Oct on QPM-402. Setup → Subjects → Class: Primary 1 → Edit opens "Subjects for Primary 1" with "Teachers for Mathematics" (options: Academic Qpm, Secy Qpm, Tete Qpm). Choosing Tete Qpm and saving gives "Subjects saved". `GET /classes/:id/subjects` returns teachers ["Tete Qpm"]. As teacher@qpm.test, `GET /teaching-assignments` returns Primary 1 · Mathematics, the Mark sheets list shows that sheet with "Tete Qpm", and the sheet is editable (18 cells, Add test). The Academic Head's assignments are []. Still open: `timetable_slots` has no API, and attendance is still taken only by the class teacher. Minor: the picker offers any active staff, including the Secretary. |
 | QA-234 | Open | still one homeroom teacher per class |
 | QA-235 | Open | no class-teacher history per term |
 | QA-236 | Fixed | 25 Oct, BE `f6cf1d2` + `8abbe07` (re-tested: an undated current year now gives 404, not another year's term). Making a year current now moves the term flag: dating 2027/28 Semester 1 made it current, and switching back to 2026/27 restored its Semester 2. But when an **undated** year (2028/29) was made current, the DB rightly had no current term, yet `GET /academic-terms/current` returned 2027/28 Semester 1, a term in another year. Pages that open on the current term (billing, attendance, calendar) would use that year. The fallback should stay inside the current year, or return none. <br>Re-test 25 Oct (BE `8abbe07`): **fixed**. With the undated 2028/29 current, `GET /academic-terms/current` gets 404 "No active or current academic term found". Dating its Semester 1 makes that the current term (in 2028/29), and switching back to 2026/27 returns its Semester 2. |

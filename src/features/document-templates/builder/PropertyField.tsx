@@ -251,6 +251,8 @@ function ImageField({ schema, value, onChange, ctx }: Props) {
             onClick={() => onChange(img.id)}
             disabled={ctx.readOnly}
             title={img.originalFilename ?? undefined}
+            aria-label={`Use image ${img.originalFilename ?? ''}`.trim()}
+            aria-pressed={selected === img.id}
             style={{
               border: `2px solid ${selected === img.id ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-gray-3)'}`,
               borderRadius: 6,

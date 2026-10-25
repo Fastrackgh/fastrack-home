@@ -209,6 +209,7 @@ export function InvoicesTab({
                                 color={copied ? 'teal' : 'gray'}
                                 variant="subtle"
                                 onClick={copy}
+                                aria-label={copied ? 'Link copied' : 'Copy the parent link'}
                               >
                                 {copied ? <Check size={16} /> : <Copy size={16} />}
                               </ActionIcon>

@@ -369,6 +369,7 @@ export default function PlatformConsolePage() {
               size="lg"
               onClick={loadPlatformData}
               title="Refresh Platform Data"
+              aria-label="Refresh platform data"
             >
               <RefreshCw size={18} color="#94a3b8" />
             </ActionIcon>
@@ -386,7 +387,14 @@ export default function PlatformConsolePage() {
                 </Text>
               </div>
             </Group>
-            <ActionIcon variant="subtle" color="red" size="lg" onClick={logout} title="Sign Out">
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              size="lg"
+              onClick={logout}
+              title="Sign Out"
+              aria-label="Sign out"
+            >
               <LogOut size={18} />
             </ActionIcon>
           </Group>
@@ -724,7 +732,12 @@ export default function PlatformConsolePage() {
                                   </Button>
                                   <Menu position="bottom-end" shadow="md" width={180}>
                                     <Menu.Target>
-                                      <ActionIcon variant="subtle" color="gray" size="sm">
+                                      <ActionIcon
+                                        variant="subtle"
+                                        color="gray"
+                                        size="sm"
+                                        aria-label={`More actions for ${school.name}`}
+                                      >
                                         <MoreVertical size={16} />
                                       </ActionIcon>
                                     </Menu.Target>

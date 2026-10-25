@@ -23,8 +23,9 @@ import {
   Textarea,
   UnstyledButton,
 } from '@mantine/core';
-import { Plus, Trash2, Upload, Wand2 } from 'lucide-react';
-import type { DesignImage, Placeholder, PropSchema } from '../api';
+import { ChevronDown, ChevronUp, Plus, Trash2, Upload, Wand2 } from 'lucide-react';
+import type { DateLine, DesignImage, Placeholder, PropSchema } from '../api';
+import { moveItem } from './layout-ops';
 
 /** What property inputs need from the page: fields, images and fee types. */
 export interface FieldContext {
@@ -134,6 +135,8 @@ export function PropertyField({ schema, value, onChange, ctx }: Props) {
       return <ListField {...{ schema, value, onChange, ctx }} />;
     case 'feeGroups':
       return <FeeGroupsField {...{ schema, value, onChange, ctx }} />;
+    case 'dateLines':
+      return <DateLinesField {...{ schema, value, onChange, ctx }} />;
   }
 }
 
@@ -274,6 +277,7 @@ function ListField({ schema, value, onChange, ctx }: Props) {
   const setItem = (index: number, item: unknown) =>
     onChange(items.map((v, i) => (i === index ? item : v)));
   const remove = (index: number) => onChange(items.filter((_, i) => i !== index));
+  const move = (index: number, delta: -1 | 1) => onChange(moveItem(items, index, delta));
   const add = () =>
     onChange([
       ...items,
@@ -299,15 +303,18 @@ function ListField({ schema, value, onChange, ctx }: Props) {
                 #{index + 1}
               </Text>
               {!ctx.readOnly && (
-                <ActionIcon
-                  size="sm"
-                  variant="subtle"
-                  color="red"
-                  onClick={() => remove(index)}
-                  aria-label="Remove"
-                >
-                  <Trash2 size={14} />
-                </ActionIcon>
+                <Group gap={2}>
+                  <MoveButtons index={index} count={items.length} onMove={move} />
+                  <ActionIcon
+                    size="sm"
+                    variant="subtle"
+                    color="red"
+                    onClick={() => remove(index)}
+                    aria-label={`Remove item ${index + 1}`}
+                  >
+                    <Trash2 size={14} />
+                  </ActionIcon>
+                </Group>
               )}
             </Group>
             <Stack gap={6}>
@@ -333,14 +340,17 @@ function ListField({ schema, value, onChange, ctx }: Props) {
               onChange={(e) => setItem(index, e.currentTarget.value)}
             />
             {!ctx.readOnly && (
-              <ActionIcon
-                variant="subtle"
-                color="red"
-                onClick={() => remove(index)}
-                aria-label="Remove"
-              >
-                <Trash2 size={14} />
-              </ActionIcon>
+              <>
+                <MoveButtons index={index} count={items.length} onMove={move} />
+                <ActionIcon
+                  variant="subtle"
+                  color="red"
+                  onClick={() => remove(index)}
+                  aria-label={`Remove item ${index + 1}`}
+                >
+                  <Trash2 size={14} />
+                </ActionIcon>
+              </>
             )}
           </Group>
         ),
@@ -356,6 +366,146 @@ function ListField({ schema, value, onChange, ctx }: Props) {
           Add
         </Button>
       )}
+    </Stack>
+  );
+}
+
+/** Up and down arrows for one item of a reorderable list. */
+function MoveButtons({
+  index,
+  count,
+  onMove,
+  name = `item ${index + 1}`,
+}: {
+  index: number;
+  count: number;
+  onMove: (index: number, delta: -1 | 1) => void;
+  name?: string;
+}) {
+  return (
+    <Group gap={0} wrap="nowrap">
+      <ActionIcon
+        size="sm"
+        variant="subtle"
+        color="gray"
+        disabled={index === 0}
+        onClick={() => onMove(index, -1)}
+        aria-label={`Move ${name} up`}
+      >
+        <ChevronUp size={14} />
+      </ActionIcon>
+      <ActionIcon
+        size="sm"
+        variant="subtle"
+        color="gray"
+        disabled={index === count - 1}
+        onClick={() => onMove(index, 1)}
+        aria-label={`Move ${name} down`}
+      >
+        <ChevronDown size={14} />
+      </ActionIcon>
+    </Group>
+  );
+}
+
+/** What each Dates line is called here, and where it gets its date when left empty. */
+const DATE_LINES: Record<DateLine['key'], { name: string; auto: string; source: string }> = {
+  termPeriod: {
+    name: 'Term period',
+    auto: 'term start–end',
+    source: "Left empty, it uses the term's start and end dates.",
+  },
+  dueDate: {
+    name: 'Payment deadline',
+    auto: 'due date',
+    source: "Left empty, it uses the bill's due date.",
+  },
+  vacation: {
+    name: 'Vacation date',
+    auto: 'term end',
+    source: "Left empty, it uses the term's end date.",
+  },
+  reopening: {
+    name: 'Reopening date',
+    auto: 'next term start',
+    source: "Left empty, it uses the next term's start date.",
+  },
+};
+
+/**
+ * The lines of a bill's Dates section: their order, which ones print, the
+ * words before each date, and an optional typed date in place of the term's.
+ */
+function DateLinesField({ schema, value, onChange, ctx }: Props) {
+  const lines = Array.isArray(value) ? (value as DateLine[]) : [];
+  const set = (index: number, change: Partial<DateLine>) =>
+    onChange(lines.map((line, i) => (i === index ? { ...line, ...change } : line)));
+  const move = (index: number, delta: -1 | 1) => onChange(moveItem(lines, index, delta));
+  return (
+    <Stack gap={6}>
+      <Text size="sm" fw={500}>
+        {schema.label}
+      </Text>
+      {schema.help && (
+        <Text size="xs" c="dimmed">
+          {schema.help}
+        </Text>
+      )}
+      {lines.map((line, index) => {
+        const info = DATE_LINES[line.key] ?? { name: line.key, auto: '', source: '' };
+        return (
+          <Card key={line.key} withBorder padding="xs" opacity={line.show ? 1 : 0.6}>
+            <Group justify="space-between" wrap="nowrap" mb={line.show ? 6 : 0}>
+              <Switch
+                size="xs"
+                label={info.name}
+                checked={line.show}
+                disabled={ctx.readOnly}
+                onChange={(e) => set(index, { show: e.currentTarget.checked })}
+              />
+              {!ctx.readOnly && (
+                <MoveButtons index={index} count={lines.length} onMove={move} name={info.name} />
+              )}
+            </Group>
+            {line.show && (
+              <SimpleGrid cols={2} spacing={6}>
+                <TextInput
+                  size="xs"
+                  label="Words before it"
+                  aria-label={`Words before the ${info.name.toLowerCase()}`}
+                  placeholder="None"
+                  maxLength={80}
+                  disabled={ctx.readOnly}
+                  value={line.label}
+                  onChange={(e) => set(index, { label: e.currentTarget.value })}
+                />
+                <TextInput
+                  size="xs"
+                  label="Date"
+                  aria-label={`${info.name}, typed in`}
+                  placeholder={info.auto && `Auto: ${info.auto}`}
+                  title={info.source}
+                  maxLength={80}
+                  disabled={ctx.readOnly}
+                  value={line.text}
+                  onChange={(e) => set(index, { text: e.currentTarget.value })}
+                />
+                <ColorInput
+                  size="xs"
+                  label="Colour"
+                  aria-label={`${info.name} colour`}
+                  placeholder="As the section"
+                  format="hex"
+                  disabled={ctx.readOnly}
+                  value={line.color ?? ''}
+                  onChange={(color) => set(index, { color })}
+                  style={{ gridColumn: '1 / -1' }}
+                />
+              </SimpleGrid>
+            )}
+          </Card>
+        );
+      })}
     </Stack>
   );
 }

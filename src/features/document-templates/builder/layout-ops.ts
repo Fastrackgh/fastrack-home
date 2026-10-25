@@ -9,6 +9,15 @@ export interface BlockSlot {
 const ALL_SIDES: ColumnSide[] = ['left', 'middle', 'right'];
 
 /** A columns section's columns, in order: its ratio's parts decide two or three ("25-50-25"). */
+/** The list with one item moved up (-1) or down (+1); unchanged at either end. */
+export function moveItem<T>(list: readonly T[], index: number, delta: -1 | 1): T[] {
+  const to = index + delta;
+  if (index < 0 || index >= list.length || to < 0 || to >= list.length) return [...list];
+  const next = [...list];
+  [next[index], next[to]] = [next[to], next[index]];
+  return next;
+}
+
 export function columnSides(block: Pick<LayoutBlock, 'props'>): ColumnSide[] {
   const parts = String(block.props.ratio ?? '50-50').split('-').length;
   return parts === 3 ? ALL_SIDES : ['left', 'right'];

@@ -29,7 +29,22 @@ export type PropType =
   | 'number'
   | 'image'
   | 'list'
-  | 'feeGroups';
+  | 'feeGroups'
+  | 'dateLines';
+
+/**
+ * One line of a bill's Dates section (`dateLines`). The list holds each key
+ * once, in print order. An empty `text` prints the date from the bill's data.
+ */
+export interface DateLine {
+  key: 'termPeriod' | 'dueDate' | 'vacation' | 'reopening';
+  show: boolean;
+  /** Printed before the date; empty prints the date alone. */
+  label: string;
+  text: string;
+  /** The line's text colour, `#rrggbb`; empty uses the section's. */
+  color: string;
+}
 
 /** One editable property of a section; the builder draws its form from this. */
 export interface PropSchema {

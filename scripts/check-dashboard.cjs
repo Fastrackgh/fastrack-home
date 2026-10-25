@@ -842,6 +842,11 @@ check('design columns: two or three by ratio, and switching to two keeps the mid
   const cols = (ratio) => ({ id: 'c', type: 'columns', props: { ratio, gap: 16 }, children: { left: [], right: [] } });
   assert.deepEqual(ops.columnSides(cols('50-50')), ['left', 'right']);
   assert.deepEqual(ops.columnSides(cols('25-50-25')), ['left', 'middle', 'right']);
+  // Reordering list items (Dates lines, notes, signers) stops at either end.
+  assert.deepEqual(ops.moveItem(['a', 'b', 'c'], 2, -1), ['a', 'c', 'b']);
+  assert.deepEqual(ops.moveItem(['a', 'b', 'c'], 0, 1), ['b', 'a', 'c']);
+  assert.deepEqual(ops.moveItem(['a', 'b'], 0, -1), ['a', 'b']);
+  assert.deepEqual(ops.moveItem(['a', 'b'], 1, 1), ['a', 'b']);
   const text = (id) => ({ id, type: 'text', props: {} });
   let layout = { version: 1, theme: {}, blocks: [cols('33-33-33')] };
   layout = ops.insertBlock(layout, text('a'), { parentId: 'c', side: 'left' });

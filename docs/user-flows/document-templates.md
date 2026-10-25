@@ -90,14 +90,14 @@ sequenceDiagram
     P->>B: change (undo/redo, 100 steps)
     B-->>API: after 500ms: POST {base}/preview {kind, layout, invoiceId?}
     API-->>B: html -> sandboxed iframe at paper width (Fit / 100%)
-    B-->>API: after 1200ms: PATCH {base}/:id {layout}
+    B-->>API: after 1200ms (or at once before switching, publishing or leaving): PATCH {base}/:id {layout}
     alt 400 (field too long, unknown field chip, missing image…)
       B->>P: "Not saved" + red Alert with section-specific message
     else ok
       B->>P: "All changes saved"
     end
   end
-  P->>B: Publish (disabled only while a save is in flight)
+  P->>B: Publish (any waiting edit is saved first; if it can't be, nothing is published)
   B->>API: POST {base}/:id/publish
   API->>API: test-render with sample data, archive old live, set PUBLISHED
   B->>P: toast "Published — parents now see this design", reopen as read-only
@@ -160,13 +160,19 @@ Every rule below is checked on the server, by `layout-compiler.ts` and `layout-p
 
 See the findings register for the evidence and repro steps behind each item.
 
-- **Autosave and version switching:**
-  - Switching version or kind, publishing, or leaving the page within 1.2 s of an edit drops that edit. No unsaved-changes guard exists.
-  - The stale debounced design can be PATCHed onto the newly opened draft.
-- **Publish:** it can publish the last saved version while newer edits are still pending or have failed.
+- *Fixed 25 Oct (QA-064, QA-065, QA-066), in `builder/useDraftAutosave.ts`:*
+  - **Edits stay with their design:** each edit is kept with the id of the design it was made on, and saves go out one at a time, in order. An edit can't be saved onto a design opened afterwards.
+  - **Saved before you move on:** switching version or kind, Edit a copy, New design, Upload sample, Advanced, and leaving through the app all save the waiting edit first. If that fails, the builder asks "Your last change to this design could not be saved. Leave it anyway?".
+  - **Closing or reloading the tab** with an edit unsaved shows the browser's leave warning.
+  - **Publish** saves first and refuses with "Not published" if it can't, so parents never get an older design.
+  - **The status** reads "Unsaved changes", "Saving…", "All changes saved" or "Not saved", with Try again.
+  - **Tested live** on QPM-402: an edit then a quick switch saved to the first draft only; an edit then Publish sent PATCH, then publish; leaving through the menu sent the PATCH; a forced 500 showed "Not saved" and asked before switching.
 - **Concurrency:** two editors on the same draft (Principal and Fastrack staff, or two tabs) overwrite each other without warning. There is no version check.
-- **Preview errors:** they stick after the preview recovers, and the frame keeps showing the old render.
-- **Rename:** failures are silent, for example a name over 120 characters.
+- *Fixed 25 Oct (QA-070):*
+  - Preview errors are separate from save errors, and clear when the preview recovers.
+  - The kind, design and layout reach the preview together, so switching kind no longer previews the old layout as the new kind (no 400).
+  - A slow version load can't open another kind's design.
+  - Rename is limited to 120 characters, says when it fails, and updates the version list.
 - **Loading:**
   - A samples or images error blanks the whole page.
   - A fee-types error looks like "No fee types set up yet".

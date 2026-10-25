@@ -63,6 +63,7 @@ import { paperWidthFor, PreviewFrame, type PreviewZoom } from './PreviewFrame';
 import { PropertyField, type FieldContext } from './PropertyField';
 import { StarterGallery } from './StarterGallery';
 import classes from './TemplateBuilder.module.css';
+import { useDraftAutosave } from './useDraftAutosave';
 import { useLayoutHistory } from './useLayoutHistory';
 
 const errorMessage = (error: unknown, fallback: string) =>
@@ -78,8 +79,6 @@ const statusLabel: Record<TemplateStatus, string> = {
   PUBLISHED: 'Live',
   ARCHIVED: 'Old version',
 };
-
-type SaveState = 'idle' | 'saving' | 'saved' | 'error';
 
 /**
  * The no-code designer for a school's fee bill and terminal report: pick a
@@ -116,19 +115,22 @@ export function TemplateBuilder({
   const wide = useMediaQuery('(min-width: 105em)');
   const [invoiceId, setInvoiceId] = useState('');
   const [previewHtml, setPreviewHtml] = useState('');
-  const [problem, setProblem] = useState<string | null>(null);
-  const [saveState, setSaveState] = useState<SaveState>('idle');
+  // The preview's error is kept apart from the save's, so fixing one clears it (QA-070).
+  const [previewProblem, setPreviewProblem] = useState<string | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const history = useLayoutHistory(null);
-  /** The last design saved to the server (JSON), so autosave only sends real changes. */
-  const lastSaved = useRef<string>('null');
   const { layout, change, reset } = history;
 
   const info = kinds.find((k) => k.kind === kind);
   const editable = canManage && current?.status === 'DRAFT' && current.mode === 'visual';
+  const autosave = useDraftAutosave({ api, templateId: current?.id ?? null, layout, editable });
+  const { flush, markSaved } = autosave;
+  /** Only the newest load may open a design, so a slow one can't show another kind (QA-070). */
+  const loadTicket = useRef(0);
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<DocumentTemplate[] | null> => {
+    const ticket = ++loadTicket.current;
     setLoadError(null);
     try {
       const [allKinds, list, sampleList, imageList, fees] = await Promise.all([
@@ -138,6 +140,7 @@ export function TemplateBuilder({
         api.images(),
         kind === 'invoice.bill' ? api.feeTypes().catch(() => []) : Promise.resolve([]),
       ]);
+      if (ticket !== loadTicket.current) return null;
       setKinds(allKinds);
       setVersions(list);
       setSamples(sampleList);
@@ -145,26 +148,35 @@ export function TemplateBuilder({
       setFeeTypes(fees);
       return list;
     } catch (e) {
-      setLoadError(errorMessage(e, 'Could not load designs.'));
-      return [];
+      if (ticket === loadTicket.current) setLoadError(errorMessage(e, 'Could not load designs.'));
+      return null;
     }
   }, [api, kind]);
 
   const open = useCallback(
     (template: DocumentTemplate | null) => {
+      markSaved(template?.id ?? null, template?.layout ?? null);
       setCurrent(template);
       setSelectedId(null);
-      setProblem(null);
-      setSaveState('idle');
-      lastSaved.current = JSON.stringify(template?.layout ?? null);
+      setPreviewProblem(null);
       reset(template?.layout ?? null);
     },
-    [reset],
+    [reset, markSaved],
   );
+
+  /**
+   * Saves the edit still waiting before leaving the open design. If it can't
+   * be saved, asks before the change would be lost (QA-065).
+   */
+  const settle = useCallback(async () => {
+    if (await flush()) return true;
+    return window.confirm('Your last change to this design could not be saved. Leave it anyway?');
+  }, [flush]);
 
   // On load / kind change: open the newest draft, else the live version.
   useEffect(() => {
     void load().then((list) => {
+      if (!list) return;
       open(
         list.find((t) => t.status === 'DRAFT') ??
           list.find((t) => t.status === 'PUBLISHED') ??
@@ -173,62 +185,44 @@ export function TemplateBuilder({
     });
   }, [load, open]);
 
-  // Autosave the draft shortly after each change.
-  const [debouncedLayout] = useDebouncedValue(layout, 1200);
-  const currentId = current?.id;
-  useEffect(() => {
-    if (!editable || !currentId || !debouncedLayout) return;
-    const json = JSON.stringify(debouncedLayout);
-    if (json === lastSaved.current) return;
-    let cancelled = false;
-    setSaveState('saving');
-    api
-      .update(currentId, { layout: debouncedLayout })
-      .then(() => {
-        lastSaved.current = json;
-        if (cancelled) return;
-        setSaveState('saved');
-        setProblem(null);
-      })
-      .catch((e: unknown) => {
-        if (cancelled) return;
-        setSaveState('error');
-        setProblem(errorMessage(e, 'Could not save.'));
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [api, currentId, debouncedLayout, editable]);
-
   // Live preview of what is on screen.
-  const [previewLayout] = useDebouncedValue(layout, 500);
+  const currentId = current?.id;
+  // The kind, design and layout wait together, so a layout is never previewed as the
+  // other kind while the delay catches up (QA-070).
+  const target = useMemo(() => ({ kind, id: currentId, layout }), [kind, currentId, layout]);
+  const [previewTarget] = useDebouncedValue(target, 500);
   const [previewInvoice] = useDebouncedValue(invoiceId.trim(), 600);
   useEffect(() => {
     let cancelled = false;
-    const invoice = kind === 'invoice.bill' ? previewInvoice || undefined : undefined;
+    const { kind: previewKind, id, layout: previewLayout } = previewTarget;
+    const invoice = previewKind === 'invoice.bill' ? previewInvoice || undefined : undefined;
     const render = previewLayout
-      ? api.previewLayout(kind, previewLayout, invoice)
-      : currentId
-        ? api.previewSaved(currentId, invoice)
+      ? api.previewLayout(previewKind, previewLayout, invoice)
+      : id
+        ? api.previewSaved(id, invoice)
         : Promise.resolve('');
     render
       .then((html) => {
-        if (!cancelled) setPreviewHtml(html);
+        if (cancelled) return;
+        setPreviewHtml(html);
+        setPreviewProblem(null);
       })
       .catch((e: unknown) => {
-        if (!cancelled) setProblem(errorMessage(e, 'Preview failed.'));
+        if (!cancelled) setPreviewProblem(errorMessage(e, 'Preview failed.'));
       });
     return () => {
       cancelled = true;
     };
-  }, [api, kind, previewLayout, previewInvoice, currentId]);
+  }, [api, previewTarget, previewInvoice]);
 
   const act = async (label: string, run: () => Promise<DocumentTemplate | void>) => {
     setBusy(true);
     try {
+      // Whatever happens next opens another design, so the open one is saved first.
+      if (!(await settle())) return;
       const result = await run();
       notifications.show({ color: 'teal', title: label, message: 'Done.' });
-      const list = await load();
+      const list = (await load()) ?? [];
       open(result ? (list.find((t) => t.id === result.id) ?? result) : (list[0] ?? null));
     } catch (e) {
       notifications.show({
@@ -239,6 +233,38 @@ export function TemplateBuilder({
     } finally {
       setBusy(false);
     }
+  };
+
+  /** Renames a design, keeping the version list in step; a failure is said, not swallowed (QA-070). */
+  const rename = async (id: string, name: string) => {
+    const trimmed = name.trim();
+    const before = versions?.find((v) => v.id === id)?.name;
+    if (!trimmed || trimmed === before) return;
+    try {
+      await api.update(id, { name: trimmed });
+      setVersions((list) => list?.map((v) => (v.id === id ? { ...v, name: trimmed } : v)) ?? list);
+    } catch (e) {
+      notifications.show({
+        color: 'red',
+        title: 'Name not saved',
+        message: errorMessage(e, 'Try again.'),
+      });
+      if (before) setCurrent((c) => (c && c.id === id ? { ...c, name: before } : c));
+    }
+  };
+
+  /** Publishes what is on screen: the waiting edit is saved first, or nothing is published (QA-066). */
+  const publish = async (id: string) => {
+    if (!(await flush())) {
+      notifications.show({
+        color: 'red',
+        title: 'Not published',
+        message:
+          'Your latest change isn’t saved yet, so parents would get an older design. Try again.',
+      });
+      return;
+    }
+    await act('Published — parents now see this design', () => api.publish(id));
   };
 
   const ctx: FieldContext = useMemo(
@@ -303,9 +329,10 @@ export function TemplateBuilder({
         <TextInput
           label="Design name"
           mb="sm"
+          maxLength={120}
           value={current.name}
           onChange={(e) => setCurrent({ ...current, name: e.currentTarget.value })}
-          onBlur={() => void api.update(current.id, { name: current.name }).catch(() => undefined)}
+          onBlur={() => void rename(current.id, current.name)}
         />
       )}
       {selected && selectedDef ? (
@@ -399,7 +426,15 @@ export function TemplateBuilder({
     return (
       <Stack>
         <Group>
-          <Button variant="default" size="xs" onClick={() => setAdvanced(false)}>
+          <Button
+            variant="default"
+            size="xs"
+            onClick={() => {
+              setAdvanced(false);
+              // The code editor may have changed the designs.
+              void load();
+            }}
+          >
             Back to the visual builder
           </Button>
           <Text size="sm" c="dimmed">
@@ -426,7 +461,12 @@ export function TemplateBuilder({
           <Group gap="xs">
             <SegmentedControl
               value={kind}
-              onChange={(value) => setKind(value as DocumentKind)}
+              onChange={async (value) => {
+                if (!(await settle())) return;
+                // Clear the open design first, so its layout is never previewed as the other kind.
+                open(null);
+                setKind(value as DocumentKind);
+              }}
               data={(Object.keys(KIND_LABELS) as DocumentKind[]).map((value) => ({
                 value,
                 label: KIND_LABELS[value],
@@ -441,7 +481,10 @@ export function TemplateBuilder({
                 label: `v${v.version} · ${v.name} (${statusLabel[v.status]})`,
               }))}
               value={current?.id ?? null}
-              onChange={(id) => open(versions.find((v) => v.id === id) ?? null)}
+              onChange={async (id) => {
+                if (id === current?.id || !(await settle())) return;
+                open(versions.find((v) => v.id === id) ?? null);
+              }}
               allowDeselect={false}
             />
             {current && (
@@ -450,15 +493,29 @@ export function TemplateBuilder({
               </Badge>
             )}
             {editable && (
-              <Text size="xs" c={saveState === 'error' ? 'red' : 'dimmed'}>
-                {saveState === 'saving'
-                  ? 'Saving…'
-                  : saveState === 'saved'
-                    ? 'All changes saved'
-                    : saveState === 'error'
-                      ? 'Not saved'
-                      : ''}
-              </Text>
+              <Group gap={4}>
+                <Text size="xs" c={autosave.state === 'error' ? 'red' : 'dimmed'}>
+                  {
+                    {
+                      idle: '',
+                      pending: 'Unsaved changes',
+                      saving: 'Saving…',
+                      saved: 'All changes saved',
+                      error: 'Not saved',
+                    }[autosave.state]
+                  }
+                </Text>
+                {autosave.state === 'error' && (
+                  <Button
+                    size="compact-xs"
+                    variant="subtle"
+                    color="red"
+                    onClick={() => void flush()}
+                  >
+                    Try again
+                  </Button>
+                )}
+              </Group>
             )}
           </Group>
           <Group gap={6}>
@@ -536,12 +593,8 @@ export function TemplateBuilder({
                     color="teal"
                     leftSection={<Rocket size={14} />}
                     loading={busy}
-                    disabled={saveState === 'saving'}
-                    onClick={() =>
-                      void act('Published — parents now see this design', () =>
-                        api.publish(current.id),
-                      )
-                    }
+                    disabled={autosave.state === 'saving'}
+                    onClick={() => void publish(current.id)}
                   >
                     Publish
                   </Button>
@@ -568,7 +621,9 @@ export function TemplateBuilder({
                 size="xs"
                 variant="subtle"
                 leftSection={<Code2 size={14} />}
-                onClick={() => setAdvanced(true)}
+                onClick={async () => {
+                  if (await settle()) setAdvanced(true);
+                }}
               >
                 Advanced
               </Button>
@@ -583,9 +638,14 @@ export function TemplateBuilder({
           will be used for real reports.
         </Alert>
       )}
-      {problem && (
-        <Alert color="red" py={6} withCloseButton onClose={() => setProblem(null)}>
-          {problem}
+      {autosave.error && (
+        <Alert color="red" py={6} title="Your last change isn't saved">
+          {autosave.error}
+        </Alert>
+      )}
+      {previewProblem && (
+        <Alert color="orange" py={6} withCloseButton onClose={() => setPreviewProblem(null)}>
+          Preview: {previewProblem}
         </Alert>
       )}
       {current && current.status !== 'DRAFT' && current.mode === 'visual' && canManage && (

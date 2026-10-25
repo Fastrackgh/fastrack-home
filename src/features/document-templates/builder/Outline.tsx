@@ -158,6 +158,7 @@ function BlockRow(
                 <ActionIcon
                   size="sm"
                   variant="subtle"
+                  aria-label="Move up"
                   disabled={index === 0}
                   onClick={() => props.onMove(block.id, -1)}
                 >
@@ -168,6 +169,7 @@ function BlockRow(
                 <ActionIcon
                   size="sm"
                   variant="subtle"
+                  aria-label="Move down"
                   disabled={index === count - 1}
                   onClick={() => props.onMove(block.id, 1)}
                 >
@@ -178,13 +180,19 @@ function BlockRow(
                 <ActionIcon
                   size="sm"
                   variant="subtle"
+                  aria-label={block.hidden ? 'Show' : 'Hide'}
                   onClick={() => props.onToggleHidden(block.id)}
                 >
                   {block.hidden ? <Eye size={13} /> : <EyeOff size={13} />}
                 </ActionIcon>
               </Tooltip>
               <Tooltip label="Duplicate">
-                <ActionIcon size="sm" variant="subtle" onClick={() => props.onDuplicate(block.id)}>
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  aria-label="Duplicate"
+                  onClick={() => props.onDuplicate(block.id)}
+                >
                   <Copy size={13} />
                 </ActionIcon>
               </Tooltip>
@@ -193,6 +201,7 @@ function BlockRow(
                   size="sm"
                   variant="subtle"
                   color="red"
+                  aria-label="Delete"
                   onClick={() => props.onRemove(block.id)}
                 >
                   <Trash2 size={13} />

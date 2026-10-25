@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { apiClient, pathId } from '@/lib/api-client';
 import type { Band, Component, Settings } from './api';
 import type { SubjectStatus } from './engine';
 
@@ -136,25 +136,24 @@ export interface CellError {
 }
 
 const base = '/schools/me/mark-sheets';
-const id = (value: string) => encodeURIComponent(value);
 
 export const marksApi = {
   async list(termId: string, mine: boolean): Promise<SheetCard[]> {
     return (
-      (await apiClient.get<SheetCard[]>(`${base}?termId=${id(termId)}&mine=${mine}`)).data ?? []
+      (await apiClient.get<SheetCard[]>(`${base}?termId=${pathId(termId)}&mine=${mine}`)).data ?? []
     );
   },
   async open(termId: string, classId: string, subjectId: string): Promise<OpenSheet> {
     return (
       await apiClient.get<OpenSheet>(
-        `${base}/open?termId=${id(termId)}&classId=${id(classId)}&subjectId=${id(subjectId)}`,
+        `${base}/open?termId=${pathId(termId)}&classId=${pathId(classId)}&subjectId=${pathId(subjectId)}`,
       )
     ).data;
   },
   async saveMarks(sheetId: string, rowVersion: number, marks: MarkChange[]) {
     return (
       await apiClient.put<{ rowVersion: number; rows: RosterRow[] }>(
-        `${base}/${id(sheetId)}/marks`,
+        `${base}/${pathId(sheetId)}/marks`,
         { rowVersion, marks },
       )
     ).data;
@@ -171,7 +170,7 @@ export const marksApi = {
   ) {
     return (
       await apiClient.post<{ rowVersion: number; items: Item[] }>(
-        `${base}/${id(sheetId)}/items`,
+        `${base}/${pathId(sheetId)}/items`,
         body,
       )
     ).data;
@@ -183,7 +182,7 @@ export const marksApi = {
   ) {
     return (
       await apiClient.patch<{ rowVersion: number; items: Item[] }>(
-        `${base}/${id(sheetId)}/items/${id(itemId)}`,
+        `${base}/${pathId(sheetId)}/items/${pathId(itemId)}`,
         body,
       )
     ).data;
@@ -191,21 +190,23 @@ export const marksApi = {
   async deleteItem(sheetId: string, itemId: string, rowVersion: number, force = false) {
     return (
       await apiClient.delete<{ rowVersion: number; items: Item[] }>(
-        `${base}/${id(sheetId)}/items/${id(itemId)}?rowVersion=${rowVersion}${force ? '&force=true' : ''}`,
+        `${base}/${pathId(sheetId)}/items/${pathId(itemId)}?rowVersion=${rowVersion}${force ? '&force=true' : ''}`,
       )
     ).data;
   },
   // Sheet actions carry the version they were made on and return the whole view.
   async submit(sheetId: string, rowVersion: number) {
-    return (await apiClient.post<OpenSheet>(`${base}/${id(sheetId)}/submit`, { rowVersion })).data;
+    return (await apiClient.post<OpenSheet>(`${base}/${pathId(sheetId)}/submit`, { rowVersion }))
+      .data;
   },
   async returnSheet(sheetId: string, rowVersion: number, reason: string) {
     return (
-      await apiClient.post<OpenSheet>(`${base}/${id(sheetId)}/return`, { rowVersion, reason })
+      await apiClient.post<OpenSheet>(`${base}/${pathId(sheetId)}/return`, { rowVersion, reason })
     ).data;
   },
   async setNotAssessed(sheetId: string, rowVersion: number, notAssessed: boolean) {
-    return (await apiClient.patch<OpenSheet>(`${base}/${id(sheetId)}`, { rowVersion, notAssessed }))
-      .data;
+    return (
+      await apiClient.patch<OpenSheet>(`${base}/${pathId(sheetId)}`, { rowVersion, notAssessed })
+    ).data;
   },
 };

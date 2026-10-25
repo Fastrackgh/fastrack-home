@@ -36,6 +36,7 @@ import {
   type PupilReport,
   type RemarksChange,
 } from './reports-api';
+import { place } from '@/lib/format';
 import { BATCH_STATUS } from './ReportsBoardPage';
 
 const PUPIL_STATUS: Record<PupilReport['status'], { label: string; color: string }> = {
@@ -44,17 +45,9 @@ const PUPIL_STATUS: Record<PupilReport['status'], { label: string; color: string
   left: { label: 'Left', color: 'gray' },
 };
 
-/** "2nd", or "2nd=" when another pupil shares the place (QA-260), as on printed reports. */
-const place = (n: number, tied: boolean) => `${ordinal(n)}${tied ? '=' : ''}`;
-
 /** Whether `position` is shared among `positions`. */
 const shared = (positions: (number | null)[], position: number) =>
   positions.filter((p) => p === position).length > 1;
-
-const ordinal = (n: number) => {
-  const tail = n % 100 >= 11 && n % 100 <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
-  return `${n}${tail}`;
-};
 
 /** Opens the school's report design in a new tab, ready to print. */
 function openPrintable(html: string) {

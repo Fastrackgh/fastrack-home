@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { apiClient, pathId } from '@/lib/api-client';
 
 /*
  * Term reports (results phase 3): a batch per term and class, worked out from
@@ -100,15 +100,14 @@ export interface BankRemark {
   maxAverage: number | null;
 }
 
-const id = (value: string) => encodeURIComponent(value);
 const batchPath = (termId: string, classId: string) =>
-  `/schools/me/report-batches/${id(termId)}/${id(classId)}`;
+  `/schools/me/report-batches/${pathId(termId)}/${pathId(classId)}`;
 
 export const reportsApi = {
   async board(termId: string): Promise<BoardRow[]> {
     return (
-      (await apiClient.get<BoardRow[]>(`/schools/me/report-batches?termId=${id(termId)}`)).data ??
-      []
+      (await apiClient.get<BoardRow[]>(`/schools/me/report-batches?termId=${pathId(termId)}`))
+        .data ?? []
     );
   },
   async batch(termId: string, classId: string) {
@@ -129,7 +128,7 @@ export const reportsApi = {
   async saveRemarks(termReportId: string, change: RemarksChange) {
     return (
       await apiClient.put<PupilReport>(
-        `/schools/me/term-reports/${id(termReportId)}/remarks`,
+        `/schools/me/term-reports/${pathId(termReportId)}/remarks`,
         change,
       )
     ).data;
@@ -142,21 +141,27 @@ export const reportsApi = {
   },
   async withhold(termReportId: string, reason: string) {
     return (
-      await apiClient.post<PupilReport>(`/schools/me/term-reports/${id(termReportId)}/withhold`, {
-        reason,
-      })
+      await apiClient.post<PupilReport>(
+        `/schools/me/term-reports/${pathId(termReportId)}/withhold`,
+        {
+          reason,
+        },
+      )
     ).data;
   },
   async release(termReportId: string) {
     return (
-      await apiClient.post<PupilReport>(`/schools/me/term-reports/${id(termReportId)}/release`, {})
+      await apiClient.post<PupilReport>(
+        `/schools/me/term-reports/${pathId(termReportId)}/release`,
+        {},
+      )
     ).data;
   },
   async document(termReportId: string): Promise<string> {
     return (
       (
         await apiClient.get<{ html: string }>(
-          `/schools/me/term-reports/${id(termReportId)}/document`,
+          `/schools/me/term-reports/${pathId(termReportId)}/document`,
         )
       ).data?.html ?? ''
     );

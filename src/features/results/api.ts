@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { apiClient, pathId } from '@/lib/api-client';
 import type { ResultsSettings as EngineSettings } from './engine';
 
 /*
@@ -132,8 +132,6 @@ export interface PolicyRow {
   scaleFamilyId: string | null;
 }
 
-const id = (value: string) => encodeURIComponent(value);
-
 export const resultsApi = {
   async listPresets(): Promise<Preset[]> {
     return (await apiClient.get<Preset[]>('/schools/me/results-presets')).data ?? [];
@@ -151,7 +149,7 @@ export const resultsApi = {
     return (
       (
         await apiClient.get<PolicyRow[]>(
-          `/schools/me/results-policy?academicYearId=${id(academicYearId)}`,
+          `/schools/me/results-policy?academicYearId=${pathId(academicYearId)}`,
         )
       ).data ?? []
     );

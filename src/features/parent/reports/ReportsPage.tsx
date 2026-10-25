@@ -16,6 +16,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { ArrowLeft, ChevronRight, FileText } from 'lucide-react';
+import { place } from '@/lib/format';
 import { useLeaveOnWardChange } from '../ActiveWardProvider';
 import { parentApi, parentAreaReady } from '../api';
 import { ComingSoon, EmptyState, PageTitle, QueryView, WithWard } from '../components';
@@ -23,16 +24,6 @@ import { DocumentModal } from '../DocumentFrame';
 import { formatDate, wardName } from '../format';
 import type { TermReport, Ward } from '../types';
 import { useParentQuery } from '../useParentQuery';
-
-const ordinal = (n: number) => {
-  const suffix = ['th', 'st', 'nd', 'rd'][
-    (n % 100 >= 11 && n % 100 <= 13) || n % 10 > 3 ? 0 : n % 10
-  ];
-  return `${n}${suffix}`;
-};
-
-/** "2nd", or "2nd=" when another pupil shares the place. */
-const place = (n: number, tied?: boolean) => `${ordinal(n)}${tied ? '=' : ''}`;
 
 export const gradeColor = (grade?: string | null) =>
   ({ A: 'green', B: 'teal', C: 'blue', D: 'orange' })[grade?.charAt(0) ?? ''] ?? 'red';

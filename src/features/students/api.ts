@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { apiClient, pathId } from '@/lib/api-client';
 import type { Raw } from '@/lib/pagination';
 
 export type StudentStatus =
@@ -152,8 +152,7 @@ export interface StudentDetail {
 }
 
 const REQUIRED = new Set<ProfileField>(['firstName', 'surname', 'gender', 'birthDate']);
-const id = (value: string) => encodeURIComponent(value);
-const base = (studentId: string) => `/schools/me/students/${id(studentId)}`;
+const base = (studentId: string) => `/schools/me/students/${pathId(studentId)}`;
 const str = (value: unknown) => (typeof value === 'string' ? value : '');
 
 function toDetail(raw: Raw): StudentDetail {
@@ -235,14 +234,14 @@ export const studentsApi = {
     if (options.preventRelink) query.set('preventRelink', 'true');
     if (options.preventRelink && options.reason?.trim()) query.set('reason', options.reason.trim());
     const suffix = query.toString() ? `?${query.toString()}` : '';
-    await apiClient.delete(`${base(studentId)}/parents/${id(parentId)}${suffix}`);
+    await apiClient.delete(`${base(studentId)}/parents/${pathId(parentId)}${suffix}`);
   },
   /** Links the parent account using the mother's or father's contact on record. */
   async linkFromGuardian(studentId: string, guardian: 'mother' | 'father') {
     await apiClient.post(`${base(studentId)}/parents/from-guardian`, { guardian });
   },
   async liftBlock(studentId: string, blockId: string) {
-    await apiClient.delete(`${base(studentId)}/parent-blocks/${id(blockId)}`);
+    await apiClient.delete(`${base(studentId)}/parent-blocks/${pathId(blockId)}`);
   },
   /** Newest first. A v2 list response, so the entries are `data` itself (QA-238). */
   async history(studentId: string) {

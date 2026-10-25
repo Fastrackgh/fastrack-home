@@ -25,8 +25,6 @@ import {
   Target,
   Users,
   Globe,
-  Sparkles,
-  CheckCircle,
 } from 'lucide-react';
 
 type AboutTab = 'story' | 'mission' | 'vision' | 'values';

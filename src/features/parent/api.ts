@@ -1,4 +1,4 @@
-import { apiClient, PageMeta } from '@/lib/api-client';
+import { apiClient, pathId, type PageMeta } from '@/lib/api-client';
 import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { toInvoice, toPayment } from '@/features/fees/api';
 import { toCedis, toPesewas } from '@/features/fees/money';
@@ -74,7 +74,6 @@ export interface ParentApi {
 }
 
 const ward = (studentId: string) => `/parents/me/wards/${encodeURIComponent(studentId)}`;
-const id = encodeURIComponent;
 
 const toParentInvoice = (raw: Raw): ParentInvoice => ({
   ...(raw as unknown as ParentInvoice),
@@ -137,12 +136,12 @@ const liveParentApi: ParentApi = {
     };
   },
   async getInvoice(studentId, invoiceId) {
-    const res = await apiClient.get<Raw>(`${ward(studentId)}/invoices/${id(invoiceId)}`);
+    const res = await apiClient.get<Raw>(`${ward(studentId)}/invoices/${pathId(invoiceId)}`);
     return toParentInvoice(res.data);
   },
   async invoiceDocument(studentId, invoiceId) {
     const res = await apiClient.get<{ html: string }>(
-      `${ward(studentId)}/invoices/${id(invoiceId)}/document`,
+      `${ward(studentId)}/invoices/${pathId(invoiceId)}/document`,
     );
     return res.data.html;
   },
@@ -153,18 +152,18 @@ const liveParentApi: ParentApi = {
     return toPage(res, toParentPayment);
   },
   async getPayment(studentId, paymentId) {
-    const res = await apiClient.get<Raw>(`${ward(studentId)}/payments/${id(paymentId)}`);
+    const res = await apiClient.get<Raw>(`${ward(studentId)}/payments/${pathId(paymentId)}`);
     return toParentPayment(res.data);
   },
   async receiptDocument(studentId, paymentId) {
     const res = await apiClient.get<{ html: string }>(
-      `${ward(studentId)}/payments/${id(paymentId)}/document`,
+      `${ward(studentId)}/payments/${pathId(paymentId)}/document`,
     );
     return res.data.html;
   },
   async checkout(studentId, invoiceId, { amount, ...request }) {
     const res = await apiClient.post<CheckoutSession>(
-      `${ward(studentId)}/invoices/${id(invoiceId)}/checkout`,
+      `${ward(studentId)}/invoices/${pathId(invoiceId)}/checkout`,
       { ...request, amount: toCedis(amount) },
     );
     return res.data;
@@ -184,12 +183,12 @@ const liveParentApi: ParentApi = {
     return res.data ?? [];
   },
   async getReport(studentId, reportId) {
-    const res = await apiClient.get<TermReport>(`${ward(studentId)}/reports/${id(reportId)}`);
+    const res = await apiClient.get<TermReport>(`${ward(studentId)}/reports/${pathId(reportId)}`);
     return res.data;
   },
   async reportDocument(studentId, reportId) {
     const res = await apiClient.get<{ html: string }>(
-      `${ward(studentId)}/reports/${id(reportId)}/document`,
+      `${ward(studentId)}/reports/${pathId(reportId)}/document`,
     );
     return res.data.html;
   },
@@ -230,7 +229,7 @@ const liveParentApi: ParentApi = {
   },
   async cancelOptionalFeeRequest(studentId, requestId) {
     const res = await apiClient.post<OptionalFeeRequest>(
-      `${ward(studentId)}/optional-fee-requests/${id(requestId)}/cancel`,
+      `${ward(studentId)}/optional-fee-requests/${pathId(requestId)}/cancel`,
     );
     return res.data;
   },

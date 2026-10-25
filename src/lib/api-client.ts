@@ -37,6 +37,9 @@ export class ApiError extends Error {
   }
 }
 
+/** An id or code made safe to put in a URL path, e.g. a student code with slashes. */
+export const pathId = (value: string) => encodeURIComponent(value);
+
 /** A failed request's message, or `fallback` for anything that isn't an Error. */
 export function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;

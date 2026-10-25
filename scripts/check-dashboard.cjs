@@ -851,4 +851,14 @@ check('design columns: two or three by ratio, and switching to two keeps the mid
   assert.equal(two.blocks[0].children.middle, undefined);
   assert.deepEqual(ops.moveTo(two, 'r', { slot: { parentId: 'c', side: 'left' } }).blocks[0].children.left.map((b) => b.id), ['a', 'm', 'r']);
 });
+check('shared formatting: ordinals and shared places', () => {
+  const fmt = load('src/lib/format.ts');
+  assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111, 112].map(fmt.ordinal), [
+    '1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '101st', '111th', '112th',
+  ]);
+  assert.equal(fmt.place(2, true), '2nd=');
+  assert.equal(fmt.place(1, false), '1st');
+  const client = load('src/lib/api-client.ts');
+  assert.equal(client.pathId('PRM-001/STD/2026/005'), 'PRM-001%2FSTD%2F2026%2F005');
+});
 console.log(`${checks} dashboard and access checks passed.`);

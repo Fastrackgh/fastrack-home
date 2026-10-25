@@ -1,4 +1,4 @@
-import { apiClient, type PageMeta } from '@/lib/api-client';
+import { apiClient, type PageMeta, pathId } from '@/lib/api-client';
 import { pageParams, toPage, type Raw } from '@/lib/pagination';
 
 /** Amounts in platform analytics are decimal cedis, summed across every school. */
@@ -71,8 +71,6 @@ export interface NewPlatformUser {
   phone?: string;
 }
 
-const id = (value: string) => encodeURIComponent(value);
-
 /** Super Admin calls that span every school. */
 export const platformApi = {
   async finance() {
@@ -102,7 +100,9 @@ export const platformApi = {
     await apiClient.post('/super-admin/users', user);
   },
   async setUserActive(userId: string, active: boolean) {
-    await apiClient.patch(`/super-admin/users/${id(userId)}/${active ? 'activate' : 'deactivate'}`);
+    await apiClient.patch(
+      `/super-admin/users/${pathId(userId)}/${active ? 'activate' : 'deactivate'}`,
+    );
   },
 
   async listLogins(page: number, filters: LoginLogFilters) {

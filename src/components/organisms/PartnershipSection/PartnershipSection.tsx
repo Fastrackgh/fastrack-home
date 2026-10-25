@@ -15,8 +15,6 @@ import {
   Users,
   User,
   ArrowRight,
-  ShieldAlert,
-  ShieldCheck,
 } from 'lucide-react';
 
 const containerVariants: Variants = {

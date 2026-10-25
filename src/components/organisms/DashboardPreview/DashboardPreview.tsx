@@ -30,7 +30,6 @@ import {
   ShieldCheck,
   Wallet,
   Info,
-  ChevronDown,
 } from 'lucide-react';
 
 interface DashboardPreviewProps {

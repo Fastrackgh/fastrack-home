@@ -1,4 +1,4 @@
-import { apiClient, type PageMeta } from '@/lib/api-client';
+import { apiClient, type PageMeta, pathId } from '@/lib/api-client';
 import { pageParams, toPage, type Raw } from '@/lib/pagination';
 
 export interface AcademicTerm {
@@ -138,7 +138,6 @@ export type SchoolDetailsInput = Partial<Omit<SchoolDetails, 'code' | 'logoUrl'>
 
 /** The backend caps every list at 100 rows. */
 const ALL = 'limit=100';
-const id = (value: string) => encodeURIComponent(value);
 const text = (value: unknown) => (typeof value === 'string' && value ? value : null);
 
 const toClass = (raw: Raw): SchoolClass => {
@@ -190,7 +189,7 @@ export const setupApi = {
         const terms =
           (
             await apiClient.get<AcademicTerm[]>(
-              `/schools/me/academic-years/${id(year.id)}/terms?${ALL}`,
+              `/schools/me/academic-years/${pathId(year.id)}/terms?${ALL}`,
             )
           ).data ?? [];
         return { ...year, terms: [...terms].sort((a, b) => a.termSequence - b.termSequence) };
@@ -202,17 +201,20 @@ export const setupApi = {
     await apiClient.post('/schools/me/academic-years', input);
   },
   async updateYear(yearId: string, change: Partial<DatesInput>) {
-    await apiClient.patch(`/schools/me/academic-years/${id(yearId)}`, change);
+    await apiClient.patch(`/schools/me/academic-years/${pathId(yearId)}`, change);
   },
   async createTerm(yearId: string, input: DatesInput & { termSequence: number }) {
-    await apiClient.post(`/schools/me/academic-years/${id(yearId)}/terms`, input);
+    await apiClient.post(`/schools/me/academic-years/${pathId(yearId)}/terms`, input);
   },
   async updateTerm(
     yearId: string,
     termId: string,
     change: Partial<DatesInput & { termSequence: number }>,
   ) {
-    await apiClient.patch(`/schools/me/academic-years/${id(yearId)}/terms/${id(termId)}`, change);
+    await apiClient.patch(
+      `/schools/me/academic-years/${pathId(yearId)}/terms/${pathId(termId)}`,
+      change,
+    );
   },
 
   async listDepartments(): Promise<Department[]> {
@@ -225,10 +227,10 @@ export const setupApi = {
     await apiClient.post('/schools/me/departments', input);
   },
   async updateDepartment(departmentId: string, change: Partial<DepartmentInput>) {
-    await apiClient.patch(`/schools/me/departments/${id(departmentId)}`, change);
+    await apiClient.patch(`/schools/me/departments/${pathId(departmentId)}`, change);
   },
   async deleteDepartment(departmentId: string) {
-    await apiClient.delete(`/schools/me/departments/${id(departmentId)}`);
+    await apiClient.delete(`/schools/me/departments/${pathId(departmentId)}`);
   },
   /** Adds the standard departments (Pre-School, Lower Primary, …) that are missing. */
   async addDefaultDepartments() {
@@ -260,7 +262,7 @@ export const setupApi = {
     await apiClient.post('/schools/me/classes', body);
   },
   async updateClass(classId: string, change: ClassInput) {
-    await apiClient.patch(`/schools/me/classes/${id(classId)}`, change);
+    await apiClient.patch(`/schools/me/classes/${pathId(classId)}`, change);
   },
 
   /** The whole catalogue in one list; it isn't paged, and `limit` is refused. */
@@ -279,15 +281,15 @@ export const setupApi = {
     await apiClient.post('/schools/me/subjects', input);
   },
   async updateSubject(subjectId: string, change: Partial<SubjectInput>) {
-    await apiClient.patch(`/schools/me/subjects/${id(subjectId)}`, change);
+    await apiClient.patch(`/schools/me/subjects/${pathId(subjectId)}`, change);
   },
   /** Refused (409) while a class or a mark uses it; deactivate it instead. */
   async deleteSubject(subjectId: string) {
-    await apiClient.delete(`/schools/me/subjects/${id(subjectId)}`);
+    await apiClient.delete(`/schools/me/subjects/${pathId(subjectId)}`);
   },
   async listClassSubjects(classId: string): Promise<ClassSubject[]> {
     const rows =
-      (await apiClient.get<Raw[]>(`/schools/me/classes/${id(classId)}/subjects`)).data ?? [];
+      (await apiClient.get<Raw[]>(`/schools/me/classes/${pathId(classId)}/subjects`)).data ?? [];
     return rows.map(toClassSubject).sort((a, b) => a.sequenceOrder - b.sequenceOrder);
   },
   /**
@@ -296,8 +298,8 @@ export const setupApi = {
    */
   async saveClassSubjects(classId: string, subjects: ClassSubjectInput[]) {
     const rows =
-      (await apiClient.put<Raw[]>(`/schools/me/classes/${id(classId)}/subjects`, subjects)).data ??
-      [];
+      (await apiClient.put<Raw[]>(`/schools/me/classes/${pathId(classId)}/subjects`, subjects))
+        .data ?? [];
     return rows.map(toClassSubject);
   },
   /** Adds subjects to every class in a department, or to chosen classes. */

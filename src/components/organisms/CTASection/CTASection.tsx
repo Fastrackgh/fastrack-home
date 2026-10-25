@@ -4,7 +4,7 @@ import React from 'react';
 import { Box, Container, Stack, Group, Text } from '@mantine/core';
 import { motion } from 'framer-motion';
 import { ActionButton, SectionEyebrow } from '@/components/atoms';
-import { Sparkles } from 'lucide-react';
+import {} from 'lucide-react';
 
 export const CTASection: React.FC = () => {
   return (

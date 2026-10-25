@@ -24,7 +24,6 @@ import {
   Building2,
   ArrowRight,
   ChevronRight,
-  Sparkles,
 } from 'lucide-react';
 
 export const SchoolFeaturesSection: React.FC = () => {

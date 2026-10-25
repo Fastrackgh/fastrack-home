@@ -1,5 +1,5 @@
-import { apiClient, pathId } from '@/lib/api-client';
-import type { Raw } from '@/lib/pagination';
+import { apiClient, pathId, type PageMeta } from '@/lib/api-client';
+import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 
 export type StudentStatus =
   'Pending_Admission' | 'Active' | 'Inactive' | 'Stopped' | 'Transferred_Out' | 'Graduated';
@@ -185,7 +185,57 @@ function toDetail(raw: Raw): StudentDetail {
   };
 }
 
+/** A row in the students table (`GET /schools/me/students`). */
+export interface StudentRow {
+  id: string;
+  studentId: string;
+  studentCode: string;
+  firstName: string;
+  surname: string;
+  otherName?: string | null;
+  fullName: string;
+  gender: 'Male' | 'Female' | string;
+  status: 'Active' | 'Inactive' | string;
+  classId: string;
+  classCode?: string;
+  className: string;
+  guardianName?: string | null;
+  guardianContact?: string | null;
+  nationalId?: string | null;
+  bloodGroup?: string | null;
+  boardingStatus?: string | null;
+  admissionDate?: string | null;
+  createdAt: string;
+}
+
+export interface StudentFilters {
+  search?: string | null;
+  classId?: string | null;
+  status?: string | null;
+}
+
 export const studentsApi = {
+  /** One page of the students table. */
+  async list(page: number, filters: StudentFilters): Promise<Page<StudentRow>> {
+    const res = await apiClient.get<Raw[], PageMeta>(
+      `/schools/me/students?${pageParams(page, { search: filters.search, classId: filters.classId, status: filters.status })}`,
+    );
+    return toPage(res, (raw) => raw as unknown as StudentRow);
+  },
+  /** How many students are active, school-wide. */
+  async activeCount(): Promise<number> {
+    const res = await apiClient.get<Raw[], PageMeta>('/schools/me/students?status=Active&limit=1');
+    return res.meta?.total ?? 0;
+  },
+  /** Admits a student; returns the new name and code. */
+  async admit(payload: Record<string, unknown>) {
+    return (
+      await apiClient.post<{ fullName: string; studentCode: string }>(
+        '/schools/me/students',
+        payload,
+      )
+    ).data;
+  },
   async get(studentId: string) {
     return toDetail((await apiClient.get<Raw>(base(studentId))).data ?? {});
   },

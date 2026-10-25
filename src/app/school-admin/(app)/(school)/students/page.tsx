@@ -44,58 +44,21 @@ import {
   UserX,
 } from 'lucide-react';
 import { todayIso } from '@/features/calendar/dates';
-import { setupApi } from '@/features/school-setup/api';
+import { setupApi, type CurrentTerm } from '@/features/school-setup/api';
+import { studentsApi, type StudentRow } from '@/features/students/api';
 import { StudentDrawer } from '@/features/students/StudentDrawer';
+import { PAGE_SIZE } from '@/lib/pagination';
 import { PageHeader } from '@/features/workspace';
 import { notifyLoadError } from '@/features/fees/notify';
-import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
 import { emailInputProps } from '@/lib/email-input';
 import { APP_ROUTES, canAccessRoute } from '@/lib/rbac';
 import { fieldSetter } from '@/lib/state';
 
-interface StudentListItem {
-  id: string;
-  studentId: string;
-  studentCode: string;
-  firstName: string;
-  surname: string;
-  otherName?: string | null;
-  fullName: string;
-  gender: 'Male' | 'Female' | string;
-  status: 'Active' | 'Inactive' | string;
-  classId: string;
-  classCode?: string;
-  className: string;
-  guardianName?: string | null;
-  guardianContact?: string | null;
-  nationalId?: string | null;
-  bloodGroup?: string | null;
-  boardingStatus?: string | null;
-  admissionDate?: string | null;
-  createdAt: string;
-}
-
 interface SchoolClass {
   id: string;
   classCode: string;
   className: string;
-}
-
-interface PaginationMeta {
-  page: number;
-  limit: number;
-  total: number;
-  totalPages: number;
-  hasNext: boolean;
-  hasPrev: boolean;
-}
-
-interface AcademicContext {
-  yearId: string;
-  yearLabel: string;
-  termId: string;
-  termLabel: string;
 }
 
 const initialFormData = {
@@ -141,18 +104,11 @@ const initialFormData = {
 
 export default function StudentsPage() {
   const { user, can } = useAuth();
-  const [students, setStudents] = useState<StudentListItem[]>([]);
+  const [students, setStudents] = useState<StudentRow[]>([]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
-  const [academicContext, setAcademicContext] = useState<AcademicContext | null>(null);
+  const [academicContext, setAcademicContext] = useState<CurrentTerm | null>(null);
   const [activeCount, setActiveCount] = useState(0);
-  const [meta, setMeta] = useState<PaginationMeta>({
-    page: 1,
-    limit: 10,
-    total: 0,
-    totalPages: 1,
-    hasNext: false,
-    hasPrev: false,
-  });
+  const [total, setTotal] = useState(0);
 
   const [query, setQuery] = useState('');
   // One request once typing pauses, not one per keystroke (QA-038, QA-264).
@@ -199,26 +155,15 @@ export default function StudentsPage() {
     setIsLoading(true);
     setListError(null);
     try {
-      const params = new URLSearchParams();
-      params.append('page', String(page));
-      params.append('limit', '10');
-      if (search) params.append('search', search);
-      if (gradeFilter && gradeFilter !== 'all' && gradeFilter.trim() !== '')
-        params.append('classId', gradeFilter);
-      if (statusFilter && statusFilter !== 'All' && statusFilter.trim() !== '')
-        params.append('status', statusFilter);
-
-      const res = await apiClient.get<StudentListItem[], PaginationMeta>(
-        `/schools/me/students?${params.toString()}`,
-      );
+      const result = await studentsApi.list(page, {
+        search,
+        classId: gradeFilter && gradeFilter !== 'all' ? gradeFilter : null,
+        status: statusFilter && statusFilter !== 'All' ? statusFilter : null,
+      });
       // A slower, older response must not replace a newer one.
       if (request !== latestList.current) return;
-      if (res.data) {
-        setStudents(res.data);
-      }
-      if (res.meta) {
-        setMeta(res.meta);
-      }
+      setStudents(result.items);
+      setTotal(result.total);
     } catch (err: unknown) {
       if (request !== latestList.current) return;
       setListError(err instanceof Error ? err.message : 'Could not load the students.');
@@ -230,10 +175,7 @@ export default function StudentsPage() {
   // The active count is school-wide, so paging and filters don't reload it.
   const fetchActiveCount = useCallback(async () => {
     try {
-      const active = await apiClient.get<StudentListItem[], PaginationMeta>(
-        '/schools/me/students?status=Active&limit=1',
-      );
-      setActiveCount(active.meta?.total ?? 0);
+      setActiveCount(await studentsApi.activeCount());
     } catch {
       // A hint on a card; the list shows its own error.
     }
@@ -404,14 +346,11 @@ export default function StudentsPage() {
         payload.emergencyContactRelationship = formData.emergencyContactRelationship.trim();
       }
 
-      const res = await apiClient.post<{
-        fullName: string;
-        studentCode: string;
-      }>('/schools/me/students', payload);
+      const admitted = await studentsApi.admit(payload);
 
       notifications.show({
         title: 'Student Admitted Successfully',
-        message: `${res.data.fullName} enrolled with code: ${res.data.studentCode}`,
+        message: `${admitted.fullName} enrolled with code: ${admitted.studentCode}`,
         color: 'green',
         icon: <CheckCircle size={18} />,
         autoClose: 5000,
@@ -443,7 +382,7 @@ export default function StudentsPage() {
   }, [classes]);
 
   // Derived stats
-  const totalStudents = meta.total;
+  const totalStudents = total;
 
   return (
     <>
@@ -773,10 +712,10 @@ export default function StudentsPage() {
 
         <Group justify="space-between" mt="md" wrap="wrap">
           <Text size="sm" c="dimmed">
-            Showing {students.length} of {meta.total} registered students
+            Showing {students.length} of {total} registered students
           </Text>
           <Pagination
-            total={meta.totalPages || 1}
+            total={Math.max(1, Math.ceil(total / PAGE_SIZE))}
             value={page}
             onChange={setPage}
             color="fastrackRed"

@@ -24,8 +24,8 @@
 | Critical | 8 | 7 | 1 | 0 |
 | High | 31 | 27 | 3 | 1 |
 | Medium | 80 | 37 | 13 | 30 |
-| Low | 39 | 19 | 6 | 14 |
-| **Total** | **158** | **90** | **23** | **45** |
+| Low | 39 | 20 | 6 | 13 |
+| **Total** | **158** | **91** | **23** | **44** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -184,7 +184,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-266 | Medium | UX | FE | Browser ✔ | Dragging a section onto an empty column moves it out of the Columns section, to just above it, instead of into the column — **fixed** (25 Oct; FE `f9162ee`) |
 | QA-267 | Medium | Data | FE | Browser ✔ | A head's "Remove" on a class test that already has marks deletes the test and every mark in it at once, with no confirmation — **fixed** (25 Oct; FE `3cdfbf6`) |
 | QA-268 | Low | EDGE | BE | Live ✔ | A later period can be dated before an earlier, still undated one, leaving no room for the earlier period — **open** (25 Oct) |
-| QA-269 | Low | UX | FE | Browser ✔ | "Set dates" on an undated term shows the switch "This is the current academic year", although it sets the current term — **open** (25 Oct) |
+| QA-269 | Low | UX | FE | Browser ✔ | "Set dates" on an undated term shows the switch "This is the current academic year", although it sets the current term — **fixed** (25 Oct; FE `78939e7`) |
 | QA-246 | Low | UX | FE | Browser ✔ | School setup calls the fee-types API on schools without the fees module (repeated 403s) — **fixed** (24 Oct; FE `e469eda`) |
 | QA-247 | Low | Data | BE | DB ✔ | A promotion into a later term records the new class history row as starting today, not on the term's start date — **fixed** (24 Oct; BE `f9e93b5`) |
 | QA-249 | Low | UX | Both | Browser ✔ | Move classes up: the result says "0 stayed" for classes set to "Don't move", though the confirmation counted them — **fixed** (24 Oct; FE `b032a41`) |
@@ -1265,7 +1265,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-266 | Fixed | 25 Oct, FE `f9162ee`; re-tested with real drags into empty Right and Middle columns |
 | QA-267 | Fixed | 25 Oct, FE `3cdfbf6`. An unmarked test is removed at once. A marked one asks "Remove Marked Quiz? Marked Quiz and its 3 marks will be deleted. This can't be undone." "Keep it" keeps the test and its 3 marks; "Remove test and marks" deletes them (DB 0). |
 | QA-268 | Open | found 25 Oct; period order only checked against dated periods |
-| QA-269 | Open | found 25 Oct; Set dates on an undated term says "current academic year" |
+| QA-269 | Fixed | 25 Oct, FE `78939e7`, re-tested on QRG-501. "Set the dates of Semester 2, 2027/28" (undated) and "Edit Semester 1, 2027/28" (dated) both say "This is the current term". "Edit 2026/27" (the current year) says "This is the current academic year", with the switch locked: "To change it, make another year current instead." |
 
 | QA-254 | Fixed | dev email preview moved to 127.0.0.1:4080 (5af0b93); re-tested 24 Oct |
 ## Results phase 0: subjects (tested 24 Oct 2026)

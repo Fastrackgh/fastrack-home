@@ -2,8 +2,8 @@
 
 20 Oct 2026. Full detail: [findings.md](./findings.md) (151 findings; QA-060 to QA-088 and QA-200 to QA-262 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
-**Status on 25 Oct 2026, reconciled against the code and re-tests:** 102 fixed or closed, 23 partly fixed, 33 open (158 findings). All eight Critical findings are fixed (QA-020, the last one, on 26 Oct). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
-- **Open:** QA-061. The design builder ones (QA-064, QA-065, QA-066) were fixed and re-tested in the browser on 25 Oct.
+**Status on 25 Oct 2026, reconciled against the code and re-tests:** 103 fixed or closed, 23 partly fixed, 33 open (159 findings). All eight Critical findings are fixed (QA-020, the last one, on 26 Oct). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
+- **Open:** none (QA-061 fixed 26 Oct). The design builder ones (QA-064, QA-065, QA-066) were fixed and re-tested in the browser on 25 Oct.
 - **Partly fixed:** QA-016, QA-030 and QA-034 (QA-007 fixed and re-tested 25 Oct).
 
 Details are under "Status reconciliation" in findings.md.

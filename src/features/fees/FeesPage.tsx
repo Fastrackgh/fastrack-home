@@ -491,6 +491,7 @@ export function FeesPage() {
         opened={generating}
         onClose={() => setGenerating(false)}
         term={term}
+        terms={terms}
         classOptions={classOptions}
         onGenerated={reloadInvoices}
       />

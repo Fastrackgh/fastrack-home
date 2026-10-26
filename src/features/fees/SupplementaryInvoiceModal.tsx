@@ -14,7 +14,8 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '@/lib/api-client';
-import { termOption, type TermInYear } from '@/features/school-setup/api';
+import { termOption, termRuns, type TermInYear } from '@/features/school-setup/api';
+import { TermWarning } from './TermWarning';
 import { feesApi, type FeeType } from './api';
 import { toPesewas } from './money';
 
@@ -100,6 +101,7 @@ export function SupplementaryInvoiceModal({
           <Group grow align="flex-start">
             <Select
               label="Term"
+              description={termRuns(terms.find((t) => t.termId === termId))}
               data={terms.map(termOption)}
               value={termId}
               onChange={setTermId}
@@ -116,6 +118,7 @@ export function SupplementaryInvoiceModal({
               radius="md"
             />
           </Group>
+          <TermWarning termId={termId} terms={terms} what="This bill" />
           <TextInput
             label="Title"
             placeholder="e.g. Mock Examination Fee"

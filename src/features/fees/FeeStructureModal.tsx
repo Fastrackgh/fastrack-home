@@ -18,7 +18,8 @@ import {
 import { notifications } from '@mantine/notifications';
 import { Info, PlusCircle, Trash2 } from 'lucide-react';
 import { errorMessage } from '@/lib/api-client';
-import { termOption, type TermInYear } from '@/features/school-setup/api';
+import { termOption, termRuns, type TermInYear } from '@/features/school-setup/api';
+import { TermWarning } from './TermWarning';
 import { feesApi, type FeeType } from './api';
 import { toPesewas } from './money';
 
@@ -123,6 +124,7 @@ export function FeeStructureModal({
             <Grid.Col span={{ base: 12, sm: 5 }}>
               <Select
                 label="Term"
+                description={termRuns(term)}
                 data={terms.map(termOption)}
                 value={termId}
                 onChange={setTermId}
@@ -154,6 +156,7 @@ export function FeeStructureModal({
               </Button>
             </Grid.Col>
           </Grid>
+          <TermWarning termId={termId} terms={terms} what="These fees" />
 
           <Stack gap="xs">
             {rows.map((row, index) => (

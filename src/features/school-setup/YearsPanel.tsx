@@ -16,8 +16,18 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Archive, ArchiveRestore, CalendarClock, Pencil, PlusCircle } from 'lucide-react';
+import { todayIso } from '@/features/calendar/dates';
 import { errorMessage } from '@/lib/api-client';
-import { setupApi, type AcademicTerm, type AcademicYear, type TermPattern } from './api';
+import {
+  formatSpan,
+  setupApi,
+  termOn,
+  termsOf,
+  type AcademicTerm,
+  type AcademicYear,
+  type TermInYear,
+  type TermPattern,
+} from './api';
 import { DatesModal, type DatesValue } from './DatesModal';
 import { TermPatternModal, describePattern } from './TermPatternModal';
 
@@ -27,16 +37,6 @@ type Editor =
   | null;
 
 const day = (iso: string) => iso.slice(0, 10);
-
-const dated = new Intl.DateTimeFormat('en-GB', {
-  day: 'numeric',
-  month: 'short',
-  year: 'numeric',
-  timeZone: 'UTC',
-});
-/** "1 Sept 2026 – 31 Jul 2027": years and terms span calendar years. */
-const formatSpan = (start: string, end: string) =>
-  `${dated.format(new Date(`${start}T00:00:00Z`))} – ${dated.format(new Date(`${end}T00:00:00Z`))}`;
 
 /** Academic years and their terms; the current ones drive billing and the calendar. */
 export function YearsPanel({
@@ -127,6 +127,26 @@ export function YearsPanel({
     }
   };
 
+  /** Makes the term today falls in current, through the term's usual save (QA-061). */
+  const makeCurrent = async (term: TermInYear) => {
+    try {
+      await setupApi.updateTerm(term.yearId, term.termId, { isCurrent: true });
+      notifications.show({
+        color: 'green',
+        title: `${term.termLabel}, ${term.yearLabel} is now current`,
+        message: 'Bills, attendance and the calendar now open on it.',
+      });
+      load();
+      onChanged?.();
+    } catch (err) {
+      notifications.show({
+        color: 'red',
+        title: 'Not changed',
+        message: errorMessage(err, 'Try again.'),
+      });
+    }
+  };
+
   if (error)
     return (
       <Alert color="red" title="Unable to load academic years">
@@ -140,8 +160,32 @@ export function YearsPanel({
     );
   if (!years) return <Loader />;
 
+  // The current term should be the one today is in; say so when it isn't (QA-061).
+  const allTerms = termsOf(years.filter((y) => !y.archivedAt));
+  const todays = termOn(allTerms, todayIso());
+  const current = allTerms.find((t) => t.isCurrent);
+  const misplaced = todays && !todays.isCurrent ? todays : null;
+
   return (
     <Stack gap="md">
+      {misplaced && (
+        <Alert color="orange" title="The current term isn't today's term">
+          <Group justify="space-between" gap="xs">
+            <Text size="sm">
+              Today is in {misplaced.termLabel}, {misplaced.yearLabel}, but{' '}
+              {current
+                ? `${current.termLabel}, ${current.yearLabel} is marked current`
+                : 'no term is marked current'}
+              . Bills, attendance and the calendar open on the current term.
+            </Text>
+            {canManageTerms && (
+              <Button size="xs" color="orange" onClick={() => void makeCurrent(misplaced)}>
+                Make {misplaced.termLabel} current
+              </Button>
+            )}
+          </Group>
+        </Alert>
+      )}
       <Group justify="space-between">
         <Text size="sm" c="dimmed">
           The current year and term are where bills, attendance and the calendar open.

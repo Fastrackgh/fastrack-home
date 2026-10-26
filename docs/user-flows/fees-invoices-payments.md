@@ -2,6 +2,8 @@
 
 Code: `src/features/fees/*` (`FeesPage.tsx` orchestrates; `api.ts` holds every call; money in integer pesewas in `money.ts`).
 
+> **Updated 26 Oct 2026 (QA-061):** Generate Term Invoices, the extra bill and the fee-structure form have a **Term** picker. It defaults to the current term, shows the term's dates ("Runs 8 Jan 2027 – 9 Apr 2027"), and lists undated terms disabled. When the chosen term doesn't include today, an orange "Not today's term" alert says e.g. "Term 2, 2026/27 runs 8 Jan 2027 – 9 Apr 2027. Today is in Term 1, 2026/27. These bills will be for Term 2, 2026/27." (or "Today isn't in any term."). School setup → Years & terms shows "The current term isn't today's term" with **Make Term 1 current** when today falls in another term.
+>
 > **Updated 26 Oct 2026 (billing batch, backend `80fb344`):**
 >
 > - **Leavers:** the Invoices tab has a **Leavers** switch (`GET /schools/me/invoices?leavers=true`, with the same filter on `/summary`). Leavers' bills stay owed and payable.

@@ -57,6 +57,62 @@ export type DatedTerm = TermInYear & { startDate: string; endDate: string };
 export const isDated = (term: TermInYear): term is DatedTerm =>
   term.datesSet && !!term.startDate && !!term.endDate;
 
+const dated = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+/** "1 Sept 2026 – 18 Dec 2026": a year's or term's dates (YYYY-MM-DD). */
+export const formatSpan = (start: string, end: string) =>
+  `${dated.format(new Date(`${start.slice(0, 10)}T00:00:00Z`))} – ${dated.format(new Date(`${end.slice(0, 10)}T00:00:00Z`))}`;
+
+/** The dated term that `day` (YYYY-MM-DD) falls in, if any. */
+export const termOn = (terms: TermInYear[], day: string): DatedTerm | null =>
+  terms.filter(isDated).find((t) => t.startDate <= day && day <= t.endDate) ?? null;
+
+const termAndYear = (t: TermInYear) => `${t.termLabel}, ${t.yearLabel}`;
+
+/** "Runs 8 Jan 2027 – 9 Apr 2027" under a term picker; nothing for an undated term. */
+export const termRuns = (term: TermInYear | null | undefined) =>
+  term && isDated(term) ? `Runs ${formatSpan(term.startDate, term.endDate)}` : undefined;
+
+/**
+ * A warning when something is about to be made for a term that today isn't
+ * in, e.g. a bulk bill run for next term (QA-061). Null when today is inside.
+ * `what` starts the last sentence: "These bills", "These fees"…
+ */
+export function outOfTermWarning(
+  term: TermInYear | null | undefined,
+  terms: TermInYear[],
+  today: string,
+  what = 'These bills',
+): string | null {
+  if (!term || !isDated(term) || (term.startDate <= today && today <= term.endDate)) return null;
+  const now = termOn(terms, today);
+  return [
+    `${termAndYear(term)} runs ${formatSpan(term.startDate, term.endDate)}.`,
+    now ? `Today is in ${termAndYear(now)}.` : "Today isn't in any term.",
+    `${what} will be for ${termAndYear(term)}.`,
+  ].join(' ');
+}
+
+/** The years' terms with their year, as pickers use them. */
+export const termsOf = (years: AcademicYear[]): TermInYear[] =>
+  years.flatMap((year) =>
+    year.terms.map((term) => ({
+      termId: term.id,
+      termLabel: term.termLabel,
+      termSequence: term.termSequence,
+      startDate: term.startDate,
+      endDate: term.endDate,
+      datesSet: term.datesSet,
+      isCurrent: term.isCurrent,
+      yearId: year.id,
+      yearLabel: year.yearLabel,
+    })),
+  );
+
 /** "2026/27 · Term 2 (current)"; every term picker uses this wording. */
 export const termName = (term: Pick<TermInYear, 'yearLabel' | 'termLabel' | 'isCurrent'>) =>
   `${term.yearLabel} · ${term.termLabel}${term.isCurrent ? ' (current)' : ''}`;
@@ -263,22 +319,9 @@ export const setupApi = {
     );
     return withTerms.sort((a, b) => b.startDate.localeCompare(a.startDate));
   },
-  /** Every term of every year, newest year first, terms in order. */
+  /** Every term of every live year, newest year first, terms in order. */
   async listTerms(): Promise<TermInYear[]> {
-    const years = await setupApi.listYears();
-    return years.flatMap((year) =>
-      year.terms.map((term) => ({
-        termId: term.id,
-        termLabel: term.termLabel,
-        termSequence: term.termSequence,
-        startDate: term.startDate,
-        endDate: term.endDate,
-        datesSet: term.datesSet,
-        isCurrent: term.isCurrent,
-        yearId: year.id,
-        yearLabel: year.yearLabel,
-      })),
-    );
+    return termsOf(await setupApi.listYears());
   },
   /** The current year and term, or null when either isn't set up. */
   async currentTerm(): Promise<CurrentTerm | null> {

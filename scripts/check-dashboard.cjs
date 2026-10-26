@@ -845,6 +845,14 @@ check('design columns: two or three by ratio, and switching to two keeps the mid
   assert.deepEqual(setup.termOption(t({ startDate: null, endDate: null, datesSet: false })), { value: 't1', label: '2026/27 · Term 2 · dates not set', disabled: true });
   assert.equal(setup.isDated(t({ startDate: null, endDate: null, datesSet: false })), false);
   assert.equal(setup.isDated(t()), true);
+  // Billing for a term today isn't in warns, naming today's term (QA-061).
+  const t1 = t({ termId: 'a', termLabel: 'Term 1', startDate: '2026-09-01', endDate: '2026-12-18', isCurrent: false });
+  const t2 = t({ termId: 'b', termLabel: 'Term 2', startDate: '2027-01-08', endDate: '2027-04-09', isCurrent: true });
+  assert.equal(setup.termOn([t1, t2], '2026-10-26').termId, 'a');
+  assert.equal(setup.termOn([t1, t2], '2026-12-25'), null);
+  assert.equal(setup.outOfTermWarning(t1, [t1, t2], '2026-10-26'), null);
+  assert.match(setup.outOfTermWarning(t2, [t1, t2], '2026-10-26'), /^Term 2, 2026\/27 runs .+\. Today is in Term 1, 2026\/27\. These bills will be for Term 2, 2026\/27\.$/);
+  assert.match(setup.outOfTermWarning(t2, [t1, t2], '2026-12-25', 'These fees'), /Today isn't in any term\. These fees will be for Term 2/);
   const ops = load('src/features/document-templates/builder/layout-ops.ts');
   const cols = (ratio) => ({ id: 'c', type: 'columns', props: { ratio, gap: 16 }, children: { left: [], right: [] } });
   assert.deepEqual(ops.columnSides(cols('50-50')), ['left', 'right']);

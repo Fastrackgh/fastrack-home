@@ -2,6 +2,13 @@
 
 Code: `src/features/fees/*` (`FeesPage.tsx` orchestrates; `api.ts` holds every call; money in integer pesewas in `money.ts`).
 
+> **Updated 26 Oct 2026 (billing batch, backend `80fb344`):**
+>
+> - **Leavers:** the Invoices tab has a **Leavers** switch (`GET /schools/me/invoices?leavers=true`, with the same filter on `/summary`). Leavers' bills stay owed and payable.
+> - **Exit:** recording a pupil's exit (Class & status → Record exit) now shows what they still owe before confirming, from `/invoices/summary?studentId=` (QA-224). It reads "They still owe GHS 499.00. Their bills stay owed and can still be paid after they leave.", or "They owe nothing." It's shown only with `invoices:read` and the fees module.
+> - **Extra bills:** an extra bill may repeat a term-bill fee type under a different title. The backend's 409 wording is shown as is.
+> - **Notes:** the Notes section's "Show the late-payment penalty" toggle and the `invoice.latePenalty` placeholder come from the catalogue.
+>
 > **Snapshot note (updated 21 Oct 2026):** most of this page was written against the committed fees module (`2cfc910`). Since then:
 >
 > - **Fee setup landed in `5be7b6c`**: Fee Types, Fee Structures (set, edit, remove) and Discounts tabs. It is documented in [Fee setup](#fee-setup-fee-types-structures-discounts) below. Several of those files (`FeeTypesPanel/Tab`, `StructuresPanel/Tab`, `DiscountsPanel/Tab`, `FeesPage`, `api.ts`) **also have uncommitted working-tree changes**, mainly a load-error row with "Try again" instead of a silent empty table. The section describes the **working tree**.

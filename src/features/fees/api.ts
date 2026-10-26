@@ -136,7 +136,15 @@ export interface InvoiceQuery {
   search?: string;
   classId?: string | null;
   status?: InvoiceStatus;
+  /** One pupil's bills (their school membership id). */
+  studentId?: string | null;
+  /** Only pupils who have left: their bills stay owed and payable. */
+  leavers?: boolean;
 }
+
+/** Query parameters for an invoice filter; `leavers` is sent as "true" only when set. */
+const invoiceParams = (page: number, { leavers, ...filters }: Omit<InvoiceQuery, 'page'>) =>
+  pageParams(page, { ...filters, leavers: leavers ? 'true' : null });
 
 export interface PaymentQuery {
   page: number;
@@ -277,13 +285,13 @@ export interface ModifyRequest {
 export const feesApi = {
   async listInvoices({ page, ...filters }: InvoiceQuery): Promise<Page<Invoice>> {
     const res = await apiClient.get<Raw[], PageMeta>(
-      `/schools/me/invoices?${pageParams(page, filters)}`,
+      `/schools/me/invoices?${invoiceParams(page, filters)}`,
     );
     return toPage(res, toInvoice);
   },
   /** Totals over every matching invoice, not just one page. */
   async invoiceSummary(filters: Omit<InvoiceQuery, 'page'>): Promise<InvoiceSummary> {
-    const query = pageParams(1, filters);
+    const query = invoiceParams(1, filters);
     query.delete('page');
     query.delete('limit');
     const raw = (await apiClient.get<Raw>(`/schools/me/invoices/summary?${query}`)).data ?? {};

@@ -5,6 +5,8 @@ import { Button, Card, Group, Select, Stack, Table, Text, TextInput } from '@man
 import { notifications } from '@mantine/notifications';
 import { todayIso } from '@/features/calendar/dates';
 import { ConfirmModal } from '@/features/fees/ConfirmModal';
+import { feesApi, type InvoiceSummary } from '@/features/fees/api';
+import { formatGhs } from '@/features/fees/money';
 import {
   setupApi,
   termOption,
@@ -12,6 +14,8 @@ import {
   type TermInYear,
 } from '@/features/school-setup/api';
 import { errorMessage } from '@/lib/api-client';
+import { useAuth } from '@/lib/auth';
+import { hasModule } from '@/lib/rbac';
 import {
   EXIT_STATUSES,
   STATUS_LABELS,
@@ -43,6 +47,23 @@ export function EnrolmentTab({
   const [busy, setBusy] = useState<'promote' | 'exit' | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
   const active = student.status === 'Active';
+  const { user, can } = useAuth();
+  const seesBills = !!user && hasModule(user, 'fees') && can('invoices:read');
+  /** What the pupil still owes, shown before the exit is confirmed (QA-224); null while loading. */
+  const [owed, setOwed] = useState<InvoiceSummary | 'unknown' | null>(null);
+
+  useEffect(() => {
+    if (!confirmExit || !seesBills) return;
+    let current = true;
+    setOwed(null);
+    feesApi
+      .invoiceSummary({ studentId: student.id })
+      .then((summary) => current && setOwed(summary))
+      .catch(() => current && setOwed('unknown'));
+    return () => {
+      current = false;
+    };
+  }, [confirmExit, seesBills, student.id]);
 
   useEffect(() => {
     if (!canPromote && !canExit) return;
@@ -236,6 +257,22 @@ export function EnrolmentTab({
         >
           They will be marked {STATUS_LABELS[exitStatus].toLowerCase()} and stop being billed. This
           can&apos;t be undone here.
+          {seesBills && (
+            <Text
+              size="sm"
+              mt="sm"
+              fw={500}
+              c={owed && owed !== 'unknown' && owed.outstanding > 0 ? 'red' : undefined}
+            >
+              {owed === null
+                ? 'Checking their bills…'
+                : owed === 'unknown'
+                  ? 'Their balance could not be checked.'
+                  : owed.outstanding > 0
+                    ? `They still owe ${formatGhs(owed.outstanding)}. Their bills stay owed and can still be paid after they leave.`
+                    : 'They owe nothing.'}
+            </Text>
+          )}
         </ConfirmModal>
       )}
     </Stack>

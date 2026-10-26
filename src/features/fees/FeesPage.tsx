@@ -83,6 +83,7 @@ export function FeesPage() {
     search: '',
     classId: null,
     status: null,
+    leavers: false,
     page: 1,
   });
   const [search] = useDebouncedValue(filters.search.trim(), 300);
@@ -163,7 +164,7 @@ export function FeesPage() {
     if (may.readFeeTypes) loadFeeTypes();
   }, [may.readFeeTypes, loadFeeTypes]);
 
-  const { page, classId, status } = filters;
+  const { page, classId, status, leavers } = filters;
   const loadInvoices = useCallback(async () => {
     setInvoicesLoading(true);
     setInvoicesError(null);
@@ -173,6 +174,7 @@ export function FeesPage() {
         search,
         classId,
         status: status ?? undefined,
+        leavers,
       });
       setInvoices(result.items);
       setInvoicesTotal(result.total);
@@ -181,7 +183,7 @@ export function FeesPage() {
     } finally {
       setInvoicesLoading(false);
     }
-  }, [page, search, classId, status]);
+  }, [page, search, classId, status, leavers]);
 
   const loadPayments = useCallback(async () => {
     setPaymentsLoading(true);
@@ -203,13 +205,13 @@ export function FeesPage() {
   useEffect(() => {
     let current = true;
     feesApi
-      .invoiceSummary({ search, classId, status: status ?? undefined })
+      .invoiceSummary({ search, classId, status: status ?? undefined, leavers })
       .then((result) => current && setSummary(result))
       .catch(() => current && setSummary(null));
     return () => {
       current = false;
     };
-  }, [search, classId, status, summaryKey]);
+  }, [search, classId, status, leavers, summaryKey]);
 
   useEffect(() => {
     if (activeTab === 'payments' && may.readPayments) loadPayments();

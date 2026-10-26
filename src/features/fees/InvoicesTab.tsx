@@ -11,6 +11,7 @@ import {
   Pagination,
   ScrollArea,
   SegmentedControl,
+  Switch,
   Select,
   Stack,
   Table,
@@ -38,6 +39,8 @@ export interface InvoiceFilters {
   search: string;
   classId: string | null;
   status: InvoiceStatus | null;
+  /** Only the bills of pupils who have left. */
+  leavers: boolean;
   page: number;
 }
 
@@ -89,6 +92,13 @@ export function InvoicesTab({
             radius="md"
             w={180}
             id="select-filter-invoice-class"
+          />
+          <Switch
+            label="Leavers"
+            description="Pupils who have left; their bills are still owed"
+            checked={filters.leavers}
+            onChange={(e) => filter({ leavers: e.currentTarget.checked })}
+            color="fastrackRed"
           />
         </Group>
         <SegmentedControl

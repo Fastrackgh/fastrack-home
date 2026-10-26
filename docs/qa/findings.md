@@ -23,9 +23,9 @@
 |---|---|---|---|---|
 | Critical | 8 | 8 | 0 | 0 |
 | High | 31 | 31 | 0 | 0 |
-| Medium | 81 | 46 | 14 | 21 |
+| Medium | 81 | 46 | 15 | 20 |
 | Low | 40 | 22 | 6 | 12 |
-| **Total** | **160** | **107** | **20** | **33** |
+| **Total** | **160** | **107** | **21** | **32** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -186,7 +186,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-268 | Low | EDGE | BE | Live ✔ | A later period can be dated before an earlier, still undated one, leaving no room for the earlier period — **fixed** (25 Oct; BE `8abbe07`) |
 | QA-269 | Low | UX | FE | Browser ✔ | "Set dates" on an undated term shows the switch "This is the current academic year", although it sets the current term — **fixed** (25 Oct; FE `78939e7`) |
 | QA-270 | Low | Audit | BE | Live ✔ | Changing a school's current term (or year) writes no audit-log entry — **fixed** (26 Oct; BE `0797870`) |
-| QA-271 | Medium | Money | BE | Live ✔ | The fees summary counts balances moved to a later bill as collected: a term reads "100% collected, GHS 0 outstanding" when 35% was paid — **open** (26 Oct) |
+| QA-271 | Medium | Money | BE | Live ✔ | The fees summary counts balances moved to a later bill as collected: a term reads "100% collected, GHS 0 outstanding" when 35% was paid — **partly fixed** (26 Oct; BE `8422f94` adds carriedForward; the tile doesn't show it yet) |
 | QA-246 | Low | UX | FE | Browser ✔ | School setup calls the fee-types API on schools without the fees module (repeated 403s) — **fixed** (24 Oct; FE `e469eda`) |
 | QA-247 | Low | Data | BE | DB ✔ | A promotion into a later term records the new class history row as starting today, not on the term's start date — **fixed** (24 Oct; BE `f9e93b5`) |
 | QA-249 | Low | UX | Both | Browser ✔ | Move classes up: the result says "0 stayed" for classes set to "Don't move", though the confirmation counted them — **fixed** (24 Oct; FE `b032a41`) |
@@ -1236,7 +1236,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-083 | Open | no stored price; parent history capped at 10; issued bills unchanged by approve |
 | QA-084 | Partly fixed | public bill uses the snapshot name; invoice API line items still read the live fee type name |
 | QA-085 | Fixed | 25 Oct, BE `80fb344`. Primary 1 on QPM-402 has QA Tuition 400 (due 15 Nov, penalty 20) and PTA Levy 50 (due 1 Nov, penalty 5). Generating with no due date gave every bill due 2026-11-01, and the public JSON has `latePenalty: 25`. A Notes section prints "A late payment penalty of GH¢25.00 applies after the payment deadline.", and no design code has a fixed 10%. Nit (fixed 25 Oct in BE `07f100f`): a fully discounted (GHS 0, PAID) bill used to print the penalty line. Now Seed01's bill shows no penalty line, and a Notes section holding only that line is hidden, while typed notes still show. Seed02, which still owes, keeps the line. Earlier note: due date from the Generate form, structure penalty unused; the 10% note is now an editable default |
-| QA-086 | Open | modal can still close while saving; 409 shows a generic error; key regenerated on reopen; no timeout |
+| QA-086 | Open | Reproduced 26 Oct on QPM-402, with POST /payments delayed 6 s: Record Payment for Seed08 (GHS 5), then Esc while saving, closed the modal with no toast, yet the payment was saved (RCT/QPM-402/2026/0005, key 53ab8d5f…). A reopened modal mints a new key, so a second try would be a second payment. The modal can still close while saving; 409 shows a generic error; there's no timeout. Sent to the frontend. |
 | QA-087 | Open | discounts tab not module-gated, description can't be cleared, exact-match names, no @Max |
 | QA-206 | Fixed | re-tested 22 Oct (backend bcb2e0b) |
 | QA-212 | Fixed | re-tested 22 Oct |
@@ -1271,7 +1271,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-268 | Fixed | 25 Oct, BE `8abbe07`. On QRG-501 2028/29 (both semesters undated), dating Semester 2 first gets 400 "Set Semester 1's dates first: terms are dated in order". Semester 1, then Semester 2, saves. |
 | QA-269 | Fixed | 25 Oct, FE `78939e7`, re-tested on QRG-501. "Set the dates of Semester 2, 2027/28" (undated) and "Edit Semester 1, 2027/28" (dated) both say "This is the current term". "Edit 2026/27" (the current year) says "This is the current academic year", with the switch locked: "To change it, make another year current instead." |
 | QA-270 | Fixed | 26 Oct, BE `0797870`, re-tested on QRG-501 as the Principal. Making Semester 2 current wrote `academic_term.made_current` with metadata `{via: "term", previousId}`. Repeating it wrote nothing. Making 2027/28 current wrote `academic_year.made_current` plus `academic_term.made_current` (`via: "year"`), and switching back did the same. Actor PRINCIPAL on every row. |
-| QA-271 | Open | found 26 Oct; summary counts carried-forward balances as collected |
+| QA-271 | Partly fixed | 26 Oct, BE `8422f94`. FIS-001 Term 1 summary: `{totalCollected 4600, outstanding 0, carriedForward 10560, collectionRate 30.3}` (was 100). Checked against the DB: the positive carried-forward amounts sum to 10,660, but 0010's GHS 100 moved to 0023 in the same term and on to Term 2 through 0023, so 10,560 avoids counting it twice. QPM-402 Term 1 is unchanged (1.7%). Still to do: the Overview and Fees tiles should show the moved amount (sent to the frontend). |
 
 | QA-254 | Fixed | dev email preview moved to 127.0.0.1:4080 (5af0b93); re-tested 24 Oct |
 ## Results phase 0: subjects (tested 24 Oct 2026)

@@ -183,7 +183,7 @@ async function feesSummary(term: CurrentTerm): Promise<Metric[]> {
     {
       label: 'Fees collected',
       value: formatGhs(s.collected),
-      detail: `${s.collectionRate}% of ${formatGhs(s.billed)} billed · ${term.termLabel}`,
+      detail: `${s.collectionRate}% of what was due · ${formatGhs(s.billed)} billed`,
       tone: 'green',
     },
     {
@@ -192,7 +192,7 @@ async function feesSummary(term: CurrentTerm): Promise<Metric[]> {
       detail: s.carriedForward
         ? `${formatGhs(s.carriedForward)} moved to later bills`
         : `${count(s.invoiceCount, 'bill')} for ${term.termLabel}`,
-      tone: s.outstanding > 0 ? 'orange' : 'green',
+      tone: s.outstanding + s.carriedForward > 0 ? 'orange' : 'green',
     },
   ];
 }

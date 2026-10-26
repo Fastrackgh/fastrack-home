@@ -45,7 +45,7 @@ export function FeeMetrics({
         tint="rgba(16, 185, 129, 0.1)"
         value={formatGhs(collected)}
         valueColor="teal.7"
-        note={`${rate}% revenue realized`}
+        note={summary ? `${rate}% of what was due` : `${rate}% revenue realized`}
         noteColor="teal.7"
       />
       <MetricCard

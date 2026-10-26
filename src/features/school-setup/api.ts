@@ -1,5 +1,5 @@
 import { ApiError, apiClient, pathId, type PageMeta } from '@/lib/api-client';
-import { pageParams, toPage, type Raw } from '@/lib/pagination';
+import { fetchAll, pageParams, toPage, type Raw } from '@/lib/pagination';
 
 export interface AcademicTerm {
   id: string;
@@ -256,7 +256,10 @@ export interface ClassSubjectInput {
 export type SchoolDetailsInput = Partial<Omit<SchoolDetails, 'code' | 'logoUrl'>>;
 
 /** The backend caps every list at 100 rows. */
+/** Years, terms and departments are few, so one full page holds them all. */
 const ALL = 'limit=100';
+
+type StaffRow = { id: string; firstName: string; lastName: string };
 const text = (value: unknown) => (typeof value === 'string' && value ? value : null);
 
 const toClass = (raw: Raw): SchoolClass => {
@@ -402,12 +405,7 @@ export const setupApi = {
   },
   /** Every class, fetched a full page at a time, for pickers. */
   async allClasses(): Promise<SchoolClass[]> {
-    const rows: SchoolClass[] = [];
-    for (let page = 1; ; page++) {
-      const res = await apiClient.get<Raw[], PageMeta>(`/schools/me/classes?page=${page}&${ALL}`);
-      rows.push(...(res.data ?? []).map(toClass));
-      if (!res.meta?.hasNext) break;
-    }
+    const rows = (await fetchAll('/schools/me/classes')).map(toClass);
     return rows.sort(
       (a, b) =>
         a.sequenceOrder - b.sequenceOrder ||
@@ -471,12 +469,7 @@ export const setupApi = {
 
   /** Any active staff member can teach a subject, heads included. */
   async listActiveStaff(): Promise<StaffOption[]> {
-    const rows =
-      (
-        await apiClient.get<{ id: string; firstName: string; lastName: string }[]>(
-          `/schools/me/staff?isActive=true&${ALL}`,
-        )
-      ).data ?? [];
+    const rows = await fetchAll<StaffRow>('/schools/me/staff?isActive=true');
     return rows
       .map((s) => ({ id: s.id, name: `${s.firstName} ${s.lastName}`.trim() }))
       .sort((a, b) => a.name.localeCompare(b.name));
@@ -484,12 +477,7 @@ export const setupApi = {
 
   async listStaffOptions(): Promise<StaffOption[]> {
     // Heads of department and class teachers must be active teachers.
-    const rows =
-      (
-        await apiClient.get<{ id: string; firstName: string; lastName: string }[]>(
-          `/schools/me/staff?role=TEACHER&isActive=true&${ALL}`,
-        )
-      ).data ?? [];
+    const rows = await fetchAll<StaffRow>('/schools/me/staff?role=TEACHER&isActive=true');
     return rows.map((s) => ({ id: s.id, name: `${s.firstName} ${s.lastName}`.trim() }));
   },
 

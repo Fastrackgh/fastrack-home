@@ -22,14 +22,13 @@ import { errorMessage } from '@/lib/api-client';
 import { feesApi, PAYMENT_METHODS, type Invoice, type Payment } from './api';
 import { formatGhs, toCedis, toPesewas } from './money';
 import { notifyLoadError } from './notify';
+import { StudentPicker } from './StudentPicker';
 
 /** Rendered only while open, so every payment starts from an empty form. */
 export function RecordPaymentModal({
-  studentOptions,
   onClose,
   onRecorded,
 }: {
-  studentOptions: { value: string; label: string }[];
   onClose: () => void;
   onRecorded: (payment: Payment | null) => void;
 }) {
@@ -144,13 +143,11 @@ export function RecordPaymentModal({
     >
       <form onSubmit={submit}>
         <Stack gap="md">
-          <Select
+          <StudentPicker
             label="Select Student"
             placeholder="Search by student name or code"
-            data={studentOptions}
             value={studentId}
             onChange={setStudentId}
-            searchable
             required
             radius="md"
             id="select-pay-student"

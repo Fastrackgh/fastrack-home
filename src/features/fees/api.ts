@@ -439,8 +439,12 @@ export const feesApi = {
   async listClasses(): Promise<SchoolClass[]> {
     return setupApi.allClasses();
   },
-  async listStudentOptions() {
-    return (await apiClient.get<StudentOption[]>('/schools/me/students?limit=100')).data ?? [];
+  /** Up to a page of pupils matching a name or code; the first page when empty (QA-030). */
+  async searchStudents(search: string): Promise<StudentOption[]> {
+    return (
+      (await apiClient.get<StudentOption[]>(`/schools/me/students?${pageParams(1, { search })}`))
+        .data ?? []
+    );
   },
   /** Every term of every academic year, newest year first. */
   async listTerms(): Promise<TermInYear[]> {

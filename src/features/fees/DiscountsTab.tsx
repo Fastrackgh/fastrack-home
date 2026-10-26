@@ -7,7 +7,6 @@ import {
   Loader,
   Pagination,
   ScrollArea,
-  Select,
   Stack,
   Table,
   Text,
@@ -16,6 +15,7 @@ import { BadgePercent, PlusCircle, Trash2 } from 'lucide-react';
 import { LoadErrorRow } from './LoadErrorRow';
 import { PAGE_SIZE, type Discount } from './api';
 import { formatGhs } from './money';
+import { StudentPicker } from './StudentPicker';
 
 export interface DiscountFilters {
   studentId: string | null;
@@ -33,7 +33,6 @@ export function DiscountsTab({
   onRetry,
   filters,
   onFiltersChange,
-  studentOptions,
   onAdd,
   onRemove,
 }: {
@@ -45,7 +44,6 @@ export function DiscountsTab({
   onRetry?: () => void;
   filters: DiscountFilters;
   onFiltersChange: (filters: DiscountFilters) => void;
-  studentOptions: { value: string; label: string }[];
   /** Both actions are absent when the user may not manage discounts. */
   onAdd?: () => void;
   onRemove?: (discount: Discount) => void;
@@ -56,12 +54,10 @@ export function DiscountsTab({
   return (
     <>
       <Group justify="space-between" mb="md" wrap="wrap">
-        <Select
+        <StudentPicker
           placeholder="All students"
-          data={studentOptions}
           value={filters.studentId}
           onChange={(studentId) => onFiltersChange({ studentId, page: 1 })}
-          searchable
           clearable
           radius="md"
           w={300}

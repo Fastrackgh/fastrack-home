@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { fetchAll } from '@/lib/pagination';
 import type { SchoolRole } from '@/lib/rbac';
 
 /** A teaching staff record from `GET /schools/me/staff`. */
@@ -79,11 +80,12 @@ export interface InviteRequest {
 }
 
 export const staffApi = {
+  /** Every staff member, however many pages (QA-030). */
   async listStaff() {
-    return (await apiClient.get<StaffMember[]>('/schools/me/staff?limit=100')).data ?? [];
+    return fetchAll<StaffMember>('/schools/me/staff');
   },
   async listInvitations() {
-    return (await apiClient.get<Invitation[]>('/invitations?limit=100')).data ?? [];
+    return fetchAll<Invitation>('/invitations');
   },
   /** Creates the account without a password, so the backend emails an invitation. */
   async invite(request: InviteRequest) {

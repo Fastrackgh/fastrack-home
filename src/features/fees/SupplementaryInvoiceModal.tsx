@@ -18,6 +18,7 @@ import { termOption, termRuns, type TermInYear } from '@/features/school-setup/a
 import { TermWarning } from './TermWarning';
 import { feesApi, type FeeType } from './api';
 import { toPesewas } from './money';
+import { StudentPicker } from './StudentPicker';
 
 type Target = 'school' | 'class' | 'student';
 
@@ -30,7 +31,6 @@ export function SupplementaryInvoiceModal({
   currentTermId,
   feeTypes,
   classOptions,
-  studentOptions,
   onClose,
   onGenerated,
 }: {
@@ -38,7 +38,6 @@ export function SupplementaryInvoiceModal({
   currentTermId: string | null;
   feeTypes: FeeType[];
   classOptions: { value: string; label: string }[];
-  studentOptions: { value: string; label: string }[];
   onClose: () => void;
   onGenerated: () => void;
 }) {
@@ -154,12 +153,11 @@ export function SupplementaryInvoiceModal({
             />
           )}
           {target === 'student' && (
-            <Select
+            <StudentPicker
               label="Student"
-              data={studentOptions}
+              placeholder="Search by name or code"
               value={studentId}
               onChange={setStudentId}
-              searchable
               required
               radius="md"
             />

@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { fetchAll } from '@/lib/pagination';
 import type {
   ModuleEntitlement,
   PageMeta,
@@ -47,9 +48,9 @@ export const platformSchoolsApi = {
     );
     return { items: res.data ?? [], meta: res.meta };
   },
+  /** Every staff member of the school, however many pages (QA-030). */
   async listStaff(schoolId: string) {
-    const res = await apiClient.get<PlatformStaff[]>(`${schoolPath(schoolId)}/staff?limit=100`);
-    return res.data ?? [];
+    return fetchAll<PlatformStaff>(`${schoolPath(schoolId)}/staff`);
   },
   async listModules(schoolId: string) {
     const res = await apiClient.get<ModuleEntitlement[]>(

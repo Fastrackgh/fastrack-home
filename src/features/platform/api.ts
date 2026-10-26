@@ -1,5 +1,5 @@
 import { apiClient, type PageMeta, pathId } from '@/lib/api-client';
-import { pageParams, toPage, type Raw } from '@/lib/pagination';
+import { fetchAll, pageParams, toPage, type Raw } from '@/lib/pagination';
 
 /** Amounts in platform analytics are decimal cedis, summed across every school. */
 export interface PlatformFinance {
@@ -123,14 +123,7 @@ export interface NewSchool {
 export const platformApi = {
   /** Every school, a full page at a time (the list endpoint returns at most 100). */
   async listSchools(): Promise<SchoolItem[]> {
-    const rows: SchoolItem[] = [];
-    for (let page = 1; ; page++) {
-      const res = await apiClient.get<SchoolItem[], { hasNext?: boolean }>(
-        `/super-admin/schools?page=${page}&limit=100`,
-      );
-      rows.push(...(res.data ?? []));
-      if (!res.meta?.hasNext) return rows;
-    }
+    return fetchAll<SchoolItem>('/super-admin/schools');
   },
   async createSchool(school: NewSchool) {
     await apiClient.post('/super-admin/schools', school);

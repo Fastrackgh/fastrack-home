@@ -16,6 +16,7 @@ import { Printer, Receipt } from 'lucide-react';
 import { LoadErrorRow } from './LoadErrorRow';
 import { PAGE_SIZE, PAYMENT_METHODS, type Payment } from './api';
 import { formatGhs } from './money';
+import { StudentPicker } from './StudentPicker';
 
 export interface PaymentFilters {
   studentId: string | null;
@@ -31,7 +32,6 @@ export function PaymentsTab({
   onRetry,
   filters,
   onFiltersChange,
-  studentOptions,
   onRecordPayment,
   onShowReceipt,
 }: {
@@ -43,7 +43,6 @@ export function PaymentsTab({
   onRetry?: () => void;
   filters: PaymentFilters;
   onFiltersChange: (filters: PaymentFilters) => void;
-  studentOptions: { value: string; label: string }[];
   /** Absent when the user may not record payments. */
   onRecordPayment?: () => void;
   onShowReceipt: (payment: Payment) => void;
@@ -58,12 +57,10 @@ export function PaymentsTab({
     <>
       <Group justify="space-between" mb="md" wrap="wrap">
         <Group gap="sm" wrap="wrap">
-          <Select
+          <StudentPicker
             placeholder="All students"
-            data={studentOptions}
             value={filters.studentId}
             onChange={(studentId) => filter({ studentId })}
-            searchable
             clearable
             radius="md"
             w={300}

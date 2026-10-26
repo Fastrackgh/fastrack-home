@@ -30,7 +30,6 @@ import {
   type Page,
   type Payment,
   type SchoolClass,
-  type StudentOption,
 } from './api';
 import { DiscountsPanel } from './DiscountsPanel';
 import { FeeMetrics } from './FeeMetrics';
@@ -74,7 +73,6 @@ export function FeesPage() {
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [term, setTerm] = useState<AcademicContext | null>(null);
   const [terms, setTerms] = useState<TermInYear[]>([]);
-  const [students, setStudents] = useState<StudentOption[]>([]);
   const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
   const [feeTypesLoading, setFeeTypesLoading] = useState(false);
   const [feeTypesError, setFeeTypesError] = useState<string | null>(null);
@@ -130,21 +128,16 @@ export function FeesPage() {
   const [receipt, setReceipt] = useState<Payment | null>(null);
 
   useEffect(() => {
-    Promise.allSettled([
-      feesApi.listClasses(),
-      feesApi.currentTerm(),
-      feesApi.listTerms(),
-      feesApi.listStudentOptions(),
-    ]).then(([classesRes, termRes, termsRes, studentsRes]) => {
-      if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
-      else notifyLoadError('classes', classesRes.reason);
-      // No current term is a valid setup state; generating invoices explains it.
-      if (termRes.status === 'fulfilled') setTerm(termRes.value);
-      if (termsRes.status === 'fulfilled') setTerms(termsRes.value);
-      else notifyLoadError('academic terms', termsRes.reason);
-      if (studentsRes.status === 'fulfilled') setStudents(studentsRes.value);
-      else notifyLoadError('students', studentsRes.reason);
-    });
+    Promise.allSettled([feesApi.listClasses(), feesApi.currentTerm(), feesApi.listTerms()]).then(
+      ([classesRes, termRes, termsRes]) => {
+        if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
+        else notifyLoadError('classes', classesRes.reason);
+        // No current term is a valid setup state; generating invoices explains it.
+        if (termRes.status === 'fulfilled') setTerm(termRes.value);
+        if (termsRes.status === 'fulfilled') setTerms(termsRes.value);
+        else notifyLoadError('academic terms', termsRes.reason);
+      },
+    );
   }, []);
 
   const loadFeeTypes = useCallback(async () => {
@@ -220,17 +213,6 @@ export function FeesPage() {
   const classOptions = useMemo(
     () => classes.map((c) => ({ value: c.id, label: `${c.className} (${c.classCode})` })),
     [classes],
-  );
-  const studentOptions = useMemo(
-    () =>
-      students.map((s) => ({
-        // The enrolment id: the payments filter accepts only this, the other endpoints either id.
-        value: s.id,
-        label: [`${s.fullName} (${s.studentCode || 'no code'})`, s.className]
-          .filter(Boolean)
-          .join(' • '),
-      })),
-    [students],
   );
 
   // The list response has no line items, so the breakdown loads the full invoice.
@@ -398,7 +380,6 @@ export function FeesPage() {
                 onRetry={loadPayments}
                 filters={paymentFilters}
                 onFiltersChange={setPaymentFilters}
-                studentOptions={studentOptions}
                 onRecordPayment={startPayment}
                 onShowReceipt={setReceipt}
               />
@@ -437,7 +418,6 @@ export function FeesPage() {
                 reloadKey={reloadKey}
                 terms={terms}
                 currentTermId={term?.termId ?? null}
-                studentOptions={studentOptions}
                 feeTypes={feeTypes}
                 canManage={may.manageDiscounts}
                 onTotal={setDiscountsTotal}
@@ -471,7 +451,6 @@ export function FeesPage() {
           currentTermId={term?.termId ?? null}
           feeTypes={feeTypes}
           classOptions={classOptions}
-          studentOptions={studentOptions}
           onClose={() => setExtraBill(false)}
           onGenerated={() => {
             setExtraBill(false);
@@ -497,7 +476,6 @@ export function FeesPage() {
       />
       {paying && (
         <RecordPaymentModal
-          studentOptions={studentOptions}
           onClose={() => setPaying(false)}
           onRecorded={(payment) => {
             setPaying(false);

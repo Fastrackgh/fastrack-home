@@ -15,7 +15,6 @@ export function DiscountsPanel({
   reloadKey,
   terms,
   currentTermId,
-  studentOptions,
   feeTypes,
   canManage,
   onTotal,
@@ -25,7 +24,6 @@ export function DiscountsPanel({
   reloadKey: number;
   terms: TermInYear[];
   currentTermId: string | null;
-  studentOptions: { value: string; label: string }[];
   feeTypes: FeeType[];
   canManage: boolean;
   onTotal: (total: number) => void;
@@ -65,14 +63,12 @@ export function DiscountsPanel({
         onRetry={load}
         filters={filters}
         onFiltersChange={setFilters}
-        studentOptions={studentOptions}
         onAdd={canManage ? () => setAdding(true) : undefined}
         onRemove={canManage ? setRemoving : undefined}
       />
 
       {adding && (
         <DiscountModal
-          studentOptions={studentOptions}
           feeTypes={feeTypes}
           terms={terms}
           initialTermId={currentTermId}

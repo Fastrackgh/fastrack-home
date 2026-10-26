@@ -23,9 +23,9 @@
 |---|---|---|---|---|
 | Critical | 8 | 7 | 1 | 0 |
 | High | 31 | 27 | 3 | 1 |
-| Medium | 80 | 45 | 14 | 21 |
+| Medium | 80 | 46 | 14 | 20 |
 | Low | 39 | 21 | 6 | 12 |
-| **Total** | **158** | **100** | **24** | **34** |
+| **Total** | **158** | **101** | **24** | **33** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -123,7 +123,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-220 | Medium | Money | BE | Browser ✔ | Credit not applied to new extra bills — **closed: by design** (25 Oct; the user decided extra bills don't take credit) |
 | QA-221 | Medium | Money/FLOW | FE | Browser ✔ | Extra bills can't be paid on their own — **open** (code re-checked 24 Oct) |
 | QA-223 | Medium | EDGE | Both | Browser ✔ | Promotion accepts a past, already-billed term — **open** (code re-checked 24 Oct) |
-| QA-224 | Medium | FLOW | Both | Browser ✔ | Exit dialog hides the outstanding balance — **open** (code re-checked 24 Oct) |
+| QA-224 | Medium | FLOW | Both | Browser ✔ | Exit dialog hides the outstanding balance — **fixed** (25 Oct; FE `0bcb1cf`, BE `80fb344`) |
 | QA-225 | Medium | EDGE | BE | Browser ✔ | Attendance roster uses current class for past dates — **open** (code re-checked 24 Oct) |
 | QA-226 | Medium | UX | FE | Browser ✔ | Design preview needs the invoice UUID, not its number — **open** (code re-checked 24 Oct) |
 | QA-228 | Medium | FLOW | BE | Browser ✔ | Published design not used on public bill links — **fixed** (reconciled 24 Oct) |
@@ -1245,7 +1245,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-220 | Closed (by design) | 25 Oct: the user decided credit isn't applied to extra bills, so they stay payable in full. |
 | QA-221 | Open | Record Payment still pays only the latest bill; no bill picker |
 | QA-223 | Open | promotion still accepts a past, already-billed term |
-| QA-224 | Open | exit dialog still shows no outstanding balance |
+| QA-224 | Fixed | 25 Oct, FE `0bcb1cf`, re-tested on QPM-402 as the Principal. Students → pupil → Class & status → Record exit. For Yaa the dialog reads "They still owe GHS 499.00. Their bills stay owed and can still be paid after they leave.", and for Seed01 (paid GHS 0 bill) "They owe nothing." Recording the exit for Seed06 (owing 450) gives "Exit recorded". The bill stays 450, and a GHS 50 payment afterwards gets 201 (balance 400). Fees → Invoices → **Leavers** lists Seed06 (450) and Seed04 (440); the leavers summary shows 2 bills, billed 900, outstanding 840. The Secretary has no Record exit button. |
 | QA-225 | Open | attendance rosters still use the current class, not enrolment history |
 | QA-226 | Open | design preview still needs the invoice UUID |
 | QA-228 | Fixed | public bill renders through the document renderer with the school's published design (public-invoices.controller.ts:53-58; live link checked); likely 326ee64 |

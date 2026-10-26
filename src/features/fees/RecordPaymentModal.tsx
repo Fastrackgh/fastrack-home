@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -18,11 +19,15 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { CheckCircle } from 'lucide-react';
-import { errorMessage } from '@/lib/api-client';
+import { ApiError, errorMessage } from '@/lib/api-client';
 import { feesApi, PAYMENT_METHODS, type Invoice, type Payment } from './api';
 import { formatGhs, toCedis, toPesewas } from './money';
 import { notifyLoadError } from './notify';
+import { attemptKeyFor, settleAttempt } from './payment-attempts';
 import { StudentPicker } from './StudentPicker';
+
+/** After this long without an answer, the modal says it's still waiting and may be closed. */
+const SLOW_MS = 20_000;
 
 /** Rendered only while open, so every payment starts from an empty form. */
 export function RecordPaymentModal({
@@ -41,19 +46,24 @@ export function RecordPaymentModal({
     typed: false,
   });
   const amount = amountField.value;
-  // One key per payment attempt: a double-click or network retry of the same
-  // attempt is refused by the server (409) instead of recorded twice.
-  const [attemptKey, setAttemptKey] = useState(() => crypto.randomUUID());
   const [method, setMethod] = useState('MoMo');
   const [channel, setChannel] = useState('');
   const [reference, setReference] = useState('');
   const [saving, setSaving] = useState(false);
+  // The server has taken longer than SLOW_MS: say so, and let the cashier close.
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (!saving) return setSlow(false);
+    const timer = setTimeout(() => setSlow(true), SLOW_MS);
+    return () => clearTimeout(timer);
+  }, [saving]);
+  const locked = saving && !slow;
 
   // The payment goes against the student's latest invoice; default to its
   // balance unless an amount was already typed.
   useEffect(() => {
     setInvoice(null);
-    setAttemptKey(crypto.randomUUID());
     setAmountField((field) => (field.typed ? field : { value: '', typed: false }));
     if (!studentId) return;
     let current = true;
@@ -92,6 +102,9 @@ export function RecordPaymentModal({
       });
       return;
     }
+    // The same payment keeps its key until confirmed, so a retry is refused (409), not doubled.
+    const signature = { studentId, amount: pesewas, method, reference };
+    const attemptKey = attemptKeyFor(signature);
     setSaving(true);
     try {
       const payment = await feesApi.recordPayment(
@@ -112,8 +125,21 @@ export function RecordPaymentModal({
         icon: <CheckCircle size={18} />,
         autoClose: 6000,
       });
+      settleAttempt(signature);
       onRecorded(payment);
     } catch (err) {
+      if (err instanceof ApiError && err.statusCode === 409) {
+        // The server already has this payment (a repeated key or reference).
+        settleAttempt(signature);
+        notifications.show({
+          title: 'Already recorded',
+          message: `${err.message}. It was not recorded again; find it under Payments.`,
+          color: 'yellow',
+          autoClose: false,
+        });
+        onRecorded(null);
+        return;
+      }
       notifications.show({
         title: 'Payment Failed',
         message: errorMessage(err, 'Could not record payment.'),
@@ -127,7 +153,10 @@ export function RecordPaymentModal({
   return (
     <Modal
       opened
-      onClose={onClose}
+      onClose={() => !locked && onClose()}
+      closeOnEscape={!locked}
+      closeOnClickOutside={!locked}
+      withCloseButton={!locked}
       title={
         <Box>
           <Title order={4} style={{ fontFamily: 'var(--font-heading)' }}>
@@ -239,8 +268,15 @@ export function RecordPaymentModal({
             id="input-pay-ref"
           />
 
+          {slow && (
+            <Alert color="yellow" radius="md" title="Still waiting for the server">
+              Don&apos;t record this payment again. If you close this window, check Payments in a
+              minute: submitting the same payment again is safe and won&apos;t charge twice.
+            </Alert>
+          )}
+
           <Group justify="flex-end" mt="md">
-            <Button variant="default" onClick={onClose} radius="md" disabled={saving}>
+            <Button variant="default" onClick={onClose} radius="md" disabled={locked}>
               Cancel
             </Button>
             <Button

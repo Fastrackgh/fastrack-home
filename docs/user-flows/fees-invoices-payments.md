@@ -135,14 +135,14 @@ sequenceDiagram
 **Typed amount (QA-055, fixed in `41eeb3b`):** the amount field remembers whether the cashier typed it (`RecordPaymentModal.tsx:38-42, 195-199`), and the balance lookup fills it only when it was not typed (`:66-70`). A typed amount is also **kept when the cashier switches to another student** (`:57`). When the amount differs from the balance, the field shows "Outstanding balance is GHS x" (`:200-207`).
 
 **Double submit and network failure (after `41eeb3b`):**
-- The submit button is disabled while saving, and `submit` returns early when `saving` is set (`:86`). The Cancel button is also disabled, but the modal's X, Esc and outside-click **still close it mid-save** (`:128-130`: `onClose` is not guarded).
-- One `Idempotency-Key` (a `crypto.randomUUID()`) is generated per student pick (`:46, 56`) and sent as a header (`api.ts:352-360`).
+- The submit button is disabled while saving, and `submit` returns early when `saving` is set (`:86`). Since 26 Oct (QA-086) the modal **can't be closed mid-save**: the X is hidden, and Esc, outside clicks and Cancel do nothing. After 20 s without an answer a yellow "Still waiting for the server" alert says not to record the payment again, and closing is allowed again.
+- The `Idempotency-Key` belongs to the payment, not the modal (`payment-attempts.ts`, QA-086). The same student, amount, method and reference reuse the key until the server confirms the payment. That holds after a failure, a closed modal or a page reload, since the keys live in sessionStorage for 24 h. A confirmed payment (or a 409) forgets its key, so a later identical payment is new. The key is sent as a header (`api.ts`).
   - The backend honours it (backend `main`, checked in the `fastrack-backend` checkout on `fix/invoice-run-class-label`, which contains `18b3c9a`). The header is validated as 8-100 safe characters (`payments/idempotency-key.ts:8-16`).
   - The key is looked up under the student's fee lock, along with a matching non-cash `transactionReference` (`payments.service.ts:88-101`, `fees-payment.repository.ts:133-160`). A match returns **409** "This payment was already recorded (receipt X)".
   - A partial unique index `UQ_PAYMENTS_SCHOOL_IDEMPOTENCY_KEY` backs this up. A concurrent race is mapped from 23505 to 409 (`payments.service.ts:133-140`). Only the first allocation of a waterfall split carries the key (`payment-processor.strategy.ts:198-199`).
 - Still open:
   - The key is compared by value only, not against the request body. A retry with a corrected amount returns the *old* receipt number as a 409.
-  - The frontend shows the 409 as a red "Payment Failed" toast and does not open the receipt or reload the lists. A cashier who then closes the modal and starts again gets a **new key**, so a cash payment can still be recorded twice. Non-cash payments are protected by the reference check.
+  - ~~The 409 showed as "Payment Failed", and a reopened modal got a new key.~~ Fixed 26 Oct (QA-086): a 409 shows a yellow "Already recorded" with the server's receipt number, closes the modal and reloads the lists. A resubmit after a failure reuses the key.
 - You can submit before the latest-invoice lookup finishes. `invoiceId` is then omitted, and the backend waterfall decides which invoice the payment goes to.
 
 **Receipt:**

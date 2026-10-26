@@ -23,9 +23,9 @@
 |---|---|---|---|---|
 | Critical | 8 | 7 | 1 | 0 |
 | High | 31 | 27 | 3 | 1 |
-| Medium | 80 | 39 | 13 | 28 |
+| Medium | 80 | 45 | 14 | 21 |
 | Low | 39 | 21 | 6 | 12 |
-| **Total** | **158** | **94** | **23** | **41** |
+| **Total** | **158** | **100** | **24** | **34** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -73,9 +73,9 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-011 | Medium | SEC | BE | Live ✔ | Invoice job status can be read across schools (sequential ids) — **fixed** (25 Oct; BE `17900c0`, re-tested) |
 | QA-012 | Medium | SEC | BE | Live ✔ | No security headers; Swagger public; CORS `*` with credentials; unset `NODE_ENV` runs production as dev — **fixed** (24 Oct; BE `c9c06b9`: security headers; production refuses Swagger, open CORS and a missing NODE_ENV) |
 | QA-014 | Medium | SEC | BE | Live ✔ | User enumeration through register-parent, login timing and ward-link errors — **open** (code re-checked 24 Oct) |
-| QA-017 | Medium | FLOW | BE | Live ✔ | Exited students can still be paid against; their open invoices are never written off — **open** (code re-checked 24 Oct) |
+| QA-017 | Medium | FLOW | BE | Live ✔ | Exited students can still be paid against; their open invoices are never written off — **fixed by policy** (25 Oct; BE `80fb344`: leavers' bills stay owed and payable, and are listed) |
 | QA-018 | Medium | EDGE | Both | Live ✔ | Terms can't be closed (term dates and payment dates are now checked) — **partly fixed** (25 Oct; BE `f6cf1d2`, `8abbe07`) |
-| QA-019 | Medium | EDGE | BE | Live ✔ | Payment input gaps: oversized amount returns 500, unvalidated `dueDate`, allocations not checked — **open** (code re-checked 24 Oct) |
+| QA-019 | Medium | EDGE | BE | Live ✔ | Payment input gaps: allocations aren't checked against the bill's fee types (the amount limit, dueDate and amount-vs-allocations checks are fixed) — **partly fixed** (25 Oct; BE `80fb344`) |
 | QA-021 | Medium | SEC | BE | Suspected | A failed OTP send is never caught and can crash the API process — **fixed** (25 Oct; BE `17900c0`, code and unit tests) |
 | QA-022 | Medium | SEC/FLOW | BE | Live ✔ | Public invoice, media, optional fees and queued jobs still skip module and suspension checks (payments are fixed) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-023 | Medium | SEC | BE | Code ✔ | The main throttler is still in memory, keyed on IP+email and spoofable, with no lockout (only AdminJS has one) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
@@ -95,7 +95,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-053 | Medium | FLOW | FE | Suspected | The in-progress fees `api.ts` reads lists as `data[]`+`meta`, but the backend returns `data.items` — **fixed** (reconciled 24 Oct) |
 | QA-056 | Medium | FLOW | Both | Browser ✔ | Platform staff counts are wrong (overview says 3 staff, school page says 1) — **fixed** (reconciled 24 Oct) |
 | QA-057 | Medium | FLOW | BE | Browser ✔ | Bill & report designs page returns 500: uncommitted entity column `layout` has no migration — **fixed** (backend 5bae8a2) |
-| QA-062 | Medium | Money | BE | Code ✔ | Extra-bill duplicate check ignores term bills, so a fee can be charged twice — **open** (code re-checked 24 Oct) |
+| QA-062 | Medium | Money | BE | Code ✔ | Extra-bill duplicate check ignores term bills, so a fee can be charged twice — **fixed** (25 Oct; BE `80fb344`) |
 | QA-067 | Medium | EDGE | Both | Code ✔ | Template edits have no conflict check; last save wins — **fixed** (25 Oct; BE `0cb9bdc`, FE `9ec374e` and the code-mode follow-up) |
 | QA-068 | Medium | FLOW | BE | Code ✔ | A published design that fails on real data breaks the parent bill; no fallback — **open** (code re-checked 24 Oct) |
 | QA-069 | Medium | FLOW | Both | Code ✔ | Code editor silently converts a visual design into a code design — **open** (code re-checked 24 Oct) |
@@ -108,19 +108,19 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-080 | Medium | FLOW | FE | Code ✔ | Staff optional-requests page unreachable in committed code (route rule uncommitted) — **fixed** (reconciled 24 Oct) |
 | QA-081 | Medium | SEC/UX | FE | Code ✔ | Parent sample-data mode has no production guard — **open** (code re-checked 24 Oct) |
 | QA-084 | Medium | Money/data | BE | Code ✔ | Invoice API line items still show the live fee type name after a rename (public bills use the snapshot) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
-| QA-085 | Medium | Money | BE | Code ✔ | Structure penalty and due date ignored; bill prints a hard-coded 10% penalty — **open** (code re-checked 24 Oct) |
+| QA-085 | Medium | Money | BE | Code ✔ | Structure penalty and due date ignored; bill prints a hard-coded 10% penalty — **fixed** (25 Oct; BE `80fb344`) |
 | QA-086 | Medium | Money/EDGE | FE | Code ✔ | A cash payment can still be recorded twice after a timeout or closed modal — **open** (code re-checked 24 Oct) |
 | QA-200 | Medium | EDGE | BE | Browser ✔ | School codes case-sensitive and untrimmed — **fixed** (24 Oct; BE `611856b`) |
 | QA-202 | Medium | FLOW | Both | Browser ✔ | Pending principal invite invisible to Super Admin; two principal invites can be open — **fixed** (24 Oct; BE `7d5a143`, FE `2c15920`; follow-up QA-253) |
 | QA-203 | Medium | FLOW | BE | Browser ✔ | Plain-text email links broken (`token&#x3D;`) — **fixed** (24 Oct; BE `7d5a143`) |
 | QA-209 | Medium | EDGE | Both | Browser ✔ | Future birth date accepted at admission — **fixed** (24 Oct; BE `7d5a143`, FE `d5d0ae1`) |
 | QA-213 | Medium | UX | FE | Browser ✔ | Ward-link OTP errors flattened; no "start again" after lockout — **open** (code re-checked 24 Oct) |
-| QA-215 | Medium | Money | BE | Browser ✔ | GHS 0 invoice marked UNPAID and sent to parents — **open** (code re-checked 24 Oct) |
+| QA-215 | Medium | Money | BE | Browser ✔ | GHS 0 invoice marked UNPAID and sent to parents — **fixed** (25 Oct; BE `80fb344`) |
 | QA-216 | Medium | Money/FLOW | Both | Browser ✔ | One MoMo transfer can't cover several siblings — **open** (code re-checked 24 Oct) |
 | QA-217 | Medium | UX | FE | Browser ✔ | Fees KPI cards stale after payments and Refresh — **open** (code re-checked 24 Oct) |
-| QA-218 | Medium | FLOW | BE | Browser ✔ | Only one extra bill per fee type per term — **open** (code re-checked 24 Oct) |
+| QA-218 | Medium | FLOW | BE | Browser ✔ | Only one extra bill per fee type per term — **fixed** (25 Oct; BE `80fb344`) |
 | QA-219 | Medium | UX/Money | BE | Browser ✔ | The public bill lumps this term's extra bills into "Balance from previous bills" instead of listing them (the "Bal B/f" label is gone) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
-| QA-220 | Medium | Money | BE | Browser ✔ | Credit not applied to new extra bills — **open** (code re-checked 24 Oct) |
+| QA-220 | Medium | Money | BE | Browser ✔ | Credit not applied to new extra bills — **closed: by design** (25 Oct; the user decided extra bills don't take credit) |
 | QA-221 | Medium | Money/FLOW | FE | Browser ✔ | Extra bills can't be paid on their own — **open** (code re-checked 24 Oct) |
 | QA-223 | Medium | EDGE | Both | Browser ✔ | Promotion accepts a past, already-billed term — **open** (code re-checked 24 Oct) |
 | QA-224 | Medium | FLOW | Both | Browser ✔ | Exit dialog hides the outstanding balance — **open** (code re-checked 24 Oct) |
@@ -1167,9 +1167,9 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-013 | Fixed (re-tested 24 Oct after 44b2a3f) | Academic Head limited to Teacher/Secretary/Parent (18b3c9a); any creator can still set a password that activates at once |
 | QA-014 | Open | register-parent 409 "Email already registered"; login skips hashing for unknown emails |
 | QA-016 | Partly fixed | national IDs and guardian contacts hidden from teachers; list still whole-school and medical notes still shown |
-| QA-017 | Open | no student-status check on payments; no write-off on exit |
+| QA-017 | Fixed (policy) | 25 Oct, BE `80fb344`. The user decided a leaver's bills stay owed and payable. On QPM-402, Seed04 (bill 450) was exited as Transferred_Out. `GET /invoices?leavers=true` lists the bill, `/invoices/summary?leavers=true` and `?studentId=` return outstanding 450, and a GHS 10 payment then gets 201 (balance 440). The exit dialog showing the balance is QA-224 (frontend). |
 | QA-018 | Partly fixed | Re-tested 25 Oct (BE `f6cf1d2`, `8abbe07`). Term end before start gets 400 (see QA-076). A future payment date gets 400 "The payment date can't be in the future". A date before the school's first live year (1990-01-01 or 2025-08-31 on QPM-402) gets 400 "The payment date can't be before 2026/27 began (2026-09-01)". Still open: there is no way to close a finished term. Only whole years can be archived, and only when unused. |
-| QA-019 | Open | no @Max on amount, dueDate unvalidated, amount ignored when allocations sent |
+| QA-019 | Partly fixed | 25 Oct, BE `80fb344`. Amount 10,000,000.01 gets 400 "A payment can be at most 10,000,000.00" (it used to 500). Amount 100 with allocations of 60 gets 400 "The amount (100.00) doesn't match the allocations (60.00)". Generate with `dueDate: "soon"` gets 400. Still open: a GHS 60 allocation to QA Excursion, a fee type not on Seed02's bill, was accepted (201). |
 | QA-020 | Partly fixed | forms post to POST /public/leads (submitLead); waitlist success copy still promises "login credentials" (WaitlistForm.tsx:112) |
 | QA-021 | Fixed | 25 Oct, BE `17900c0`. `otp.service.ts:53` now catches the send failure and logs a warning. `otp.service.spec.ts` passes 6/6. Not triggered live, since the email client can't easily be made to fail. |
 | QA-022 | Partly fixed | payments check suspension (18b3c9a); public invoice, media, optional fees, queued jobs still unchecked |
@@ -1209,7 +1209,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-058 | Fixed | calendar opens for staff (browser, 21 Oct run) |
 | QA-059 | Partly fixed | breadcrumb fixed, empty submit shows a message; wrong password still shows both an alert and a toast |
 | QA-061 | Open | FIS-001 still flags the Jan 2027 term current while today is in Term 1; billing forms still default to the flagged term with no dates shown |
-| QA-062 | Open | duplicate check still only looks at extra bills, not term bills (invoice-line-item.repository.ts:58) |
+| QA-062 | Fixed | 25 Oct, BE `80fb344`: an extra bill for PTA Levy for Seed02, whose term bill has PTA Levy, gets 409 "PTA Levy is already on the term bill of this pupil, so it can't be billed again as an extra bill." Earlier note: duplicate check still only looked at extra bills, not term bills (invoice-line-item.repository.ts:58) |
 | QA-064 | Fixed | 25 Oct, FE `55c49bb`. Re-tested in the browser on QPM-402 throwaway drafts. (1) A section duplicated on v10, then a switch to v6 within 120 ms, sent one PATCH to v10 (blocks 10 → 11) and none to v6, which stayed at 6 blocks. |
 | QA-065 | Fixed | 25 Oct, FE `55c49bb`. (3) An edit on v10, then the Overview link within 120 ms: the PATCH was sent before leaving (DB blocks 12). (4) With PATCH forced to 500, the status read "Not saved" with Try again. A kind switch retried the save, then asked "Your last change to this design could not be saved. Leave it anyway?". Declining stayed on v10, and Try again (with the failure removed) saved it, showing "All changes saved" (DB 13). (5) Reloading 100 ms after an edit raised the browser's leave warning; staying kept the page, and the edit saved (DB 14). |
 | QA-066 | Fixed | 25 Oct, FE `55c49bb`. (2) An edit on v6, then Publish within 120 ms: PATCH v6 (7 blocks), then publish v6. The DB shows v6 PUBLISHED with the 7-block layout, the one on screen, and the page shows the "live and can't be changed. Use Edit a copy" notice. |
@@ -1231,18 +1231,18 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-082 | Open | approve doesn't re-check fee type or enrolment; leavers still resolve to their last enrolment |
 | QA-083 | Open | no stored price; parent history capped at 10; issued bills unchanged by approve |
 | QA-084 | Partly fixed | public bill uses the snapshot name; invoice API line items still read the live fee type name |
-| QA-085 | Open | due date from the Generate form, structure penalty unused; the 10% note is now an editable default |
+| QA-085 | Fixed | 25 Oct, BE `80fb344`. Primary 1 on QPM-402 has QA Tuition 400 (due 15 Nov, penalty 20) and PTA Levy 50 (due 1 Nov, penalty 5). Generating with no due date gave every bill due 2026-11-01, and the public JSON has `latePenalty: 25`. A Notes section prints "A late payment penalty of GH¢25.00 applies after the payment deadline.", and no design code has a fixed 10%. Nit: a fully discounted (GHS 0, PAID) bill still prints the penalty line. Earlier note: due date from the Generate form, structure penalty unused; the 10% note is now an editable default |
 | QA-086 | Open | modal can still close while saving; 409 shows a generic error; key regenerated on reopen; no timeout |
 | QA-087 | Open | discounts tab not module-gated, description can't be cleared, exact-match names, no @Max |
 | QA-206 | Fixed | re-tested 22 Oct (backend bcb2e0b) |
 | QA-212 | Fixed | re-tested 22 Oct |
 | QA-213 | Open | ward-link messages still generic; no attempts left or "Start again" |
-| QA-215 | Open | GHS 0 bill still shows UNPAID (student-invoice-response.dto.ts:277-286) |
+| QA-215 | Fixed | 25 Oct, BE `80fb344`. Seed01 has a 100% discount, so the bill is 450 − 450 = 0. It shows PAID in the public JSON and the staff view. "Send bill links" for Primary 1 queued 15 and said "1 bill(s) with nothing to pay were not sent." |
 | QA-216 | Open | transaction reference unique per school, so one MoMo transfer can't cover siblings |
 | QA-217 | Open | summary not re-fetched on Refresh or after recording a payment (FeesPage.tsx:198-248) |
-| QA-218 | Open | still one extra bill per fee type, student and term |
+| QA-218 | Fixed | 25 Oct, BE `80fb344`. For Seed03, QA Excursion extra bills "Kakum excursion" and "Museum trip" both get 201. For Seed05, " KAKUM EXCURSION " and "kakum excursion" after "Kakum excursion" get 409 "These pupils already have an extra bill … Use a different title for a separate charge." Nit: doubled spaces inside a title aren't collapsed, so "  kakum   EXCURSION " was accepted as different. |
 | QA-219 | Partly fixed | "Bal B/f" became "Balance from previous bills" and figures are frozen (eb0f25c); extra bills still lumped into that line, not listed by title |
-| QA-220 | Open | new extra bills still ignore existing credit |
+| QA-220 | Closed (by design) | 25 Oct: the user decided credit isn't applied to extra bills, so they stay payable in full. |
 | QA-221 | Open | Record Payment still pays only the latest bill; no bill picker |
 | QA-223 | Open | promotion still accepts a past, already-billed term |
 | QA-224 | Open | exit dialog still shows no outstanding balance |

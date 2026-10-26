@@ -91,7 +91,7 @@ export const WaitlistForm: React.FC = () => {
         </Box>
 
         <Badge size="md" color="green" variant="light" mb="xs">
-          Waitlist Registration Confirmed
+          Request received
         </Badge>
 
         <Text
@@ -103,7 +103,7 @@ export const WaitlistForm: React.FC = () => {
             marginBottom: 8,
           }}
         >
-          Registration Received for {form.schoolName}
+          We&apos;ll be in touch
         </Text>
 
         <Text
@@ -111,8 +111,10 @@ export const WaitlistForm: React.FC = () => {
           c="dimmed"
           style={{ maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.6 }}
         >
-          Thank you. Our team from Fastrack Accra headquarters will send login credentials and
-          system onboarding materials to <strong>{form.email}</strong>.
+          {/* Only the request is saved; a person follows up. Promise nothing automatic (QA-020). */}
+          Thank you, we&apos;ve received {form.schoolName}&apos;s request. Someone from our Accra
+          team will contact you at <strong>{form.email}</strong> to arrange a demo and set up your
+          school.
         </Text>
 
         <Box

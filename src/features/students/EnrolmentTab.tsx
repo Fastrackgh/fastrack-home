@@ -42,7 +42,8 @@ export function EnrolmentTab({
   const [promoteTermId, setPromoteTermId] = useState<string | null>(null);
   const [exitTermId, setExitTermId] = useState<string | null>(null);
   const [exitDate, setExitDate] = useState(todayIso());
-  const [exitStatus, setExitStatus] = useState<StudentStatus>('Graduated');
+  // No default: a mid-school leaver isn't a graduate, so the outcome is always chosen.
+  const [exitStatus, setExitStatus] = useState<StudentStatus | null>(null);
   const [reason, setReason] = useState('');
   const [busy, setBusy] = useState<'promote' | 'exit' | null>(null);
   const [confirmExit, setConfirmExit] = useState(false);
@@ -191,10 +192,12 @@ export function EnrolmentTab({
             <Group grow align="flex-start">
               <Select
                 label="Outcome"
+                placeholder="Graduated, transferred…"
                 data={EXIT_STATUSES.map((s) => ({ value: s, label: STATUS_LABELS[s] }))}
                 value={exitStatus}
                 onChange={(v) => v && setExitStatus(v as StudentStatus)}
                 allowDeselect={false}
+                required
                 radius="md"
               />
               <Select
@@ -225,7 +228,7 @@ export function EnrolmentTab({
                 color="red"
                 variant="light"
                 radius="md"
-                disabled={!exitTermId || !exitDate}
+                disabled={!exitStatus || !exitTermId || !exitDate}
                 loading={busy === 'exit'}
                 onClick={() => setConfirmExit(true)}
               >
@@ -236,7 +239,7 @@ export function EnrolmentTab({
         </Card>
       )}
 
-      {confirmExit && (
+      {confirmExit && exitStatus && (
         <ConfirmModal
           title={`Record that ${student.fullName} left?`}
           confirmLabel="Record exit"

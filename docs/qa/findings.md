@@ -24,8 +24,8 @@
 | Critical | 8 | 8 | 0 | 0 |
 | High | 31 | 28 | 3 | 0 |
 | Medium | 80 | 46 | 14 | 20 |
-| Low | 40 | 21 | 6 | 13 |
-| **Total** | **159** | **103** | **23** | **33** |
+| Low | 40 | 22 | 6 | 12 |
+| **Total** | **159** | **104** | **23** | **32** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -185,7 +185,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-267 | Medium | Data | FE | Browser ✔ | A head's "Remove" on a class test that already has marks deletes the test and every mark in it at once, with no confirmation — **fixed** (25 Oct; FE `3cdfbf6`) |
 | QA-268 | Low | EDGE | BE | Live ✔ | A later period can be dated before an earlier, still undated one, leaving no room for the earlier period — **fixed** (25 Oct; BE `8abbe07`) |
 | QA-269 | Low | UX | FE | Browser ✔ | "Set dates" on an undated term shows the switch "This is the current academic year", although it sets the current term — **fixed** (25 Oct; FE `78939e7`) |
-| QA-270 | Low | Audit | BE | Live ✔ | Changing a school's current term (or year) writes no audit-log entry — **open** (26 Oct) |
+| QA-270 | Low | Audit | BE | Live ✔ | Changing a school's current term (or year) writes no audit-log entry — **fixed** (26 Oct; BE `0797870`) |
 | QA-246 | Low | UX | FE | Browser ✔ | School setup calls the fee-types API on schools without the fees module (repeated 403s) — **fixed** (24 Oct; FE `e469eda`) |
 | QA-247 | Low | Data | BE | DB ✔ | A promotion into a later term records the new class history row as starting today, not on the term's start date — **fixed** (24 Oct; BE `f9e93b5`) |
 | QA-249 | Low | UX | Both | Browser ✔ | Move classes up: the result says "0 stayed" for classes set to "Don't move", though the confirmation counted them — **fixed** (24 Oct; FE `b032a41`) |
@@ -1168,7 +1168,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-012 | Fixed (re-tested 24 Oct after 44b2a3f) | no helmet, Swagger always on, CORS origin ?? '*' with credentials, NODE_ENV defaults to development |
 | QA-013 | Fixed (re-tested 24 Oct after 44b2a3f) | Academic Head limited to Teacher/Secretary/Parent (18b3c9a); any creator can still set a password that activates at once |
 | QA-014 | Open | register-parent 409 "Email already registered"; login skips hashing for unknown emails |
-| QA-016 | Partly fixed | national IDs and guardian contacts hidden from teachers; list still whole-school and medical notes still shown |
+| QA-016 | Partly fixed | National IDs and guardian contacts are hidden from teachers. Re-checked 26 Oct on QPM-402 with teacher@qpm.test, who teaches only Primary 1 Mathematics: `GET /students` still lists all 24 pupils in Primary 1–3, and Yaa (Primary 2) shows allergies/medical notes, blood group and the emergency contact name. **The user decided (26 Oct):** a teacher sees only pupils in classes they teach (homeroom plus subject assignments); others are left out and return 404. Health details go only to that pupil's teachers; heads and the Secretary see everything. Sent to editable-guardian-contacts. |
 | QA-017 | Fixed (policy) | 25 Oct, BE `80fb344`. The user decided a leaver's bills stay owed and payable. On QPM-402, Seed04 (bill 450) was exited as Transferred_Out. `GET /invoices?leavers=true` lists the bill, `/invoices/summary?leavers=true` and `?studentId=` return outstanding 450, and a GHS 10 payment then gets 201 (balance 440). The exit dialog showing the balance is QA-224 (frontend). |
 | QA-018 | Partly fixed | Re-tested 25 Oct (BE `f6cf1d2`, `8abbe07`). Term end before start gets 400 (see QA-076). A future payment date gets 400 "The payment date can't be in the future". A date before the school's first live year (1990-01-01 or 2025-08-31 on QPM-402) gets 400 "The payment date can't be before 2026/27 began (2026-09-01)". Still open: there is no way to close a finished term. Only whole years can be archived, and only when unused. |
 | QA-019 | Partly fixed | 25 Oct, BE `80fb344`. Amount 10,000,000.01 gets 400 "A payment can be at most 10,000,000.00" (it used to 500). Amount 100 with allocations of 60 gets 400 "The amount (100.00) doesn't match the allocations (60.00)". Generate with `dueDate: "soon"` gets 400. Still open: a GHS 60 allocation to QA Excursion, a fee type not on Seed02's bill, was accepted (201). |
@@ -1268,7 +1268,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-267 | Fixed | 25 Oct, FE `3cdfbf6`. An unmarked test is removed at once. A marked one asks "Remove Marked Quiz? Marked Quiz and its 3 marks will be deleted. This can't be undone." "Keep it" keeps the test and its 3 marks; "Remove test and marks" deletes them (DB 0). |
 | QA-268 | Fixed | 25 Oct, BE `8abbe07`. On QRG-501 2028/29 (both semesters undated), dating Semester 2 first gets 400 "Set Semester 1's dates first: terms are dated in order". Semester 1, then Semester 2, saves. |
 | QA-269 | Fixed | 25 Oct, FE `78939e7`, re-tested on QRG-501. "Set the dates of Semester 2, 2027/28" (undated) and "Edit Semester 1, 2027/28" (dated) both say "This is the current term". "Edit 2026/27" (the current year) says "This is the current academic year", with the switch locked: "To change it, make another year current instead." |
-| QA-270 | Open | found 26 Oct; making a term or year current isn't audited |
+| QA-270 | Fixed | 26 Oct, BE `0797870`, re-tested on QRG-501 as the Principal. Making Semester 2 current wrote `academic_term.made_current` with metadata `{via: "term", previousId}`. Repeating it wrote nothing. Making 2027/28 current wrote `academic_year.made_current` plus `academic_term.made_current` (`via: "year"`), and switching back did the same. Actor PRINCIPAL on every row. |
 
 | QA-254 | Fixed | dev email preview moved to 127.0.0.1:4080 (5af0b93); re-tested 24 Oct |
 ## Results phase 0: subjects (tested 24 Oct 2026)

@@ -106,4 +106,4 @@ Enforced by the backend and mirrored in the UI where possible:
 
 - No SMS or email to parents on absence, even though marketing promises it (`src/data/schoolModules.ts`).
 - No offline marking.
-- No school-wide daily overview across classes. The Overview dashboard's attendance tiles are still sample data.
+- No school-wide daily overview page across classes. The Overview's "Present today" tile (live since 26 Oct, QA-034) sums each class's register; see [Overview dashboard](./overview-dashboard.md).

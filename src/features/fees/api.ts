@@ -134,6 +134,8 @@ export const PAYMENT_METHODS = [
 export interface InvoiceQuery {
   page: number;
   search?: string;
+  /** One term's bills. */
+  termId?: string | null;
   classId?: string | null;
   status?: InvoiceStatus;
   /** One pupil's bills (their school membership id). */

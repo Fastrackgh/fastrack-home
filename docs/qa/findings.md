@@ -22,10 +22,10 @@
 | Severity | Count | Fixed | Partly fixed | Open |
 |---|---|---|---|---|
 | Critical | 8 | 8 | 0 | 0 |
-| High | 31 | 29 | 2 | 0 |
+| High | 31 | 30 | 1 | 0 |
 | Medium | 80 | 46 | 14 | 20 |
 | Low | 40 | 22 | 6 | 12 |
-| **Total** | **159** | **105** | **22** | **32** |
+| **Total** | **159** | **106** | **21** | **32** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -47,7 +47,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-009 | High | SEC | Both | Live ✔ Browser ✔ | Logout and password change never end the session on the server; tokens sit in localStorage with no CSP — **fixed** (reconciled 24 Oct) |
 | QA-010 | High | SEC | BE | Live ✔ | Public invoice opens by its database UUID, never expires, isn't throttled, and exposes a staff email — **fixed** (24 Oct; BE `a417fb0`: token-only links, rotated on resend, rate-limited, no staff email, 404 when suspended) |
 | QA-013 | High | SEC | BE | Live ✔ Browser ✔ | Any staff creator can set a password that activates the new account at once (Academic Head role limits are fixed) — **fixed** (24 Oct; BE `5857a8d`: only a Super Admin sets a password at creation; staff invite) |
-| QA-016 | High | SEC | Both | Live ✔ Browser ✔ | Teachers still see every class in the school and medical notes (national IDs and guardian contacts are now hidden) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-016 | High | SEC | Both | Live ✔ Browser ✔ | Teachers saw every pupil in the school, with medical notes — **fixed** (26 Oct; BE `3c4a1ed` TeacherScope, FE class pickers) |
 | QA-026 | High | FLOW | Both | Code ✔ | Parents can't use any real feature: every parent API call returns 403 and there is no parent UI — **fixed** (reconciled 24 Oct) |
 | QA-027 | High | FLOW | Both | Browser ✔ | No forgot/reset password anywhere — **fixed** (reconciled 24 Oct) |
 | QA-028 | High | FLOW | FE | Live ✔ Browser ✔ | Generate-invoices toast reads "Generated undefined … GHS 0.00" because the field names don't match — **fixed** (reconciled 24 Oct) |
@@ -1168,7 +1168,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-012 | Fixed (re-tested 24 Oct after 44b2a3f) | no helmet, Swagger always on, CORS origin ?? '*' with credentials, NODE_ENV defaults to development |
 | QA-013 | Fixed (re-tested 24 Oct after 44b2a3f) | Academic Head limited to Teacher/Secretary/Parent (18b3c9a); any creator can still set a password that activates at once |
 | QA-014 | Open | register-parent 409 "Email already registered"; login skips hashing for unknown emails |
-| QA-016 | Partly fixed | National IDs and guardian contacts are hidden from teachers. Re-checked 26 Oct on QPM-402 with teacher@qpm.test, who teaches only Primary 1 Mathematics: `GET /students` still lists all 24 pupils in Primary 1–3, and Yaa (Primary 2) shows allergies/medical notes, blood group and the emergency contact name. **The user decided (26 Oct):** a teacher sees only pupils in classes they teach (homeroom plus subject assignments); others are left out and return 404. Health details go only to that pupil's teachers; heads and the Secretary see everything. Sent to editable-guardian-contacts. |
+| QA-016 | Fixed | 26 Oct, BE `3c4a1ed` + FE, built to the user's decisions: a teacher sees only pupils in classes they teach (homeroom plus subject assignments), and health details only for those pupils. Re-tested on QPM-402: Tete (subject-only, Primary 1 Maths) lists 13 pupils, all Primary 1; search "Yaa" and the Primary 2 filter give 0; Yaa returns 404 "Student not found" (optional-fees 404). A Primary 1 pupil opens with health fields, and phones stay hidden. The Primary 2 class teacher (Bulk001) lists 3 pupils and sees Yaa's "peanut allergy", O+ and emergency contact, while a Primary 1 pupil is 404. An unassigned teacher gets 0 (total 0), and the UI says "No pupils yet: you'll see the pupils of the classes you teach." The Academic Head still sees all 112. Mark sheets and the reports board list only taught classes. On FIS-001 (read-only), Kwame (Primary 1 class teacher) gets the Primary 1 register (200), Primary 2 gives 403 "You can only see the classes you teach.", and his Attendance and Students pickers offer only Primary 1. Using the pages as a teacher triggered no 403 or 404. |
 | QA-017 | Fixed (policy) | 25 Oct, BE `80fb344`. The user decided a leaver's bills stay owed and payable. On QPM-402, Seed04 (bill 450) was exited as Transferred_Out. `GET /invoices?leavers=true` lists the bill, `/invoices/summary?leavers=true` and `?studentId=` return outstanding 450, and a GHS 10 payment then gets 201 (balance 440). The exit dialog showing the balance is QA-224 (frontend). |
 | QA-018 | Partly fixed | Re-tested 25 Oct (BE `f6cf1d2`, `8abbe07`). Term end before start gets 400 (see QA-076). A future payment date gets 400 "The payment date can't be in the future". A date before the school's first live year (1990-01-01 or 2025-08-31 on QPM-402) gets 400 "The payment date can't be before 2026/27 began (2026-09-01)". Still open: there is no way to close a finished term. Only whole years can be archived, and only when unused. |
 | QA-019 | Partly fixed | 25 Oct, BE `80fb344`. Amount 10,000,000.01 gets 400 "A payment can be at most 10,000,000.00" (it used to 500). Amount 100 with allocations of 60 gets 400 "The amount (100.00) doesn't match the allocations (60.00)". Generate with `dueDate: "soon"` gets 400. Still open: a GHS 60 allocation to QA Excursion, a fee type not on Seed02's bill, was accepted (201). |

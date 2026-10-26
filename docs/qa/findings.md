@@ -21,11 +21,11 @@
 
 | Severity | Count | Fixed | Partly fixed | Open |
 |---|---|---|---|---|
-| Critical | 8 | 7 | 1 | 0 |
+| Critical | 8 | 8 | 0 | 0 |
 | High | 31 | 27 | 3 | 1 |
 | Medium | 80 | 46 | 14 | 20 |
 | Low | 39 | 21 | 6 | 12 |
-| **Total** | **158** | **101** | **24** | **33** |
+| **Total** | **158** | **102** | **23** | **33** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -35,7 +35,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-002 | Critical | FLOW | BE | Live ✔ | Carried-forward arrears are counted twice; a paid-up student's bill still shows a debt — **fixed** (reconciled 24 Oct) |
 | QA-003 | Critical | SEC | Both | Live ✔ Browser ✔ | Suspending a school has no effect; the UI reports success — **fixed** (reconciled 24 Oct) |
 | QA-015 | Critical | FLOW | Both | Browser ✔ | Invited staff can never get in: the invite links to a page the frontend doesn't have — **fixed** (page in 41eeb3b; crash fixed 22 Oct, QA-204) |
-| QA-020 | Critical | FLOW | FE | Browser ✔ | Leads are saved now, but the waitlist success message still promises "login credentials" — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-020 | Critical | FLOW | FE | Browser ✔ | Waitlist and contact forms lost leads and promised login credentials — **fixed** (26 Oct; leads saved, and the waitlist copy no longer promises credentials) |
 | QA-204 | Critical | FLOW | FE | Browser ✔ | Invite link page crashes (no AuthProvider): no invited user can activate an account — **fixed** (22 Oct) |
 | QA-206 | Critical | EDGE/data | BE | **Fixed** 22 Oct (backend bcb2e0b) | Setting the current year/term returns 500 and leaves two current years/terms — **fixed** (reconciled 24 Oct) |
 | QA-212 | Critical | FLOW | FE | **Fixed** 22 Oct | Parent sign-up crashes on the first keystroke — **fixed** (reconciled 24 Oct) |
@@ -1170,7 +1170,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-017 | Fixed (policy) | 25 Oct, BE `80fb344`. The user decided a leaver's bills stay owed and payable. On QPM-402, Seed04 (bill 450) was exited as Transferred_Out. `GET /invoices?leavers=true` lists the bill, `/invoices/summary?leavers=true` and `?studentId=` return outstanding 450, and a GHS 10 payment then gets 201 (balance 440). The exit dialog showing the balance is QA-224 (frontend). |
 | QA-018 | Partly fixed | Re-tested 25 Oct (BE `f6cf1d2`, `8abbe07`). Term end before start gets 400 (see QA-076). A future payment date gets 400 "The payment date can't be in the future". A date before the school's first live year (1990-01-01 or 2025-08-31 on QPM-402) gets 400 "The payment date can't be before 2026/27 began (2026-09-01)". Still open: there is no way to close a finished term. Only whole years can be archived, and only when unused. |
 | QA-019 | Partly fixed | 25 Oct, BE `80fb344`. Amount 10,000,000.01 gets 400 "A payment can be at most 10,000,000.00" (it used to 500). Amount 100 with allocations of 60 gets 400 "The amount (100.00) doesn't match the allocations (60.00)". Generate with `dueDate: "soon"` gets 400. Still open: a GHS 60 allocation to QA Excursion, a fee type not on Seed02's bill, was accepted (201). |
-| QA-020 | Partly fixed | forms post to POST /public/leads (submitLead); waitlist success copy still promises "login credentials" (WaitlistForm.tsx:112) |
+| QA-020 | Fixed | 26 Oct, FE (results session, after `bfb89b2`). A real /coming-soon submission ("QA Waitlist Test School", qa-waitlist@example.org) gets POST /public/leads 202, and a WAITLIST row is saved. The success screen reads "REQUEST RECEIVED · We'll be in touch · Thank you, we've received QA Waitlist Test School's request. Someone from our Accra team will contact you at … to arrange a demo and set up your school." It no longer mentions credentials or onboarding materials. The contact form's "will call or email you shortly" was kept, since a person does follow up. Separate (QA-044): the /coming-soon hero still promises "complimentary data migration, staff training, and bulk SMS credits". |
 | QA-021 | Fixed | 25 Oct, BE `17900c0`. `otp.service.ts:53` now catches the send failure and logs a warning. `otp.service.spec.ts` passes 6/6. Not triggered live, since the email client can't easily be made to fail. |
 | QA-022 | Partly fixed | payments check suspension (18b3c9a); public invoice, media, optional fees, queued jobs still unchecked |
 | QA-023 | Partly fixed | only AdminJS has a Redis lockout; main throttler still IP+email, in memory, no lockout |

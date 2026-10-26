@@ -11,7 +11,7 @@ Each tile loads on its own call, so one failure doesn't hide the others. The cur
 | Tile | Shown when | Call | Notes |
 |---|---|---|---|
 | Active pupils / My pupils | `students` module and `students:read` | `GET /schools/me/students?status=Active&limit=1` (`meta.total`) | Teachers get the pupils of the classes they teach (QA-016 scoping). |
-| Fees collected, Outstanding fees | `fees` module, `invoices:read` and a current term | `GET /schools/me/invoices/summary?termId=` | With no bills for the term, one tile reads "No bills yet". The backend allows only Principal and Account Officer. |
+| Fees collected, Outstanding fees | `fees` module, `invoices:read` and a current term | `GET /schools/me/invoices/summary?termId=` | With no bills for the term, one tile reads "No bills yet". When `carriedForward` is above 0, Outstanding says "GHS x moved to later bills" (QA-271). The backend allows only Principal and Account Officer. |
 | Present today (school-wide) | `attendance` module and `attendance:read` | `GET /schools/me/attendance/register?classId&date` for every class | Present counts present, late and half day, out of the pupils marked so far, with "x of y registers taken". A closed day shows "No school" and the reason. |
 | {Class} register (teacher) | the same, for a teacher with a homeroom class | the homeroom's register for today | Before marking is finished: "x/y marked" or "Not taken yet". After: present out of the class. Teachers without a homeroom get no tile. |
 | Mark sheets submitted | `results` module, `marks:enter` and a current term | `GET /schools/me/mark-sheets?termId&mine=` | Teachers see only their own sheets (`mine=true`). The gate matches the Mark sheets page, since the backend refuses the list to Secretary. |

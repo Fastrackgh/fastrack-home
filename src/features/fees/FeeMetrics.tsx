@@ -54,7 +54,11 @@ export function FeeMetrics({
         tint="rgba(224, 26, 43, 0.1)"
         value={formatGhs(outstanding)}
         valueColor="red.7"
-        note="Pending student fee balances"
+        note={
+          summary?.carriedForward
+            ? `${formatGhs(summary.carriedForward)} moved to later bills`
+            : 'Pending student fee balances'
+        }
       />
       <MetricCard
         label="Collection Efficiency"

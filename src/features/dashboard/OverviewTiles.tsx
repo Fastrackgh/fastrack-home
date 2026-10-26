@@ -189,7 +189,9 @@ async function feesSummary(term: CurrentTerm): Promise<Metric[]> {
     {
       label: 'Outstanding fees',
       value: formatGhs(s.outstanding),
-      detail: `${count(s.invoiceCount, 'bill')} for ${term.termLabel}`,
+      detail: s.carriedForward
+        ? `${formatGhs(s.carriedForward)} moved to later bills`
+        : `${count(s.invoiceCount, 'bill')} for ${term.termLabel}`,
       tone: s.outstanding > 0 ? 'orange' : 'green',
     },
   ];

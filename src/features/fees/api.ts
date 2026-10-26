@@ -252,6 +252,8 @@ export interface InvoiceSummary {
   collected: Pesewas;
   outstanding: Pesewas;
   overpaid: Pesewas;
+  /** Unpaid balances moved to a later bill: still owed, but on that bill (QA-271). */
+  carriedForward: Pesewas;
   /** Collected ÷ (collected + outstanding), as a percentage to one decimal. */
   collectionRate: number;
 }
@@ -303,6 +305,7 @@ export const feesApi = {
       collected: toPesewas(raw.totalCollected),
       outstanding: toPesewas(raw.outstanding),
       overpaid: toPesewas(raw.overpaid),
+      carriedForward: toPesewas(raw.carriedForward),
       collectionRate: Number(raw.collectionRate ?? 0),
     };
   },

@@ -357,7 +357,7 @@ sequenceDiagram
 
 ## Known issues
 
-- ~~**KPIs cover the visible page only.**~~ Fixed 21 October 2026: the four cards come from `GET /schools/me/invoices/summary` and total every invoice matching the table's filters. Against a backend without that endpoint they fall back to the page totals and say "invoices shown".
+- ~~**KPIs cover the visible page only.**~~ Fixed 21 October 2026: the four cards come from `GET /schools/me/invoices/summary` and total every invoice matching the table's filters. Against a backend without that endpoint they fall back to the page totals and say "invoices shown". Updated 26 Oct (QA-271): balances carried to a later bill count as not collected, and Outstanding Arrears then reads "GHS x moved to later bills" (the summary's `carriedForward`).
 - **Invoice search** is debounced (300ms, `FeesPage.tsx:53`) but has no stale-response guard.
   - Typing on page 3 resets the page to 1, which fires an immediate request with the *old* search term. The debounced request follows.
   - Whichever response arrives last wins.

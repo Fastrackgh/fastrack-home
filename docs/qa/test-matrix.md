@@ -76,6 +76,10 @@ Walked in the browser. "→ dash" means the page redirected to the dashboard (co
 | Double-click Record Payment in the UI | ✅ one request | QA-004 |
 | Type an amount while the balance is loading (UI) | ❌ typed GHS 50, recorded GHS 1,450 | QA-055 |
 | Reused client `receiptNumber` | ❌ 500 | QA-004 |
+| Re-test 26 Oct: slow save, Esc / click outside (UI) | ✅ stays open until the 20 s warning | QA-086 |
+| Re-test 26 Oct: answer lost, retry in the same tab or after a reload (UI) | ✅ same key, 409 "Already recorded" with the receipt | QA-086 |
+| Re-test 26 Oct: same key sent twice at once | ✅ one 201, one 409 | QA-086 |
+| Re-test 26 Oct: late answer while the next payment window is open (UI) | ❌ the next window closes, and the earlier receipt opens | QA-273 |
 | Negative amount | ✅ 400 | — |
 | Amount 99,999,999,999 | ❌ 500 | QA-019 |
 | Overpayment ×34 | ❌ accepted silently | QA-029 |

@@ -2,11 +2,18 @@
 
 20 Oct 2026. Full detail: [findings.md](./findings.md) (151 findings; QA-060 to QA-088 and QA-200 to QA-262 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
-**Status on 25 Oct 2026, reconciled against the code and re-tests:** 107 fixed or closed, 21 partly fixed, 32 open (160 findings). All eight Critical findings are fixed (QA-020, the last one, on 26 Oct). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
+**Status on 26 Oct 2026, reconciled against the code and re-tests:** 109 fixed or closed, 20 partly fixed, 33 open (162 findings). All eight Critical findings are fixed (QA-020, the last one, on 26 Oct). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
 - **Open:** none (QA-061 fixed 26 Oct). The design builder ones (QA-064, QA-065, QA-066) were fixed and re-tested in the browser on 25 Oct.
 - **Partly fixed:** none. Every High finding is fixed (QA-034, the last, on 26 Oct).
 
 Details are under "Status reconciliation" in findings.md.
+
+**Money re-test, 26 Oct (late):**
+- **QA-086 fixed.** A cash payment can no longer be recorded twice. A slow save can't be closed for 20 s. A retry in the same tab, even after a reload, reuses the payment's key and reads "Already recorded" with the receipt number. Re-tested in the browser on QPM-402, with one payment per key in the DB.
+- **QA-271 fixed.** The FIS-001 Overview reads "GHS 10,560.00 moved to later bills", no longer "100% collected". The backend half (`d8532b2`, branch `fix/parent-fees-summary`) still has to be merged to main.
+- **Two new Low findings:**
+  - QA-272: the collection rate counts a credit carried forward as money due, so the tile reads 30.3% beside figures that give 34.7%.
+  - QA-273: a slow payment's late answer closes the next payment window the cashier has open.
 
 **Results phase 0 (subjects), tested 24 Oct:** the subject list, the subjects each class takes, teachers per subject, role access and school isolation all pass on the throwaway school QAS-300, with no new findings. See "Results phase 0: subjects" in findings.md.
 
@@ -166,7 +173,7 @@ A code-reading pass over the features built after the audit added QA-064 to QA-0
 - **Money and data.**
   - Renaming a fee type rewrites issued invoices (QA-084).
   - The bill prints a hard-coded 10% penalty, ignoring the structure's penalty (QA-085).
-  - A cash payment can still be recorded twice after a closed modal (QA-086).
+  - A cash payment could still be recorded twice after a closed modal (QA-086). **Fixed 26 Oct** (FE `41810cd`).
   - Calendar closures added to past terms change attendance totals (QA-072).
 - **Setup integrity.**
   - Years, terms and classes can't be deleted (QA-075).

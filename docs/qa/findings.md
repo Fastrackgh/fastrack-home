@@ -22,10 +22,10 @@
 | Severity | Count | Fixed | Partly fixed | Open |
 |---|---|---|---|---|
 | Critical | 8 | 8 | 0 | 0 |
-| High | 31 | 28 | 3 | 0 |
+| High | 31 | 29 | 2 | 0 |
 | Medium | 80 | 46 | 14 | 20 |
 | Low | 40 | 22 | 6 | 12 |
-| **Total** | **159** | **104** | **23** | **32** |
+| **Total** | **159** | **105** | **22** | **32** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -51,7 +51,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-026 | High | FLOW | Both | Code ✔ | Parents can't use any real feature: every parent API call returns 403 and there is no parent UI — **fixed** (reconciled 24 Oct) |
 | QA-027 | High | FLOW | Both | Browser ✔ | No forgot/reset password anywhere — **fixed** (reconciled 24 Oct) |
 | QA-028 | High | FLOW | FE | Live ✔ Browser ✔ | Generate-invoices toast reads "Generated undefined … GHS 0.00" because the field names don't match — **fixed** (reconciled 24 Oct) |
-| QA-030 | High | EDGE | FE | Code ✔ / Live ✔ | Some pickers still stop at 100 (payment/discount student picker, staff, invites, platform staff); classes and schools now page fully — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-030 | High | EDGE | FE | Code ✔ / Live ✔ | Lists and pickers stopped at 100 — **fixed** (26 Oct; FE StudentPicker search and fetchAll) |
 | QA-031 | High | FLOW | Both | Code ✔ | Fees KPI cards add up only the 20 invoices on screen — **fixed** (reconciled 24 Oct) |
 | QA-032 | High | UX/data | FE | Code ✔ | Admission saves medical and personal defaults (O+, AA, Christian, Male…) the user never chose — **fixed** (reconciled 24 Oct) |
 | QA-033 | High | FLOW | FE | Code ✔ | A new school can't be set up from the UI (no Principal assignment, no years/terms/classes/fees setup) — **fixed** (reconciled 24 Oct) |
@@ -1182,7 +1182,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-027 | Fixed | forgot/verify/reset on the backend (auth.controller.ts:47-85); FE /auth/forgot-password and /auth/reset-password with links on both logins; used in the 23–24 Oct tests |
 | QA-028 | Fixed | the toast reads "Successfully generated N term invoice(s)…" (browser, 21 Oct run) |
 | QA-029 | Partly fixed | online payments capped at the balance; staff payments still accept any surplus as credit without confirmation |
-| QA-030 | Partly fixed | classes and platform schools now page fully; payment/discount student picker, staff, invites and platform staff still limit=100 |
+| QA-030 | Fixed | 26 Oct (FE, results session). Re-tested on QPM-402, seeded to 112 pupils and 107 staff. Before the fix, `/students?limit=100` hid 12 pupils, including Yaa (unpaid bill), from the payment picker. Now Record Payment and Add discount search the server as you type (`students?search=Yaa`): "Yaa RetestP2 • Primary 2" is found, and selecting her loads "Outstanding Debt: GHS 499.00". Staff loads pages 1 and 2 (106 rows, including Bulk103 Staff). The Primary 1 class-teacher picker lists 104 staff, and Platform → QPM-402 → Staff lists 106. Years, terms, departments and modules stay single-page by design (few items). |
 | QA-031 | Fixed | cards read /schools/me/invoices/summary over all matching invoices (fees/api.ts:285-297) |
 | QA-032 | Fixed | admission no longer invents defaults (browser, 21 Oct run) |
 | QA-033 | Fixed | School setup committed with checklist; Assign principal on the platform page; leftovers tracked as QA-075/076/077 |

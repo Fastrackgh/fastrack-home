@@ -84,16 +84,18 @@ export function AttendancePage() {
   const [summary, setSummary] = useState<TermSummary | null>(null);
 
   useEffect(() => {
+    if (!user) return;
+    // A teacher is offered only the classes they teach (QA-016).
     setupApi
-      .allClasses()
+      .classesFor(user)
       .then((rows) => {
         setClasses(rows);
         // A teacher starts on their own class; everyone else on the first.
-        const own = rows.find((c) => c.homeroomStaffId && c.homeroomStaffId === user?.id);
+        const own = rows.find((c) => c.homeroomStaffId && c.homeroomStaffId === user.id);
         setClassId((own ?? rows[0])?.id ?? null);
       })
       .catch((err) => setError(errorMessage(err, 'Unable to load classes.')));
-  }, [user?.id]);
+  }, [user]);
 
   const loadRegister = useCallback(async () => {
     if (!classId) return;

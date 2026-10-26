@@ -1,5 +1,7 @@
 # Flow: Student admission (4-step modal)
 
+> **Updated 26 Oct 2026 (QA-016):** a teacher's Students list holds only the pupils of classes they teach, and the class filter offers only those classes. With none, the table says "No pupils yet: you'll see the pupils of the classes you teach." Opening a pupil outside their classes shows the backend's "Student not found" in the drawer.
+
 Code: the page is `src/app/school-admin/(app)/(school)/students/page.tsx`; the four-step form, its checks and the submit are in `src/features/students/AdmitStudentModal.tsx`; the calls are `studentsApi.list`, `activeCount` and `admit` in `src/features/students/api.ts`.
 
 **Who:** users with `students:create`: Principal, Academic Head and Secretary. Backend: `POST /schools/me/students` with `@Role(PRINCIPAL, ACADEMIC_HEAD, SECRETARY)`, `students:create`, module `students`.

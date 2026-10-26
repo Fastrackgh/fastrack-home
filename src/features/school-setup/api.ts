@@ -1,5 +1,6 @@
 import { ApiError, apiClient, pathId, type PageMeta } from '@/lib/api-client';
 import { fetchAll, pageParams, toPage, type Raw } from '@/lib/pagination';
+import { dataScopeOf, type Role } from '@/lib/rbac';
 
 export interface AcademicTerm {
   id: string;
@@ -402,6 +403,19 @@ export const setupApi = {
       `/schools/me/classes?${pageParams(page, { search: search.trim() })}`,
     );
     return toPage(res, toClass);
+  },
+  /**
+   * The classes a person can pick: every class for school-wide roles, only
+   * the ones they teach (a subject, or as homeroom) for a teacher, since the
+   * backend refuses the others (QA-016).
+   */
+  async classesFor(viewer: { id: string; role: Role }): Promise<SchoolClass[]> {
+    const all = await setupApi.allClasses();
+    if (dataScopeOf(viewer.role) !== 'assigned_classes') return all;
+    const assigned =
+      (await apiClient.get<{ classId: string }[]>('/schools/me/teaching-assignments')).data ?? [];
+    const taught = new Set(assigned.map((a) => a.classId));
+    return all.filter((c) => taught.has(c.id) || c.homeroomStaffId === viewer.id);
   },
   /** Every class, fetched a full page at a time, for pickers. */
   async allClasses(): Promise<SchoolClass[]> {

@@ -2,6 +2,8 @@
 
 **Status: Live** (21 October 2026). Staff mark a daily register per class at `/school-admin/attendance` and see each pupil's term totals. Parents see their child's month at `/parent/attendance` (see [parent-experience.md](./parent-experience.md)).
 
+> **Updated 26 Oct 2026 (QA-016, backend `3c4a1ed`):** a teacher's class picker offers only the classes they teach: their subject assignments (`GET /schools/me/teaching-assignments`) plus any class where they're the homeroom teacher (`setupApi.classesFor`). Others return 403 "You can only see the classes you teach."
+
 Code:
 - staff page: `src/features/attendance/AttendancePage.tsx`, API in `src/features/attendance/api.ts`, mounted by `src/app/school-admin/(app)/(school)/attendance/page.tsx`;
 - parent view: `src/features/parent/attendance/AttendancePage.tsx`, through `parentApi.attendance`.

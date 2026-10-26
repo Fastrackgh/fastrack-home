@@ -40,7 +40,7 @@ import { PAGE_SIZE } from '@/lib/pagination';
 import { PageHeader } from '@/features/workspace';
 import { notifyLoadError } from '@/features/fees/notify';
 import { useAuth } from '@/lib/auth';
-import { APP_ROUTES, canAccessRoute } from '@/lib/rbac';
+import { APP_ROUTES, canAccessRoute, dataScopeOf } from '@/lib/rbac';
 
 interface SchoolClass {
   id: string;
@@ -61,6 +61,9 @@ export default function StudentsPage() {
   const [search] = useDebouncedValue(query.trim(), 300);
   const [gradeFilter, setGradeFilter] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState('All');
+  const filtered = !!search || (!!gradeFilter && gradeFilter !== 'all') || statusFilter !== 'All';
+  // A teacher sees only the pupils of classes they teach (QA-016).
+  const isTeacher = !!user && dataScopeOf(user.role) === 'assigned_classes';
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
@@ -74,8 +77,9 @@ export default function StudentsPage() {
   useEffect(() => {
     async function loadPrerequisites() {
       // Each part shows on its own; a failure of either is reported, not swallowed.
+      if (!user) return;
       const [classesRes, currentRes] = await Promise.allSettled([
-        setupApi.allClasses(),
+        setupApi.classesFor(user),
         setupApi.currentTerm(),
       ]);
       if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
@@ -86,7 +90,7 @@ export default function StudentsPage() {
         notifyLoadError('the classes and current term', failed.reason);
     }
     loadPrerequisites();
-  }, []);
+  }, [user]);
 
   // Fetch students with filtering & pagination
   const latestList = useRef(0);
@@ -384,7 +388,11 @@ export default function StudentsPage() {
                     <Stack align="center" py="xl" gap={4}>
                       <Filter size={22} color="#94a3b8" />
                       <Text size="sm" c="dimmed">
-                        No students match your filter criteria.
+                        {filtered
+                          ? 'No students match your filter criteria.'
+                          : isTeacher
+                            ? 'No pupils yet: you’ll see the pupils of the classes you teach.'
+                            : 'No students yet.'}
                       </Text>
                     </Stack>
                   </Table.Td>

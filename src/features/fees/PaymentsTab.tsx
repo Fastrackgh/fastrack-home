@@ -155,6 +155,12 @@ export function PaymentsTab({
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm">{p.transactionReference || '—'}</Text>
+                    {p.sharedTransfer?.payments.length ? (
+                      <Text size="xs" c="dimmed">
+                        Shared with{' '}
+                        {p.sharedTransfer.payments.map((other) => other.studentName).join(', ')}
+                      </Text>
+                    ) : null}
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c="dimmed">

@@ -111,6 +111,14 @@ export function ReceiptModal({
                 </Text>
               </Group>
             ) : null}
+            {payment.sharedTransfer?.payments.length ? (
+              <Text size="xs" c="dimmed" ta="right" id="receipt-shared-transfer">
+                Part of transfer {payment.sharedTransfer.reference} · also covers{' '}
+                {payment.sharedTransfer.payments
+                  .map((p) => `${p.studentName} (${p.receiptNumber})`)
+                  .join(', ')}
+              </Text>
+            ) : null}
             <Group
               justify="space-between"
               py="xs"

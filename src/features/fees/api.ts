@@ -69,6 +69,8 @@ export interface Payment {
   /** The student's account balance before and after; negative is a credit. */
   previousBalance: Pesewas;
   newBalance: Pesewas;
+  /** Set when one transfer also paid for other pupils (QA-216). */
+  sharedTransfer?: SharedTransfer | null;
   /** False when the backend has no balances for this payment, made before they were stored (QA-277); both then read 0. */
   balancesRecorded?: boolean;
   recordedByName?: string;
@@ -228,6 +230,34 @@ export interface RecordPaymentRequest {
   transactionReference?: string;
   /** Keep any amount above what's owed as credit; without it the backend refuses with 422 (QA-029). */
   allowCredit?: boolean;
+  /** This transfer also paid for another pupil; without it a reused reference is refused (QA-216). */
+  sharedReference?: boolean;
+}
+
+/** Other pupils' payments made from the same MoMo or bank transfer (QA-216). */
+export interface SharedTransfer {
+  reference: string;
+  payments: { receiptNumber: string; studentName: string; amount: Pesewas }[];
+}
+
+const toSharedTransfer = (raw: unknown): SharedTransfer | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const { reference, payments } = raw as Raw;
+  return {
+    reference: String(reference ?? ''),
+    payments: (Array.isArray(payments) ? (payments as Raw[]) : []).map((p) => ({
+      receiptNumber: String(p.receiptNumber ?? ''),
+      studentName: String(p.studentName ?? ''),
+      amount: toPesewas(p.amount),
+    })),
+  };
+};
+
+/** The backend's 422 when a non-cash reference was already used for another pupil, or null. */
+export function sharedTransferOf(err: unknown): SharedTransfer | null {
+  if (!(err instanceof ApiError) || err.statusCode !== 422) return null;
+  if ((err.details as Raw | undefined)?.error !== 'Shared Transfer Reference') return null;
+  return toSharedTransfer(errorDetails<Raw>(err));
 }
 
 /** The backend's 422 when a payment is more than it would clear (`details`, QA-029). */
@@ -242,6 +272,7 @@ export interface PaymentExcess {
 /** The excess from an overpayment refusal, or null for any other error. */
 export function paymentExcessOf(err: unknown): PaymentExcess | null {
   if (!(err instanceof ApiError) || err.statusCode !== 422) return null;
+  if ((err.details as Raw | undefined)?.error === 'Shared Transfer Reference') return null;
   const details = errorDetails<Raw>(err);
   if (details?.surplus == null) return null;
   return {
@@ -357,6 +388,7 @@ export const toPayment = (raw: Raw): Payment => ({
   previousBalance: toPesewas(raw.previousBalance),
   newBalance: toPesewas(raw.newBalance),
   balancesRecorded: raw.previousBalance != null && raw.newBalance != null,
+  sharedTransfer: toSharedTransfer(raw.sharedTransfer),
 });
 
 const toFeeStructure = (raw: Raw): FeeStructure => ({

@@ -24,9 +24,11 @@ import {
   feesApi,
   PAYMENT_METHODS,
   paymentExcessOf,
+  sharedTransferOf,
   type Invoice,
   type Payment,
   type PaymentExcess,
+  type SharedTransfer,
 } from './api';
 import { formatGhs, toCedis, toPesewas } from './money';
 import { notifyLoadError } from './notify';
@@ -69,8 +71,16 @@ export function RecordPaymentModal({
   const [saving, setSaving] = useState(false);
   // The backend refused an amount above what's owed: ask before keeping it as credit (QA-029).
   const [excess, setExcess] = useState<PaymentExcess | null>(null);
-  // A changed form makes the question stale; the next submit asks again if needed.
-  useEffect(() => setExcess(null), [studentId, invoice, amount, method, reference]);
+  // A reference already used for another pupil: is this the same transfer? (QA-216)
+  const [shared, setShared] = useState<SharedTransfer | null>(null);
+  // What the cashier has agreed to for this payment, kept so a second question doesn't undo the first.
+  const [agreed, setAgreed] = useState<Agreed>({});
+  // A changed form makes the questions and answers stale; the next submit asks again if needed.
+  useEffect(() => {
+    setExcess(null);
+    setShared(null);
+    setAgreed({});
+  }, [studentId, invoice, amount, method, reference]);
   // The server has taken longer than SLOW_MS: say so, and let the cashier close.
   const [slow, setSlow] = useState(false);
 
@@ -123,11 +133,16 @@ export function RecordPaymentModal({
 
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    void send(false);
+    void send();
   };
 
-  /** `allowCredit`: the cashier agreed to keep the extra as credit; same key, so still one payment. */
-  const send = async (allowCredit: boolean) => {
+  /**
+   * `agree`: the cashier's answer to a question (keep the extra as credit, or
+   * the same transfer for another pupil). The resend keeps the same key, so
+   * it's still one payment.
+   */
+  const send = async (agree: Agreed = {}) => {
+    const answers = { ...agreed, ...agree };
     const pesewas = toPesewas(amount);
     if (!studentId) {
       notifications.show({ title: 'Error', message: 'Please select a student.', color: 'red' });
@@ -161,7 +176,8 @@ export function RecordPaymentModal({
           paymentMethod: method,
           bankType: channel.trim() || undefined,
           transactionReference: reference.trim() || undefined,
-          allowCredit: allowCredit || undefined,
+          allowCredit: answers.allowCredit || undefined,
+          sharedReference: answers.sharedReference || undefined,
         },
         attemptKey,
       );
@@ -174,12 +190,16 @@ export function RecordPaymentModal({
       });
       settleAttempt(signature);
       setExcess(null);
+      setShared(null);
       onRecorded(payment, !open.current);
     } catch (err) {
       // Nothing was saved, and the key stays for the confirmed resend.
       const refused = paymentExcessOf(err);
-      if (refused) {
+      const reused = sharedTransferOf(err);
+      if (refused || reused) {
+        setAgreed(answers);
         setExcess(refused);
+        setShared(reused);
         return;
       }
       if (err instanceof ApiError && err.statusCode === 409) {
@@ -347,12 +367,23 @@ export function RecordPaymentModal({
             </Alert>
           )}
 
-          {excess ? (
+          {shared ? (
+            <SharedTransferPrompt
+              shared={shared}
+              studentName={invoice?.studentName}
+              saving={saving}
+              onConfirm={() => void send({ sharedReference: true })}
+              onChange={() => {
+                setShared(null);
+                document.getElementById('input-pay-ref')?.focus();
+              }}
+            />
+          ) : excess ? (
             <CreditPrompt
               excess={excess}
               studentName={invoice?.studentName}
               saving={saving}
-              onKeep={() => void send(true)}
+              onKeep={() => void send({ allowCredit: true })}
               onChange={() => {
                 setExcess(null);
                 document.getElementById('input-pay-amount')?.focus();
@@ -377,6 +408,59 @@ export function RecordPaymentModal({
         </Stack>
       </form>
     </Modal>
+  );
+}
+
+interface Agreed {
+  allowCredit?: boolean;
+  sharedReference?: boolean;
+}
+
+function SharedTransferPrompt({
+  shared,
+  studentName,
+  saving,
+  onConfirm,
+  onChange,
+}: {
+  shared: SharedTransfer;
+  studentName?: string;
+  saving: boolean;
+  onConfirm: () => void;
+  onChange: () => void;
+}) {
+  const earlier = shared.payments
+    .map((p) => `${p.studentName} (${p.receiptNumber}, ${formatGhs(p.amount)})`)
+    .join(', ');
+  return (
+    <Alert color="yellow" radius="md" title="Reference already used" id="alert-pay-shared">
+      <Stack gap="sm">
+        <Text size="sm">
+          <b>{shared.reference}</b> was already used for {earlier || 'another pupil'}. Is this the
+          same transfer, also paying for {studentName || 'this pupil'}?
+        </Text>
+        <Group justify="flex-end">
+          <Button
+            variant="default"
+            onClick={onChange}
+            disabled={saving}
+            radius="md"
+            id="btn-pay-change-ref"
+          >
+            Change reference
+          </Button>
+          <Button
+            color="teal"
+            onClick={onConfirm}
+            loading={saving}
+            radius="md"
+            id="btn-pay-same-transfer"
+          >
+            Yes, same transfer
+          </Button>
+        </Group>
+      </Stack>
+    </Alert>
   );
 }
 

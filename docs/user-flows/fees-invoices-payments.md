@@ -36,6 +36,7 @@ The backend restricts every fees route to `@Role(PRINCIPAL, ACCOUNT_OFFICER)` pl
 | Invoices tab | `GET /schools/me/invoices?page&limit=20&search&classId&status` | ✓ `{items,total,page,limit}` |
 | Breakdown drawer | `GET /schools/me/invoices/:id` | ✓ includes `lineItems`; since QA-219 also `sameTermBills` (this term's extra bills, each listed by title and number) and `arrearsFromEarlierTerms` (shown as arrears or credit "brought forward from earlier terms"). Without them, all of `arrearsBf` shows as earlier terms'. The drawer after a Modify uses the same mapping. |
 | Payment modal: balance | `GET /schools/me/invoices/students/:studentId/latest` | ✓ |
+| Payment modal: bill to pay (QA-221) | `GET /schools/me/invoices?studentId=&status=UNPAID` and `…&status=PARTIAL` | ✓ |
 | Generate modal | `POST /schools/me/invoices/generate` `{academicTermId, classId?, dueDate?}` | ✗ **Mismatch.** The frontend reads `totalInvoicesGenerated` and `totalFeePayable` (`api.ts:182-189`). The backend returns `{generatedCount, skippedCount, totalProcessed, termLabel, …}`. The success toast reads "Generated undefined student invoices totaling GHS 0.00". |
 | Metric cards | `GET /schools/me/invoices/summary` (same filters as the list) | ✓ `{invoiceCount, totalBilled, totalCollected, outstanding, overpaid, collectionRate}` |
 | Extra bill | `POST /schools/me/invoices/supplementary` `{academicTermId, title, feeTypeId, classId?, studentId?, amount?, dueDate?}` | ✓ `{generatedCount, skippedCount, message}` |
@@ -144,6 +145,7 @@ sequenceDiagram
 - Still open:
   - The key is compared by value only, not against the request body. A retry with a corrected amount returns the *old* receipt number as a 409.
   - ~~The 409 showed as "Payment Failed", and a reopened modal got a new key.~~ Fixed 26 Oct (QA-086): a 409 shows a yellow "Already recorded" with the server's receipt number, closes the modal and reloads the lists. A resubmit after a failure reuses the key.
+- **Bill to pay** (27 Oct, QA-221). When the pupil has more than one bill with something to pay, a "Bill to pay" picker lists each as number · title · balance, newest first. It defaults to the latest bill, as before. Picking a bill fills the amount with its balance unless an amount was typed (QA-055), and the payment is sent with that `invoiceId`. With one open bill there's no picker. The picked bill is part of the payment's Idempotency-Key signature, so the same amount to another bill is a new payment. The receipt shows "Bill Paid" from the payment's `invoiceNumber`. If the open-bills list fails to load, only the latest bill is offered.
 - You can submit before the latest-invoice lookup finishes. `invoiceId` is then omitted, and the backend waterfall decides which invoice the payment goes to.
 
 **Receipt:**

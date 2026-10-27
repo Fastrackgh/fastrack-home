@@ -1,6 +1,6 @@
 import { setupApi, type TermInYear } from '@/features/school-setup/api';
 import { apiClient, PageMeta } from '@/lib/api-client';
-import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
+import { fetchAll, pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { formatGhs, sumPesewas, toCedis, toPesewas, type Pesewas } from './money';
 
 // Amount fields below are whole pesewas; the API sends and receives cedis.
@@ -22,6 +22,9 @@ export interface Invoice {
   studentCode?: string | null;
   studentName?: string;
   className?: string;
+  /** Set on extra bills, e.g. "Sports day"; term bills read "Term 2 Term Fees". */
+  title?: string | null;
+  createdAt?: string;
   /** Negative when the student carries a credit into this invoice. */
   arrearsBf: Pesewas;
   /** Extra bills from this same term rolled into `arrearsBf` (QA-219). */
@@ -58,6 +61,8 @@ export interface Payment {
   studentName?: string;
   studentCode?: string | null;
   className?: string;
+  /** The bill the payment went to. */
+  invoiceNumber?: string | null;
   previousBalance: Pesewas;
   newBalance: Pesewas;
   recordedByName?: string;
@@ -369,6 +374,18 @@ export const feesApi = {
       `/schools/me/invoices/students/${encodeURIComponent(studentId)}/latest`,
     );
     return toInvoice(res.data);
+  },
+  /** The pupil's bills with something still to pay, newest first (QA-221). */
+  async openInvoicesFor(studentId: string): Promise<Invoice[]> {
+    const lists = await Promise.all(
+      (['UNPAID', 'PARTIAL'] as const).map((status) =>
+        fetchAll(`/schools/me/invoices?${new URLSearchParams({ studentId, status })}`),
+      ),
+    );
+    return lists
+      .flat()
+      .map(toInvoice)
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
   },
   async generateInvoices(request: { academicTermId: string; classId?: string; dueDate?: string }) {
     const res = await apiClient.post<GenerateResult>('/schools/me/invoices/generate', request);

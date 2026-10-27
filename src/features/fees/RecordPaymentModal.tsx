@@ -47,6 +47,8 @@ export function RecordPaymentModal({
   }, []);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
+  // Bills the payment can go to: the open ones and the latest (QA-221).
+  const [bills, setBills] = useState<Invoice[]>([]);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   // `typed`: the user entered the amount, so a loaded balance must not replace it.
   const [amountField, setAmountField] = useState<{ value: number | ''; typed: boolean }>({
@@ -68,18 +70,32 @@ export function RecordPaymentModal({
   }, [saving]);
   const locked = saving && !slow;
 
-  // The payment goes against the student's latest invoice; default to its
-  // balance unless an amount was already typed.
+  // The payment goes against the bill picked, by default the student's latest;
+  // its balance fills the amount unless one was already typed.
+  const pickInvoice = (next: Invoice | null) => {
+    setInvoice(next);
+    setAmountField((field) =>
+      field.typed || !next
+        ? field
+        : { value: next.balance > 0 ? toCedis(next.balance) : '', typed: false },
+    );
+  };
+
   useEffect(() => {
+    setBills([]);
     setInvoice(null);
     setAmountField((field) => (field.typed ? field : { value: '', typed: false }));
     if (!studentId) return;
     let current = true;
     setInvoiceLoading(true);
-    feesApi
-      .latestInvoiceFor(studentId)
-      .then((latest) => {
+    Promise.all([
+      feesApi.latestInvoiceFor(studentId),
+      // Without the list the latest bill can still be paid, as before QA-221.
+      feesApi.openInvoicesFor(studentId).catch(() => []),
+    ])
+      .then(([latest, open]) => {
         if (!current) return;
+        setBills(open.some((bill) => bill.id === latest.id) ? open : [latest, ...open]);
         setInvoice(latest);
         setAmountField((field) =>
           field.typed
@@ -111,7 +127,13 @@ export function RecordPaymentModal({
       return;
     }
     // The same payment keeps its key until confirmed, so a retry is refused (409), not doubled.
-    const signature = { studentId, amount: pesewas, method, reference };
+    const signature = {
+      studentId,
+      invoiceId: invoice?.id ?? null,
+      amount: pesewas,
+      method,
+      reference,
+    };
     const attemptKey = attemptKeyFor(signature);
     setSaving(true);
     try {
@@ -198,26 +220,43 @@ export function RecordPaymentModal({
               </Text>
             </Group>
           ) : invoice ? (
-            <Card withBorder radius="md" p="sm" bg="gray.0">
-              <Group justify="space-between">
-                <Box>
-                  <Text size="xs" c="dimmed">
-                    Target Invoice:
-                  </Text>
-                  <Text size="sm" fw={700}>
-                    {invoice.invoiceNumber}
-                  </Text>
-                </Box>
-                <Box ta="right">
-                  <Text size="xs" c="dimmed">
-                    Outstanding Debt:
-                  </Text>
-                  <Text size="md" fw={800} c={invoice.balance > 0 ? 'red.7' : 'teal.7'}>
-                    {formatGhs(invoice.balance)}
-                  </Text>
-                </Box>
-              </Group>
-            </Card>
+            <>
+              {bills.length > 1 ? (
+                <Select
+                  label="Bill to pay"
+                  description={`${bills.length} bills have something to pay`}
+                  data={bills.map((bill) => ({
+                    value: bill.id,
+                    label: `${bill.invoiceNumber} · ${bill.title || 'Bill'} · ${formatGhs(bill.balance)} due`,
+                  }))}
+                  value={invoice.id}
+                  onChange={(id) => pickInvoice(bills.find((bill) => bill.id === id) ?? invoice)}
+                  allowDeselect={false}
+                  radius="md"
+                  id="select-pay-invoice"
+                />
+              ) : null}
+              <Card withBorder radius="md" p="sm" bg="gray.0">
+                <Group justify="space-between">
+                  <Box>
+                    <Text size="xs" c="dimmed">
+                      Target Invoice:
+                    </Text>
+                    <Text size="sm" fw={700}>
+                      {invoice.invoiceNumber}
+                    </Text>
+                  </Box>
+                  <Box ta="right">
+                    <Text size="xs" c="dimmed">
+                      Outstanding Debt:
+                    </Text>
+                    <Text size="md" fw={800} c={invoice.balance > 0 ? 'red.7' : 'teal.7'}>
+                      {formatGhs(invoice.balance)}
+                    </Text>
+                  </Box>
+                </Group>
+              </Card>
+            </>
           ) : null}
 
           <NumberInput

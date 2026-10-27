@@ -81,6 +81,13 @@ export function ReceiptModal({
                 {payment.className || '—'}
               </Text>
             </Field>
+            {payment.invoiceNumber ? (
+              <Field label="Bill Paid:">
+                <Text size="sm" fw={600}>
+                  {payment.invoiceNumber}
+                </Text>
+              </Field>
+            ) : null}
           </SimpleGrid>
 
           <Divider />

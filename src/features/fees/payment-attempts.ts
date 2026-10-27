@@ -1,6 +1,6 @@
 /**
  * Idempotency keys for payments not yet confirmed (QA-086). The same payment
- * (student, amount, method and reference) keeps its key until the server
+ * (student, bill, amount, method and reference) keeps its key until the server
  * confirms it, so re-submitting after a timeout, a closed modal or a reload
  * is refused with 409 instead of recorded twice. Kept in sessionStorage: the
  * tab's own attempts, surviving a reload.
@@ -14,13 +14,15 @@ type Attempts = Record<string, { key: string; at: number }>;
 
 export interface PaymentSignature {
   studentId: string;
+  /** The bill picked to pay (QA-221): the same payment to another bill is a new one. */
+  invoiceId: string | null;
   amount: number;
   method: string;
   reference: string;
 }
 
-const signatureOf = ({ studentId, amount, method, reference }: PaymentSignature) =>
-  [studentId, amount, method, reference.trim().toLowerCase()].join('|');
+const signatureOf = ({ studentId, invoiceId, amount, method, reference }: PaymentSignature) =>
+  [studentId, invoiceId ?? '', amount, method, reference.trim().toLowerCase()].join('|');
 
 function read(): Attempts {
   try {

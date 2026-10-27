@@ -63,8 +63,11 @@ export interface Payment {
   className?: string;
   /** The bill the payment went to. */
   invoiceNumber?: string | null;
+  /** The student's account balance before and after; negative is a credit. */
   previousBalance: Pesewas;
   newBalance: Pesewas;
+  /** False when the backend has no balances for this payment, made before they were stored (QA-277); both then read 0. */
+  balancesRecorded?: boolean;
   recordedByName?: string;
 }
 
@@ -261,6 +264,7 @@ export const toPayment = (raw: Raw): Payment => ({
   amountPaid: toPesewas(raw.amountPaid),
   previousBalance: toPesewas(raw.previousBalance),
   newBalance: toPesewas(raw.newBalance),
+  balancesRecorded: raw.previousBalance != null && raw.newBalance != null,
 });
 
 const toFeeStructure = (raw: Raw): FeeStructure => ({

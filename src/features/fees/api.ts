@@ -256,6 +256,8 @@ export interface InvoiceSummary {
   carriedForward: Pesewas;
   /** Overpayments moved to a later bill as credit: in collected, but not this bill's fees (QA-272). */
   creditCarriedForward: Pesewas;
+  /** Credit from earlier bills used to pay these ones: paid toward them, though not collected now (QA-274). */
+  creditBroughtForward: Pesewas;
   /** Of `amountDue`, the share collected, as a percentage to one decimal. */
   collectionRate: number;
 }
@@ -265,7 +267,12 @@ export interface InvoiceSummary {
  * bills. The collection rate is a share of this, so it can exceed `billed`.
  */
 export const amountDue = (s: InvoiceSummary): Pesewas =>
-  s.collected - s.creditCarriedForward + s.outstanding + s.carriedForward;
+  s.collected -
+  s.creditCarriedForward -
+  s.overpaid +
+  s.creditBroughtForward +
+  s.outstanding +
+  s.carriedForward;
 
 /** "20.4% of GHS 13,260.00 due", naming what was billed when debts brought in make it differ. */
 export function collectionNote(s: InvoiceSummary): string {
@@ -323,6 +330,7 @@ export const feesApi = {
       overpaid: toPesewas(raw.overpaid),
       carriedForward: toPesewas(raw.carriedForward),
       creditCarriedForward: toPesewas(raw.creditCarriedForward),
+      creditBroughtForward: toPesewas(raw.creditBroughtForward),
       collectionRate: Number(raw.collectionRate ?? 0),
     };
   },

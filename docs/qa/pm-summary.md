@@ -2,11 +2,13 @@
 
 20 Oct 2026. Full detail: [findings.md](./findings.md) (151 findings; QA-060 to QA-088 and QA-200 to QA-262 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
-**Status on 26 Oct 2026, reconciled against the code and re-tests:** 112 fixed or closed, 20 partly fixed, 31 open (163 findings). All eight Critical findings are fixed (QA-020, the last one, on 26 Oct). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
+**Status on 26 Oct 2026, reconciled against the code and re-tests:** 112 fixed or closed, 20 partly fixed, 32 open (164 findings). All eight Critical findings are fixed (QA-020, the last one, on 26 Oct). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
 - **Open:** none (QA-061 fixed 26 Oct). The design builder ones (QA-064, QA-065, QA-066) were fixed and re-tested in the browser on 25 Oct.
 - **Partly fixed:** none. Every High finding is fixed (QA-034, the last, on 26 Oct).
 
 Details are under "Status reconciliation" in findings.md.
+
+**Fix queue, 27 Oct:** unfinished findings are now handed to their owning session one at a time and re-tested before the next one. **QA-219** (same-term extra bills shown as old debt): the public link and printable bill are fixed (BE `ee38b4a`, not merged); the parent app and staff drawer still lump them, and that work has gone back to the backend. New **QA-275** (Medium): a design can hide the earlier-terms line while the total still includes it.
 
 **Money re-test, 26 Oct (late):**
 - **QA-086 fixed.** A cash payment can no longer be recorded twice. A slow save can't be closed for 20 s. A retry in the same tab, even after a reload, reuses the payment's key and reads "Already recorded" with the receipt number. Re-tested in the browser on QPM-402, with one payment per key in the DB.

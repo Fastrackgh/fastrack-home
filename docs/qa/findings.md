@@ -23,9 +23,9 @@
 |---|---|---|---|---|
 | Critical | 8 | 8 | 0 | 0 |
 | High | 31 | 31 | 0 | 0 |
-| Medium | 83 | 53 | 13 | 17 |
+| Medium | 83 | 54 | 12 | 17 |
 | Low | 44 | 26 | 6 | 12 |
-| **Total** | **166** | **118** | **19** | **29** |
+| **Total** | **166** | **119** | **18** | **29** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -81,7 +81,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-023 | Medium | SEC | BE | Code ✔ | The main throttler is still in memory, keyed on IP+email and spoofable, with no lockout (only AdminJS has one) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-024 | Medium | SEC | BE | Live ✔ | `PATCH /students/:id` lets a Secretary graduate or transfer a student, bypassing `students:exit` — **fixed** (25 Oct; BE `17900c0`, re-tested) |
 | QA-025 | Medium | SEC | BE | Code ✔ | `POST /users` can link a parent login to any child without the guardian-contact check — **fixed** (25 Oct; BE `17900c0`, re-tested) |
-| QA-029 | Medium | EDGE/UX | Both | Live ✔ | Staff payments accept any overpayment as credit with no confirmation (online payments are capped) — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
+| QA-029 | Medium | EDGE/UX | Both | Live ✔ | Staff payments accept any overpayment as credit with no confirmation (online payments are capped) — **fixed** (27 Oct; BE `e5918a7` on `fix/overpayment-confirm`, not merged; FE `13b55c7`) |
 | QA-035 | Medium | EDGE | Both | Browser ✔ | Permissions refresh only on app load: no refetch on focus or 403, unknown modules allowed, stored permission lists drift — **partly fixed** (reconciled 24 Oct; see Status reconciliation) |
 | QA-036 | Medium | FLOW | Both | Browser ✔ | Non-teacher staff (Academic Head, Account Officer, Secretary) can't be listed, edited or re-activated — **fixed** (reconciled 24 Oct) |
 | QA-037 | Medium | EDGE | FE | Browser ✔ | A failed refresh hard-redirects (draft lost); a network blip logs out; possible redirect loop — **fixed** (reconciled 24 Oct) |
@@ -1195,7 +1195,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-026 | Fixed | parent portal live: ward-scoped parents/me/wards/:id routes with module checks (parent-fees.controller.ts, ward-access.service.ts); reports still "coming soon" |
 | QA-027 | Fixed | forgot/verify/reset on the backend (auth.controller.ts:47-85); FE /auth/forgot-password and /auth/reset-password with links on both logins; used in the 23–24 Oct tests |
 | QA-028 | Fixed | the toast reads "Successfully generated N term invoice(s)…" (browser, 21 Oct run) |
-| QA-029 | Partly fixed | online payments capped at the balance; staff payments still accept any surplus as credit without confirmation |
+| QA-029 | Fixed | 27 Oct. BE `e5918a7`: a staff payment above what it would clear gets 422 before anything is saved (details owed/amount/surplus/against) unless `allowCredit: true`. FE `13b55c7` turns that into a prompt. Re-tested in the UI on QPM-402 (on the `fastrack_qa277` copy) with real payments. Under (GHS 1) and exact (GHS 31, which cleared Sports day) go straight through. Over (50 on 31): the hint reads "GHS 19.00 more than this bill owes: you'll be asked to keep it as credit", then the prompt "GHS 50.00 is GHS 19.00 more than this bill owes (GHS 31.00). Keep GHS 19.00 as credit on Yaa RetestP2's account?" with no toast; Change amount focuses the amount and saves nothing. Seed01 (owes 0), GHS 5: "Nothing is owed on this bill. Keep all GHS 5.00 as credit…". Double-clicking Keep as credit saved one payment (RCT/…/0028), whose receipt reads "GHS 6.00 credit · Credit on account: GHS 11.00". GHS 50,000 for Seed05 (owes 447) shows "Check the amount: this is far more than is owed" with Change amount focused, and saves nothing. An extra bill (Exam fee, owes 20) picked while the Term 2 bill owes 1,060: GHS 25 is compared to 20 only. Slow confirm (POST held 22 s, answer dropped): "Still waiting" shows. A retry of the same payment gets "Already recorded … (receipt RCT/QPM-402/2026/0030)"; one payment is saved, and all requests used one key. No page errors. Suggestion, not logged: when other bills are owed, the prompt could offer to put the extra towards them instead of keeping it as credit. No cap on large credits was added (policy question for the user). |
 | QA-030 | Fixed | 26 Oct (FE, results session). Re-tested on QPM-402, seeded to 112 pupils and 107 staff. Before the fix, `/students?limit=100` hid 12 pupils, including Yaa (unpaid bill), from the payment picker. Now Record Payment and Add discount search the server as you type (`students?search=Yaa`): "Yaa RetestP2 • Primary 2" is found, and selecting her loads "Outstanding Debt: GHS 499.00". Staff loads pages 1 and 2 (106 rows, including Bulk103 Staff). The Primary 1 class-teacher picker lists 104 staff, and Platform → QPM-402 → Staff lists 106. Years, terms, departments and modules stay single-page by design (few items). |
 | QA-031 | Fixed | cards read /schools/me/invoices/summary over all matching invoices (fees/api.ts:285-297) |
 | QA-032 | Fixed | admission no longer invents defaults (browser, 21 Oct run) |

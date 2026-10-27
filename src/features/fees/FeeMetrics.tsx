@@ -3,7 +3,7 @@
 import type { ReactNode } from 'react';
 import { Box, Card, Group, SimpleGrid, Text } from '@mantine/core';
 import { DollarSign, FileText, TrendingUp, Wallet } from 'lucide-react';
-import type { Invoice, InvoiceSummary } from './api';
+import { collectionNote, type Invoice, type InvoiceSummary } from './api';
 import { formatGhs, sumPesewas } from './money';
 
 /**
@@ -45,7 +45,13 @@ export function FeeMetrics({
         tint="rgba(16, 185, 129, 0.1)"
         value={formatGhs(collected)}
         valueColor="teal.7"
-        note={summary ? `${rate}% of what was due` : `${rate}% revenue realized`}
+        note={
+          !summary
+            ? `${rate}% revenue realized`
+            : summary.creditCarriedForward
+              ? `${collectionNote(summary)} · ${formatGhs(summary.creditCarriedForward)} credit moved to later bills`
+              : collectionNote(summary)
+        }
         noteColor="teal.7"
       />
       <MetricCard

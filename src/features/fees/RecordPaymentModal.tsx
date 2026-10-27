@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -35,8 +35,16 @@ export function RecordPaymentModal({
   onRecorded,
 }: {
   onClose: () => void;
-  onRecorded: (payment: Payment | null) => void;
+  /** `closed`: the answer came after the cashier closed this window (QA-273). */
+  onRecorded: (payment: Payment | null, closed: boolean) => void;
 }) {
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return () => {
+      open.current = false;
+    };
+  }, []);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
@@ -126,7 +134,7 @@ export function RecordPaymentModal({
         autoClose: 6000,
       });
       settleAttempt(signature);
-      onRecorded(payment);
+      onRecorded(payment, !open.current);
     } catch (err) {
       if (err instanceof ApiError && err.statusCode === 409) {
         // The server already has this payment (a repeated key or reference).
@@ -137,7 +145,7 @@ export function RecordPaymentModal({
           color: 'yellow',
           autoClose: false,
         });
-        onRecorded(null);
+        onRecorded(null, !open.current);
         return;
       }
       notifications.show({

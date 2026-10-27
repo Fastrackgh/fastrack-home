@@ -1,7 +1,7 @@
 import { setupApi, type TermInYear } from '@/features/school-setup/api';
 import { apiClient, PageMeta } from '@/lib/api-client';
 import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
-import { toCedis, toPesewas, type Pesewas } from './money';
+import { formatGhs, toCedis, toPesewas, type Pesewas } from './money';
 
 // Amount fields below are whole pesewas; the API sends and receives cedis.
 
@@ -254,8 +254,24 @@ export interface InvoiceSummary {
   overpaid: Pesewas;
   /** Unpaid balances moved to a later bill: still owed, but on that bill (QA-271). */
   carriedForward: Pesewas;
-  /** Collected ÷ (collected + outstanding), as a percentage to one decimal. */
+  /** Overpayments moved to a later bill as credit: in collected, but not this bill's fees (QA-272). */
+  creditCarriedForward: Pesewas;
+  /** Of `amountDue`, the share collected, as a percentage to one decimal. */
   collectionRate: number;
+}
+
+/**
+ * What these bills were owed: their fees plus any debts brought in from earlier
+ * bills. The collection rate is a share of this, so it can exceed `billed`.
+ */
+export const amountDue = (s: InvoiceSummary): Pesewas =>
+  s.collected - s.creditCarriedForward + s.outstanding + s.carriedForward;
+
+/** "20.4% of GHS 13,260.00 due", naming what was billed when debts brought in make it differ. */
+export function collectionNote(s: InvoiceSummary): string {
+  const due = amountDue(s);
+  const billed = due === s.billed ? '' : ` (${formatGhs(s.billed)} billed)`;
+  return `${s.collectionRate}% of ${formatGhs(due)} due${billed}`;
 }
 
 export interface GenerateResult {
@@ -306,6 +322,7 @@ export const feesApi = {
       outstanding: toPesewas(raw.outstanding),
       overpaid: toPesewas(raw.overpaid),
       carriedForward: toPesewas(raw.carriedForward),
+      creditCarriedForward: toPesewas(raw.creditCarriedForward),
       collectionRate: Number(raw.collectionRate ?? 0),
     };
   },

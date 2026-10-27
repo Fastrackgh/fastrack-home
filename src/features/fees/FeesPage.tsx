@@ -477,10 +477,13 @@ export function FeesPage() {
       {paying && (
         <RecordPaymentModal
           onClose={() => setPaying(false)}
-          onRecorded={(payment) => {
-            setPaying(false);
+          onRecorded={(payment, closed) => {
             reloadInvoices();
             if (may.readPayments) loadPayments();
+            // A late answer for a closed window is left to its toast, so it
+            // can't close a newer Record Payment window (QA-273).
+            if (closed) return;
+            setPaying(false);
             if (payment) setReceipt(payment);
           }}
         />

@@ -8,7 +8,7 @@ import { dataScopeOf, hasModule, type Role } from '@/lib/rbac';
 import { errorMessage } from '@/lib/api-client';
 import { attendanceApi, type Register } from '@/features/attendance/api';
 import { todayIso } from '@/features/calendar/dates';
-import { feesApi } from '@/features/fees/api';
+import { collectionNote, feesApi } from '@/features/fees/api';
 import { formatGhs } from '@/features/fees/money';
 import { marksApi } from '@/features/results/marks-api';
 import { setupApi, type CurrentTerm } from '@/features/school-setup/api';
@@ -183,7 +183,9 @@ async function feesSummary(term: CurrentTerm): Promise<Metric[]> {
     {
       label: 'Fees collected',
       value: formatGhs(s.collected),
-      detail: `${s.collectionRate}% of what was due · ${formatGhs(s.billed)} billed`,
+      detail: s.creditCarriedForward
+        ? `${collectionNote(s)} · ${formatGhs(s.creditCarriedForward)} credit moved to later bills`
+        : collectionNote(s),
       tone: 'green',
     },
     {

@@ -1,5 +1,5 @@
 import { setupApi, type TermInYear } from '@/features/school-setup/api';
-import { apiClient, PageMeta } from '@/lib/api-client';
+import { ApiError, apiClient, errorDetails, PageMeta } from '@/lib/api-client';
 import { fetchAll, pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { formatGhs, sumPesewas, toCedis, toPesewas, type Pesewas } from './money';
 
@@ -223,6 +223,30 @@ export interface RecordPaymentRequest {
   paymentMethod: string;
   bankType?: string;
   transactionReference?: string;
+  /** Keep any amount above what's owed as credit; without it the backend refuses with 422 (QA-029). */
+  allowCredit?: boolean;
+}
+
+/** The backend's 422 when a payment is more than it would clear (`details`, QA-029). */
+export interface PaymentExcess {
+  owed: Pesewas;
+  amount: Pesewas;
+  surplus: Pesewas;
+  /** `INVOICE`: owed is the picked bill's balance; `ACCOUNT`: everything unpaid. */
+  against: 'INVOICE' | 'ACCOUNT';
+}
+
+/** The excess from an overpayment refusal, or null for any other error. */
+export function paymentExcessOf(err: unknown): PaymentExcess | null {
+  if (!(err instanceof ApiError) || err.statusCode !== 422) return null;
+  const details = errorDetails<Raw>(err);
+  if (details?.surplus == null) return null;
+  return {
+    owed: toPesewas(details.owed),
+    amount: toPesewas(details.amount),
+    surplus: toPesewas(details.surplus),
+    against: details.against === 'ACCOUNT' ? 'ACCOUNT' : 'INVOICE',
+  };
 }
 
 export type { Page };

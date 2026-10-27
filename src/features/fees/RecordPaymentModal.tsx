@@ -20,7 +20,14 @@ import {
 import { notifications } from '@mantine/notifications';
 import { CheckCircle } from 'lucide-react';
 import { ApiError, errorMessage } from '@/lib/api-client';
-import { feesApi, PAYMENT_METHODS, type Invoice, type Payment } from './api';
+import {
+  feesApi,
+  PAYMENT_METHODS,
+  paymentExcessOf,
+  type Invoice,
+  type Payment,
+  type PaymentExcess,
+} from './api';
 import { formatGhs, toCedis, toPesewas } from './money';
 import { notifyLoadError } from './notify';
 import { attemptKeyFor, settleAttempt } from './payment-attempts';
@@ -60,6 +67,10 @@ export function RecordPaymentModal({
   const [channel, setChannel] = useState('');
   const [reference, setReference] = useState('');
   const [saving, setSaving] = useState(false);
+  // The backend refused an amount above what's owed: ask before keeping it as credit (QA-029).
+  const [excess, setExcess] = useState<PaymentExcess | null>(null);
+  // A changed form makes the question stale; the next submit asks again if needed.
+  useEffect(() => setExcess(null), [studentId, invoice, amount, method, reference]);
   // The server has taken longer than SLOW_MS: say so, and let the cashier close.
   const [slow, setSlow] = useState(false);
 
@@ -110,8 +121,13 @@ export function RecordPaymentModal({
     };
   }, [studentId]);
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    void send(false);
+  };
+
+  /** `allowCredit`: the cashier agreed to keep the extra as credit; same key, so still one payment. */
+  const send = async (allowCredit: boolean) => {
     const pesewas = toPesewas(amount);
     if (!studentId) {
       notifications.show({ title: 'Error', message: 'Please select a student.', color: 'red' });
@@ -145,6 +161,7 @@ export function RecordPaymentModal({
           paymentMethod: method,
           bankType: channel.trim() || undefined,
           transactionReference: reference.trim() || undefined,
+          allowCredit: allowCredit || undefined,
         },
         attemptKey,
       );
@@ -156,8 +173,15 @@ export function RecordPaymentModal({
         autoClose: 6000,
       });
       settleAttempt(signature);
+      setExcess(null);
       onRecorded(payment, !open.current);
     } catch (err) {
+      // Nothing was saved, and the key stays for the confirmed resend.
+      const refused = paymentExcessOf(err);
+      if (refused) {
+        setExcess(refused);
+        return;
+      }
       if (err instanceof ApiError && err.statusCode === 409) {
         // The server already has this payment (a repeated key or reference).
         settleAttempt(signature);
@@ -272,12 +296,13 @@ export function RecordPaymentModal({
               )
             }
             description={
-              invoice &&
-              invoice.balance > 0 &&
-              amount !== '' &&
-              toPesewas(amount) !== invoice.balance
-                ? `Outstanding balance is ${formatGhs(invoice.balance)}`
-                : undefined
+              !invoice || amount === ''
+                ? undefined
+                : toPesewas(amount) > Math.max(invoice.balance, 0)
+                  ? `${formatGhs(toPesewas(amount) - Math.max(invoice.balance, 0))} more than this bill owes: you'll be asked to keep it as credit`
+                  : invoice.balance > 0 && toPesewas(amount) !== invoice.balance
+                    ? `Outstanding balance is ${formatGhs(invoice.balance)}`
+                    : undefined
             }
             radius="md"
             id="input-pay-amount"
@@ -322,22 +347,113 @@ export function RecordPaymentModal({
             </Alert>
           )}
 
-          <Group justify="flex-end" mt="md">
-            <Button variant="default" onClick={onClose} radius="md" disabled={locked}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              color="teal"
-              loading={saving}
-              radius="md"
-              id="btn-confirm-payment"
-            >
-              Record Payment & Print Receipt
-            </Button>
-          </Group>
+          {excess ? (
+            <CreditPrompt
+              excess={excess}
+              studentName={invoice?.studentName}
+              saving={saving}
+              onKeep={() => void send(true)}
+              onChange={() => {
+                setExcess(null);
+                document.getElementById('input-pay-amount')?.focus();
+              }}
+            />
+          ) : (
+            <Group justify="flex-end" mt="md">
+              <Button variant="default" onClick={onClose} radius="md" disabled={locked}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                color="teal"
+                loading={saving}
+                radius="md"
+                id="btn-confirm-payment"
+              >
+                Record Payment & Print Receipt
+              </Button>
+            </Group>
+          )}
         </Stack>
       </form>
     </Modal>
+  );
+}
+
+/** A refusal over GHS 100 and more than double what's owed is likely a typo. */
+const isLikelyTypo = ({ owed, surplus }: PaymentExcess) => surplus >= 10_000 && surplus > owed;
+
+function CreditPrompt({
+  excess,
+  studentName,
+  saving,
+  onKeep,
+  onChange,
+}: {
+  excess: PaymentExcess;
+  studentName?: string;
+  saving: boolean;
+  onKeep: () => void;
+  onChange: () => void;
+}) {
+  const { owed, amount, surplus, against } = excess;
+  const typo = isLikelyTypo(excess);
+  // A likely typo puts the safe choice under the cashier's Enter key.
+  const changeButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (typo) changeButton.current?.focus();
+  }, [typo]);
+  const what = against === 'ACCOUNT' ? 'is owed in total' : 'this bill owes';
+  const whose = studentName ? `${studentName}'s` : "the student's";
+  return (
+    <Alert
+      color={typo ? 'red' : 'yellow'}
+      radius="md"
+      title={typo ? 'Check the amount: this is far more than is owed' : 'More than is owed'}
+      id="alert-pay-credit"
+    >
+      <Stack gap="sm">
+        {typo ? (
+          <Text size="xl" fw={900} c="red.8">
+            {formatGhs(amount)}
+          </Text>
+        ) : null}
+        <Text size="sm">
+          {owed > 0 ? (
+            <>
+              {formatGhs(amount)} is <b>{formatGhs(surplus)}</b> more than {what} ({formatGhs(owed)}
+              ).
+            </>
+          ) : (
+            <>Nothing {against === 'ACCOUNT' ? 'is owed' : 'is owed on this bill'}.</>
+          )}{' '}
+          Keep {owed > 0 ? '' : 'all '}
+          {formatGhs(surplus)} as credit on {whose} account?
+        </Text>
+        <Group justify="flex-end">
+          <Button
+            variant={typo ? 'filled' : 'default'}
+            color={typo ? 'red' : undefined}
+            onClick={onChange}
+            disabled={saving}
+            radius="md"
+            ref={changeButton}
+            id="btn-pay-change-amount"
+          >
+            Change amount
+          </Button>
+          <Button
+            variant={typo ? 'default' : 'filled'}
+            color="teal"
+            onClick={onKeep}
+            loading={saving}
+            radius="md"
+            id="btn-pay-keep-credit"
+          >
+            Keep as credit
+          </Button>
+        </Group>
+      </Stack>
+    </Alert>
   );
 }

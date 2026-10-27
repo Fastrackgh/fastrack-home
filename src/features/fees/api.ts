@@ -249,6 +249,70 @@ export function paymentExcessOf(err: unknown): PaymentExcess | null {
   };
 }
 
+/** One "Correct bill" from the bill's audit log (QA-042); amounts in pesewas. */
+export interface InvoiceCorrection {
+  id: string;
+  createdAt: string;
+  actorName: string | null;
+  actorRole: string | null;
+  reason: string;
+  lines: { name: string; before: Pesewas | null; after: Pesewas | null }[];
+  before: CorrectionTotals | null;
+  after: CorrectionTotals | null;
+}
+
+export interface CorrectionTotals {
+  feePayable: Pesewas;
+  discountAmount: Pesewas;
+  balance: Pesewas;
+}
+
+const toTotals = (raw: unknown): CorrectionTotals | null =>
+  raw && typeof raw === 'object'
+    ? {
+        feePayable: toPesewas((raw as Raw).feePayable),
+        discountAmount: toPesewas((raw as Raw).discountAmount),
+        balance: toPesewas((raw as Raw).balance),
+      }
+    : null;
+
+/** Each fee line before and after, matched by fee type; only the ones that changed. */
+function changedLines(raw: unknown): InvoiceCorrection['lines'] {
+  const { before = [], after = [] } = (raw ?? {}) as { before?: Raw[]; after?: Raw[] };
+  const lines = new Map<string, InvoiceCorrection['lines'][number]>();
+  const keyOf = (line: Raw) => String(line.feeTypeId ?? line.name);
+  for (const line of before)
+    lines.set(keyOf(line), {
+      name: String(line.name ?? 'Fee'),
+      before: toPesewas(line.amount),
+      after: null,
+    });
+  for (const line of after) {
+    const known = lines.get(keyOf(line));
+    lines.set(keyOf(line), {
+      name: String(line.name ?? known?.name ?? 'Fee'),
+      before: known?.before ?? null,
+      after: toPesewas(line.amount),
+    });
+  }
+  return [...lines.values()].filter((line) => line.before !== line.after);
+}
+
+const toCorrection = (raw: Raw): InvoiceCorrection => {
+  const metadata = (raw.metadata ?? {}) as Raw;
+  const totals = (metadata.totals ?? {}) as Raw;
+  return {
+    id: String(raw.id),
+    createdAt: String(raw.createdAt),
+    actorName: (raw.actorName as string | null) ?? null,
+    actorRole: (raw.actorRole as string | null) ?? null,
+    reason: typeof metadata.reason === 'string' ? metadata.reason : '',
+    lines: changedLines(metadata.lineItems),
+    before: toTotals(totals.before),
+    after: toTotals(totals.after),
+  };
+};
+
 export type { Page };
 export { PAGE_SIZE } from '@/lib/pagination';
 
@@ -396,6 +460,13 @@ export const feesApi = {
   async getInvoice(id: string): Promise<Invoice> {
     const res = await apiClient.get<Raw>(`/schools/me/invoices/${encodeURIComponent(id)}`);
     return toInvoice(res.data);
+  },
+  /** The bill's corrections, newest first (QA-042). */
+  async invoiceHistory(id: string): Promise<InvoiceCorrection[]> {
+    const res = await apiClient.get<Raw[]>(
+      `/schools/me/invoices/${encodeURIComponent(id)}/history?limit=50`,
+    );
+    return Array.isArray(res.data) ? res.data.map(toCorrection) : [];
   },
   async latestInvoiceFor(studentId: string): Promise<Invoice> {
     const res = await apiClient.get<Raw>(

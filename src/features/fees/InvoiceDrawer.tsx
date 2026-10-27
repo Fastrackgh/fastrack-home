@@ -20,6 +20,7 @@ import { notifications } from '@mantine/notifications';
 import { ExternalLink, PencilLine, Send, ShieldCheck } from 'lucide-react';
 import { errorMessage } from '@/lib/api-client';
 import { feesApi, type Invoice } from './api';
+import { CorrectionHistory } from './CorrectionHistory';
 import { invoiceStatusColor, invoiceStatusLabel } from './InvoicesTab';
 import { formatGhs } from './money';
 
@@ -215,6 +216,8 @@ export function InvoiceDrawer({
               )}
             </Group>
           )}
+
+          <CorrectionHistory invoice={invoice} />
 
           {invoice.viewUrl ? (
             <Button

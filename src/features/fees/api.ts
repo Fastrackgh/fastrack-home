@@ -1,7 +1,7 @@
 import { setupApi, type TermInYear } from '@/features/school-setup/api';
 import { apiClient, PageMeta } from '@/lib/api-client';
 import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
-import { formatGhs, toCedis, toPesewas, type Pesewas } from './money';
+import { formatGhs, sumPesewas, toCedis, toPesewas, type Pesewas } from './money';
 
 // Amount fields below are whole pesewas; the API sends and receives cedis.
 
@@ -24,6 +24,10 @@ export interface Invoice {
   className?: string;
   /** Negative when the student carries a credit into this invoice. */
   arrearsBf: Pesewas;
+  /** Extra bills from this same term rolled into `arrearsBf` (QA-219). */
+  sameTermBills: SameTermBill[];
+  /** The part of `arrearsBf` from earlier terms; negative for a credit. */
+  arrearsFromEarlierTerms: Pesewas;
   totalFees: Pesewas;
   discountAmount: Pesewas;
   feePayable: Pesewas;
@@ -33,6 +37,13 @@ export interface Invoice {
   /** Absent from list responses; loaded with `getInvoice`. */
   lineItems?: InvoiceLineItem[];
   signature?: string | null;
+  viewUrl?: string | null;
+}
+
+export interface SameTermBill {
+  invoiceNumber: string;
+  title: string;
+  amount: Pesewas;
   viewUrl?: string | null;
 }
 
@@ -209,21 +220,36 @@ export interface RecordPaymentRequest {
 export type { Page };
 export { PAGE_SIZE } from '@/lib/pagination';
 
-export const toInvoice = (raw: Raw): Invoice => ({
-  ...(raw as unknown as Invoice),
-  arrearsBf: toPesewas(raw.arrearsBf),
-  totalFees: toPesewas(raw.totalFees),
-  discountAmount: toPesewas(raw.discountAmount),
-  feePayable: toPesewas(raw.feePayable),
-  totalPayment: toPesewas(raw.totalPayment),
-  balance: toPesewas(raw.balance),
-  lineItems: Array.isArray(raw.lineItems)
-    ? (raw.lineItems as Raw[]).map((item) => ({
-        ...(item as unknown as InvoiceLineItem),
-        amount: toPesewas(item.amount),
+export function toInvoice(raw: Raw): Invoice {
+  const arrearsBf = toPesewas(raw.arrearsBf);
+  // Older backends send neither field: all of arrearsBf then counts as earlier terms'.
+  const sameTermBills = Array.isArray(raw.sameTermBills)
+    ? (raw.sameTermBills as Raw[]).map((bill) => ({
+        ...(bill as unknown as SameTermBill),
+        amount: toPesewas(bill.amount),
       }))
-    : undefined,
-});
+    : [];
+  return {
+    ...(raw as unknown as Invoice),
+    arrearsBf,
+    sameTermBills,
+    arrearsFromEarlierTerms:
+      raw.arrearsFromEarlierTerms == null
+        ? arrearsBf - sumPesewas(sameTermBills, (bill) => bill.amount)
+        : toPesewas(raw.arrearsFromEarlierTerms),
+    totalFees: toPesewas(raw.totalFees),
+    discountAmount: toPesewas(raw.discountAmount),
+    feePayable: toPesewas(raw.feePayable),
+    totalPayment: toPesewas(raw.totalPayment),
+    balance: toPesewas(raw.balance),
+    lineItems: Array.isArray(raw.lineItems)
+      ? (raw.lineItems as Raw[]).map((item) => ({
+          ...(item as unknown as InvoiceLineItem),
+          amount: toPesewas(item.amount),
+        }))
+      : undefined,
+  };
+}
 
 export const toPayment = (raw: Raw): Payment => ({
   ...(raw as unknown as Payment),

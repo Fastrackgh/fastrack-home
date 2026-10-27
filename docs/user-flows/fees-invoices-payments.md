@@ -34,7 +34,7 @@ The backend restricts every fees route to `@Role(PRINCIPAL, ACCOUNT_OFFICER)` pl
 | UI | Call | Shape match |
 | --- | --- | --- |
 | Invoices tab | `GET /schools/me/invoices?page&limit=20&search&classId&status` | ✓ `{items,total,page,limit}` |
-| Breakdown drawer | `GET /schools/me/invoices/:id` | ✓ includes `lineItems` |
+| Breakdown drawer | `GET /schools/me/invoices/:id` | ✓ includes `lineItems`; since QA-219 also `sameTermBills` (this term's extra bills, each listed by title and number) and `arrearsFromEarlierTerms` (shown as arrears or credit "brought forward from earlier terms"). Without them, all of `arrearsBf` shows as earlier terms'. The drawer after a Modify uses the same mapping. |
 | Payment modal: balance | `GET /schools/me/invoices/students/:studentId/latest` | ✓ |
 | Generate modal | `POST /schools/me/invoices/generate` `{academicTermId, classId?, dueDate?}` | ✗ **Mismatch.** The frontend reads `totalInvoicesGenerated` and `totalFeePayable` (`api.ts:182-189`). The backend returns `{generatedCount, skippedCount, totalProcessed, termLabel, …}`. The success toast reads "Generated undefined student invoices totaling GHS 0.00". |
 | Metric cards | `GET /schools/me/invoices/summary` (same filters as the list) | ✓ `{invoiceCount, totalBilled, totalCollected, outstanding, overpaid, collectionRate}` |

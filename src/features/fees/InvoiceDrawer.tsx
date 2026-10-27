@@ -116,17 +116,24 @@ export function InvoiceDrawer({
               {invoice.lineItems?.map((item) => (
                 <AmountRow key={item.id} label={item.feeTypeName} amount={formatGhs(item.amount)} />
               ))}
-              {invoice.arrearsBf > 0 ? (
+              {invoice.sameTermBills.map((bill) => (
                 <AmountRow
-                  label="Arrears Brought Forward"
-                  amount={formatGhs(invoice.arrearsBf)}
+                  key={bill.invoiceNumber}
+                  label={`${bill.title} (${bill.invoiceNumber})`}
+                  amount={signedGhs(bill.amount)}
+                />
+              ))}
+              {invoice.arrearsFromEarlierTerms > 0 ? (
+                <AmountRow
+                  label="Arrears brought forward from earlier terms"
+                  amount={formatGhs(invoice.arrearsFromEarlierTerms)}
                   color="red.7"
                 />
               ) : null}
-              {invoice.arrearsBf < 0 ? (
+              {invoice.arrearsFromEarlierTerms < 0 ? (
                 <AmountRow
-                  label="Credit Brought Forward"
-                  amount={`- ${formatGhs(-invoice.arrearsBf)}`}
+                  label="Credit brought forward from earlier terms"
+                  amount={signedGhs(invoice.arrearsFromEarlierTerms)}
                   color="teal.7"
                 />
               ) : null}
@@ -227,6 +234,8 @@ export function InvoiceDrawer({
     </Drawer>
   );
 }
+
+const signedGhs = (amount: number) => (amount < 0 ? `- ${formatGhs(-amount)}` : formatGhs(amount));
 
 function AmountRow({ label, amount, color }: { label: string; amount: string; color?: string }) {
   return (

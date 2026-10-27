@@ -31,6 +31,9 @@ export interface Invoice {
   sameTermBills: SameTermBill[];
   /** The part of `arrearsBf` from earlier terms; negative for a credit. */
   arrearsFromEarlierTerms: Pesewas;
+  /** On a carried-forward bill: what moved onto a later bill (negative for a credit), and which (QA-278). */
+  carriedForwardAmount?: Pesewas;
+  carriedForwardToInvoiceNumber?: string | null;
   totalFees: Pesewas;
   discountAmount: Pesewas;
   feePayable: Pesewas;
@@ -328,6 +331,7 @@ export function toInvoice(raw: Raw): Invoice {
   return {
     ...(raw as unknown as Invoice),
     arrearsBf,
+    carriedForwardAmount: toPesewas(raw.carriedForwardAmount),
     sameTermBills,
     arrearsFromEarlierTerms:
       raw.arrearsFromEarlierTerms == null

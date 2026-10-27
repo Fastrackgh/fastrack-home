@@ -228,6 +228,18 @@ export function FeesPage() {
     }
   };
 
+  /** Opens a bill known only by its number, e.g. the one a balance moved to (QA-278). */
+  const openInvoiceNumber = async (invoiceNumber: string) => {
+    try {
+      const { items } = await feesApi.listInvoices({ page: 1, search: invoiceNumber });
+      const found = items.find((inv) => inv.invoiceNumber === invoiceNumber);
+      if (found) await openBreakdown(found);
+      else notifyLoadError(invoiceNumber, new Error('That bill was not found.'));
+    } catch (err) {
+      notifyLoadError(invoiceNumber, err);
+    }
+  };
+
   /** After a write: the table and the cards, once each. */
   const reloadInvoices = () => {
     loadInvoices();
@@ -433,6 +445,7 @@ export function FeesPage() {
         onClose={() => setBreakdown(null)}
         canSendLink={may.generateInvoices}
         onModify={may.correctInvoices ? setCorrecting : undefined}
+        onOpenInvoiceNumber={openInvoiceNumber}
       />
       {correcting && (
         <ModifyInvoiceModal

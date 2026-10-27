@@ -2,6 +2,7 @@
 
 import {
   Alert,
+  Anchor,
   Badge,
   Box,
   Button,
@@ -30,6 +31,7 @@ export function InvoiceDrawer({
   onClose,
   canSendLink = false,
   onModify,
+  onOpenInvoiceNumber,
 }: {
   invoice: Invoice | null;
   /** True while the line items are still loading. */
@@ -39,6 +41,8 @@ export function InvoiceDrawer({
   canSendLink?: boolean;
   /** Opens the correction form; only the Principal may correct a bill. */
   onModify?: (invoice: Invoice) => void;
+  /** Opens another bill by its number, e.g. the one a balance moved to. */
+  onOpenInvoiceNumber?: (invoiceNumber: string) => void;
 }) {
   const [sending, setSending] = useState(false);
   const sendLink = async (target: Invoice) => {
@@ -165,6 +169,13 @@ export function InvoiceDrawer({
               value={formatGhs(invoice.totalPayment)}
               color="teal.7"
             />
+            {invoice.carriedForwardAmount ? (
+              <MovedLine
+                amount={invoice.carriedForwardAmount}
+                to={invoice.carriedForwardToInvoiceNumber}
+                onOpen={onOpenInvoiceNumber}
+              />
+            ) : null}
             <Group justify="space-between" pt="xs" style={{ borderTop: '1px solid #e2e8f0' }}>
               <Text size="md" fw={800} c={invoice.balance > 0 ? 'red.7' : 'teal.7'}>
                 Current Balance:
@@ -235,6 +246,43 @@ export function InvoiceDrawer({
         </Stack>
       ) : null}
     </Drawer>
+  );
+}
+
+/**
+ * A balance moved onto a later bill (QA-278): a debt leaves this bill (−), a
+ * credit is taken off it (+), as on the printed bill since QA-276.
+ */
+function MovedLine({
+  amount,
+  to,
+  onOpen,
+}: {
+  amount: number;
+  to?: string | null;
+  onOpen?: (invoiceNumber: string) => void;
+}) {
+  const target = to ? (
+    onOpen ? (
+      <Anchor component="button" type="button" size="sm" onClick={() => onOpen(to)}>
+        {to}
+      </Anchor>
+    ) : (
+      to
+    )
+  ) : (
+    'a later bill'
+  );
+  return (
+    <Group justify="space-between" wrap="nowrap">
+      <Text size="sm" c="dimmed">
+        {amount > 0 ? 'Balance moved to ' : 'Credit moved to '}
+        {target}:
+      </Text>
+      <Text size="sm" fw={600} c="orange.8">
+        {amount > 0 ? `- ${formatGhs(amount)}` : `+ ${formatGhs(-amount)}`}
+      </Text>
+    </Group>
   );
 }
 

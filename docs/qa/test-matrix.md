@@ -80,6 +80,7 @@ Walked in the browser. "→ dash" means the page redirected to the dashboard (co
 | Re-test 26 Oct: answer lost, retry in the same tab or after a reload (UI) | ✅ same key, 409 "Already recorded" with the receipt | QA-086 |
 | Re-test 26 Oct: same key sent twice at once | ✅ one 201, one 409 | QA-086 |
 | Re-test 26 Oct: late answer while the next payment window is open (UI) | ❌ the next window closes, and the earlier receipt opens | QA-273 |
+| Re-test 27 Oct: same late answer after FE `9c7af7e` (UI) | ✅ the next window stays open with what was typed; only a toast | QA-273 |
 | Negative amount | ✅ 400 | — |
 | Amount 99,999,999,999 | ❌ 500 | QA-019 |
 | Overpayment ×34 | ❌ accepted silently | QA-029 |

@@ -2,7 +2,7 @@
 
 20 Oct 2026. Full detail: [findings.md](./findings.md) (151 findings; QA-060 to QA-088 and QA-200 to QA-262 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
-**Status on 26 Oct 2026, reconciled against the code and re-tests:** 109 fixed or closed, 21 partly fixed, 32 open (162 findings). All eight Critical findings are fixed (QA-020, the last one, on 26 Oct). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
+**Status on 26 Oct 2026, reconciled against the code and re-tests:** 111 fixed or closed, 20 partly fixed, 32 open (163 findings). All eight Critical findings are fixed (QA-020, the last one, on 26 Oct). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
 - **Open:** none (QA-061 fixed 26 Oct). The design builder ones (QA-064, QA-065, QA-066) were fixed and re-tested in the browser on 25 Oct.
 - **Partly fixed:** none. Every High finding is fixed (QA-034, the last, on 26 Oct).
 
@@ -12,8 +12,8 @@ Details are under "Status reconciliation" in findings.md.
 - **QA-086 fixed.** A cash payment can no longer be recorded twice. A slow save can't be closed for 20 s. A retry in the same tab, even after a reload, reuses the payment's key and reads "Already recorded" with the receipt number. Re-tested in the browser on QPM-402, with one payment per key in the DB.
 - **QA-271 fixed.** The FIS-001 Overview reads "GHS 10,560.00 moved to later bills", no longer "100% collected". The backend half (`d8532b2`, branch `fix/parent-fees-summary`) still has to be merged to main.
 - **Two new Low findings:**
-  - QA-272: the collection rate counts a credit carried forward as money due, so the tile reads 30.3% beside figures that give 34.7%. **Backend fixed 27 Oct** (`36e5834`, not merged); the rate now reads 20.4%, and the tiles still need to show the GHS 1,900 credit.
-  - QA-273: a slow payment's late answer closes the next payment window the cashier has open.
+  - QA-272: the collection rate counts a credit carried forward as money due, so the tile reads 30.3% beside figures that give 34.7%. **Fixed 27 Oct** (BE `36e5834`, not merged; FE `9c7af7e`). The tile reads "20.4% of GHS 13,260.00 due · GHS 1,900.00 credit moved to later bills". A small leftover is QA-274: unused credit still on its own bill counts as due.
+  - QA-273: a slow payment's late answer closes the next payment window the cashier has open. **Fixed 27 Oct** (FE `9c7af7e`).
 
 **Results phase 0 (subjects), tested 24 Oct:** the subject list, the subjects each class takes, teachers per subject, role access and school isolation all pass on the throwaway school QAS-300, with no new findings. See "Results phase 0: subjects" in findings.md.
 

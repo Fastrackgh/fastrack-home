@@ -24,8 +24,8 @@
 | Critical | 8 | 8 | 0 | 0 |
 | High | 31 | 31 | 0 | 0 |
 | Medium | 81 | 48 | 14 | 19 |
-| Low | 42 | 22 | 6 | 14 |
-| **Total** | **162** | **109** | **20** | **33** |
+| Low | 42 | 22 | 7 | 13 |
+| **Total** | **162** | **109** | **21** | **32** |
 
 Statuses reconciled against the code and re-test history on 24 Oct 2026; see [Status reconciliation](#status-reconciliation-24-oct-2026).
 
@@ -187,7 +187,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-269 | Low | UX | FE | Browser ✔ | "Set dates" on an undated term shows the switch "This is the current academic year", although it sets the current term — **fixed** (25 Oct; FE `78939e7`) |
 | QA-270 | Low | Audit | BE | Live ✔ | Changing a school's current term (or year) writes no audit-log entry — **fixed** (26 Oct; BE `0797870`) |
 | QA-271 | Medium | Money | BE | Live ✔ | The fees summary counts balances moved to a later bill as collected: a term reads "100% collected, GHS 0 outstanding" when 35% was paid — **fixed** (26 Oct; BE `8422f94`, `d8532b2` on `fix/parent-fees-summary`, not on main yet; FE `00b1669`, `05fe8de`) |
-| QA-272 | Low | Money | Both | Live ✔ | The collection rate counts an overpayment carried forward as credit as money "due", so FIS-001 Term 1 reads "30.3% of what was due · GHS 13,260.00 billed" though 4,600 ÷ 13,260 is 34.7% — **open** |
+| QA-272 | Low | Money | Both | Live ✔ | The collection rate counts an overpayment carried forward as credit as money "due", so FIS-001 Term 1 reads "30.3% of what was due · GHS 13,260.00 billed" though 4,600 ÷ 13,260 is 34.7% — **partly fixed** (27 Oct; BE `36e5834` on `fix/fees-summary-credit`, not merged; the tiles don't show the credit yet) |
 | QA-273 | Low | UX | FE | Browser ✔ | A slow payment's late answer closes the next Record Payment window the cashier has open and pops up the earlier receipt — **open** |
 | QA-246 | Low | UX | FE | Browser ✔ | School setup calls the fee-types API on schools without the fees module (repeated 403s) — **fixed** (24 Oct; FE `e469eda`) |
 | QA-247 | Low | Data | BE | DB ✔ | A promotion into a later term records the new class history row as starting today, not on the term's start date — **fixed** (24 Oct; BE `f9e93b5`) |
@@ -1276,6 +1276,9 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-269 | Fixed | 25 Oct, FE `78939e7`, re-tested on QRG-501. "Set the dates of Semester 2, 2027/28" (undated) and "Edit Semester 1, 2027/28" (dated) both say "This is the current term". "Edit 2026/27" (the current year) says "This is the current academic year", with the switch locked: "To change it, make another year current instead." |
 | QA-270 | Fixed | 26 Oct, BE `0797870`, re-tested on QRG-501 as the Principal. Making Semester 2 current wrote `academic_term.made_current` with metadata `{via: "term", previousId}`. Repeating it wrote nothing. Making 2027/28 current wrote `academic_year.made_current` plus `academic_term.made_current` (`via: "year"`), and switching back did the same. Actor PRINCIPAL on every row. |
 | QA-271 | Fixed | Re-tested 26 Oct in headless Chromium, FE `00b1669` + `05fe8de` against BE `d8532b2` (branch `fix/parent-fees-summary`, not merged to main yet). FIS-001 Principal Overview: "Fees collected GHS 4,600.00 · 30.3% of what was due · GHS 13,260.00 billed" and "Outstanding fees GHS 0.00 · GHS 10,560.00 moved to later bills" in orange (was green and 100%). The Fees page across all 38 bills: collected GHS 6,100.00, "15.1% of what was due", outstanding GHS 34,210.00, so the move between selected bills is counted once. The rate's denominator still takes in an overpayment carried as credit: QA-272. Earlier: 26 Oct, BE `8422f94`. FIS-001 Term 1 summary: `{totalCollected 4600, outstanding 0, carriedForward 10560, collectionRate 30.3}` (was 100). Checked against the DB: the positive carried-forward amounts sum to 10,660, but 0010's GHS 100 moved to 0023 in the same term and on to Term 2 through 0023, so 10,560 avoids counting it twice. QPM-402 Term 1 is unchanged (1.7%). Still to do: the Overview and Fees tiles should show the moved amount (sent to the frontend). |
+| QA-272 | Partly fixed | Re-tested 27 Oct, BE `36e5834` (branch `fix/fees-summary-credit`, built on `d8532b2`; not merged), clean checkout on the dev DB. The summary has a new field, `creditCarriedForward`, and the rate is (collected − credit moved on) ÷ (that + outstanding + moved). **FIS-001 Term 1:** credit 1,900, collected still 4,600, rate 20.4 (was 30.3), and (4,600 − 1,900) + 0 + 10,560 = 13,260 = billed. **All bills selected:** credit 0 in FIS-001, BIS-001 and QPM-402. **BIS-001 Term 1:** credit 800, and the identity holds (16,950). **Later terms** (FIS T2, BIS T2, BIS 2027/28 T1) sum to more than billed. Each gap is exactly the earlier term's debts brought in (e.g. BIS T2: 11,949.5 moved − 800 credit = 11,149.5), so the figures are consistent. **Browser (FE `05fe8de`):** the Overview reads "GHS 4,600.00 · 20.4% of what was due · GHS 13,260.00 billed". **Still to do (FE):**
+  - The tile doesn't mention the GHS 1,900 credit, so 20.4% of 13,260 (2,700) doesn't match the 4,600 shown. Show e.g. "GHS 1,900 credit moved to later bills".
+  - In a term with debts brought in, "of what was due" sits beside the billed figure, not the due one (FIS T2 would read 4.2% beside GHS 26,850 billed, where 1,500 ÷ 26,850 = 5.6%). Show the due figure, or say that debts from earlier terms are included. |
 
 | QA-254 | Fixed | dev email preview moved to 127.0.0.1:4080 (5af0b93); re-tested 24 Oct |
 ## Results phase 0: subjects (tested 24 Oct 2026)

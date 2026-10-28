@@ -6,7 +6,7 @@
 
 Code:
 - staff page: `src/features/attendance/AttendancePage.tsx`, API in `src/features/attendance/api.ts`, mounted by `src/app/school-admin/(app)/(school)/attendance/page.tsx`;
-- parent view: `src/features/parent/attendance/AttendancePage.tsx`, through `parentApi.attendance`.
+- parent view: `src/features/parent/attendance/AttendancePage.tsx` and `MonthGrid.tsx`, through `useAttendance` (`data/queries.ts`); the rate and marks are in `domain/attendance.ts`.
 
 Backend: the attendance module on `feat/attendance` (commits 9df8958 and 8301857), not yet on `main`.
 

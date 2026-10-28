@@ -3,7 +3,7 @@
 Parents can't change a bill. Optional fees are billed from each enrolment's `fee_preferences`, and only staff set those. So a parent **asks** the school to start or stop a service from the parent portal. A Principal or Account Officer approves or declines the request. An approved change applies to the **next bill the school generates**; bills already issued stay as they are.
 
 Code:
-- Parent side: `src/features/parent/fees/OptionalServices.tsx` (the Services tab under `/parent/fees`), plus `parentApi.*Optional*` in `src/features/parent/api.ts`, types in `types.ts` and sample data in `mock.ts`.
+- Parent side: `src/features/parent/fees/OptionalServices.tsx` (the Services tab under `/parent/fees`, with `ServiceCard`, `RequestServiceModal` and `RequestHistoryRow`), rules in `domain/optionalServices.ts`, `parentApi.*Optional*` in `src/features/parent/api/HttpParentApi.ts`, types in `types.ts` and sample data in `api/mock.ts`.
 - Staff side: `src/features/optional-fee-requests/{api.ts,OptionalFeeRequestsPage.tsx}`, route `src/app/school-admin/(app)/(school)/fees/requests/page.tsx`, and the "Service requests" button with a pending badge in `src/features/fees/FeesPage.tsx`.
 - Commit `a757a41`. The staff route entry (`APP_ROUTES.optionalFeeRequests`), the `student_fee_preferences:manage` key in `src/lib/rbac/permissions.ts` and the Fees page button are **still uncommitted** RBAC work on `feat/rbac-workspace`. See Known gaps.
 

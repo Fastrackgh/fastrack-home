@@ -1,6 +1,6 @@
 # API contract: parent portal
 
-The parent portal (`/parent`, `src/features/parent/api.ts`) needs these endpoints. The **Exists** column records what the backend has today (checked against `fastrack-backend/src/modules/identity/parents`). Everything marked **Proposed** is what the frontend is built against. It runs on sample data until then (`NEXT_PUBLIC_PARENT_API_MOCK=1`).
+The parent portal (`/parent`, `src/features/parent/api/`) needs these endpoints. The **Exists** column records what the backend has today (checked against `fastrack-backend/src/modules/identity/parents`). Everything marked **Proposed** is what the frontend is built against. It runs on sample data until then (`NEXT_PUBLIC_PARENT_API_MOCK=1`).
 
 ## Ground rules
 
@@ -38,10 +38,10 @@ Ward profile = `ParentWardResponseDto` plus:
 | --- | --- | --- | --- |
 | GET | `…/wards/:studentId/invoices` | `page, limit, termId?` | `Invoice[]`, newest term first. Same fields as `/schools/me/invoices` (including `status: 'CARRIED_FORWARD'` with `carriedForwardAmount, carriedForwardToInvoiceNumber`), plus `termId, termLabel, yearLabel, dueDate, canPayOnline` |
 | GET | `…/wards/:studentId/invoices/summary` | `termId?` | `{invoiceCount, totalBilled, totalPaid, outstanding, overpaid, broughtForward, carriedForward}` in cedis, across every page. `totalBilled` leaves out arrears brought forward. Invariant: billed + broughtForward − paid − carriedForward = outstanding − overpaid (QA-222) |
-| GET | `…/wards/:studentId/invoices/:invoiceId` | – | `Invoice` with `lineItems` |
+| GET | `…/wards/:studentId/invoices/:invoiceId` | – | `Invoice` with `lineItems`, plus `sameTermBills: [{invoiceNumber, title, amount, viewUrl}]` and `arrearsFromEarlierTerms` (= `arrearsBf` − the same-term bills). When a backend sends neither, the portal counts all of `arrearsBf` as earlier terms' (QA-219) |
 | GET | `…/wards/:studentId/invoices/:invoiceId/document` | – | `{html}` |
 | GET | `…/wards/:studentId/payments` | `page, limit` | `Payment[]`, newest first. Same fields as `/schools/me/payments`, plus `invoiceId, invoiceNumber, termLabel, reference` |
-| GET | `…/wards/:studentId/payments/:paymentId` | – | `Payment` |
+| GET | `…/wards/:studentId/payments/:paymentId` | – | `Payment`. `previousBalance`, `newBalance` and `surplusCredit` are the balances stored when the payment was recorded, or null for payments from before they were stored. `balanceScope: 'STUDENT_ACCOUNT'` means they cover the ward's whole account (QA-277) |
 | GET | `…/wards/:studentId/payments/:paymentId/document` | – | `{html}` (receipt) |
 
 These must not expose staff emails or signatures beyond what the printed bill shows (QA-010).

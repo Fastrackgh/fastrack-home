@@ -2,7 +2,8 @@ import { ApiError } from '@/lib/api-client';
 import type { Page } from '@/lib/pagination';
 import { addDays, isWeekend, todayIso } from '@/features/calendar/dates';
 import { formatGhs, sumPesewas, type Pesewas } from '@/features/fees/money';
-import type { ParentApi } from './api';
+import { formatOwed } from '../domain/invoices';
+import type { ParentApi } from './ParentApi';
 import type {
   AcademicTerm,
   AttendanceDay,
@@ -15,7 +16,7 @@ import type {
   Ward,
   WardCalendar,
   WardProfile,
-} from './types';
+} from '../types';
 
 /*
  * Sample data for running the parent portal before its backend endpoints
@@ -187,6 +188,8 @@ function buildInvoices(studentId: string): ParentInvoice[] {
       studentName: `${ward.firstName} ${ward.surname}`,
       className: ward.currentClass?.name,
       arrearsBf: 0,
+      sameTermBills: [],
+      arrearsFromEarlierTerms: 0,
       totalFees,
       discountAmount,
       feePayable,
@@ -432,9 +435,9 @@ export const mockParentApi: ParentApi = {
       `<p><strong>${payment.studentName}</strong> · ${payment.className}</p>
        <table><tr><td>Date</td><td class="right">${payment.paymentDate}</td></tr>
        <tr><td>Method</td><td class="right">${payment.paymentMethod}</td></tr>
-       <tr><td>Previous balance</td><td class="right">${formatGhs(payment.previousBalance)}</td></tr>
+       <tr><td>Previous balance</td><td class="right">${formatOwed(payment.previousBalance)}</td></tr>
        <tr><th>Amount paid</th><th class="right">${formatGhs(payment.amountPaid)}</th></tr>
-       <tr><td>Balance after payment</td><td class="right">${formatGhs(payment.newBalance)}</td></tr></table>`,
+       <tr><td>Balance after payment</td><td class="right">${formatOwed(payment.newBalance)}</td></tr></table>`,
     );
   },
   async checkout(studentId, id, { amount, channel, callbackUrl }) {

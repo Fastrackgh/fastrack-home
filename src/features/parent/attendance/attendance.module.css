@@ -1,0 +1,24 @@
+.day {
+  aspect-ratio: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 500;
+
+  &[data-today] {
+    font-weight: 800;
+    outline: 2px solid var(--mantine-color-fastrackRed-5);
+  }
+
+  &[data-outside] {
+    opacity: 0.25;
+  }
+}
+
+.swatch {
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+}

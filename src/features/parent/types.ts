@@ -8,14 +8,6 @@ import type { Pesewas } from '@/features/fees/money';
 export type WardStatus =
   'Pending_Admission' | 'Active' | 'Inactive' | 'Stopped' | 'Transferred_Out' | 'Graduated';
 
-/**
- * Whether the ward's school offers an area: `fees`, `attendance` or `results`.
- * Unknown (an older response) counts as offered; the page then says
- * "Not offered by this school" if the school refuses (QA-262).
- */
-export const schoolOffers = (ward: Pick<Ward, 'school'> | null | undefined, module: string) =>
-  !ward?.school.enabledModules || ward.school.enabledModules.includes(module);
-
 /** A child linked to the signed-in parent (`ParentWardResponseDto`). */
 export interface Ward {
   /** Global student id; every ward-scoped endpoint is keyed by it. */
@@ -108,12 +100,13 @@ export interface ParentInvoiceSummary {
 
 export type PaymentChannel = 'mobile_money' | 'card';
 
-export const PAYMENT_CHANNELS: { value: PaymentChannel; label: string }[] = [
-  { value: 'mobile_money', label: 'Mobile Money' },
-  { value: 'card', label: 'Card' },
-];
-
-export interface ParentPayment extends Payment {
+export interface ParentPayment extends Omit<Payment, 'previousBalance' | 'newBalance'> {
+  /** The balance stored when the payment was recorded; null for payments from before it was (QA-277). */
+  previousBalance: Pesewas | null;
+  newBalance: Pesewas | null;
+  surplusCredit?: Pesewas | null;
+  /** `STUDENT_ACCOUNT`: the balances above cover the ward's whole account, not just this bill. */
+  balanceScope?: string | null;
   invoiceId?: string | null;
   invoiceNumber?: string | null;
   termLabel?: string | null;

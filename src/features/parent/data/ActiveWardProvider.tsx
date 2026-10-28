@@ -11,9 +11,9 @@ import React, {
 } from 'react';
 import { useRouter } from 'next/navigation';
 import { SESSION_STORAGE_KEYS } from '@/lib/api-client';
-import { parentApi } from './api';
-import type { Ward } from './types';
-import { useParentQuery, type ParentQuery } from './useParentQuery';
+import type { Ward } from '../types';
+import { useWardsQuery } from './queries';
+import type { ParentQuery } from './useParentQuery';
 
 interface ActiveWardContextValue {
   wards: Ward[];
@@ -25,27 +25,35 @@ interface ActiveWardContextValue {
 
 const ActiveWardContext = createContext<ActiveWardContextValue | undefined>(undefined);
 
-/** Loads the parent's linked children and remembers which one they are looking at. */
-export function ActiveWardProvider({ children }: { children: React.ReactNode }) {
-  const query = useParentQuery('wards', () => parentApi.listWards());
-  const wards = useMemo(() => query.data ?? [], [query.data]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-
-  useEffect(() => {
+/** The chosen child, remembered across visits on this device. */
+const selectionStore = {
+  read(): string | null {
     try {
-      setSelectedId(localStorage.getItem(SESSION_STORAGE_KEYS.parentActiveWard));
+      return localStorage.getItem(SESSION_STORAGE_KEYS.parentActiveWard);
     } catch {
-      // Without storage the first ward is shown.
+      return null; // Without storage the first ward is shown.
     }
-  }, []);
-
-  const selectWard = useCallback((studentId: string) => {
-    setSelectedId(studentId);
+  },
+  write(studentId: string) {
     try {
       localStorage.setItem(SESSION_STORAGE_KEYS.parentActiveWard, studentId);
     } catch {
       // The choice lasts for this visit only.
     }
+  },
+};
+
+/** Loads the parent's linked children and remembers which one they are looking at. */
+export function ActiveWardProvider({ children }: { children: React.ReactNode }) {
+  const query = useWardsQuery();
+  const wards = useMemo(() => query.data ?? [], [query.data]);
+  const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  useEffect(() => setSelectedId(selectionStore.read()), []);
+
+  const selectWard = useCallback((studentId: string) => {
+    setSelectedId(studentId);
+    selectionStore.write(studentId);
   }, []);
 
   // An unlinked or unknown selection falls back to the first child.

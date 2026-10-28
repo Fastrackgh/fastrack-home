@@ -1,10 +1,12 @@
 'use client';
 
-import { useRef } from 'react';
+import { useRef, useState } from 'react';
 import { Button, Group, Modal, Paper } from '@mantine/core';
-import { Printer } from 'lucide-react';
-import { QueryView } from './components';
-import { useParentQuery } from './useParentQuery';
+import { FileText, Printer } from 'lucide-react';
+import type { DocumentSource } from '../data/queries';
+import { useParentQuery } from '../data/useParentQuery';
+import { QueryView } from './QueryView';
+import classes from './ui.module.css';
 
 /**
  * A bill, receipt or report rendered by the backend with the school's
@@ -15,32 +17,52 @@ export function DocumentModal({
   opened,
   onClose,
   title,
-  cacheKey,
-  load,
+  source,
 }: {
   opened: boolean;
   onClose: () => void;
   title: string;
-  cacheKey: string;
-  load: () => Promise<string>;
+  source: DocumentSource;
 }) {
   return (
-    <Modal opened={opened} onClose={onClose} title={title} size="xl" fullScreen={false} radius="lg">
-      {opened && <DocumentBody cacheKey={cacheKey} load={load} title={title} />}
+    <Modal opened={opened} onClose={onClose} title={title} size="xl" radius="lg">
+      {opened && <DocumentBody source={source} title={title} />}
     </Modal>
   );
 }
 
-function DocumentBody({
-  cacheKey,
-  load,
+/** A "View printable ..." button that opens the document. */
+export function DocumentButton({
+  label,
   title,
+  source,
 }: {
-  cacheKey: string;
-  load: () => Promise<string>;
+  label: string;
   title: string;
+  source: DocumentSource;
 }) {
-  const query = useParentQuery(cacheKey, load);
+  const [viewing, setViewing] = useState(false);
+  return (
+    <>
+      <Button
+        variant="default"
+        leftSection={<FileText size={16} />}
+        onClick={() => setViewing(true)}
+      >
+        {label}
+      </Button>
+      <DocumentModal
+        opened={viewing}
+        onClose={() => setViewing(false)}
+        title={title}
+        source={source}
+      />
+    </>
+  );
+}
+
+function DocumentBody({ source, title }: { source: DocumentSource; title: string }) {
+  const query = useParentQuery(source.cacheKey, source.load);
   const frame = useRef<HTMLIFrameElement>(null);
 
   return (
@@ -64,7 +86,7 @@ function DocumentBody({
               srcDoc={html}
               // allow-same-origin lets the print button reach the frame; scripts stay off.
               sandbox="allow-same-origin allow-modals"
-              style={{ width: '100%', height: '70vh', border: 0, background: 'white' }}
+              className={classes.documentFrame}
             />
           </Paper>
         </>

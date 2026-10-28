@@ -1,40 +1,8 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { SESSION_CACHE_PREFIX } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
-
-/*
- * Reads for the parent portal are kept as an offline copy in localStorage,
- * per user, so the installed app opens with the last data it saw when there
- * is no network. `apiClient.clearSession()` removes every copy on sign-out.
- */
-
-interface CachedRead<T> {
-  data: T;
-  savedAt: number;
-}
-
-function cacheKey(userId: string, key: string) {
-  return `${SESSION_CACHE_PREFIX}${userId}:${key}`;
-}
-
-function readCache<T>(userId: string, key: string): CachedRead<T> | null {
-  try {
-    const stored = localStorage.getItem(cacheKey(userId, key));
-    return stored ? (JSON.parse(stored) as CachedRead<T>) : null;
-  } catch {
-    return null;
-  }
-}
-
-function writeCache<T>(userId: string, key: string, data: T) {
-  try {
-    localStorage.setItem(cacheKey(userId, key), JSON.stringify({ data, savedAt: Date.now() }));
-  } catch {
-    // Storage full or blocked: the read still works, just not offline.
-  }
-}
+import { OfflineCache } from './OfflineCache';
 
 export interface ParentQuery<T> {
   data: T | undefined;
@@ -47,9 +15,20 @@ export interface ParentQuery<T> {
   reload: () => void;
 }
 
+type QueryState<T> = Omit<ParentQuery<T>, 'reload'>;
+
+const idle = <T>(): QueryState<T> => ({
+  data: undefined,
+  error: null,
+  loading: false,
+  savedAt: null,
+  stale: false,
+});
+
 /**
  * Loads `key` with `load`, showing the offline copy first and replacing it
  * once the fetch succeeds. A null key skips loading (e.g. no ward selected).
+ * Screens use the named hooks in `queries.ts` rather than calling this.
  */
 export function useParentQuery<T>(key: string | null, load: () => Promise<T>): ParentQuery<T> {
   const { user } = useAuth();
@@ -57,21 +36,19 @@ export function useParentQuery<T>(key: string | null, load: () => Promise<T>): P
   const loadRef = useRef(load);
   loadRef.current = load;
   const [version, setVersion] = useState(0);
-  const [state, setState] = useState<Omit<ParentQuery<T>, 'reload'>>({
-    data: undefined,
-    error: null,
+  const [state, setState] = useState<QueryState<T>>(() => ({
+    ...idle<T>(),
     loading: key !== null,
-    savedAt: null,
-    stale: false,
-  });
+  }));
 
   useEffect(() => {
     if (!key || !userId) {
-      setState({ data: undefined, error: null, loading: false, savedAt: null, stale: false });
+      setState(idle<T>());
       return;
     }
     let current = true;
-    const cached = readCache<T>(userId, key);
+    const cache = new OfflineCache(userId);
+    const cached = cache.read<T>(key);
     setState((previous) => ({
       // Keep what's on screen during a reload of the same key.
       data: cached?.data ?? (version > 0 ? previous.data : undefined),
@@ -83,7 +60,7 @@ export function useParentQuery<T>(key: string | null, load: () => Promise<T>): P
     loadRef.current().then(
       (data) => {
         if (!current) return;
-        writeCache(userId, key, data);
+        cache.write(key, data);
         setState({ data, error: null, loading: false, savedAt: Date.now(), stale: false });
       },
       (error: unknown) => {

@@ -56,29 +56,38 @@ async function staticCacheName() {
 }
 
 /**
- * Saves a page and the scripts and styles its HTML names. Resolves true when
- * the page and all its files are saved (or it is a redirect, which isn't kept).
+ * Keeps a page's HTML, but only once every script and style it names is on
+ * the device. A page whose files didn't all download is not kept, so the
+ * saved copy it would replace (with its own files) still works offline (OFF-2).
  */
+async function keepPage(key, response) {
+  const html = await response.clone().text();
+  const urls = [...new Set([...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)].map((m) => m[1]))];
+  const staticCache = await caches.open(await staticCacheName());
+  const saved = await Promise.all(
+    urls.map(async (url) => {
+      if (await staticCache.match(url)) return true;
+      // A file another release's cache holds is copied, since that cache may be pruned.
+      const elsewhere = await caches.match(url);
+      const saving = elsewhere ? staticCache.put(url, elsewhere) : staticCache.add(url);
+      return saving.then(
+        () => true,
+        () => false,
+      );
+    }),
+  );
+  if (!saved.every(Boolean)) return false;
+  await (await caches.open(PAGES)).put(key, response);
+  return true;
+}
+
+/** Saves a page with its files. True when saved (or a redirect, which isn't kept). */
 async function savePage(path) {
   try {
     const response = await fetch(path, { cache: 'reload', credentials: 'same-origin' });
     if (response.redirected) return true;
     if (!response.ok) return false;
-    const pages = await caches.open(PAGES);
-    await pages.put(pageKey(path), response.clone());
-    const html = await response.text();
-    const urls = [...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)].map((m) => m[1]);
-    const staticCache = await caches.open(await staticCacheName());
-    const saved = await Promise.all(
-      [...new Set(urls)].map(async (url) => {
-        if (await staticCache.match(url)) return true;
-        return staticCache.add(url).then(
-          () => true,
-          () => false,
-        );
-      }),
-    );
-    return saved.every(Boolean);
+    return await keepPage(pageKey(path), response);
   } catch {
     return false;
   }
@@ -154,12 +163,15 @@ self.addEventListener('message', (event) => {
   }
 });
 
-async function networkFirstPage(request) {
+async function networkFirstPage(event) {
   const cache = await caches.open(PAGES);
-  const key = pageKey(request.url);
+  const key = pageKey(event.request.url);
   try {
-    const response = await fetch(request);
-    if (response.ok && !response.redirected) cache.put(key, response.clone());
+    const response = await fetch(event.request);
+    if (response.ok && !response.redirected) {
+      // Kept in the background, and only with all its files (keepPage).
+      event.waitUntil(keepPage(key, response.clone()).catch(() => false));
+    }
     return response;
   } catch {
     return (await cache.match(key)) ?? (await cache.match(OFFLINE_URL)) ?? Response.error();
@@ -194,7 +206,7 @@ self.addEventListener('fetch', (event) => {
   if (url.origin !== self.location.origin) return;
 
   if (request.mode === 'navigate') {
-    if (inScope(url.pathname)) event.respondWith(networkFirstPage(request));
+    if (inScope(url.pathname)) event.respondWith(networkFirstPage(event));
     return;
   }
   if (url.pathname.startsWith('/_next/static/')) {

@@ -9,9 +9,12 @@ const SW_URL = '/school-sw.js';
 const SW_SCOPE = '/school-admin';
 const UPDATE_NOTICE_ID = 'school-app-update';
 
-/** Asks the service worker to save every staff page for offline use. */
+/** This release's build ID (next.config.mjs), so the worker re-saves pages after a deploy. */
+const BUILD_ID = process.env.FASTRACK_BUILD_ID ?? '';
+
+/** Asks the service worker to save every staff page of this release for offline use. */
 function precachePages(worker: ServiceWorker | null | undefined) {
-  worker?.postMessage({ type: 'PRECACHE_PAGES', paths: staffPagePaths() });
+  worker?.postMessage({ type: 'PRECACHE_PAGES', paths: staffPagePaths(), buildId: BUILD_ID });
 }
 
 /** "Update available": reloading lets the waiting version take over. */

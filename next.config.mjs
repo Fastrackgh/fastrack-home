@@ -1,6 +1,14 @@
+// One ID per build. The build's worker processes load this file again, but they
+// inherit the environment, so they all see the first value. The staff service
+// worker re-saves its offline pages when the ID changes (OFF-1).
+process.env.FASTRACK_BUILD_ID ||= Date.now().toString(36);
+const buildId = process.env.FASTRACK_BUILD_ID;
+
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   reactStrictMode: true,
+  generateBuildId: async () => buildId,
+  env: { FASTRACK_BUILD_ID: buildId },
   // The dev badge sits over the parent app's Home tab at phone width (QA-263).
   devIndicators: false,
   async headers() {

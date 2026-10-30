@@ -10,6 +10,9 @@
  * names, because offline Next turns a link to a screen whose code isn't
  * loaded into a full page load. The page list comes from the app (the
  * registrar posts APP_ROUTES), so it can't drift from the routes.
+ * Each release has its own static cache. When the registrar reports a new
+ * build ID, every page is saved again from the new release, and once that
+ * has fully succeeded the older releases' files are removed (OFF-1).
  * API calls go to another origin and are never touched here; their offline
  * copies live in each user's IndexedDB (src/lib/offline), deleted at sign-out.
  * Pages hold no personal data (they render on the client), so caching them
@@ -17,8 +20,11 @@
  */
 const VERSION = 'v1';
 const PAGES = `school-pages-${VERSION}`;
-const STATIC = `school-static-${VERSION}`;
+const STATIC_PREFIX = `school-static-${VERSION}-`;
 const ASSETS = `school-assets-${VERSION}`;
+/** Holds the build ID whose pages are saved. */
+const META = `school-meta-${VERSION}`;
+const BUILD_KEY = '/__school-sw/build';
 const SCOPE = '/school-admin';
 const OFFLINE_URL = '/school-admin/offline';
 const PRECACHE_ASSETS = [
@@ -32,27 +38,89 @@ const pageKey = (url) => new URL(url, self.location.origin).pathname;
 
 const inScope = (pathname) => pathname === SCOPE || pathname.startsWith(`${SCOPE}/`);
 
-/** Saves a page and the scripts and styles its HTML names. */
+/** The build whose pages are saved ('' before the first), and one being saved now. */
+let savedBuild = null;
+let incomingBuild = null;
+
+async function readSavedBuild() {
+  if (savedBuild === null) {
+    const stored = await (await caches.open(META)).match(BUILD_KEY);
+    savedBuild = stored ? await stored.text() : '';
+  }
+  return savedBuild;
+}
+
+/** Where static files are written: the release being saved, else the saved one. */
+async function staticCacheName() {
+  return `${STATIC_PREFIX}${incomingBuild ?? ((await readSavedBuild()) || 'initial')}`;
+}
+
+/**
+ * Saves a page and the scripts and styles its HTML names. Resolves true when
+ * the page and all its files are saved (or it is a redirect, which isn't kept).
+ */
 async function savePage(path) {
-  const response = await fetch(path, { cache: 'reload', credentials: 'same-origin' });
-  if (!response.ok || response.redirected) return;
+  try {
+    const response = await fetch(path, { cache: 'reload', credentials: 'same-origin' });
+    if (response.redirected) return true;
+    if (!response.ok) return false;
+    const pages = await caches.open(PAGES);
+    await pages.put(pageKey(path), response.clone());
+    const html = await response.text();
+    const urls = [...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)].map((m) => m[1]);
+    const staticCache = await caches.open(await staticCacheName());
+    const saved = await Promise.all(
+      [...new Set(urls)].map(async (url) => {
+        if (await staticCache.match(url)) return true;
+        return staticCache.add(url).then(
+          () => true,
+          () => false,
+        );
+      }),
+    );
+    return saved.every(Boolean);
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * Saves the staff pages for `build`. For the build already saved, only pages
+ * missing so far are fetched (visits keep the rest fresh). For a new build,
+ * every page is saved again, one at a time so this doesn't compete with the
+ * screen in use; only when all succeed does the build become the saved one
+ * and the older releases' static files go. An offline or failed run keeps
+ * them, so saved pages always have their files.
+ */
+async function savePages(paths, build) {
+  const previous = await readSavedBuild();
+  const isNew = Boolean(build) && build !== previous;
+  if (isNew) incomingBuild = build;
   const pages = await caches.open(PAGES);
-  await pages.put(pageKey(path), response.clone());
-  const html = await response.text();
-  const urls = [...html.matchAll(/(?:src|href)="(\/_next\/static\/[^"]+)"/g)].map((m) => m[1]);
-  const staticCache = await caches.open(STATIC);
+  let complete = true;
+  for (const path of [OFFLINE_URL, ...paths]) {
+    if (!isNew && (await pages.match(pageKey(path)))) continue;
+    if (!(await savePage(path))) complete = false;
+  }
+  if (!isNew) return;
+  incomingBuild = null;
+  if (!complete) return;
+  await (await caches.open(META)).put(BUILD_KEY, new Response(build));
+  savedBuild = build;
+  const current = await staticCacheName();
+  const keys = await caches.keys();
   await Promise.all(
-    [...new Set(urls)].map(async (url) => {
-      if (await staticCache.match(url)) return;
-      await staticCache.add(url).catch(() => undefined);
-    }),
+    keys.filter((key) => key.startsWith('school-static-') && key !== current).map((key) => caches.delete(key)),
   );
 }
+
+/** Page loads in several tabs each ask; runs go one after another. */
+let saving = Promise.resolve();
 
 async function precache() {
   const assets = await caches.open(ASSETS);
   await assets.addAll(PRECACHE_ASSETS).catch(() => undefined);
-  await savePage(OFFLINE_URL).catch(() => undefined);
+  await savePage(OFFLINE_URL);
 }
 
 self.addEventListener('install', (event) => {
@@ -61,14 +129,12 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  const keep = new Set([PAGES, STATIC, ASSETS]);
+  const keep = (key) => [PAGES, ASSETS, META].includes(key) || key.startsWith(STATIC_PREFIX);
   event.waitUntil(
     caches
       .keys()
       .then((keys) =>
-        Promise.all(
-          keys.filter((key) => key.startsWith('school-') && !keep.has(key)).map((key) => caches.delete(key)),
-        ),
+        Promise.all(keys.filter((key) => key.startsWith('school-') && !keep(key)).map((key) => caches.delete(key))),
       )
       .then(() => self.clients.claim()),
   );
@@ -82,20 +148,9 @@ self.addEventListener('message', (event) => {
   }
   if (message.type === 'PRECACHE_PAGES' && Array.isArray(message.paths)) {
     const paths = message.paths.filter((path) => typeof path === 'string' && inScope(path));
-    // Pages already saved are kept (visits refresh them); the rest are saved one at a
-    // time, so this doesn't compete with the screen being used on a slow connection.
-    event.waitUntil(
-      caches.open(PAGES).then((pages) =>
-        paths.reduce(
-          (done, path) =>
-            done.then(async () => {
-              if (await pages.match(pageKey(path))) return;
-              await savePage(path).catch(() => undefined);
-            }),
-          Promise.resolve(),
-        ),
-      ),
-    );
+    const build = typeof message.buildId === 'string' ? message.buildId : '';
+    saving = saving.then(() => savePages(paths, build)).catch(() => undefined);
+    event.waitUntil(saving);
   }
 });
 
@@ -111,12 +166,12 @@ async function networkFirstPage(request) {
   }
 }
 
+/** Static files are looked up in every release's cache, so pages of any saved release work. */
 async function cacheFirst(request) {
-  const cache = await caches.open(STATIC);
-  const cached = await cache.match(request);
+  const cached = await caches.match(request);
   if (cached) return cached;
   const response = await fetch(request);
-  if (response.ok) cache.put(request, response.clone());
+  if (response.ok) (await caches.open(await staticCacheName())).put(request, response.clone());
   return response;
 }
 

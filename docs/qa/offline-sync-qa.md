@@ -202,3 +202,41 @@ Tested on 30 Oct 2026 **through the UI**, with the same setup as above at 55c371
 | Teacher's payment, a 403 with no `reason.forwardedTo` (f60fc3d) | Goes to **review as rejected**, not forwarded. The chip reads **"1 need review"**. Not resent through a 30 s poll and a reload. Sign-out is guarded ("1 change needs review… Discard 1 change and sign out"), and **Stay signed in** keeps it. |
 
 - A 403 becomes forwarded only once backend §6.2 returns `reason.forwardedTo`. Re-test this when §6.2 lands.
+
+## Needs review tray (2cd84a6, docs efa5e8d)
+
+Tested on 30 Oct 2026 **through the UI** with `next dev` at efa5e8d, against f60fc3d on `fastrack_qab1`, as principal@qpm.test. The 400 is real. The backend can't produce a 409 `CONFLICT`, a cell conflict or a forwarded 403 yet (B2, §6.2), so those were answered by `page.route` on test paths. "Keep mine" used a test resolver registered from the console. **Result: 16 of 17 pass. One finding: OFF-4.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Real 400 payment | The chip opens the drawer. The card shows the label, **Not accepted**, "Made this minute", the server's message ("paymentMethod must be one of…") and **Discard my change**. There's no Send again, since payments have no resolver. Discarding shows "Nothing to review. Every change you made has been applied." and hides the chip. It stays gone after a reload. |
+| 2 | 409 `CONFLICT` on `firstName` (lastName also sent, unchanged) | The chip reads "1 need review" in red. The card shows **Changed by someone else** and "changed by Mrs A. Mensah", and the **Now / Yours** table has only **First name: Ama / Amma**. **Keep mine** sent a **new key** with `X-Base-Version: 5` (the server's) and `from: "Ama"`. The tray cleared. |
+| 3 | Batch-cell conflict (status differs, remark equal) | Only **Status: absent / present** is shown, with "changed by Mr K. Owusu". **Keep theirs** is the only button (no resolver). It cleared. |
+| 4 | Forwarded 403 (`reason.forwardedTo`) | The chip reads **"1 sent to head teacher"**. The card is under its own heading ("…passed to the head teacher or an admin…") with **OK**. After OK, the chip hides. |
+| 5 | Two tabs, both trays open on one conflict, **Keep mine** in both | **Fail: sent twice, with two different keys.** See OFF-4. |
+| 5b | Tab B's tray is open when tab A clicks Keep theirs | B's tray updates to "Nothing to review". |
+| 5c | Double-click **Keep mine** in one tab (3 runs) | Sent once each time. |
+| 6 | Phone (390 px) | The drawer is full width (390 px) with no sideways scroll, and a long label wraps. |
+
+### OFF-4 (Low now, must be fixed before a resolver for a non-idempotent write; owner: staff frontend): Keep mine in two tabs queues the change twice
+
+**What happens**
+- `resend(id)` reads the item, queues the resolver's op (`outbox.enqueue`) and then removes the item, in three separate IndexedDB transactions.
+- If two tabs act on the same item at about the same time, both read it before either removes it.
+- Both queue a new op with its own new key, so the server's idempotency can't merge them.
+- **Reproduced:** two tabs of the same user, both trays open, Keep mine pressed in both, gave two `/resolved` requests with keys `79c63e3d…` and `9f62ecc5…`.
+
+**Impact**
+- A field change or an attendance cell sent twice is harmless: the second one conflicts or applies the same value.
+- A resolver for "Send again" on a **payment** or an admission would record it twice.
+- No real collection has a resolver yet.
+
+**Suggested fix.** Make resend one IndexedDB transaction over `conflicts`, `outbox` and `meta`:
+1. Get the item, and stop if it's gone.
+2. Allocate the `seq`.
+3. Put the new op.
+4. Delete the item.
+
+IndexedDB runs overlapping read-write transactions one at a time across tabs, so the second tab finds the item gone and queues nothing. The same applies to `dismiss`, which is harmless today.
+
+**Note (not a finding):** until §6.2, a teacher's 403 is a rejected item whose message is the raw "Forbidden resource". Something like "You don't have access to this any more" would read better for staff.

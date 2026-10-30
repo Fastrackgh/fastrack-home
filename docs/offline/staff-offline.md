@@ -103,8 +103,8 @@ flowchart LR
   - 2xx, replayed or not: the op leaves the queue. Each entry of a batch-cell `conflicts[]` becomes its own review item. `onSyncApplied` listeners get the op and the body, so a screen can refresh its saved reads.
   - 409 `CONFLICT` / `LIKELY_DUPLICATE`: review, as a conflict, keeping `current` and `conflictingFields`.
   - 400, 404, 422 and the other 409s (`IDEMPOTENCY_MISMATCH`, `DUPLICATE_ID`, `DUPLICATE_REFERENCE`), or any 4xx without a code: review, as rejected. Never resent. A `REFERENCE_NOT_FOUND` for an id that is still queued is retried instead.
-  - 403 of any code: forwarded. The server keeps the op for a head or admin (§6.2). It leaves the user's own tray and is counted separately as information.
-  - 409 `IDEMPOTENCY_IN_PROGRESS`, 408, 429, 5xx: retried after `Retry-After`, else after an exponential backoff (about 2 s, 4 s, 8 s …, up to 5 min, with jitter). No answer, or 502–504, also ends the run, because nothing else would get through.
+  - 403 with `reason.forwardedTo`: forwarded. The server has kept the op for a head or admin (§6.2). It leaves the user's own tray and is counted separately as information. A 403 **without** `reason.forwardedTo` goes to review as rejected, because the server kept it nowhere. That's every 403 until backend §6.2 ships, so the change still blocks sign-out and isn't lost (QA merge-order condition, 30 Oct).
+  - 409 `IDEMPOTENCY_IN_PROGRESS`, 408, 429, 5xx: retried after `Retry-After`, else after an exponential backoff (about 2 s, 4 s, 8 s …, up to 5 min, with jitter). No answer, or 502–504, also ends the run, because nothing else would get through. A timer is still set for when the backoff ends (OFF-3, fixed 30 Oct: the retry used to wait for the 30 s poll, with the chip saying "Offline" although the API was back).
   - 401: the queue pauses, and the op stays. It resumes once the access token changes (the same user signed in again). A session that ends stops the engine anyway, and the next sign-in starts it again.
 - **Age:** an op queued more than 25 days ago goes to review as rejected (`OP_TOO_OLD`) instead of being sent, because the server keeps keys for 30.
 - **When it runs:** on enqueue, when the API answers again, on window focus and the browser's `online` event, every 30 s while ops wait, and when a backing-off op is due. A send is also how the engine notices the API is back.
@@ -115,7 +115,7 @@ flowchart LR
   - API blocked: the op stayed queued with a backoff, the chip read "Offline · 1 waiting" and sign-out was blocked. Once unblocked, it was sent.
   - Answer dropped after the server saved: the retry replayed, and one payment was created.
   - A 400 went to review once ("1 need review"). Three ops (two on one entity, one depending on the first) were sent in order behind a 503 backoff. An op queued in a second tab was sent once, and both tabs recounted.
-  - A teacher's payment (403) was counted as forwarded, not as review.
+  - A teacher's payment (403) was counted as forwarded, not as review. After the merge-order fix, the same 403 (with no `reason.forwardedTo` at f60fc3d) goes to review. After the OFF-3 fix, the reconnect retry came from the backoff timer, with no focus or poll (21/21).
   - Sign-out with a review item showed the guard. "Discard 1 change and sign out" deleted the database.
 
 ## Sign-out and shared devices

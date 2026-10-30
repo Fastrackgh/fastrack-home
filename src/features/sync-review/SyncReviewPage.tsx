@@ -175,7 +175,6 @@ function ChangeCard({
             minRows={4}
             value={draft}
             onChange={setDraft}
-            formatOnBlur
           />
         ) : (
           fields.length > 0 && (

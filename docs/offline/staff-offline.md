@@ -158,7 +158,7 @@ flowchart LR
   - A dismiss in one tab and an apply in another at the same instant still both reach the server. The server has to refuse an `applyOpKey` re-send for a row that isn't open (OFF-7, backend).
   - A refusal (a conflict, a closed term) shows on the card, and the change stays open.
   - A batch write that applied with `conflicts[]` says how many entries had changed since and were left as they are.
-- **Edit** opens the change as JSON to correct before **Apply edited change**. Feature-specific editors can replace this when attendance and marks arrive.
+- **Edit** opens the change as JSON (pretty-printed) to correct before **Apply edited change**, which checks that it's valid. It isn't reformatted when the box loses focus. That used to push the button down under a click on compact one-line JSON, so the click was lost (OFF-9, fixed 30 Oct). Feature-specific editors can replace this when attendance and marks arrive.
 - **Dismiss** asks for an optional note. Applied and dismissed changes show who resolved them, when, and the note.
 - **Checked (30 Oct, `next dev` against backend c44f008 on `fastrack_fe18`, Playwright, 13/13):** four teacher payments were forwarded.
   - Apply: one payment, the row applied with its `applyOpKey`, and the head's op `recorded_at` equal to the teacher's.

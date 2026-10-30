@@ -135,14 +135,19 @@ flowchart LR
 ## Session-expiry warning
 
 - **Source:** login and refresh return `refreshExpiresAt` (backend 9ecbbf7). Every refresh gives the token a fresh lifetime, 14 days for staff. `apiClient.setTokens` stores it in `localStorage` (`fastrack_session_expires_at`), converted to the device clock using the offset from the last `X-Server-Time` the API sent. `clearSession` removes it with the rest of the session.
-- **Online**, there is nothing to see. In the last 2 days (from day 12), `SessionExpiryWarning` renews the session once (`apiClient.renewSession()`), which brings the expiry back to 14 days.
+- **Online**, there is nothing to see. In the last 2 days (from day 12), `SessionExpiryWarning` renews the session (`apiClient.renewSession()`), which brings the expiry back to 14 days. While the API answers, the banner never shows, whatever the device clock says.
+- **Rate limit (OFF-5, fixed 30 Oct):** a device clock far ahead kept every expiry "near", and the old guard (once per expiry value) renewed in a loop: QA saw 2,315 refreshes in 20 s with the clock a year ahead. Now:
+  - An automatic renewal runs at most once per 10 minutes per device. A successful one stamps `fastrack_session_renewed_at`, which holds across tabs and reloads.
+  - A renewal that failed offline isn't stamped, so the next try isn't blocked.
+  - Inside a tab, only one runs at a time. Across tabs, the refresh Web Lock refreshes once.
 - **Offline from day 12**, a yellow banner shows at the top of every staff page: **"Connect to the internet by Sat 31 Oct, 22:43 to stay signed in."** It says that after that the user will need to sign in again, and when changes are waiting, that the N changes saved on this device are kept until they do. Once the time has passed it turns red: **"Your sign-in has ended"**, with "Connect and sign in again to send the N changes saved on this device." Queued changes are never dropped for this; they're sent after the same user signs in.
-- **Clock correction:** at 9ecbbf7 the API sends `X-Server-Time` only on queued writes and `/sync/` routes, not on login or refresh, so a device whose clock is wrong is corrected only after its first queued write. The backend has been asked to add the header to `/auth/login` and `/auth/refresh`.
+- **Clock correction:** from backend 5fa1c04, `/auth/login` and `/auth/refresh` send `X-Server-Time` too, so the stored expiry is corrected at sign-in. At 9ecbbf7 it came only on queued writes and `/sync/` routes.
 - **Checked (30 Oct, `next dev` against backend 9ecbbf7, Playwright, 7/7):**
   - Login stored 14.000 days, with no banner.
   - Offline with the expiry set to 1 day away and 1 change waiting: the deadline banner, with "1 change saved on this device".
   - Expiry already passed: "Your sign-in has ended".
   - Online with the expiry 1 day away: renewed to about 14 days, a new refresh token, and no banner.
+  - After the OFF-5 fix (9/9): with the device clock 365 days ahead and online, 1 refresh in 26 s and two reloads, and no banner.
 
 ## Sign-out and shared devices
 

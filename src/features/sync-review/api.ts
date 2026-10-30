@@ -98,6 +98,41 @@ export function describe(change: ForwardedChange): string {
   return `${method} ${path}`;
 }
 
+/** An apply that didn't happen as asked, with the row as it is now when it was resolved meanwhile. */
+export class ApplyRefused extends Error {
+  constructor(
+    message: string,
+    readonly current?: ForwardedChange,
+  ) {
+    super(message);
+    this.name = 'ApplyRefused';
+  }
+}
+
+const stamp = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  hour: '2-digit',
+  minute: '2-digit',
+});
+
+function resolvedMessage(row: ForwardedChange, edited = false): string {
+  const by = row.resolvedBy?.name ?? 'someone else';
+  const when = row.resolvedAt ? ` on ${stamp.format(new Date(row.resolvedAt))}` : '';
+  return row.status === 'applied'
+    ? `Already applied by ${by}${when}${edited ? ' with the original values, so your edit wasn’t saved' : ''}.`
+    : `Dismissed by ${by}${when}, so it wasn’t applied.`;
+}
+
+/** JSON with sorted keys, to tell an edited body from the stored one. */
+function stableJson(value: unknown): string {
+  return JSON.stringify(value, (_key, v: unknown) =>
+    v && typeof v === 'object' && !Array.isArray(v)
+      ? Object.fromEntries(Object.entries(v as Raw).sort(([a], [b]) => a.localeCompare(b)))
+      : v,
+  );
+}
+
 /** Waits for an attempt still being saved (`IDEMPOTENCY_IN_PROGRESS`, Retry-After 2). */
 const IN_PROGRESS_WAIT_MS = 2000;
 const IN_PROGRESS_TRIES = 4;
@@ -110,14 +145,33 @@ export const syncReviewApi = {
     return toPage(res, toChange);
   },
 
+  async get(id: string): Promise<ForwardedChange> {
+    return toChange(
+      (await apiClient.get<Raw>(`/schools/me/sync/rejections/${pathId(id)}`)).data ?? {},
+    );
+  },
+
   /**
    * Applies a change as the reviewer (§6.2): re-sends it through its normal
    * route with the row's `applyOpKey`, so a retry replays rather than applying
-   * twice, then marks the row applied. `IDEMPOTENCY_MISMATCH` means the key was
-   * already used (another reviewer, or an earlier apply), which counts as applied.
-   * Other refusals (a conflict, a closed term) throw, and the row stays open.
+   * twice, then marks the row applied.
+   * - The row is re-read first; one resolved meanwhile (another tab or reviewer)
+   *   isn't sent again (narrows OFF-7).
+   * - `IDEMPOTENCY_MISMATCH` means the key was already used with other content
+   *   (OFF-8). Only an unedited apply after its own lost answer counts as done;
+   *   an edit that the server didn't save is reported, never marked applied.
+   * Refusals throw `ApplyRefused` (with the row as it is now, if it changed)
+   * or the API error, and the row stays as it was.
    */
   async apply(change: ForwardedChange, body: Raw | null = change.body): Promise<ApplyResult> {
+    const edited = stableJson(body) !== stableJson(change.body);
+    const latest = await syncReviewApi.get(change.id);
+    if (latest.status !== 'open') {
+      // An unedited apply of a row already applied (e.g. after a lost answer) is done.
+      if (latest.status === 'applied' && !edited) return { conflicts: [] };
+      throw new ApplyRefused(resolvedMessage(latest, edited), latest);
+    }
+
     const send = () =>
       apiClient.exchange<Raw>(change.path, {
         method: change.method,
@@ -138,7 +192,19 @@ export const syncReviewApi = {
         break;
       } catch (err) {
         const code = errorCode(err);
-        if (code === 'IDEMPOTENCY_MISMATCH') break;
+        if (code === 'IDEMPOTENCY_MISMATCH') {
+          const now = await syncReviewApi.get(change.id);
+          if (now.status !== 'open') {
+            if (now.status === 'applied' && !edited) return { conflicts: [] };
+            throw new ApplyRefused(resolvedMessage(now, edited), now);
+          }
+          if (edited) {
+            throw new ApplyRefused(
+              'This change was already saved with its original values, so your edit wasn’t saved. Apply it without edits to mark it done.',
+            );
+          }
+          break;
+        }
         if (code !== 'IDEMPOTENCY_IN_PROGRESS' || attempt >= IN_PROGRESS_TRIES) throw err;
         await new Promise((resolve) => setTimeout(resolve, IN_PROGRESS_WAIT_MS));
       }

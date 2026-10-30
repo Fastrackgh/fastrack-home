@@ -23,6 +23,7 @@ import { PageHeader } from '@/features/workspace';
 import { errorCode, errorMessage } from '@/lib/api-client';
 import { PAGE_SIZE, type Raw } from '@/lib/pagination';
 import {
+  ApplyRefused,
   REASONS,
   describe,
   syncReviewApi,
@@ -99,7 +100,9 @@ function ChangeCard({
   const [error, setError] = useState<string | null>(null);
   const [dismissing, setDismissing] = useState(false);
   const [note, setNote] = useState('');
-  const open = change.status === 'open';
+  /** The row as last seen: an apply can find it resolved meanwhile (another tab or reviewer). */
+  const [row, setRow] = useState(change);
+  const open = row.status === 'open';
   const fields = Object.entries(change.body ?? {});
 
   const apply = async (body: Raw | null) => {
@@ -117,6 +120,10 @@ function ChangeCard({
       onDone();
     } catch (err) {
       setError(applyError(err));
+      if (err instanceof ApplyRefused && err.current) {
+        setRow(err.current);
+        setEditing(false);
+      }
     } finally {
       setBusy(false);
     }
@@ -234,9 +241,9 @@ function ChangeCard({
           </Group>
         ) : (
           <Text size="sm" c="dimmed">
-            {change.status === 'applied' ? 'Applied' : 'Dismissed'} by{' '}
-            {change.resolvedBy?.name ?? 'Unknown'} · {at(change.resolvedAt)}
-            {change.note ? ` · “${change.note}”` : ''}
+            {row.status === 'applied' ? 'Applied' : 'Dismissed'} by{' '}
+            {row.resolvedBy?.name ?? 'Unknown'} · {at(row.resolvedAt)}
+            {row.note ? ` · “${row.note}”` : ''}
           </Text>
         )}
       </Stack>

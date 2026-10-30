@@ -171,7 +171,7 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` in a separate checkout 
 | 9 | Discard with two tabs open | The guard reads "1 change needs review…" with Stay signed in and **Discard 1 change and sign out**. After discarding, the user's database is deleted and the other tab is also on the sign-in page. A teacher signing in next on that browser has nothing waiting or in review. |
 | – | Payments | Exactly 6 for the 6 valid ops (cases 1, 2, 3, 4, 6, 7), plus 2 in the lost-answer runs (3 and 3b). |
 
-### OFF-3 (Low; owner: staff frontend): after a send gets no answer, the retry waits for the 30 s poll, not its backoff
+### OFF-3 (Low, fixed in 0637a5d; owner: staff frontend): after a send gets no answer, the retry waits for the 30 s poll, not its backoff
 
 **What happens**
 - When a send gets no answer (status 0, or 502–504), `drain` returns as soon as `handle` gives `false`.
@@ -184,9 +184,21 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` in a separate checkout 
 
 **Suggested fix.** Set the timer on the offline path too. For example, call `this.scheduleAt(await outbox.all(this.db))` before returning `false`, so the backoff decides when the next try happens.
 
-### Merge-order condition: 403 → forwarded needs the backend's §6.2 store
+### Merge-order condition (handled in 0637a5d): 403 → forwarded needs the backend's §6.2 store
 
 - At f60fc3d the server **does not keep** a 403'd op: no `sync_operations` row (count 0) and no `sync_rejections` yet.
 - On the device it becomes a `forwarded` item. Forwarded items appear nowhere on screen: not in the chip, and the review tray isn't built yet. They are not counted by the sign-out guard either.
 - In case 8 the teacher signed out with no guard, and the item was deleted with the database. That change now exists nowhere.
 - No screen queues writes yet, so this doesn't affect users today. A screen that queues writes (attendance, marks) must not ship before the backend stores 403'd ops for heads and admins (§6.2). Until then, the frontend should treat a 403 as review.
+
+### Re-test of 0637a5d (docs 55c3713): OFF-3 fixed, 403 handled
+
+Tested on 30 Oct 2026 **through the UI**, with the same setup as above at 55c3713. The page was left idle: no focus or `online` events. `pnpm test:sync` passes. **OFF-3: fixed. The merge-order condition is handled on the frontend.**
+
+| Case | Result |
+| --- | --- |
+| Answer dropped after the server saved | Retried **2.0 s** later (it was 29 s before the fix). 201 with `Idempotent-Replayed: true`. One payment. |
+| API unreachable for 7 s, then back | Tries at 0, 1.4, 4.9 and 13.0 s, following the growing backoff with no wait for the poll. Sent once at the first try after the API was back. One payment. |
+| Teacher's payment, a 403 with no `reason.forwardedTo` (f60fc3d) | Goes to **review as rejected**, not forwarded. The chip reads **"1 need review"**. Not resent through a 30 s poll and a reload. Sign-out is guarded ("1 change needs review… Discard 1 change and sign out"), and **Stay signed in** keeps it. |
+
+- A 403 becomes forwarded only once backend §6.2 returns `reason.forwardedTo`. Re-test this when §6.2 lands.

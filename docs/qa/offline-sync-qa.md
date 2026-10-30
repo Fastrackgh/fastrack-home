@@ -184,7 +184,7 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` in a separate checkout 
 
 **Suggested fix.** Set the timer on the offline path too. For example, call `this.scheduleAt(await outbox.all(this.db))` before returning `false`, so the backoff decides when the next try happens.
 
-### Merge-order condition (handled in 0637a5d): 403 → forwarded needs the backend's §6.2 store
+### Merge-order condition (handled in 0637a5d, cleared by backend 5fa1c04): 403 → forwarded needs the backend's §6.2 store
 
 - At f60fc3d the server **does not keep** a 403'd op: no `sync_operations` row (count 0) and no `sync_rejections` yet.
 - On the device it becomes a `forwarded` item. Forwarded items appear nowhere on screen: not in the chip, and the review tray isn't built yet. They are not counted by the sign-out guard either.
@@ -266,7 +266,7 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` at 71860b6, against bac
 | F | Sign out | `fastrack_session_expires_at` is removed. |
 | G | Device clock **365 days ahead**, online, nothing queued | **Fail: 2,315 `/auth/refresh` calls in 20 s.** In `refresh_tokens`, **2,321 rows** were created in those few minutes. A red "Your sign-in has ended" banner showed while the user was signed in and online. See OFF-5. |
 
-### OFF-5 (Medium; owner: staff frontend, with backend 9ecbbf7): a device clock that is ahead makes the app renew the session in a loop
+### OFF-5 (Medium, fixed in 8ccd927 + backend 5fa1c04; owner: staff frontend, with backend 9ecbbf7): a device clock that is ahead makes the app renew the session in a loop
 
 **What happens**
 - At 9ecbbf7, `/auth/login` and `/auth/refresh` don't send `X-Server-Time`, so before any queued write `serverOffsetMs` is 0.
@@ -283,3 +283,51 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` at 71860b6, against bac
   - Limit automatic renewal to once per window, e.g. one attempt per 10 minutes, kept in `localStorage` so it holds across tabs and reloads.
   - Don't renew again if the last renewal didn't move the expiry out of the warning window.
   - Don't show "Your sign-in has ended" while the API is accepting the session.
+
+### Re-test of 8ccd927 (docs 67b82e3): OFF-5 fixed
+
+Tested on 30 Oct 2026 **through the UI** at 67b82e3. I ran the same 9 checks twice: once with `X-Server-Time` stripped from every API answer, which proves the frontend half alone, and once against the real backend 5fa1c04/c44f008. **Both runs: 9 of 9. OFF-5: fixed.**
+
+| Case | Server time stripped | Real backend |
+| --- | --- | --- |
+| G: clock 365 days ahead, online, nothing queued, 26 s plus two reloads | **1** `/auth/refresh` call, no banner | **0** calls. Stored expiry reads 14.000 days on the device clock. No banner. |
+| A–F (sign-in, two-tab renewal, yellow and red offline banners, renew on return, sign-out) | Pass | Pass |
+
+- **The 10-minute limit works as intended.** In one run, case E (renew when the connection returns) didn't renew, because case B had renewed 2 minutes earlier. That only happened because I set the expiry by hand. A real expiry can't be 1 day away minutes after a renewal. The test now clears `fastrack_session_renewed_at` before E.
+- **Observation, not a finding.** In 2 of 8 two-tab runs (`next dev`), one tab sent `/auth/refresh` twice, about a second apart, with the **same** refresh token. The backend accepts a reused refresh token (checked: reusing a rotated token gives 200), so the only effect was one extra `refresh_tokens` row. It didn't reproduce in 4 traced runs or the final 2 suites. This matters only if the backend later adds reuse detection.
+
+## §6.2 school review list (backend 5fa1c04, then c44f008)
+
+Tested on 30 Oct 2026, with the teacher's side **through the UI** (staff frontend 71860b6) against 5fa1c04, then c44f008. The migrations 1792600002200, 2300 and 2400 ran on `fastrack_qab1`. There's no head screen yet, so the head's side went through the API. **Result: 13 of 14, and the one failure was my script's (see below). One finding: OFF-6.** The merge-order condition on the 403 path is **cleared**.
+
+| Case | Result |
+| --- | --- |
+| Teacher's queued payment | A real `403 FORBIDDEN` with `reason.forwardedTo: "school-review"`. The device counts it as forwarded (review 0). The chip reads "1 sent to head teacher", and the tray lists it under that heading. One `sync_rejections` row (`open`). |
+| Same key resent / no key | Resent: 403 again, still one row. With no key: not stored. The teacher can't read the list (403). |
+| Head lists it | `sentBy` "Tete Qpm", `code`, `message`, `path`, `body` and (c44f008) `applyOpKey`. |
+| `/applied` too early or with a wrong key | 422 "That change hasn't been saved yet. Re-send it first…" for the first, and 422 for the second. |
+| Head re-sends with `applyOpKey` | 201 and one payment. The head's `sync_operations.recorded_at` equals the teacher's original time. With a stable `X-Client-Recorded-At`, a retry replays (`Idempotent-Replayed: true`) both before and after "applied". A different body gives `IDEMPOTENCY_MISMATCH`. |
+| Mark applied, twice | 200, `resolvedBy` "Ofori Retest". The repeat is 200 (c44f008). |
+| Dismiss with a note | `dismissed`, note "Not needed". |
+| Teacher signs out with only forwarded items | Not blocked. The server now holds them. |
+| `X-Server-Time` | Sent on login, refresh, and a refused refresh (401). |
+
+- **My script's failure:** its first "retry" changed `X-Client-Recorded-At` between sends. That header is part of the request hash, so the server rightly answered `IDEMPOTENCY_MISMATCH`. The sync engine keeps it fixed per op. Re-checked by hand with it fixed: the retry replays.
+
+### OFF-6 (Low; owner: backend): the apply key isn't tied to the forwarded request
+
+**What happens**
+- At c44f008 any request sent with a row's `applyOpKey` takes the teacher's original `recorded_at`. `/applied` then accepts the row once any op with that key has completed.
+- Nothing checks that the request is the one that was forwarded: the method, path and body against the row's `request_hash`.
+
+**Reproduced.** The teacher's forwarded change was a **GHS 5 cash** payment. The head sent a **GHS 50 MoMo** payment with that row's `applyOpKey`:
+- It was accepted (201).
+- Its `recorded_at` was set to the **teacher's** time, earlier than when it was made.
+- `/applied` marked the teacher's row **applied**.
+
+**Impact**
+- The review list says the teacher's change was applied when a different one was recorded.
+- That other write is backdated to the teacher's time.
+- Heads are trusted to make edits, so this is about a buggy client or a mistaken re-send, not an attack. Still, the audit record is wrong.
+
+**Suggested fix.** In `clockFor` (or before claiming the key), when the key is an open row's `applyOpKey`, require the request's hash to equal the row's `request_hash`. Otherwise answer 409 `IDEMPOTENCY_MISMATCH` and change nothing. Since the head re-sends the stored request, that hash should match.

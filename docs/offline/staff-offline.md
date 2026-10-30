@@ -109,7 +109,21 @@ flowchart LR
 - **Age:** an op queued more than 25 days ago goes to review as rejected (`OP_TOO_OLD`) instead of being sent, because the server keeps keys for 30.
 - **When it runs:** on enqueue, when the API answers again, on window focus and the browser's `online` event, every 30 s while ops wait, and when a backing-off op is due. A send is also how the engine notices the API is back.
 - **Tabs:** only the tab holding the Web Lock `fastrack-sync-<userId>` sends. Every tab keeps counts, and a `BroadcastChannel` tells the others to recount (and to send, if they can take the lock).
-- **Not yet:** the review tray screen (the items are stored and counted), Background Sync, and screens that queue writes. In development, `window.__fastrackSync` (`enqueueWrite`, `syncNow`, `syncStatus`) queues ops from the console; it's absent from production builds.
+- **Not yet:** Background Sync, and screens that queue writes. In development, `window.__fastrackSync` (`enqueueWrite`, `syncNow`, `syncStatus`, `registerReviewResolver`) queues ops from the console; it's absent from production builds.
+
+## Needs review tray
+
+- **Opening it:** click the header chip whenever it shows "N need review" or "N sent to head teacher". It opens a drawer on the right, full width on a phone (`ReviewTray.tsx`).
+- **Each item** shows the op's label, when it was made, and who changed it on the server (`current.updatedBy`).
+  - **Changed by someone else** (409 `CONFLICT`, or a batch-cell conflict): a **Now / Yours** table of the fields that differ. For a field conflict these are the `conflictingFields`, with the device's `changes[f].to` or plain value. For a cell, they're the cell's `current` and `mine`. The buttons are **Keep theirs** (dismiss) and **Keep mine**.
+  - **Not accepted** (rejected): the server's message, e.g. "amount must not be less than 0.01". The buttons are **Discard my change**, and **Send again** where offered.
+  - **Sent to the head teacher** (forwarded, §6.2): listed under their own heading for information, with **OK** to clear them.
+- **Keep mine / Send again** queue a new op with a new key (§4), built by the feature's resolver: `registerReviewResolver(collection, item => EnqueueInput | null)`. For attendance, for example, that's one cell with `from` set to the server's current value. The new op is queued before the item is removed, so a failure can't lose the change. A collection without a resolver can only be dismissed. None are registered yet; attendance and marks add theirs when they start queuing.
+- **Checked (30 Oct, `next dev` against f60fc3d, Playwright, 12/12):**
+  - A real 400 payment: shown, and discarded.
+  - A routed 409 field conflict: "First name: Ama / Amma, changed by Mrs A. Mensah". Keep mine sent a new key through a test resolver.
+  - A routed batch-cell conflict (only Status shown) and a forwarded 403: listed apart, then cleared.
+  - The chip hides once the tray is empty. The layout was checked at 1280 px and 390 px.
 - **Checked (30 Oct, `next dev` against backend `feat/offline-sync` f60fc3d on a copy of the dev DB, Playwright):** payments queued from the console as principal@qpm.test.
   - Online: sent once with all five headers (`sync_operations` row 201, with the device and recorded time). The chip stayed hidden.
   - API blocked: the op stayed queued with a backoff, the chip read "Offline · 1 waiting" and sign-out was blocked. Once unblocked, it was sent.

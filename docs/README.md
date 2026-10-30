@@ -31,7 +31,7 @@ Each flow has a Mermaid diagram, its loading, empty, error and success states, i
 | [Attendance](./user-flows/attendance.md) (daily register, term totals, parent month view) | Live (backend on `feat/attendance`) |
 | [Password reset and invite acceptance](./user-flows/password-reset-and-invite-acceptance.md) | Invite acceptance live; password reset backend live, frontend uncommitted |
 | [Results and term reports](./user-flows/results-and-reports.md) ([API contract](./api/results.md), calculation and [worked answers](./api/results-fixtures.json)) | Subjects live; grading setup built, backend in progress; marks and reports to come |
-| [Offline staff portal](./offline/staff-offline.md) (saved reads, status chip, per-user store, outbox and sync engine; [sync contract](./offline/sync-contract.md)) | Phase 1 frontend built (30 Oct): offline reads, status chip, service worker. Phase 2 started: outbox, sync engine and sign-out guard built; no screen queues writes until the backend marks attendance and marks idempotent |
+| [Offline staff portal](./offline/staff-offline.md) (saved reads, status chip, per-user store, outbox and sync engine; [sync contract](./offline/sync-contract.md)) | Phase 1 frontend built (30 Oct): offline reads, status chip, service worker. Phase 2 started: outbox, sync engine, sign-out guard and Needs review tray built; no screen queues writes until the backend marks attendance and marks idempotent |
 
 ## Key facts at a glance
 

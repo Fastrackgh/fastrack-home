@@ -1,6 +1,6 @@
 # Offline staff portal: frontend
 
-**Status:** phase 1 in progress (30 Oct 2026). Offline reads and the status chip are built. The service worker (F2) is next, followed by the outbox and sync engine.
+**Status:** phase 1 frontend built (30 Oct 2026): offline reads, the status chip and the staff service worker. Next is the outbox and sync engine, for the phase 2 writes.
 **Contract:** [sync-contract.md](./sync-contract.md). **Plan:** `humming-tumbling-codd.md` (F1–F5). **QA:** [../qa/offline-sync-qa.md](../qa/offline-sync-qa.md).
 
 ## Code
@@ -14,6 +14,9 @@
 | `src/lib/offline/connectivity.ts`, `useConnectivity.ts` | Whether the API can be reached. |
 | `src/features/workspace/SyncStatusChip.tsx` | The header chip. |
 | `src/lib/api-client.ts` | `setReadCache`, `onReachability`, `errorCode`. `get` uses the read cache. |
+| `public/school-sw.js` | The staff service worker, scope `/school-admin` (below). |
+| `src/features/workspace/pwa/` | `ServiceWorkerRegistrar` (registration, the page list, the update prompt), `staffPages.ts` (`staffPagePaths()`), `OfflinePage`. |
+| `public/school-app/` | Manifest (installable as "Fastrack School", start URL `/school-admin/dashboard`) and icons. `next.config.mjs` serves `/school-sw.js` with no-cache. |
 
 ## Offline reads (phase 1)
 
@@ -41,6 +44,22 @@ sequenceDiagram
 - Other errors (401, 403, 404, 4xx, 500) are never replaced by a saved copy.
 - Collections move from `reads` to the synced `records` store as the change feed (B3) covers them.
 - Not yet capped: `reads` grows with every distinct query. Pruning comes in phase 5 (hardening).
+
+## Service worker (F2)
+
+- **Pages:** network first. A page is saved by its path; the query is ignored, because staff pages render it on the client. A page that can't be fetched gets its saved copy, and a page never saved gets `/school-admin/offline` ("You are offline · This page has not been saved on this device yet").
+- **Every staff page is saved up front.** Offline, Next turns a link to a screen whose code isn't loaded into a full page load. So once the worker is ready, the registrar posts `staffPagePaths()`: every `APP_ROUTES` path under `/school-admin` except platform, the marks-sheet and class-report sub-pages, every dashboard area and sign-in. The worker saves each page that isn't saved yet, one at a time, along with every `/_next/static` script and style its HTML names. The list comes from the app, so a new route is covered automatically. Scripts that a page loads only on demand are cached the first time they're used.
+- **`/_next/static`:** cache first, since the files are content-hashed. **Icons, fonts and images:** stale while revalidate.
+- **API calls** go to another origin and are never touched; their offline copies are the saved reads above. Pages hold no personal data, so caching them is safe on a shared device.
+- **Updates:** the first install takes over at once. A later version waits and shows **"Update available · A new version of Fastrack is ready · Reload"**. Reload makes the waiting version take over, and the page reloads onto it.
+- **Development:** the registrar only registers in production builds. In `next dev` it removes any existing registration, so hot reload never serves stale pages.
+- **Smoke test (30 Oct, production build of 0bb1d29 in a separate worktree, with the server stopped):**
+  - 43 pages and 87 static files were saved.
+  - Offline, fees, attendance and a dashboard area loaded from the cache, as did the marks sheet with a query. The app's own guards then redirected the sheet and the area as usual.
+  - An in-app link to Students worked.
+  - An unknown path got the offline page.
+  - The chip read "Offline".
+  - Playwright's `context.setOffline(true)` doesn't cut the service worker's own fetches in Chromium, so stop the server (or block its host) to test the worker.
 
 ## Connectivity and the status chip
 

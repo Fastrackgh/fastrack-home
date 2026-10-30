@@ -77,28 +77,67 @@ export async function deviceId(db: OfflineDb): Promise<string> {
   return id;
 }
 
+function newOp(input: EnqueueInput, seq: number): OutboxOp {
+  const now = Date.now();
+  return {
+    opId: crypto.randomUUID(),
+    seq,
+    collection: input.collection,
+    entityId: input.entityId,
+    method: input.method,
+    path: input.path,
+    body: input.body === undefined ? undefined : JSON.stringify(input.body),
+    baseVersion: input.baseVersion,
+    recordedAt: new Date(now).toISOString(),
+    dependsOn: input.dependsOn ?? [],
+    label: input.label,
+    createdAt: now,
+    attempts: 0,
+    nextAttemptAt: 0,
+  };
+}
+
 export const outbox = {
   /** Queues a write. The caller shows it as pending until the engine reports it applied. */
   async enqueue(db: OfflineDb, input: EnqueueInput): Promise<OutboxOp> {
-    const now = Date.now();
-    const op: OutboxOp = {
-      opId: crypto.randomUUID(),
-      seq: await db.increment(SEQ_KEY),
-      collection: input.collection,
-      entityId: input.entityId,
-      method: input.method,
-      path: input.path,
-      body: input.body === undefined ? undefined : JSON.stringify(input.body),
-      baseVersion: input.baseVersion,
-      recordedAt: new Date(now).toISOString(),
-      dependsOn: input.dependsOn ?? [],
-      label: input.label,
-      createdAt: now,
-      attempts: 0,
-      nextAttemptAt: 0,
-    };
+    const op = newOp(input, await db.increment(SEQ_KEY));
     await db.put('outbox', op);
     return op;
+  },
+
+  /**
+   * "Keep mine" / "Send again": in one transaction, if the review item is
+   * still there, queues the op `build` makes from it and removes the item.
+   * IndexedDB runs such transactions one at a time across tabs, so when two
+   * tabs press it together the second finds the item gone (OFF-4). Resolves
+   * the new op, or null when the item was gone or `build` gave nothing.
+   */
+  takeFromReview(
+    db: OfflineDb,
+    id: string,
+    build: (item: ReviewItem) => EnqueueInput | null,
+  ): Promise<OutboxOp | null> {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['conflicts', 'outbox', 'meta'], 'readwrite');
+      let op: OutboxOp | null = null;
+      const read = tx.objectStore('conflicts').get(id);
+      read.onsuccess = () => {
+        const item = read.result as ReviewItem | undefined;
+        const input = item ? build(item) : null;
+        if (!input) return;
+        const meta = tx.objectStore('meta');
+        const counter = meta.get(SEQ_KEY);
+        counter.onsuccess = () => {
+          const seq = (typeof counter.result === 'number' ? counter.result : 0) + 1;
+          meta.put(seq, SEQ_KEY);
+          op = newOp(input, seq);
+          tx.objectStore('outbox').put(op);
+          tx.objectStore('conflicts').delete(id);
+        };
+      };
+      tx.oncomplete = () => resolve(op);
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    });
   },
 
   /** Every queued op, oldest first. */

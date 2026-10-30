@@ -179,18 +179,19 @@ class SyncEngine {
   }
 
   /**
-   * "Send mine again": queues the item's resolver op as a new op (a new key,
-   * §4), then takes the item out. Queued first, so a failure can't lose it.
+   * "Keep mine" / "Send again": queues the item's resolver op as a new op (a
+   * new key, §4) and removes the item, atomically, so two tabs can't both
+   * send it (OFF-4). False when the item was already taken or has no resolver.
    */
   async resend(id: string): Promise<boolean> {
-    const item = await this.db.get<ReviewItem>('conflicts', id);
-    const input = item && reviewResolvers.get(item.op.collection)?.(item);
-    if (!item || !input) return false;
-    await outbox.enqueue(this.db, input);
-    await outbox.removeReviewItem(this.db, id);
+    const op = await outbox.takeFromReview(
+      this.db,
+      id,
+      (item) => reviewResolvers.get(item.op.collection)?.(item) ?? null,
+    );
     await this.changed();
-    this.kick();
-    return true;
+    if (op) this.kick();
+    return op !== null;
   }
 
   /** Sends now if this tab can lead and nothing is already sending. */

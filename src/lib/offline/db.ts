@@ -104,6 +104,11 @@ export class OfflineDb {
     await request(this.store(store, 'readwrite').delete(key));
   }
 
+  /** One transaction over several stores, for writes that must happen together (safe across tabs). */
+  transaction(stores: StoreName[], mode: IDBTransactionMode): IDBTransaction {
+    return this.db.transaction(stores, mode);
+  }
+
   /** Adds 1 to a `meta` counter and returns it, in one transaction (safe across tabs). */
   increment(key: string): Promise<number> {
     return new Promise((resolve, reject) => {

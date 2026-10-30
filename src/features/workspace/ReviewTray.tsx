@@ -125,7 +125,13 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
           </Text>
         ) : (
           item.error?.message &&
-          !(clash && rows.length) && <Text size="sm">{item.error.message}</Text>
+          !(clash && rows.length) && (
+            <Text size="sm">
+              {item.error.status === 403
+                ? 'You no longer have permission to make this change, so it wasn’t saved. Ask the head teacher or an admin if it’s still needed.'
+                : item.error.message}
+            </Text>
+          )
         )}
         {rows.length > 0 && (
           <Table withRowBorders={false} verticalSpacing={2} fz="sm">

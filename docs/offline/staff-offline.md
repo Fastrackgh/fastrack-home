@@ -103,7 +103,7 @@ flowchart LR
   - 2xx, replayed or not: the op leaves the queue. Each entry of a batch-cell `conflicts[]` becomes its own review item. `onSyncApplied` listeners get the op and the body, so a screen can refresh its saved reads.
   - 409 `CONFLICT` / `LIKELY_DUPLICATE`: review, as a conflict, keeping `current` and `conflictingFields`.
   - 400, 404, 422 and the other 409s (`IDEMPOTENCY_MISMATCH`, `DUPLICATE_ID`, `DUPLICATE_REFERENCE`), or any 4xx without a code: review, as rejected. Never resent. A `REFERENCE_NOT_FOUND` for an id that is still queued is retried instead.
-  - 403 with `reason.forwardedTo`: forwarded. The server has kept the op for a head or admin (§6.2). It leaves the user's own tray and is counted separately as information. A 403 **without** `reason.forwardedTo` goes to review as rejected, because the server kept it nowhere. So until backend §6.2, the change still blocked sign-out and wasn't lost (QA merge-order condition, 30 Oct). From backend 5fa1c04, every 403 on a queued write carries `reason.forwardedTo`, and the server stores it once per key. Checked 30 Oct: a real teacher payment 403 was counted as forwarded, stored once (`FORBIDDEN`, `open`) and listed under "Sent to the head teacher". The head's review screen comes with contract v0.4 (apply re-sent by the reviewer's client with a server-issued key).
+  - 403 with `reason.forwardedTo`: forwarded. The server has kept the op for a head or admin (§6.2). It leaves the user's own tray and is counted separately as information. A 403 **without** `reason.forwardedTo` goes to review as rejected, because the server kept it nowhere. So until backend §6.2, the change still blocked sign-out and wasn't lost (QA merge-order condition, 30 Oct). From backend 5fa1c04, every 403 on a queued write carries `reason.forwardedTo`, and the server stores it once per key. Checked 30 Oct: a real teacher payment 403 was counted as forwarded, stored once (`FORBIDDEN`, `open`) and listed under "Sent to the head teacher". The head's review screen is built (below).
   - 409 `IDEMPOTENCY_IN_PROGRESS`, 408, 429, 5xx: retried after `Retry-After`, else after an exponential backoff (about 2 s, 4 s, 8 s …, up to 5 min, with jitter). No answer, or 502–504, also ends the run, because nothing else would get through. A timer is still set for when the backoff ends (OFF-3, fixed 30 Oct: the retry used to wait for the 30 s poll, with the chip saying "Offline" although the API was back).
   - 401: the queue pauses, and the op stays. It resumes once the access token changes (the same user signed in again). A session that ends stops the engine anyway, and the next sign-in starts it again.
 - **Age:** an op queued more than 25 days ago goes to review as rejected (`OP_TOO_OLD`) instead of being sent, because the server keeps keys for 30.
@@ -131,6 +131,32 @@ flowchart LR
   - A 400 went to review once ("1 need review"). Three ops (two on one entity, one depending on the first) were sent in order behind a 503 backoff. An op queued in a second tab was sent once, and both tabs recounted.
   - A teacher's payment (403) was counted as forwarded, not as review. After the merge-order fix, the same 403 (with no `reason.forwardedTo` at f60fc3d) goes to review. After the OFF-3 fix, the reconnect retry came from the backoff timer, with no focus or poll (21/21).
   - Sign-out with a review item showed the guard. "Discard 1 change and sign out" deleted the database.
+
+## Changes to review (head teacher, contract §6.2 v0.4)
+
+- **Who:** the principal and the academic head (`sync:review`). It's the sidebar entry **Changes to review**, at `/school-admin/sync-review` (`src/features/sync-review/`). Teachers don't see it.
+- **What:** queued writes that the server refused with a 403 and kept for the school. For example, a teacher who lost a class or a role that lost a permission. Tabs: **To review**, **Applied** and **Dismissed**.
+- **Each change** shows:
+  - a description, e.g. "Fee payment of GHS 3.00 · Cash", "Attendance register for 2026-10-28 · 30 pupils" or "Marks · 12 entries";
+  - who sent it and when they made it;
+  - why it was refused, e.g. "Their role no longer allows this" or "They no longer teach this class or pupil";
+  - its fields, with a pupil shown by name and code ("Seed01 Paging · QPM-402/STD/2026/007") rather than by id.
+- **Apply** re-sends the stored change through its normal route as the reviewer (`syncReviewApi.apply`):
+  - The key is the row's server-issued `applyOpKey`, with `X-Base-Version` when the row has one and no `X-Client-Recorded-At`, so the server keeps the sender's time.
+  - It then calls `POST …/rejections/:id/applied`.
+  - A retry replays, so a lost answer never applies twice.
+  - `IDEMPOTENCY_MISMATCH` counts as already applied, and `IDEMPOTENCY_IN_PROGRESS` waits and asks again.
+  - A refusal (a conflict, a closed term) shows on the card, and the change stays open.
+  - A batch write that applied with `conflicts[]` says how many entries had changed since and were left as they are.
+- **Edit** opens the change as JSON to correct before **Apply edited change**. Feature-specific editors can replace this when attendance and marks arrive.
+- **Dismiss** asks for an optional note. Applied and dismissed changes show who resolved them, when, and the note.
+- **Checked (30 Oct, `next dev` against backend c44f008 on `fastrack_fe18`, Playwright, 13/13):** four teacher payments were forwarded.
+  - Apply: one payment, the row applied with its `applyOpKey`, and the head's op `recorded_at` equal to the teacher's.
+  - The `/applied` answer dropped, then Apply again: still one payment.
+  - Edit 5 → 7: one payment of 7 and none of 5.
+  - Dismiss with a note.
+  - The tabs show who resolved each change.
+  - At 390 px there's no sideways scroll.
 
 ## Session-expiry warning
 

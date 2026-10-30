@@ -152,3 +152,41 @@ Tested on 30 Oct 2026 **through the UI**, with production builds in a separate c
 | Release 1 (`mvva26w7`), sign in | 43 pages. One static cache (88). Integrity: 0 of 1,924 files missing. | not run |
 | Release 2 (`mvva32z1`), open Students online with every worker `/_next/static` download aborted | Nothing replaced: still release 1, 88 files, 0 of 1,924 missing | **Students renders** on release 1, with no spinner. All 9 screens render. |
 | Release 2, normal visit | Saved build `mvva32z1`, only `school-static-v1-mvva32z1` left, 0 of 1,924 missing | Students shows **RELEASE-2**, and all 9 screens render |
+
+## Phase 2 groundwork: outbox, sync engine and the guarded sign-out (dc1c020, docs 8b95589)
+
+Tested on 30 Oct 2026 **through the UI** with `next dev` in a separate checkout (8b95589), against backend `feat/offline-sync` f60fc3d on a copy of the dev DB (`fastrack_qab1`), as principal@qpm.test and teacher@qpm.test. No screen queues writes yet, so ops (cash payments for one QPM-402 pupil) were queued from the console with `window.__fastrackSync.enqueueWrite`. The chip, the guard and sign-in were checked on screen, and the server side in `sync_operations` and `fees_payments`. Outages were simulated by aborting every request to the API. `pnpm test:sync` passes (every row of the §6 table). **Result: pass, with one Low finding (OFF-3) and one merge-order condition.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online send | Sent once with `Idempotency-Key`, `X-Client-Recorded-At`, `X-Client-Sent-At` and `X-Device-Id`. The server row is `completed 201` and records the device and the recorded time. The chip stays hidden. |
+| 2 | API unreachable | The chip reads **"Offline · 1 waiting"**, including after a page reload. Two tries were made while blocked. Once the API was back, the op was sent once (`completed 201`). Across retries the key and recorded time stayed the same, and only `X-Client-Sent-At` changed. |
+| 3 | Answer lost after the server saved | The retry got 201 with `Idempotent-Replayed: true`. One payment. |
+| 3b | Answer lost **while the server is still saving** (row lock held 45 s) | 8 × `409 IDEMPOTENCY_IN_PROGRESS`, `Retry-After: 2`, retried every ~2.1 s. Then a 201 replay. One payment. The chip went from "1 waiting" to hidden. |
+| 4 | Sign-out with a waiting change, offline | The guard reads "1 change hasn't been sent yet. Signing out deletes it from this device. You're offline. Stay signed in and it'll be sent when the connection is back." The choices are **Stay signed in**, **Sync now** and **Discard 1 change and sign out**. Stay keeps the session. After the API came back, **Sync now** sent the change and the guard switched to "All your changes have been sent." |
+| 5 | 400 (invalid payment method) | Went to review once and was not resent through a 30 s poll and a reload. The chip reads **"1 need review"** in red. |
+| 6 | Two tabs | An op queued in tab B, offline, was counted in tab A. It was sent once and both tabs went to 0. |
+| 7 | Session ended by itself with a change waiting (tokens made invalid, then the API returned) | The send got a 401, the refresh was refused and the app went to the sign-in page. The database was **kept**. After the same user signed in, the op was sent (201). One payment. |
+| 8 | Teacher's payment (403) | Counted as forwarded, not as review. The chip stays hidden. |
+| 9 | Discard with two tabs open | The guard reads "1 change needs review…" with Stay signed in and **Discard 1 change and sign out**. After discarding, the user's database is deleted and the other tab is also on the sign-in page. A teacher signing in next on that browser has nothing waiting or in review. |
+| – | Payments | Exactly 6 for the 6 valid ops (cases 1, 2, 3, 4, 6, 7), plus 2 in the lost-answer runs (3 and 3b). |
+
+### OFF-3 (Low; owner: staff frontend): after a send gets no answer, the retry waits for the 30 s poll, not its backoff
+
+**What happens**
+- When a send gets no answer (status 0, or 502–504), `drain` returns as soon as `handle` gives `false`.
+- It never reaches `scheduleAt`, so no timer is set for the op's `nextAttemptAt` (about 1–2 s on the first try).
+- The retry waits for the next trigger: the 30 s poll, focus, `online`, or another request reaching the API.
+- In case 3b, with an idle page, the answer was dropped at :53.5 and the retry went at :22.4, **29 s later**. The chip read "Offline · 1 waiting" for that whole time, although the API was answering.
+- `staff-offline.md` lists "when a backing-off op is due" as a trigger.
+
+**Impact.** Nothing is lost or doubled. On a flaky school connection, each dropped answer can add up to 30 s before the change lands, and the chip shows "Offline" while it waits.
+
+**Suggested fix.** Set the timer on the offline path too. For example, call `this.scheduleAt(await outbox.all(this.db))` before returning `false`, so the backoff decides when the next try happens.
+
+### Merge-order condition: 403 → forwarded needs the backend's §6.2 store
+
+- At f60fc3d the server **does not keep** a 403'd op: no `sync_operations` row (count 0) and no `sync_rejections` yet.
+- On the device it becomes a `forwarded` item. Forwarded items appear nowhere on screen: not in the chip, and the review tray isn't built yet. They are not counted by the sign-out guard either.
+- In case 8 the teacher signed out with no guard, and the item was deleted with the database. That change now exists nowhere.
+- No screen queues writes yet, so this doesn't affect users today. A screen that queues writes (attendance, marks) must not ship before the backend stores 403'd ops for heads and admins (§6.2). Until then, the frontend should treat a 403 as review.

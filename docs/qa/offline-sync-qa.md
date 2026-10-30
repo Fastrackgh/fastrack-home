@@ -331,3 +331,49 @@ Tested on 30 Oct 2026, with the teacher's side **through the UI** (staff fronten
 - Heads are trusted to make edits, so this is about a buggy client or a mistaken re-send, not an attack. Still, the audit record is wrong.
 
 **Suggested fix.** In `clockFor` (or before claiming the key), when the key is an open row's `applyOpKey`, require the request's hash to equal the row's `request_hash`. Otherwise answer 409 `IDEMPOTENCY_MISMATCH` and change nothing. Since the head re-sends the stored request, that hash should match.
+
+## The head's "Changes to review" screen (afb038b, docs 8fe0171)
+
+Tested on 30 Oct 2026 **through the UI** with `next dev` at 8fe0171, against backend c44f008 on `fastrack_qab1`. A teacher (teacher@qpm.test) forwarded six cash payments with keyed requests, and the head (principal@qpm.test) worked them on screen. **Result: 6 of 8 cases pass. Two findings: OFF-7 (backend) and OFF-8 (staff frontend).**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 0 | Teacher | No "Changes to review" link, and the direct URL lands on the dashboard |
+| 1 | Card | "Fee payment of GHS 1.81 · Cash", "Tete Qpm · made 30 Oct 2026, 23:09", "Their role no longer allows this", and the pupil as "Yaa RetestP2 · QPM-402/STD/2026/003" (no id) |
+| 2 | Apply | "Change applied … is now saved". One payment. Under Applied: "Applied by Ofori Retest · 23:10". |
+| 3 | Edit | Invalid JSON gives "The edited change isn't valid…". Editing 1.82 to 1.87 records **one** payment of 1.87 and none of 1.82. |
+| 4 | Dismiss with a note | Under Dismissed: "Dismissed by Ofori Retest · … · "Paid at the bank instead"". No payment. |
+| 5a | **Stale card: tab A applies, then tab B edits the same change (1.84 to 1.88) and applies** | **Fail (OFF-8).** B's re-send got `409 IDEMPOTENCY_MISMATCH`. The screen treated that as applied, called `/applied` (200), and the card moved off the list as if done. **The edit was never saved**, only A's 1.84, and B wasn't told. |
+| 5b | **Stale card: tab A dismisses, then tab B applies the same change** | **Fail (OFF-7).** The payment of 1.85 **was recorded**. The row stays `dismissed`, and B's card shows only "This change has already been resolved". |
+| 6 | Phone (390 px) | No sideways scroll |
+
+### OFF-7 (Medium; owner: backend): a dismissed change can still be written with its apply key
+
+**What happens**
+- At c44f008 the idempotency interceptor accepts a request carrying a row's `applyOpKey` whatever the row's status.
+- For a dismissed row, `findOpenByApplyKey` finds nothing, so the request is treated as an ordinary op and saved.
+- `/applied` then answers 409 "already resolved", but by then the write has happened.
+
+**Repro.** Two heads (or two tabs) have the same change open. One dismisses it ("not needed"), and the other, from a stale card, presses Apply. A payment of GHS 1.85 was created against a dismissed row. The money is booked while the review list says it was dismissed.
+
+**Suggested fix.** When a request's key is any row's `applyOpKey`, refuse it unless that row is `open`: 409 with a code such as `ALREADY_RESOLVED`, the row's status and who resolved it, and no write. A replay of an op that already completed with that key can still return its stored response.
+
+### OFF-8 (Medium; owner: staff frontend): "Apply edited change" on a stale card reports success when the edit was refused
+
+**What happens**
+- `syncReviewApi.apply` treats `IDEMPOTENCY_MISMATCH` as "already applied" and goes on to `/applied`. That answers 200 for a key that's already applied.
+- When the head **edited** the change, a mismatch means the server holds a different request under that key, and the edit was not saved. The screen still moves the card off the list as applied.
+
+**Repro.** Case 5a above: the edit to 1.88 was refused, only 1.84 exists, and the head who edited got no message.
+
+**Suggested fix.** On `IDEMPOTENCY_MISMATCH`, re-read the row and stop calling `/applied` on its behalf.
+- If the row is `applied`, show "Already applied by <name> at <time> with the original values; your edit wasn't saved."
+- If it's `open`, show the mismatch as an error.
+- With no edit, a mismatch after one's own lost answer can stay "applied".
+
+### Design note for OFF-6, the edit flow and v0.4
+
+- OFF-6 asked the backend to bind `applyOpKey` to the forwarded request's hash.
+- The new **Edit** flow deliberately sends a different body under that key, and the edited 1.87 in case 3 depends on it. Binding to the original hash would break Edit.
+- So the contract needs to say which is allowed: edits under `applyOpKey` (the key is then bound to the first request made with it, as now), or a separate route for an edited apply.
+- Either way, OFF-6's real risk (a backdated, unrelated write marking the row applied) needs the server to record what was actually applied. For example, `/applied` could store the applied op's body or hash, so the review list shows "applied with changes".

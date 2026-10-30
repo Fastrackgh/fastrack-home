@@ -347,7 +347,7 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` at 8fe0171, against bac
 | 5b | **Stale card: tab A dismisses, then tab B applies the same change** | **Fail (OFF-7).** The payment of 1.85 **was recorded**. The row stays `dismissed`, and B's card shows only "This change has already been resolved". |
 | 6 | Phone (390 px) | No sideways scroll |
 
-### OFF-7 (Medium; owner: backend): a dismissed change can still be written with its apply key
+### OFF-7 (Medium; owner: backend; narrowed on the screen in c885507, the server fix is still open): a dismissed change can still be written with its apply key
 
 **What happens**
 - At c44f008 the idempotency interceptor accepts a request carrying a row's `applyOpKey` whatever the row's status.
@@ -358,7 +358,7 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` at 8fe0171, against bac
 
 **Suggested fix.** When a request's key is any row's `applyOpKey`, refuse it unless that row is `open`: 409 with a code such as `ALREADY_RESOLVED`, the row's status and who resolved it, and no write. A replay of an op that already completed with that key can still return its stored response.
 
-### OFF-8 (Medium; owner: staff frontend): "Apply edited change" on a stale card reports success when the edit was refused
+### OFF-8 (Medium, fixed in c885507; owner: staff frontend): "Apply edited change" on a stale card reports success when the edit was refused
 
 **What happens**
 - `syncReviewApi.apply` treats `IDEMPOTENCY_MISMATCH` as "already applied" and goes on to `/applied`. That answers 200 for a key that's already applied.
@@ -377,3 +377,26 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` at 8fe0171, against bac
 - The new **Edit** flow deliberately sends a different body under that key, and the edited 1.87 in case 3 depends on it. Binding to the original hash would break Edit.
 - So the contract needs to say which is allowed: edits under `applyOpKey` (the key is then bound to the first request made with it, as now), or a separate route for an edited apply.
 - Either way, OFF-6's real risk (a backdated, unrelated write marking the row applied) needs the server to record what was actually applied. For example, `/applied` could store the applied op's body or hash, so the review list shows "applied with changes".
+
+### Re-test of c885507 (docs ba50f58): OFF-8 fixed, OFF-7 narrowed on the screen
+
+Tested on 30 Oct 2026 **through the UI** at ba50f58, against c44f008. **OFF-8: fixed. OFF-7: the screen no longer sends a stale apply; the server fix is still needed for true races. New Low finding: OFF-9.**
+
+| Case | Result |
+| --- | --- |
+| 5a: A applies 1.54, then B edits a stale card to 1.58 and applies | B **sends nothing** (it re-reads the row first). B's card shows "Already applied by Ofori Retest on 30 Oct, 23:17 with the original values, so your edit wasn't saved." One 1.54, no 1.58. |
+| 5b: A dismisses 1.45, then B applies a stale card | Not sent and **no payment**. B's card shows "Dismissed by Ofori Retest on 30 Oct, 23:16, so it wasn't applied." |
+| 7: Apply with the answer to the re-send lost, then edit 1.46 to 1.49 and apply | The first try shows "Can't reach Fastrack right now…". The edit is refused with "This change was already saved with its original values, so your edit wasn't saved. Apply it without edits to mark it done." The row stays open, with one 1.46 and no 1.49. A plain **Apply** then marks it applied, and there's still one payment. |
+| Cases 0–4 and 6 | No change: pass |
+
+- OFF-7 is still open on the backend. A dismiss and an apply at the same instant can both pass the screen's re-read.
+
+### OFF-9 (Low; owner: staff frontend): the first "Apply edited change" click can miss after typing compact JSON
+
+**What happens**
+- The edit box is a `JsonInput` with `formatOnBlur`.
+- If the head types or pastes the change on one line, pressing **Apply edited change** blurs the box first. It reformats to several lines and grows, so the button moves down before the click lands.
+- Nothing happens: no request, no message, and the card stays in edit mode. A second click works.
+- Seen in the full suite's case 5a (compact JSON, clicked straight after typing). Case 3 (already formatted JSON) is unaffected.
+
+**Suggested fix.** Format on the button's press rather than on blur. Alternatively, keep the buttons from moving: place them above the box, or give the box a fixed height with scrolling.

@@ -11,7 +11,7 @@ export type SyncOutcome =
   | { kind: 'conflict'; error: SyncError }
   /** Never retried: the review tray. */
   | { kind: 'rejected'; error: SyncError }
-  /** 403: stored on the server for a head or admin (§6.2); leaves this user's tray. */
+  /** 403 with `reason.forwardedTo`: stored on the server for a head or admin (§6.2); leaves this user's tray. */
   | { kind: 'forwarded'; error: SyncError }
   /** 401: pause the whole queue until the same user signs in again. */
   | { kind: 'paused' }
@@ -116,7 +116,12 @@ export function classify(
     // 502–504 mean the API itself is out of reach (a proxy answered).
     return { kind: 'retry', afterMs: retryAfter, offline: status >= 502 && status <= 504 };
   }
-  if (status === 403) return { kind: 'forwarded', error };
+  // Forwarded only when the server says it kept the op for the school (§6.2,
+  // `reason.forwardedTo`). A 403 without it was stored nowhere, so it stays
+  // in the user's own tray rather than being lost.
+  if (status === 403) {
+    return error.reason?.forwardedTo ? { kind: 'forwarded', error } : { kind: 'rejected', error };
+  }
   if (status === 409 && error.code === 'IDEMPOTENCY_IN_PROGRESS') {
     return { kind: 'retry', afterMs: retryAfter ?? 2000, offline: false };
   }

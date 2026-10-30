@@ -191,7 +191,11 @@ class SyncEngine {
         const response = await this.send(next, device);
         const outcome = classify(response, (id) => queued.has(id));
         const body = 'body' in response ? response.body : undefined;
-        if (!(await this.handle(next, outcome, body))) return;
+        if (!(await this.handle(next, outcome, body))) {
+          // Unreachable: wake when the backoff ends rather than waiting for the poll (OFF-3).
+          if (outcome.kind === 'retry') this.scheduleAt(await outbox.all(this.db));
+          return;
+        }
       }
     } finally {
       setStatus({ syncing: false });

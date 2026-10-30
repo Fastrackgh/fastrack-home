@@ -87,7 +87,7 @@ assert.equal(
   'rejected',
 );
 
-// 403 of any code is forwarded (§6.2); 401 pauses.
+// 403 of any code is forwarded when the server kept it (§6.2), else it stays in review; 401 pauses.
 for (const code of [
   'FORBIDDEN',
   'OUT_OF_SCOPE',
@@ -95,13 +95,10 @@ for (const code of [
   'MODULE_NOT_ENABLED',
   undefined,
 ]) {
-  assert.equal(kind(err(403, code)), 'forwarded', String(code));
+  const forwarded = err(403, code, { reason: { forwardedTo: 'school-review' } });
+  assert.equal(kind(forwarded), 'forwarded', String(code));
+  assert.equal(kind(err(403, code)), 'rejected', String(code));
 }
-assert.equal(
-  s.classify(err(403, 'OUT_OF_SCOPE', { reason: { forwardedTo: 'school-review' } })).error.reason
-    .forwardedTo,
-  'school-review',
-);
 assert.deepEqual(s.classify(err(401, undefined)), { kind: 'paused' });
 
 // 408, 429, 5xx and no answer retry; 502–504 and no answer mean offline.

@@ -391,7 +391,7 @@ Tested on 30 Oct 2026 **through the UI** at ba50f58, against c44f008. **OFF-8: f
 
 - OFF-7 is still open on the backend. A dismiss and an apply at the same instant can both pass the screen's re-read.
 
-### OFF-9 (Low; owner: staff frontend): the first "Apply edited change" click can miss after typing compact JSON
+### OFF-9 (Low, fixed in 5384aa7; owner: staff frontend): the first "Apply edited change" click can miss after typing compact JSON
 
 **What happens**
 - The edit box is a `JsonInput` with `formatOnBlur`.
@@ -400,3 +400,11 @@ Tested on 30 Oct 2026 **through the UI** at ba50f58, against c44f008. **OFF-8: f
 - Seen in the full suite's case 5a (compact JSON, clicked straight after typing). Case 3 (already formatted JSON) is unaffected.
 
 **Suggested fix.** Format on the button's press rather than on blur. Alternatively, keep the buttons from moving: place them above the box, or give the box a fixed height with scrolling.
+
+### Re-test of 5384aa7: OFF-9 fixed
+
+Tested on 30 Oct 2026 **through the UI** at 5384aa7, against c44f008. I ran the full "Changes to review" suite with **compact one-line JSON** typed and "Apply edited change" clicked once, straight away. That was in case 3 (1.22 to 1.27) and case 5a. **Result: 10 of 10. OFF-9: fixed.**
+- Case 3 recorded one 1.27 and no 1.22.
+- Case 5a showed "Already applied … your edit wasn't saved" on the first click.
+- No regressions: the stale dismiss, the lost answer then edit, the 390 px layout and the teacher's access are unchanged.
+- **Still open:** OFF-7's server refusal (backend) and OFF-6's "record what was applied" (v0.4).

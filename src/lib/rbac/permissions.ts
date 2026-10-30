@@ -91,6 +91,9 @@ export const PERMISSIONS = [
   // Analytics & audit
   'analytics:read',
   'audit_logs:read',
+
+  // Offline sync: changes forwarded to the school for review (contract §6.2)
+  'sync:review',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

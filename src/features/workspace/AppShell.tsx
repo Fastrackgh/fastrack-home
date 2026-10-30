@@ -27,6 +27,7 @@ import {
   ChevronRight,
   CircleHelp,
   ClipboardList,
+  CloudUpload,
   CreditCard,
   FileQuestion,
   GraduationCap,
@@ -81,6 +82,7 @@ const icons: Record<NavItem['id'], typeof Users> = {
   questions: FileQuestion,
   templates: Palette,
   setup: Settings2,
+  syncReview: CloudUpload,
 };
 
 /** The school's current academic year and term, when the school has them set. */

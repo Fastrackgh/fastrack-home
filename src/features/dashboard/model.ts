@@ -37,7 +37,8 @@ export type Area =
   | 'admissions'
   | 'grading'
   | 'templates'
-  | 'setup';
+  | 'setup'
+  | 'syncReview';
 export interface Metric {
   label: string;
   value: string;
@@ -126,6 +127,7 @@ export const roleConfig: Record<
       'gradebook',
       'grading',
       'setup',
+      'syncReview',
     ],
     featured: ['enrollment', 'performance', 'attendance', 'communication'],
     fullWorkspaces: ['reports'],
@@ -150,6 +152,7 @@ export const roleConfig: Record<
       'gradebook',
       'grading',
       'setup',
+      'syncReview',
     ],
     featured: ['performance', 'faculty', 'reports', 'enrollment'],
     fullWorkspaces: ['reports', 'schedule'],
@@ -236,6 +239,7 @@ export const areaLabels: Record<Area, string> = {
   grading: 'Grading configuration',
   templates: 'Bill & report designs',
   setup: 'School setup',
+  syncReview: 'Changes to review',
 };
 /** The permission needed to open each area, on top of it being in the viewer's layout. */
 export const areaPermission: Record<Area, AccessPermission> = {
@@ -256,6 +260,7 @@ export const areaPermission: Record<Area, AccessPermission> = {
   grading: 'grading:manage',
   templates: 'document_templates:read',
   setup: 'classes:manage',
+  syncReview: 'sync:review',
   schedule: 'timetable:read',
   questions: 'question_bank:read',
   communication: 'messages:read',
@@ -299,6 +304,7 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   grading: 'resultsSetup',
   gradebook: 'marks',
   reports: 'reports',
+  syncReview: 'syncReview',
 };
 
 /**

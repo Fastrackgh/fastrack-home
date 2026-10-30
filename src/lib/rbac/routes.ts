@@ -99,6 +99,11 @@ export const APP_ROUTES = {
     label: 'Online admissions',
     rule: { audiences: ['staff'], permission: 'enrollment:manage', module: 'students' },
   },
+  syncReview: {
+    path: '/school-admin/sync-review',
+    label: 'Changes to review',
+    rule: { audiences: ['staff'], permission: 'sync:review' },
+  },
   platform: {
     path: '/school-admin/platform',
     label: 'Platform Console',

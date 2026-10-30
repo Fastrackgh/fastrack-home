@@ -145,7 +145,17 @@ flowchart LR
   - The key is the row's server-issued `applyOpKey`, with `X-Base-Version` when the row has one and no `X-Client-Recorded-At`, so the server keeps the sender's time.
   - It then calls `POST …/rejections/:id/applied`.
   - A retry replays, so a lost answer never applies twice.
-  - `IDEMPOTENCY_MISMATCH` counts as already applied, and `IDEMPOTENCY_IN_PROGRESS` waits and asks again.
+  - `IDEMPOTENCY_IN_PROGRESS` waits and asks again.
+  - **Stale cards (OFF-8, fixed 30 Oct; OFF-7 narrowed).** The row is re-read before sending. If it was resolved meanwhile, nothing is sent, and the card switches to its current state with the reason:
+    - "Already applied by Ofori Retest on 30 Oct, 23:14 with the original values, so your edit wasn't saved."
+    - "Dismissed by … so it wasn't applied."
+  - An **unedited** apply of a row that's already applied counts as done (a lost answer).
+  - `IDEMPOTENCY_MISMATCH` means the key was used with other content. The row is re-read, and the outcome depends on what it shows:
+    - Applied, and this apply was unedited: done.
+    - Applied with an edit, or dismissed: reported as above.
+    - Still open, with an edit (the original was saved by this reviewer's own lost attempt): "This change was already saved with its original values, so your edit wasn't saved. Apply it without edits to mark it done." The change stays open.
+    - Before the fix, every mismatch was marked applied, so a stale tab's edit was silently dropped.
+  - A dismiss in one tab and an apply in another at the same instant still both reach the server. The server has to refuse an `applyOpKey` re-send for a row that isn't open (OFF-7, backend).
   - A refusal (a conflict, a closed term) shows on the card, and the change stays open.
   - A batch write that applied with `conflicts[]` says how many entries had changed since and were left as they are.
 - **Edit** opens the change as JSON to correct before **Apply edited change**. Feature-specific editors can replace this when attendance and marks arrive.
@@ -157,6 +167,7 @@ flowchart LR
   - Dismiss with a note.
   - The tabs show who resolved each change.
   - At 390 px there's no sideways scroll.
+  - After the OFF-8 fix (17/17): a stale tab's edit after another tab applied, a stale tab's apply after another tab dismissed, and an edit after the reviewer's own lost answer (refused; a plain Apply then marked it done with one payment).
 
 ## Session-expiry warning
 

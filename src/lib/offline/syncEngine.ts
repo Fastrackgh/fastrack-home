@@ -81,6 +81,23 @@ export function onSyncApplied(listener: AppliedListener) {
   };
 }
 
+/**
+ * Builds the op that sends the device's value again for a review item, e.g.
+ * one attendance cell with `from` set to the server's current value. Each
+ * feature that queues writes registers one for its collection; items of a
+ * collection without one can only be dismissed.
+ */
+export type ReviewResolver = (item: ReviewItem) => EnqueueInput | null;
+const reviewResolvers = new Map<string, ReviewResolver>();
+
+export function registerReviewResolver(collection: string, resolver: ReviewResolver) {
+  reviewResolvers.set(collection, resolver);
+}
+
+/** True when "Send mine again" can be offered for this item. */
+export const canResend = (item: ReviewItem) =>
+  item.kind !== 'forwarded' && reviewResolvers.has(item.op.collection);
+
 const headersOf = (op: OutboxOp, device: string): Record<string, string> => ({
   'Idempotency-Key': op.opId,
   'X-Client-Recorded-At': op.recordedAt,
@@ -148,6 +165,32 @@ class SyncEngine {
     await this.changed();
     this.kick();
     return op;
+  }
+
+  /** The review tray, oldest first. */
+  async reviewItems(): Promise<ReviewItem[]> {
+    return (await outbox.reviewItems(this.db)).sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  /** "Keep theirs" / "Discard my change" / "OK": the item leaves the tray. */
+  async dismiss(id: string) {
+    await outbox.removeReviewItem(this.db, id);
+    await this.changed();
+  }
+
+  /**
+   * "Send mine again": queues the item's resolver op as a new op (a new key,
+   * §4), then takes the item out. Queued first, so a failure can't lose it.
+   */
+  async resend(id: string): Promise<boolean> {
+    const item = await this.db.get<ReviewItem>('conflicts', id);
+    const input = item && reviewResolvers.get(item.op.collection)?.(item);
+    if (!item || !input) return false;
+    await outbox.enqueue(this.db, input);
+    await outbox.removeReviewItem(this.db, id);
+    await this.changed();
+    this.kick();
+    return true;
   }
 
   /** Sends now if this tab can lead and nothing is already sending. */
@@ -343,6 +386,7 @@ export function startSync(db: OfflineDb, userId: string) {
       enqueueWrite,
       syncNow,
       syncStatus,
+      registerReviewResolver,
     };
   }
 }
@@ -360,3 +404,8 @@ export function enqueueWrite(input: EnqueueInput): Promise<OutboxOp> {
 
 /** "Sync now". */
 export const syncNow = () => engine?.kick();
+
+/** The review tray's items; empty with no offline store. */
+export const listReviewItems = () => engine?.reviewItems() ?? Promise.resolve([]);
+export const dismissReviewItem = (id: string) => engine?.dismiss(id) ?? Promise.resolve();
+export const resendReviewItem = (id: string) => engine?.resend(id) ?? Promise.resolve(false);

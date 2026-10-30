@@ -251,3 +251,35 @@ Tested on 30 Oct 2026 **through the UI** with the same setup at 799771b. The tra
   - Before the fix, the Playwright-click version already sent it twice.
 - **Real teacher 403** (f60fc3d, no `forwardedTo`): the card reads "You no longer have permission to make this change, so it wasn't saved. Ask the head teacher or an admin if it's still needed." "Forbidden resource" no longer appears.
 - **Regression:** no change in cases 1 to 6 (rejected, field conflict and Keep mine with a new key, cell conflict, forwarded, other tab's tray, phone width).
+
+## Session-expiry warning (2690b96, docs 71860b6)
+
+Tested on 30 Oct 2026 **through the UI** with `next dev` at 71860b6, against backend 9ecbbf7 on `fastrack_qab1`, as principal@qpm.test. The browser time zone was Africa/Accra. As agreed, I set `fastrack_session_expires_at` by hand to stand in for day 12. **Result: the warning works as designed with a correct device clock. Finding OFF-5 (Medium): a device clock that is ahead causes a refresh storm.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| A | Sign in | 14.000 days stored, matching the server's `refreshExpiresAt` to within 5 s. No banner. |
+| B | Online, 1 day left, two tabs reloaded together | Renewed to 14 days with a new refresh token and no banner in either tab. **One** `/auth/refresh` call. |
+| C | Offline, 1 day left, 1 change waiting | Yellow banner: "Connect to the internet by **Sat 31 Oct, 22:45** to stay signed in. After that you'll need to sign in again before the 1 change saved on this device can be sent. They're kept until you do." The deadline matches the stored time. The banner is also on Fees. |
+| D | Offline, time passed | Red banner: "Your sign-in has ended. Connect and sign in again to send the 1 change saved on this device." |
+| E | Yellow, then the connection returns (no reload) | The change was sent, the session renewed to 14 days, and the banner went away by itself. |
+| F | Sign out | `fastrack_session_expires_at` is removed. |
+| G | Device clock **365 days ahead**, online, nothing queued | **Fail: 2,315 `/auth/refresh` calls in 20 s.** In `refresh_tokens`, **2,321 rows** were created in those few minutes. A red "Your sign-in has ended" banner showed while the user was signed in and online. See OFF-5. |
+
+### OFF-5 (Medium; owner: staff frontend, with backend 9ecbbf7): a device clock that is ahead makes the app renew the session in a loop
+
+**What happens**
+- At 9ecbbf7, `/auth/login` and `/auth/refresh` don't send `X-Server-Time`, so before any queued write `serverOffsetMs` is 0.
+- `refreshExpiresAt` is stored as the server's time, unchanged. Device time is then more than 12 days ahead of it, so `near` is true straight after sign-in.
+- Online, `SessionExpiryWarning` renews. The renewal returns a new `refreshExpiresAt`, which is a new value. The `renewing` guard is per expiry value, so the effect renews again, and again: about 115 refreshes a second for as long as the page is open.
+- Each refresh rotates the token and writes a `refresh_tokens` row.
+- Meanwhile the banner tells a signed-in, online user that their sign-in has ended.
+
+**Who it hits.** Any staff device whose clock is more than 12 days ahead. A wrong year, or a reset RTC, are common on school machines. One such device keeps hammering the auth endpoint and the token table.
+
+**Suggested fix (both parts)**
+- **Backend:** send `X-Server-Time` on `/auth/login` and `/auth/refresh` (already requested). Then the stored expiry is right on any device clock.
+- **Frontend, regardless of the backend:**
+  - Limit automatic renewal to once per window, e.g. one attempt per 10 minutes, kept in `localStorage` so it holds across tabs and reloads.
+  - Don't renew again if the last renewal didn't move the expiry out of the warning window.
+  - Don't show "Your sign-in has ended" while the API is accepting the session.

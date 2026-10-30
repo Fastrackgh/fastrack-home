@@ -68,6 +68,8 @@ export function errorCode(err: unknown): string | undefined {
 export const SESSION_STORAGE_KEYS = {
   accessToken: 'fastrack_access_token',
   refreshToken: 'fastrack_refresh_token',
+  /** When the refresh token ends, in device-clock ms (`refreshExpiresAt`, clock-corrected). */
+  sessionExpiresAt: 'fastrack_session_expires_at',
   user: 'fastrack_user',
   school: 'fastrack_school',
   parentActiveWard: 'fastrack_parent_active_ward',
@@ -144,11 +146,54 @@ class ApiClient {
     return localStorage.getItem(SESSION_STORAGE_KEYS.refreshToken);
   }
 
-  public setTokens(accessToken: string, refreshToken?: string) {
+  /**
+   * `refreshExpiresAt` is on the server clock. It's stored on the device
+   * clock, using the offset last seen in `X-Server-Time`, so a device whose
+   * clock is wrong still warns at the right moment.
+   */
+  public setTokens(accessToken: string, refreshToken?: string, refreshExpiresAt?: string) {
     if (typeof window === 'undefined') return;
     localStorage.setItem(SESSION_STORAGE_KEYS.accessToken, accessToken);
     if (refreshToken) {
       localStorage.setItem(SESSION_STORAGE_KEYS.refreshToken, refreshToken);
+    }
+    const expires = refreshExpiresAt ? Date.parse(refreshExpiresAt) : NaN;
+    if (Number.isNaN(expires)) {
+      localStorage.removeItem(SESSION_STORAGE_KEYS.sessionExpiresAt);
+    } else {
+      localStorage.setItem(
+        SESSION_STORAGE_KEYS.sessionExpiresAt,
+        String(expires - this.serverOffsetMs),
+      );
+    }
+  }
+
+  /** When the session can no longer be renewed (device clock), or null if unknown. */
+  public getSessionExpiresAt(): number | null {
+    if (typeof window === 'undefined') return null;
+    const value = Number(localStorage.getItem(SESSION_STORAGE_KEYS.sessionExpiresAt));
+    return Number.isFinite(value) && value > 0 ? value : null;
+  }
+
+  /** Server clock minus device clock, from the last `X-Server-Time` seen (0 before any). */
+  private serverOffsetMs = 0;
+
+  private noteServerTime(headers: Headers) {
+    const at = Date.parse(headers.get('X-Server-Time') ?? '');
+    if (!Number.isNaN(at)) this.serverOffsetMs = at - Date.now();
+  }
+
+  /**
+   * Renews the session now (a new refresh token with a fresh lifetime),
+   * e.g. when it's close to ending. Resolves false if it couldn't.
+   */
+  public async renewSession(): Promise<boolean> {
+    const token = this.getAccessToken();
+    if (!token) return false;
+    try {
+      return Boolean(await this.refreshOnce(token));
+    } catch {
+      return false;
     }
   }
 
@@ -217,10 +262,11 @@ class ApiClient {
     }
     if (!response.ok) throw new ApiError(NETWORK_ERROR_STATUS, UNREACHABLE_MESSAGE);
 
+    this.noteServerTime(response.headers);
     const json = await response.json().catch(() => ({}));
     const newAccessToken = json.data?.accessToken;
     if (!newAccessToken) throw new ApiError(NETWORK_ERROR_STATUS, UNREACHABLE_MESSAGE);
-    this.setTokens(newAccessToken, json.data?.refreshToken);
+    this.setTokens(newAccessToken, json.data?.refreshToken, json.data?.refreshExpiresAt);
     return newAccessToken;
   }
 
@@ -274,6 +320,7 @@ class ApiClient {
       try {
         const response = await fetch(url, { ...options, headers });
         this.reportReachability(response.status < 502);
+        this.noteServerTime(response.headers);
         return response;
       } catch {
         this.reportReachability(false);

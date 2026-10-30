@@ -50,6 +50,7 @@ import { useAuth } from '@/lib/auth';
 import { APP_ROUTES, ROLE_LABELS, dataScopeOf, findRoute } from '@/lib/rbac';
 import { activeNavItem, workspaceNavigation, type NavItem } from './navigation';
 import { useViewer } from './useViewer';
+import { SessionExpiryWarning } from './SessionExpiryWarning';
 import { SignOutButton } from './SignOutButton';
 import { SyncStatusChip } from './SyncStatusChip';
 import styles from './AppShell.module.css';
@@ -252,6 +253,7 @@ export function AppShell({ children }: { children: ReactNode }) {
           </Group>
         </header>
         <main className={styles.content}>
+          <SessionExpiryWarning />
           {children}
           <footer className={styles.footer}>
             <span>© {new Date().getFullYear()} Fastrack Management Services</span>

@@ -45,6 +45,8 @@ export interface ParentRegistration {
 interface LoginResponse {
   accessToken: string;
   refreshToken: string;
+  /** When the refresh token ends (server clock); the staff portal warns before it. */
+  refreshExpiresAt?: string;
   user: unknown;
 }
 
@@ -213,7 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const authUser = parseAuthUser(res.data.user);
       if (!authUser) throw new Error(UNRECOGNISED_ROLE_MESSAGE);
 
-      apiClient.setTokens(res.data.accessToken, res.data.refreshToken);
+      apiClient.setTokens(res.data.accessToken, res.data.refreshToken, res.data.refreshExpiresAt);
       localStorage.setItem(SESSION_STORAGE_KEYS.user, JSON.stringify(authUser));
       setUser(authUser);
       return await finish(authUser);

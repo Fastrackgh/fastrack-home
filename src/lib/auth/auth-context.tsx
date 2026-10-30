@@ -3,6 +3,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { apiClient, SESSION_ENDED_EVENT, SESSION_STORAGE_KEYS } from '@/lib/api-client';
+import { discardOfflineData } from '@/lib/offline/session';
 import { can as canWith, loginPathFor, type AccessPermission } from '@/lib/rbac';
 import {
   parseAuthUser,
@@ -251,8 +252,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
   const logout = () => {
+    const signedOut = userRef.current?.id;
     apiClient.revokeSession();
     endSession();
+    // Signing out (not a session that merely expired) removes this user's offline data.
+    if (signedOut) void discardOfflineData(signedOut);
     router.replace(loginPathFor(window.location.pathname));
   };
 

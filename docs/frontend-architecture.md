@@ -153,6 +153,8 @@ sequenceDiagram
 - **Error helpers** (in `api-client.ts`):
   - `errorMessage(error, fallback)` gives a failed request's message, or the fallback for anything that isn't an `Error`. Since 25 Oct it's the only copy; there used to be 13 copies across features.
   - `errorDetails<T>(error)` reads the backend's structured `details` (for example `{cells}` on a 422). `ApiError.details` holds the whole error body, so those sit one level in.
+  - `errorCode(error)` reads the machine `code` that sync-relevant errors carry at the top level, such as `IDEMPOTENCY_IN_PROGRESS` or `CONFLICT` ([offline/sync-contract.md](./offline/sync-contract.md) §6). Added 30 Oct.
+- **Offline reads (staff portal, 30 Oct):** `apiClient.setReadCache(cache)` makes `get` save every successful read. When the API can't be reached (`ApiError(0)` or 502–504), `get` returns the saved copy instead. `onReachability(listener)` reports, for each request, whether the API answered. Only `OfflineSession` in `/school-admin` turns the cache on, so the parent portal is unaffected. See [offline/staff-offline.md](./offline/staff-offline.md).
 
 ## Session storage
 

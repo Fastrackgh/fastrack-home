@@ -51,6 +51,7 @@ import { useAuth } from '@/lib/auth';
 import { APP_ROUTES, ROLE_LABELS, dataScopeOf, findRoute } from '@/lib/rbac';
 import { activeNavItem, workspaceNavigation, type NavItem } from './navigation';
 import { useViewer } from './useViewer';
+import { SyncStatusChip } from './SyncStatusChip';
 import styles from './AppShell.module.css';
 
 const icons: Record<NavItem['id'], typeof Users> = {
@@ -214,6 +215,7 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Text>
           </Group>
           <Group gap="md">
+            <SyncStatusChip />
             {session && (
               <Badge
                 variant="light"

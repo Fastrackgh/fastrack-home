@@ -90,9 +90,47 @@ const UNREACHABLE_MESSAGE =
 /** Name of the browser lock that lets one tab at a time refresh the session. */
 const REFRESH_LOCK = 'fastrack-session-refresh';
 
+/** A saved copy of a GET response, served when the API can't be reached. */
+export interface SavedRead {
+  response: ApiResponse<unknown, unknown>;
+  savedAt: number;
+}
+
+/** Where `get` keeps its saved copies (the staff portal's offline store, `src/lib/offline`). */
+export interface ReadCache {
+  read(endpoint: string): Promise<SavedRead | undefined>;
+  write(endpoint: string, response: ApiResponse<unknown, unknown>): void;
+}
+
+/** Told whether the API answered (any HTTP status) or couldn't be reached. */
+type ReachabilityListener = (reachable: boolean) => void;
+
+/** Failures a saved copy stands in for: no network, or the API down behind its gateway. */
+const isUnreachable = (err: unknown) =>
+  err instanceof ApiError && (err.statusCode === NETWORK_ERROR_STATUS || err.statusCode >= 502);
+
 class ApiClient {
   /** Shared by every request in this tab that hits a 401 while a refresh is in flight. */
   private refreshInFlight: Promise<string | null> | null = null;
+  private readCache: ReadCache | null = null;
+  private readonly reachabilityListeners = new Set<ReachabilityListener>();
+
+  /** Turns saved copies of reads on (a cache) or off (null) for this tab. */
+  public setReadCache(cache: ReadCache | null) {
+    this.readCache = cache;
+  }
+
+  /** Calls `listener` after every request with whether the API was reached; returns the unsubscribe. */
+  public onReachability(listener: ReachabilityListener) {
+    this.reachabilityListeners.add(listener);
+    return () => {
+      this.reachabilityListeners.delete(listener);
+    };
+  }
+
+  private reportReachability(reachable: boolean) {
+    this.reachabilityListeners.forEach((listener) => listener(reachable));
+  }
 
   public getAccessToken(): string | null {
     if (typeof window === 'undefined') return null;
@@ -224,8 +262,11 @@ class ApiClient {
 
     const send = async () => {
       try {
-        return await fetch(url, { ...options, headers });
+        const response = await fetch(url, { ...options, headers });
+        this.reportReachability(response.status < 502);
+        return response;
       } catch {
+        this.reportReachability(false);
         throw new ApiError(NETWORK_ERROR_STATUS, UNREACHABLE_MESSAGE);
       }
     };
@@ -259,8 +300,22 @@ class ApiClient {
     return data as ApiResponse<T, M>;
   }
 
-  public get<T = unknown, M = unknown>(endpoint: string, headers?: Record<string, string>) {
-    return this.request<T, M>(endpoint, { method: 'GET', headers });
+  /**
+   * With a read cache set, every successful read is saved, and a read that
+   * can't reach the API returns the saved copy instead of failing.
+   */
+  public async get<T = unknown, M = unknown>(endpoint: string, headers?: Record<string, string>) {
+    const cache = this.readCache;
+    try {
+      const response = await this.request<T, M>(endpoint, { method: 'GET', headers });
+      cache?.write(endpoint, response);
+      return response;
+    } catch (err) {
+      if (!cache || !isUnreachable(err)) throw err;
+      const saved = await cache.read(endpoint).catch(() => undefined);
+      if (!saved) throw err;
+      return saved.response as ApiResponse<T, M>;
+    }
   }
 
   public post<T = unknown, M = unknown>(

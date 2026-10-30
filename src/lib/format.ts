@@ -19,3 +19,14 @@ export function ordinal(n: number): string {
 
 /** A position, with "=" when another pupil shares it, as printed reports show: "2nd=". */
 export const place = (n: number, tied?: boolean) => `${ordinal(n)}${tied ? '=' : ''}`;
+
+const timeAgo = new Intl.RelativeTimeFormat('en', { numeric: 'auto' });
+
+/** `5 minutes ago`, `yesterday`, … for how old a saved or synced copy is. */
+export function formatAge(at: number, now = Date.now()): string {
+  const minutes = Math.round((now - at) / 60000);
+  if (minutes < 60) return timeAgo.format(-minutes, 'minute');
+  const hours = Math.round(minutes / 60);
+  if (hours < 24) return timeAgo.format(-hours, 'hour');
+  return timeAgo.format(-Math.round(hours / 24), 'day');
+}

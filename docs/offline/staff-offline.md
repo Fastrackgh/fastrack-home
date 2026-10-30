@@ -132,6 +132,18 @@ flowchart LR
   - A teacher's payment (403) was counted as forwarded, not as review. After the merge-order fix, the same 403 (with no `reason.forwardedTo` at f60fc3d) goes to review. After the OFF-3 fix, the reconnect retry came from the backoff timer, with no focus or poll (21/21).
   - Sign-out with a review item showed the guard. "Discard 1 change and sign out" deleted the database.
 
+## Session-expiry warning
+
+- **Source:** login and refresh return `refreshExpiresAt` (backend 9ecbbf7). Every refresh gives the token a fresh lifetime, 14 days for staff. `apiClient.setTokens` stores it in `localStorage` (`fastrack_session_expires_at`), converted to the device clock using the offset from the last `X-Server-Time` the API sent. `clearSession` removes it with the rest of the session.
+- **Online**, there is nothing to see. In the last 2 days (from day 12), `SessionExpiryWarning` renews the session once (`apiClient.renewSession()`), which brings the expiry back to 14 days.
+- **Offline from day 12**, a yellow banner shows at the top of every staff page: **"Connect to the internet by Sat 31 Oct, 22:43 to stay signed in."** It says that after that the user will need to sign in again, and when changes are waiting, that the N changes saved on this device are kept until they do. Once the time has passed it turns red: **"Your sign-in has ended"**, with "Connect and sign in again to send the N changes saved on this device." Queued changes are never dropped for this; they're sent after the same user signs in.
+- **Clock correction:** at 9ecbbf7 the API sends `X-Server-Time` only on queued writes and `/sync/` routes, not on login or refresh, so a device whose clock is wrong is corrected only after its first queued write. The backend has been asked to add the header to `/auth/login` and `/auth/refresh`.
+- **Checked (30 Oct, `next dev` against backend 9ecbbf7, Playwright, 7/7):**
+  - Login stored 14.000 days, with no banner.
+  - Offline with the expiry set to 1 day away and 1 change waiting: the deadline banner, with "1 change saved on this device".
+  - Expiry already passed: "Your sign-in has ended".
+  - Online with the expiry 1 day away: renewed to about 14 days, a new refresh token, and no banner.
+
 ## Sign-out and shared devices
 
 - **Explicit sign-out** (`logout` in `auth-context.tsx`) deletes the user's offline database.

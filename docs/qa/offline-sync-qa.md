@@ -218,7 +218,7 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` at efa5e8d, against f60
 | 5c | Double-click **Keep mine** in one tab (3 runs) | Sent once each time. |
 | 6 | Phone (390 px) | The drawer is full width (390 px) with no sideways scroll, and a long label wraps. |
 
-### OFF-4 (Low now, must be fixed before a resolver for a non-idempotent write; owner: staff frontend): Keep mine in two tabs queues the change twice
+### OFF-4 (Low, fixed in 4a9b791; owner: staff frontend): Keep mine in two tabs queues the change twice
 
 **What happens**
 - `resend(id)` reads the item, queues the resolver's op (`outbox.enqueue`) and then removes the item, in three separate IndexedDB transactions.
@@ -240,3 +240,14 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` at efa5e8d, against f60
 IndexedDB runs overlapping read-write transactions one at a time across tabs, so the second tab finds the item gone and queues nothing. The same applies to `dismiss`, which is harmless today.
 
 **Note (not a finding):** until §6.2, a teacher's 403 is a rejected item whose message is the raw "Forbidden resource". Something like "You don't have access to this any more" would read better for staff.
+
+### Re-test of 4a9b791 (docs 799771b): OFF-4 fixed, plain wording for a refused 403
+
+Tested on 30 Oct 2026 **through the UI** with the same setup at 799771b. The tray suite ran again in full. `pnpm test:sync` passes. **Result: 20 of 20 pass. OFF-4 is fixed.**
+
+- **Two tabs, Keep mine in both:**
+  - With Playwright clicks, sent once.
+  - With both pages' DOM `click()` armed for the same instant, sent once in each of **5 runs**, and both tabs settled at 0 waiting and 0 in review.
+  - Before the fix, the Playwright-click version already sent it twice.
+- **Real teacher 403** (f60fc3d, no `forwardedTo`): the card reads "You no longer have permission to make this change, so it wasn't saved. Ask the head teacher or an admin if it's still needed." "Forbidden resource" no longer appears.
+- **Regression:** no change in cases 1 to 6 (rejected, field conflict and Keep mine with a new key, cell conflict, forwarded, other tab's tray, phone width).

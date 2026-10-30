@@ -70,6 +70,8 @@ export const SESSION_STORAGE_KEYS = {
   refreshToken: 'fastrack_refresh_token',
   /** When the refresh token ends, in device-clock ms (`refreshExpiresAt`, clock-corrected). */
   sessionExpiresAt: 'fastrack_session_expires_at',
+  /** When the staff portal last renewed the session by itself (device ms). */
+  sessionRenewedAt: 'fastrack_session_renewed_at',
   user: 'fastrack_user',
   school: 'fastrack_school',
   parentActiveWard: 'fastrack_parent_active_ward',

@@ -1,6 +1,6 @@
 # Offline staff portal: frontend
 
-**Status:** phase 1 frontend built (30 Oct 2026): offline reads, the status chip and the staff service worker. Next is the outbox and sync engine, for the phase 2 writes.
+**Status:** phase 1 frontend built (30 Oct 2026): offline reads, the status chip and the staff service worker. Phase 2 has started: the outbox, the sync engine and the sign-out guard are built (30 Oct). No screen queues writes yet, because only payments are idempotent on the backend (B1). Attendance and marks join once the backend marks those routes (its order: `refreshExpiresAt`, the §6.2 store, then the two write routes, then the B3 feed).
 **Contract:** [sync-contract.md](./sync-contract.md). **Plan:** `humming-tumbling-codd.md` (F1–F5). **QA:** [../qa/offline-sync-qa.md](../qa/offline-sync-qa.md).
 
 ## Code
@@ -12,8 +12,12 @@
 | `src/lib/offline/OfflineSession.tsx` | Mounted in `src/app/school-admin/layout.tsx` inside `AuthProvider`. It activates the store for the stored user on page load, before the session restore reads, and then follows the signed-in user. Only staff with a school get a store, never platform or parent sessions. |
 | `src/lib/offline/readCache.ts` | Saved reads (below). |
 | `src/lib/offline/connectivity.ts`, `useConnectivity.ts` | Whether the API can be reached. |
+| `src/lib/offline/outbox.ts` | Queued writes (`OutboxOp`), review tray items (`ReviewItem`) and the device id. |
+| `src/lib/offline/syncEngine.ts`, `useSyncStatus.ts` | Sends the outbox (below), and its counts for the chip and the sign-out guard. `enqueueWrite`, `syncNow`, `onSyncApplied`. |
+| `src/lib/offline/syncOutcome.ts` | The contract §6 response table as a pure function (`classify`), with `backoffMs` and `retryAfterMs`. Checked by `pnpm test:sync` (`scripts/check-sync-outcome.cjs`). |
 | `src/features/workspace/SyncStatusChip.tsx` | The header chip. |
-| `src/lib/api-client.ts` | `setReadCache`, `onReachability`, `errorCode`. `get` uses the read cache. |
+| `src/features/workspace/SignOutButton.tsx` | The guarded sign-out in the header. |
+| `src/lib/api-client.ts` | `setReadCache`, `onReachability`, `errorCode`. `get` uses the read cache. `exchange` returns the status and headers too, and `ApiError.headers` keeps an error's headers (`Retry-After`). |
 | `public/school-sw.js` | The staff service worker, scope `/school-admin` (below). |
 | `src/features/workspace/pwa/` | `ServiceWorkerRegistrar` (registration, the page list, the update prompt), `staffPages.ts` (`staffPagePaths()`), `OfflinePage`. |
 | `public/school-app/` | Manifest (installable as "Fastrack School", start URL `/school-admin/dashboard`) and icons. `next.config.mjs` serves `/school-sw.js` with no-cache. |
@@ -72,10 +76,51 @@ sequenceDiagram
 ## Connectivity and the status chip
 
 - **Signal:** each API request reports whether it got an HTTP answer below 502. The browser's `offline` event counts as offline straight away. Coming back online is believed only when a request succeeds, because `navigator.onLine` is true on a Wi-Fi with no internet.
-- **Chip:** next to the term badge in the header. It's hidden while the API answers. Offline, it reads **"Offline · data from 2 hours ago"**, using the oldest saved copy shown since going offline, or just **"Offline"**. A tooltip explains it. Waiting changes and "Synced N min ago" join the chip with the outbox (phase 2).
+- **Chip:** next to the term badge in the header. It's hidden while the API answers and nothing waits.
+  - Offline, it reads **"Offline · data from 2 hours ago"**, using the oldest saved copy shown since going offline, or just **"Offline"**.
+  - With queued changes: **"Offline · 3 waiting"** offline, and **"Syncing 3"** or **"3 waiting"** online until they land.
+  - With review items: **"· 2 need review"** is added, and the chip turns red.
+  - The tooltip explains each part, and adds "Last synced 5 minutes ago" while anything waits.
+
+## Outbox and sync engine (phase 2)
+
+```mermaid
+flowchart LR
+  S[Screen] -- enqueueWrite --> O[(outbox)]
+  O --> E{Sync engine<br/>one tab, Web Lock}
+  E -- "request + §1 headers" --> API
+  API -- "2xx / replayed" --> D[op removed<br/>cell conflicts → review]
+  API -- "409 CONFLICT, 400/404/422" --> R[(review tray)]
+  API -- 403 --> F[forwarded to the school<br/>info only]
+  API -- "5xx, 408, 429, no answer" --> B[backoff, retry]
+  API -- 401 --> P[paused until sign-in]
+```
+
+- **An op** is one request to an existing endpoint: method, path, the JSON body serialised once at enqueue, an optional base version, the entity it writes, `dependsOn` and a label for people. Its `opId` is the `Idempotency-Key`. Its `seq` comes from a counter in `meta`, shared by all tabs.
+- **Headers (contract §1):** `Idempotency-Key`, `X-Client-Recorded-At` (raw device time at enqueue), `X-Client-Sent-At` (raw device time of this send; the only value that changes on a retry), `X-Device-Id` (one per user per device, in `meta`) and `X-Base-Version` when set. The body and every other header are byte for byte the same on each retry.
+- **Order:** one op at a time, oldest first. An op waits while an older op on the same entity, or one in its `dependsOn`, is still queued. Other entities carry on.
+- **Responses** follow the contract §6 table (`classify`):
+  - 2xx, replayed or not: the op leaves the queue. Each entry of a batch-cell `conflicts[]` becomes its own review item. `onSyncApplied` listeners get the op and the body, so a screen can refresh its saved reads.
+  - 409 `CONFLICT` / `LIKELY_DUPLICATE`: review, as a conflict, keeping `current` and `conflictingFields`.
+  - 400, 404, 422 and the other 409s (`IDEMPOTENCY_MISMATCH`, `DUPLICATE_ID`, `DUPLICATE_REFERENCE`), or any 4xx without a code: review, as rejected. Never resent. A `REFERENCE_NOT_FOUND` for an id that is still queued is retried instead.
+  - 403 of any code: forwarded. The server keeps the op for a head or admin (§6.2). It leaves the user's own tray and is counted separately as information.
+  - 409 `IDEMPOTENCY_IN_PROGRESS`, 408, 429, 5xx: retried after `Retry-After`, else after an exponential backoff (about 2 s, 4 s, 8 s …, up to 5 min, with jitter). No answer, or 502–504, also ends the run, because nothing else would get through.
+  - 401: the queue pauses, and the op stays. It resumes once the access token changes (the same user signed in again). A session that ends stops the engine anyway, and the next sign-in starts it again.
+- **Age:** an op queued more than 25 days ago goes to review as rejected (`OP_TOO_OLD`) instead of being sent, because the server keeps keys for 30.
+- **When it runs:** on enqueue, when the API answers again, on window focus and the browser's `online` event, every 30 s while ops wait, and when a backing-off op is due. A send is also how the engine notices the API is back.
+- **Tabs:** only the tab holding the Web Lock `fastrack-sync-<userId>` sends. Every tab keeps counts, and a `BroadcastChannel` tells the others to recount (and to send, if they can take the lock).
+- **Not yet:** the review tray screen (the items are stored and counted), Background Sync, and screens that queue writes. In development, `window.__fastrackSync` (`enqueueWrite`, `syncNow`, `syncStatus`) queues ops from the console; it's absent from production builds.
+- **Checked (30 Oct, `next dev` against backend `feat/offline-sync` f60fc3d on a copy of the dev DB, Playwright):** payments queued from the console as principal@qpm.test.
+  - Online: sent once with all five headers (`sync_operations` row 201, with the device and recorded time). The chip stayed hidden.
+  - API blocked: the op stayed queued with a backoff, the chip read "Offline · 1 waiting" and sign-out was blocked. Once unblocked, it was sent.
+  - Answer dropped after the server saved: the retry replayed, and one payment was created.
+  - A 400 went to review once ("1 need review"). Three ops (two on one entity, one depending on the first) were sent in order behind a 503 backoff. An op queued in a second tab was sent once, and both tabs recounted.
+  - A teacher's payment (403) was counted as forwarded, not as review.
+  - Sign-out with a review item showed the guard. "Discard 1 change and sign out" deleted the database.
 
 ## Sign-out and shared devices
 
-- **Explicit sign-out** (`logout` in `auth-context.tsx`) deletes the user's offline database. Phase 2 blocks sign-out while changes are waiting.
+- **Explicit sign-out** (`logout` in `auth-context.tsx`) deletes the user's offline database.
+- **The header's sign-out is guarded** (`SignOutButton`). While changes wait or need review, it asks first: **"1 change hasn't been sent yet. Signing out deletes it from this device."** Offline, it adds that staying signed in sends them later. The choices are **Stay signed in**, **Sync now** (when changes wait) and **Discard N changes and sign out**. If everything lands while it's open, it reads "All your changes have been sent." The platform console's sign-out isn't guarded, since platform users have no offline data.
 - **A session that ends by itself** (the refresh token is rejected or expires) keeps the database. It is reopened when the same user signs in again, so queued changes survive.
 - Each user's data lives in their own database, and a session only opens its own. Another user signing in on the same browser sees none of it.

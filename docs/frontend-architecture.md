@@ -155,6 +155,7 @@ sequenceDiagram
   - `errorDetails<T>(error)` reads the backend's structured `details` (for example `{cells}` on a 422). `ApiError.details` holds the whole error body, so those sit one level in.
   - `errorCode(error)` reads the machine `code` that sync-relevant errors carry at the top level, such as `IDEMPOTENCY_IN_PROGRESS` or `CONFLICT` ([offline/sync-contract.md](./offline/sync-contract.md) §6). Added 30 Oct.
 - **Offline reads (staff portal, 30 Oct):** `apiClient.setReadCache(cache)` makes `get` save every successful read. When the API can't be reached (`ApiError(0)` or 502–504), `get` returns the saved copy instead. `onReachability(listener)` reports, for each request, whether the API answered. Only `OfflineSession` in `/school-admin` turns the cache on, so the parent portal is unaffected. See [offline/staff-offline.md](./offline/staff-offline.md).
+- **Queued writes (staff portal, 30 Oct):** `enqueueWrite(input)` (`src/lib/offline/syncEngine.ts`) queues a write in the user's outbox. The sync engine sends it with the contract's headers and maps each response with `classify` (`syncOutcome.ts`). `apiClient.exchange` returns a response's status and headers, and `ApiError.headers` keeps a failed one's. `useSyncStatus()` gives the counts. See [offline/staff-offline.md](./offline/staff-offline.md#outbox-and-sync-engine-phase-2).
 
 ## Session storage
 

@@ -1,7 +1,11 @@
 import { setupApi, type TermInYear } from '@/features/school-setup/api';
-import { ApiError, apiClient, errorDetails, PageMeta } from '@/lib/api-client';
+import { ApiError, apiClient, errorCode, errorDetails, PageMeta } from '@/lib/api-client';
 import { fetchAll, pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { formatGhs, sumPesewas, toCedis, toPesewas, type Pesewas } from './money';
+
+/** A payment whose first attempt is still running is asked about again (the server's `Retry-After`). */
+const IN_PROGRESS_WAIT_MS = 2000;
+const IN_PROGRESS_TRIES = 4;
 
 // Amount fields below are whole pesewas; the API sends and receives cedis.
 
@@ -567,16 +571,31 @@ export const feesApi = {
     );
     return toPage(res, toPayment);
   },
-  /** `idempotencyKey`: one per payment attempt, so a retried submit is not recorded twice. */
+  /**
+   * `idempotencyKey`: one per payment attempt, so a retried submit is not recorded twice.
+   * A resend of a saved payment returns its original receipt; a resend while the first
+   * attempt is still running (`IDEMPOTENCY_IN_PROGRESS`) waits and asks again.
+   */
   async recordPayment(
     { amount, ...request }: RecordPaymentRequest,
     idempotencyKey?: string,
   ): Promise<Payment | null> {
-    const res = await apiClient.post<Raw[] | Raw>(
-      '/schools/me/payments',
-      { ...request, amount: toCedis(amount) },
-      idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
-    );
+    const send = () =>
+      apiClient.post<Raw[] | Raw>(
+        '/schools/me/payments',
+        { ...request, amount: toCedis(amount) },
+        idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+      );
+    let res;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        res = await send();
+        break;
+      } catch (err) {
+        if (errorCode(err) !== 'IDEMPOTENCY_IN_PROGRESS' || attempt >= IN_PROGRESS_TRIES) throw err;
+        await new Promise((resolve) => setTimeout(resolve, IN_PROGRESS_WAIT_MS));
+      }
+    }
     const created = Array.isArray(res.data) ? res.data[0] : res.data;
     return created ? toPayment(created) : null;
   },

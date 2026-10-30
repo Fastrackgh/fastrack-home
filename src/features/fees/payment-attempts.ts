@@ -2,7 +2,7 @@
  * Idempotency keys for payments not yet confirmed (QA-086). The same payment
  * (student, bill, amount, method and reference) keeps its key until the server
  * confirms it, so re-submitting after a timeout, a closed modal or a reload
- * is refused with 409 instead of recorded twice. Kept in sessionStorage: the
+ * gets the original receipt back (or a 409) instead of recording it twice. Kept in sessionStorage: the
  * tab's own attempts, surviving a reload.
  */
 

@@ -19,7 +19,7 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { CheckCircle } from 'lucide-react';
-import { ApiError, errorMessage } from '@/lib/api-client';
+import { ApiError, errorCode, errorMessage } from '@/lib/api-client';
 import {
   feesApi,
   PAYMENT_METHODS,
@@ -157,7 +157,7 @@ export function RecordPaymentModal({
       });
       return;
     }
-    // The same payment keeps its key until confirmed, so a retry is refused (409), not doubled.
+    // The same payment keeps its key until confirmed, so a retry is never recorded twice.
     const signature = {
       studentId,
       invoiceId: invoice?.id ?? null,
@@ -202,8 +202,18 @@ export function RecordPaymentModal({
         setShared(reused);
         return;
       }
+      if (errorCode(err) === 'IDEMPOTENCY_IN_PROGRESS') {
+        // The first attempt is still being saved; the key stays, so submitting again can't double it.
+        notifications.show({
+          title: 'Still saving',
+          message: 'This payment is still being saved. Check Payments in a moment before trying again.',
+          color: 'yellow',
+          autoClose: false,
+        });
+        return;
+      }
       if (err instanceof ApiError && err.statusCode === 409) {
-        // The server already has this payment (a repeated key or reference).
+        // The server already has this payment: a key reused with other details, or a known reference.
         settleAttempt(signature);
         notifications.show({
           title: 'Already recorded',

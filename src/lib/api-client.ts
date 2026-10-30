@@ -55,6 +55,13 @@ export function errorDetails<T>(err: unknown): T | undefined {
     : undefined;
 }
 
+/** The machine `code` of a failed request (e.g. `CONFLICT`, docs/offline/sync-contract.md §6). */
+export function errorCode(err: unknown): string | undefined {
+  return err instanceof ApiError
+    ? (err.details as { code?: string } | undefined)?.code
+    : undefined;
+}
+
 /** Every browser-storage key that belongs to a signed-in session. */
 export const SESSION_STORAGE_KEYS = {
   accessToken: 'fastrack_access_token',

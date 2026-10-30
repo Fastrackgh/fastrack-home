@@ -31,6 +31,8 @@ export class ApiError extends Error {
     public statusCode: number,
     message: string,
     public details?: unknown,
+    /** The response's headers (e.g. `Retry-After`); missing when there was no response. */
+    public headers?: Headers,
   ) {
     super(message);
     this.name = 'ApiError';
@@ -247,6 +249,14 @@ class ApiClient {
     endpoint: string,
     options: RequestInit = {},
   ): Promise<ApiResponse<T, M>> {
+    return (await this.exchange<T, M>(endpoint, options)).body;
+  }
+
+  /** `request`, plus the response's status and headers (the sync engine reads `Idempotent-Replayed`). */
+  public async exchange<T = unknown, M = unknown>(
+    endpoint: string,
+    options: RequestInit = {},
+  ): Promise<{ body: ApiResponse<T, M>; status: number; headers: Headers }> {
     const url = endpoint.startsWith('http') ? endpoint : `${API_BASE_URL}${endpoint}`;
     const headers: Record<string, string> = {
       // FormData sets its own multipart boundary header.
@@ -294,10 +304,10 @@ class ApiClient {
       const message = Array.isArray(data?.message)
         ? data.message.join(', ')
         : data?.message || response.statusText || 'Request failed';
-      throw new ApiError(response.status, message, data);
+      throw new ApiError(response.status, message, data, response.headers);
     }
 
-    return data as ApiResponse<T, M>;
+    return { body: data as ApiResponse<T, M>, status: response.status, headers: response.headers };
   }
 
   /**

@@ -2,6 +2,7 @@ import { apiClient } from '@/lib/api-client';
 import { startConnectivity } from './connectivity';
 import { deleteUserDb, OfflineDb, offlineStorageAvailable } from './db';
 import { OfflineReadCache } from './readCache';
+import { startSync, stopSync } from './syncEngine';
 
 /**
  * Which user's offline store this tab is using. Only school staff get one
@@ -15,9 +16,14 @@ export function activateOffline(userId: string) {
   deactivateOffline();
   const db = OfflineDb.open(userId);
   // A store that can't open (private mode, blocked) leaves reads online-only.
-  db.catch(() => {
-    if (active?.db === db) deactivateOffline();
-  });
+  db.then(
+    (opened) => {
+      if (active?.db === db) startSync(opened, userId);
+    },
+    () => {
+      if (active?.db === db) deactivateOffline();
+    },
+  );
   active = { userId, db };
   apiClient.setReadCache(new OfflineReadCache(db));
   startConnectivity();
@@ -25,11 +31,12 @@ export function activateOffline(userId: string) {
   navigator.storage?.persist?.().catch(() => undefined);
 }
 
-/** Stops using the offline store; its data stays for this user's next session. */
+/** Stops using the offline store; its data (queued writes included) stays for this user's next session. */
 export function deactivateOffline() {
   if (!active) return;
   const { db } = active;
   active = null;
+  stopSync();
   apiClient.setReadCache(null);
   db.then((opened) => opened.close()).catch(() => undefined);
 }

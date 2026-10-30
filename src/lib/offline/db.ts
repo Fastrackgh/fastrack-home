@@ -104,6 +104,22 @@ export class OfflineDb {
     await request(this.store(store, 'readwrite').delete(key));
   }
 
+  /** Adds 1 to a `meta` counter and returns it, in one transaction (safe across tabs). */
+  increment(key: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      const tx = this.db.transaction('meta', 'readwrite');
+      const meta = tx.objectStore('meta');
+      let next = 0;
+      const read = meta.get(key);
+      read.onsuccess = () => {
+        next = (typeof read.result === 'number' ? read.result : 0) + 1;
+        meta.put(next, key);
+      };
+      tx.oncomplete = () => resolve(next);
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    });
+  }
+
   close() {
     this.db.close();
   }

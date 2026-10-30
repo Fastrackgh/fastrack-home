@@ -2,49 +2,84 @@
 
 import { useEffect, useState } from 'react';
 import { Badge, Tooltip } from '@mantine/core';
-import { WifiOff } from 'lucide-react';
+import { CloudUpload, TriangleAlert, WifiOff } from 'lucide-react';
 import { formatAge } from '@/lib/format';
 import { useConnectivity } from '@/lib/offline/useConnectivity';
+import { useSyncStatus } from '@/lib/offline/useSyncStatus';
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`;
 
 /**
- * The header's offline status (docs/offline/sync-contract.md, plan F4):
- * hidden while the API answers; "Offline · data from 2 hours ago" when the
- * screens are showing saved copies. Waiting changes join it with the outbox.
+ * The header's offline and sync status (docs/offline/staff-offline.md, plan F4):
+ * hidden while the API answers and nothing waits. Offline it reads
+ * "Offline · data from 2 hours ago", or "Offline · 3 waiting" once changes
+ * are queued; online, "Syncing 3" or "3 waiting" until they land, and
+ * "2 need review" while the review tray has items.
  */
 export function SyncStatusChip() {
   const { online, oldestShownAt } = useConnectivity();
+  const { pending, review, syncing, paused, lastSyncedAt } = useSyncStatus();
   const [now, setNow] = useState(() => Date.now());
+  const visible = !online || pending > 0 || review > 0;
 
-  // Keep the age current while offline.
+  // Keep the ages current while the chip shows.
   useEffect(() => {
-    if (online) return;
+    if (!visible) return;
     setNow(Date.now());
     const timer = window.setInterval(() => setNow(Date.now()), 60_000);
     return () => window.clearInterval(timer);
-  }, [online]);
+  }, [visible]);
 
-  if (online) return null;
+  if (!visible) return null;
+
   const age = oldestShownAt === null ? null : formatAge(oldestShownAt, now);
+  const waiting = pending > 0 ? plural(pending, 'change', 'changes') : null;
+  const synced = lastSyncedAt === null ? null : `Last synced ${formatAge(lastSyncedAt, now)}.`;
+
+  const parts: string[] = [];
+  const tips: string[] = [];
+  if (!online) {
+    parts.push('Offline');
+    if (pending === 0 && age) parts.push(`data from ${age}`);
+    tips.push(
+      age
+        ? `Can't reach Fastrack. You're seeing data saved ${age}; it updates when you're back online.`
+        : "Can't reach Fastrack. Pages you've opened before still show their saved data.",
+    );
+  }
+  if (pending > 0) {
+    parts.push(online && syncing ? `Syncing ${pending}` : `${pending} waiting`);
+    tips.push(
+      paused
+        ? `${waiting} saved on this device. Sign in again to send them.`
+        : online
+          ? `${waiting} saved on this device ${syncing ? 'and being sent now' : 'will be sent shortly'}.`
+          : `${waiting} saved on this device. They'll be sent when you're back online.`,
+    );
+  }
+  if (review > 0) {
+    parts.push(`${review} need review`);
+    tips.push(
+      `${plural(review, 'change', 'changes')} couldn't be applied as made and need you to check them.`,
+    );
+  }
+  if (synced && pending + review > 0) tips.push(synced);
+
+  const color = review > 0 ? 'red' : !online ? 'orange' : 'blue';
+  const Icon = review > 0 ? TriangleAlert : !online ? WifiOff : CloudUpload;
+
   return (
-    <Tooltip
-      label={
-        age
-          ? `Can't reach Fastrack. You're seeing data saved ${age}; it updates when you're back online.`
-          : "Can't reach Fastrack. Pages you've opened before still show their saved data."
-      }
-      multiline
-      w={260}
-    >
+    <Tooltip label={tips.join(' ')} multiline w={280}>
       <Badge
         variant="light"
-        color="orange"
+        color={color}
         radius="md"
         size="sm"
         tt="none"
-        leftSection={<WifiOff size={12} />}
+        leftSection={<Icon size={12} />}
         role="status"
       >
-        {age ? `Offline · data from ${age}` : 'Offline'}
+        {parts.join(' · ')}
       </Badge>
     </Tooltip>
   );

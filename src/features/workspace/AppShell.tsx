@@ -33,7 +33,6 @@ import {
   Images,
   Inbox,
   LayoutDashboard,
-  LogOut,
   Menu,
   MessageSquare,
   NotebookPen,
@@ -51,6 +50,7 @@ import { useAuth } from '@/lib/auth';
 import { APP_ROUTES, ROLE_LABELS, dataScopeOf, findRoute } from '@/lib/rbac';
 import { activeNavItem, workspaceNavigation, type NavItem } from './navigation';
 import { useViewer } from './useViewer';
+import { SignOutButton } from './SignOutButton';
 import { SyncStatusChip } from './SyncStatusChip';
 import styles from './AppShell.module.css';
 
@@ -111,7 +111,7 @@ function useAcademicSession(schoolId: string | null) {
  * between the overview, preview areas and live pages keeps one skeleton.
  */
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, school, logout } = useAuth();
+  const { user, school } = useAuth();
   const viewer = useViewer();
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
@@ -248,9 +248,7 @@ export function AppShell({ children }: { children: ReactNode }) {
                 </div>
               </Group>
             </UnstyledButton>
-            <ActionIcon variant="subtle" color="gray" aria-label="Sign out" onClick={logout}>
-              <LogOut size={17} />
-            </ActionIcon>
+            <SignOutButton />
           </Group>
         </header>
         <main className={styles.content}>

@@ -529,3 +529,10 @@ Tested on 31 Oct 2026 **through the UI** at 1840327 on the QPM-402 Primary 1 Mat
 
 - **Wording polish (not a finding):** the clash notice says "1 of your marks clashed with theirs and **were** not saved". For one mark it should read "was".
 - **Not covered:** a descriptor-band sheet. QPM-402 has only the scored Mathematics sheet. I'll check band names in the tray when one exists.
+
+### Notes from the backend after the 4b pass (31 Oct)
+
+- **Merge order:** backend **36460de** drops `details.rowVersion` from every stale-sheet 409. It must reach main **with or after** staff frontend **825db22**, which reads `code` rather than `details.rowVersion`. I haven't re-tested the direct path, used when there's no offline store, against 36460de.
+- **Descriptor sheets:** the per-cell path compares `descriptorBandId` the same way. The backend will cover it with an e2e case in the B3 work, since no QA school has a descriptor sheet.
+- **OUT_OF_SCOPE on marks:** this uses the same forwarding path that passed for attendance (case F), so a separate UI check is optional.
+- **Next:** B3, the change feed.

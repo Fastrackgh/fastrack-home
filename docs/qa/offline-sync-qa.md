@@ -636,3 +636,11 @@ Tested on 31 Oct 2026 **through the UI** at 64bb1b2, against backend 9c8c6d1 (fe
 - **Note on P2's banner:** I expected "The pupils come from the class list synced to this device". The device already had a saved register (31 Oct, from the screen's first load), so by design it said "from the register of Sat 31 Oct". The class-list path is only for when no register is saved.
 - **Observation (not a finding):** a past day built offline uses today's pupil list, whether from a saved register or the synced class list. Pupils who were in the class on that day but have moved since (here, four pupils on 5 Oct) aren't listed, so they can't be marked offline for that day. Online, the server's as-of-day register lists them. That's fine for today's register, which is the normal offline case.
 - The other suites (attendance 23, marks 15, tray 12, review 19) are reported passing by fastrack-18. I didn't re-run them here.
+
+### Re-test of 9d7e864: past days and the class picker offline
+
+Tested on 31 Oct 2026 **through the UI** at 9d7e864, against backend 9c8c6d1. A fresh device signed in as the Primary 1 teacher, waited for the pull, went offline, and only then opened Attendance. **Result: pass.**
+- **Baseline before the fix** (64bb1b2, the same steps): Attendance showed "Something went wrong / Can't reach Fastrack", with **no classes** in the picker.
+- **Class picker offline:** it offers **Primary 1** (the teacher's homeroom) from synced records.
+- **Fri 23 Oct** (8 pupils marked Present then, 6 of whom have since moved to Primary 2): all **8** are listed with **Present**, including Efua, Kofi, Serwaa, Kojo, Yaw and Abena. That matches the database. The banner reads "The pupils come from the class list synced to this device…".
+- **Fri 2 Oct** (nobody marked): only today's 2 pupils, unmarked. That's the stated limit: a day nobody marked can't be known offline, and the server's whole-register 422 → "Send without…" covers mistakes.

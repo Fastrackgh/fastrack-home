@@ -40,6 +40,12 @@ interface Pending {
   base: string;
 }
 
+/** "1 of your marks clashed with theirs and was not saved." */
+const clashNotice = (n: number) =>
+  n === 1
+    ? '1 of your marks clashed with theirs and was not saved.'
+    : `${n} of your marks clashed with theirs and were not saved.`;
+
 const keyOf = (change: MarkChange) =>
   cellKey(change.schoolStudentId, change.componentKey, change.itemIndex);
 
@@ -137,7 +143,7 @@ export function useMarkSheet(termId: string, classId: string, subjectId: string)
           notifications.show({
             color: 'orange',
             title: 'Someone else changed this sheet',
-            message: `${clashed.length} of your marks clashed with theirs and were not saved. They're outlined in orange, and you can choose in “need review” at the top of the page.`,
+            message: `${clashNotice(clashed.length)} They're outlined in orange, and you can choose in “need review” at the top of the page.`,
           });
         }
         void refreshQueued();
@@ -199,7 +205,7 @@ export function useMarkSheet(termId: string, classId: string, subjectId: string)
               notifications.show({
                 color: 'orange',
                 title: 'Someone else changed this sheet',
-                message: `${clashed.length} of your marks clashed with theirs and were not saved. They're outlined in orange.`,
+                message: `${clashNotice(clashed.length)} They're outlined in orange.`,
               });
             }
             if (pending.current.size) timer.current = setTimeout(() => flushRef.current(), 0);

@@ -91,6 +91,22 @@ export class OfflineDb {
     return request(this.store(store, 'readonly').getAll()) as Promise<T[]>;
   }
 
+  /** Values whose (string) key starts with `prefix`, with their keys. */
+  entries<T>(store: StoreName, prefix: string): Promise<{ key: string; value: T }[]> {
+    return new Promise((resolve, reject) => {
+      const found: { key: string; value: T }[] = [];
+      const range = IDBKeyRange.bound(prefix, `${prefix}\uffff`);
+      const cursor = this.store(store, 'readonly').openCursor(range);
+      cursor.onsuccess = () => {
+        const at = cursor.result;
+        if (!at) return resolve(found);
+        found.push({ key: String(at.key), value: at.value as T });
+        at.continue();
+      };
+      cursor.onerror = () => reject(cursor.error);
+    });
+  }
+
   count(store: StoreName): Promise<number> {
     return request(this.store(store, 'readonly').count());
   }

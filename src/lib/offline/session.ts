@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { apiClient, type SavedRead } from '@/lib/api-client';
 import { startConnectivity } from './connectivity';
 import { deleteUserDb, OfflineDb, offlineStorageAvailable } from './db';
 import { OfflineReadCache } from './readCache';
@@ -45,4 +45,22 @@ export function deactivateOffline() {
 export async function discardOfflineData(userId: string) {
   if (active?.userId === userId) deactivateOffline();
   if (offlineStorageAvailable()) await deleteUserDb(userId);
+}
+
+/**
+ * Saved reads whose endpoint starts with `prefix`, newest first, e.g. every
+ * saved register of one class. Empty without an offline store.
+ */
+export async function savedReadsLike(
+  prefix: string,
+): Promise<{ endpoint: string; read: SavedRead }[]> {
+  if (!active) return [];
+  try {
+    const rows = await (await active.db).entries<SavedRead>('reads', prefix);
+    return rows
+      .map(({ key, value }) => ({ endpoint: key, read: value }))
+      .sort((a, b) => b.read.savedAt - a.read.savedAt);
+  } catch {
+    return [];
+  }
 }

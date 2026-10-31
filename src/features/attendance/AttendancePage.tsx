@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Badge,
@@ -26,6 +26,7 @@ import { setupApi, type SchoolClass } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/api-client';
+import { onSyncApplied } from '@/lib/offline/syncEngine';
 import {
   NO_ARRIVAL,
   STATUSES,
@@ -33,10 +34,16 @@ import {
   attendedRate,
   statusInfo,
   type AttendanceStatus,
-  type Mark,
   type Register,
   type TermSummary,
 } from './api';
+import {
+  isRegisterOp,
+  loadRegister as registerWithPending,
+  saveRegister,
+  type MarkChange,
+  type SaveResult,
+} from './sync';
 
 type Draft = Record<string, { status: AttendanceStatus | null; arrivalTime: string; note: string }>;
 
@@ -62,6 +69,54 @@ function closedReason(register: Register) {
   if (reason === 'CLOSURE')
     return `The school is closed${closureTitle ? ` (${closureTitle})` : ''}.`;
   return 'The school is closed on this day.';
+}
+
+const marksWord = (n: number) => `${n} ${n === 1 ? 'mark' : 'marks'}`;
+
+/** What Save says: landed, landed with clashes, refused, passed on, or kept on the device. */
+function saveNotice(result: SaveResult, className: string) {
+  if (result.kind === 'sent') {
+    return {
+      title: 'Register saved',
+      message: `${marksWord(result.count)} saved for ${className}.`,
+      color: 'green',
+    };
+  }
+  if (result.kind === 'waiting') {
+    return {
+      title: 'Saved on this device',
+      message: `${marksWord(result.count)} for ${className} will be sent when you're back online.`,
+      color: 'blue',
+    };
+  }
+  const { state, cellConflicts } = result.outcome;
+  if (state === 'forwarded') {
+    return {
+      title: 'Passed to the head teacher',
+      message: `You can no longer mark ${className}, so the register was passed to the head teacher to apply.`,
+      color: 'orange',
+    };
+  }
+  if (state === 'review') {
+    return {
+      title: 'Register not saved',
+      message:
+        'The server couldn’t apply it. Open “need review” at the top of the page to see why.',
+      color: 'red',
+    };
+  }
+  if (cellConflicts > 0) {
+    return {
+      title: 'Register saved, with changes to check',
+      message: `${marksWord(cellConflicts)} had been changed by someone else, so yours weren't applied. They're in “need review” at the top of the page.`,
+      color: 'yellow',
+    };
+  }
+  return {
+    title: 'Register saved',
+    message: `${marksWord(result.count)} saved for ${className}.`,
+    color: 'green',
+  };
 }
 
 /** Daily class registers, and each pupil's totals for the term. */
@@ -102,7 +157,7 @@ export function AttendancePage() {
     setLoading(true);
     setError(null);
     try {
-      const next = await attendanceApi.register(classId, date);
+      const next = await registerWithPending(classId, date);
       setRegister(next);
       setDraft(draftOf(next));
     } catch (err) {
@@ -117,6 +172,15 @@ export function AttendancePage() {
     loadRegister();
   }, [loadRegister]);
 
+  // A queued register landing (this tab or another) brings the server's copy.
+  useEffect(
+    () =>
+      onSyncApplied((op) => {
+        if (isRegisterOp(op, classId, date) && changedRef.current === 0) loadRegister();
+      }),
+    [classId, date, loadRegister],
+  );
+
   // The term of the day on screen; the backend's "current" term may not contain today.
   const termId = register?.schoolDay.termId ?? null;
   useEffect(() => {
@@ -128,7 +192,9 @@ export function AttendancePage() {
       .catch((err) => setError(errorMessage(err, 'Unable to load term totals.')));
   }, [view, classId, termId]);
 
-  const changed = useMemo<Mark[]>(() => {
+  // Compared with the register as this device sees it (queued marks included),
+  // so each change carries the right `from`.
+  const changed = useMemo<MarkChange[]>(() => {
     if (!register) return [];
     return register.students.flatMap((s) => {
       const d = draft[s.studentId];
@@ -139,7 +205,7 @@ export function AttendancePage() {
       if (same) return [];
       return [
         {
-          studentId: s.studentId,
+          student: s,
           status: d.status,
           ...(arrival ? { arrivalTime: arrival } : {}),
           ...(d.note.trim() ? { note: d.note.trim() } : {}),
@@ -147,6 +213,8 @@ export function AttendancePage() {
       ];
     });
   }, [register, draft]);
+  const changedRef = useRef(0);
+  changedRef.current = changed.length;
 
   const counts = useMemo(() => {
     const statuses = Object.values(draft).map((d) => d.status);
@@ -184,14 +252,16 @@ export function AttendancePage() {
     if (!register || changed.length === 0) return;
     setSaving(true);
     try {
-      const next = await attendanceApi.mark(register.classId, register.date, changed);
-      setRegister(next);
-      setDraft(draftOf(next));
-      notifications.show({
-        title: 'Register saved',
-        message: `${changed.length} ${changed.length === 1 ? 'mark' : 'marks'} saved for ${next.className}.`,
-        color: 'green',
-      });
+      const result = await saveRegister(register, changed);
+      notifications.show(saveNotice(result, register.className));
+      if (result.kind === 'sent') {
+        setRegister(result.register);
+        setDraft(draftOf(result.register));
+      } else {
+        // The server's copy when it landed; otherwise the saved copy with the queued marks on top.
+        changedRef.current = 0;
+        await loadRegister();
+      }
     } catch (err) {
       notifications.show({
         title: 'Register not saved',
@@ -304,6 +374,13 @@ export function AttendancePage() {
               </Alert>
             )
           )}
+          {register.builtFrom && (
+            <Alert color="orange" title="Offline: this day's register isn't saved on this device">
+              The pupils come from the register of {formatDay(register.builtFrom)}. Marks you save
+              are kept here and checked when they&apos;re sent, so a pupil who wasn&apos;t in the
+              class that day comes back for review.
+            </Alert>
+          )}
 
           <SimpleGrid cols={{ base: 2, sm: 3, lg: 6 }} spacing="sm">
             {[
@@ -373,15 +450,23 @@ export function AttendancePage() {
                     const d = draft[student.studentId];
                     const noArrival = !d?.status || NO_ARRIVAL.includes(d.status);
                     return (
-                      <Table.Tr key={student.studentId}>
+                      // Keyed by day too, so a new day doesn't briefly show the last day's mark fading out.
+                      <Table.Tr key={`${register.date}:${student.studentId}`}>
                         <Table.Td>
                           <Text size="sm" fw={600}>
                             {student.name}
                           </Text>
                           <Text size="xs" c="dimmed">
                             {student.studentCode ?? '—'}
-                            {student.markedBy && ` · marked by ${student.markedBy}`}
+                            {!student.pending &&
+                              student.markedBy &&
+                              ` · marked by ${student.markedBy}`}
                           </Text>
+                          {student.pending && (
+                            <Badge size="xs" variant="light" color="blue" tt="none" mt={4}>
+                              Waiting to sync
+                            </Badge>
+                          )}
                         </Table.Td>
                         <Table.Td>
                           {editable ? (

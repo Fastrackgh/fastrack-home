@@ -19,6 +19,12 @@ export const NO_ARRIVAL: readonly AttendanceStatus[] = ['Absent', 'Excused'];
 
 export interface RegisterStudent {
   studentId: string;
+  /** The pupil's enrolment at this school: the id sync uses (contract §8). Missing on registers saved before it. */
+  schoolStudentId?: string;
+  /** The mark's version; null while unmarked. */
+  rowVersion?: number | null;
+  /** Set on the device: a saved mark still waiting to be sent. */
+  pending?: boolean;
   studentCode: string | null;
   /** "Surname, First Other". */
   name: string;
@@ -54,6 +60,11 @@ export interface Register {
   students: RegisterStudent[];
   counts: Counts;
   unmarked: number;
+  /**
+   * Set on the device when offline and this day was never opened online: the
+   * register is built from the class's latest saved register (that date).
+   */
+  builtFrom?: string;
 }
 
 export interface Mark {
@@ -62,6 +73,12 @@ export interface Mark {
   arrivalTime?: string;
   note?: string;
 }
+
+/** The register endpoint takes at most this many marks per call. */
+export const MAX_MARKS = 200;
+export const ATTENDANCE_BASE = '/schools/me/attendance';
+export const registerPath = (classId: string, date: string) =>
+  `${ATTENDANCE_BASE}/register?${new URLSearchParams({ classId, date })}`;
 
 /** `GET /schools/me/attendance/summary`: each pupil's totals over a term, up to today. */
 export interface TermSummary {
@@ -78,16 +95,17 @@ export interface TermSummary {
   })[];
 }
 
-/** The register endpoint takes at most this many marks per call. */
-const MAX_MARKS = 200;
-const BASE = '/schools/me/attendance';
+const BASE = ATTENDANCE_BASE;
 
 export const attendanceApi = {
   async register(classId: string, date: string) {
-    const query = new URLSearchParams({ classId, date });
-    return (await apiClient.get<Register>(`${BASE}/register?${query}`)).data;
+    return (await apiClient.get<Register>(registerPath(classId, date))).data;
   },
-  /** Saves marks; students left out keep theirs. Returns the updated register. */
+  /**
+   * Saves marks directly; students left out keep theirs. Returns the updated
+   * register. The page queues through `saveRegister` (sync.ts) instead, and
+   * falls back to this only without an offline store.
+   */
   async mark(classId: string, date: string, marks: Mark[]) {
     let register: Register | null = null;
     for (let i = 0; i < marks.length; i += MAX_MARKS) {

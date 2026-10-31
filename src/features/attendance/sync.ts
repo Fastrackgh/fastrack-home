@@ -1,0 +1,300 @@
+import { isWeekend, formatDay } from '@/features/calendar/dates';
+import { isUnreachable } from '@/lib/api-client';
+import type { EnqueueInput, OutboxOp, ReviewItem } from '@/lib/offline/outbox';
+import { savedReadsLike } from '@/lib/offline/session';
+import {
+  enqueueWrite,
+  pendingWrites,
+  registerReviewResolver,
+  registerReviewText,
+  waitForOp,
+  type OpOutcome,
+} from '@/lib/offline/syncEngine';
+import {
+  ATTENDANCE_BASE,
+  MAX_MARKS,
+  attendanceApi,
+  type AttendanceStatus,
+  type Mark,
+  type Register,
+  type RegisterStudent,
+} from './api';
+
+/**
+ * Offline attendance (docs/offline/staff-offline.md, contract §5 batch cells,
+ * backend step 4a). Saving queues the register through the outbox, online or
+ * not; each mark carries `from`, the value the device saw, so a mark someone
+ * else changed meanwhile comes back as a cell conflict for review instead of
+ * being overwritten.
+ */
+export const ATTENDANCE_COLLECTION = 'attendance';
+const entityOf = (classId: string, date: string) => `${classId}:${date}`;
+
+/** How long Save waits for the server before saying "saved on this device". */
+const LAND_WAIT_MS = 8000;
+
+interface QueuedMark {
+  schoolStudentId?: string;
+  studentId?: string;
+  status: AttendanceStatus;
+  arrivalTime?: string;
+  note?: string;
+  from: { status: AttendanceStatus; arrivalTime: string | null; note: string | null } | null;
+}
+
+interface QueuedRegister {
+  classId: string;
+  date: string;
+  marks: QueuedMark[];
+}
+
+const fromOf = (student: RegisterStudent): QueuedMark['from'] =>
+  student.status
+    ? { status: student.status, arrivalTime: student.arrivalTime, note: student.note }
+    : null;
+
+const parse = (op: OutboxOp): QueuedRegister | null => {
+  try {
+    return op.body ? (JSON.parse(op.body) as QueuedRegister) : null;
+  } catch {
+    return null;
+  }
+};
+
+/** The register as this device sees it: the server's (or saved) copy with queued marks laid over. */
+function withPending(register: Register, ops: OutboxOp[]): Register {
+  if (ops.length === 0) return register;
+  const students = register.students.map((student) => ({ ...student }));
+  for (const op of ops) {
+    for (const mark of parse(op)?.marks ?? []) {
+      const student = students.find((s) =>
+        mark.schoolStudentId
+          ? s.schoolStudentId === mark.schoolStudentId
+          : s.studentId === mark.studentId,
+      );
+      if (!student) continue;
+      student.status = mark.status;
+      student.arrivalTime = mark.arrivalTime ?? null;
+      student.note = mark.note ?? null;
+      student.pending = true;
+    }
+  }
+  return { ...register, students };
+}
+
+/**
+ * Offline, a day never opened online has no saved register. The class's
+ * latest saved register gives its pupils, all unmarked; the server checks
+ * each mark when it arrives (`NOT_ENROLLED_ON_DATE` goes to review).
+ */
+async function builtRegister(classId: string, date: string): Promise<Register | null> {
+  const prefix = `${ATTENDANCE_BASE}/register?${new URLSearchParams({ classId })}&`;
+  const saved = (await savedReadsLike(prefix))
+    .map(({ read }) => read.response.data as Register)
+    .filter((register) => register?.students);
+  const source = saved.find((register) => register.schoolDay.open) ?? saved[0];
+  if (!source) return null;
+  const weekend = isWeekend(date);
+  return {
+    ...source,
+    date,
+    schoolDay: {
+      open: !weekend,
+      termId: source.schoolDay.termId,
+      reason: weekend ? 'WEEKEND' : null,
+      closureTitle: null,
+    },
+    // A closed day's register always says false; the server decides when the marks arrive.
+    canMark: !weekend && (source.schoolDay.open ? source.canMark : true),
+    students: source.students.map((student) => ({
+      ...student,
+      status: null,
+      arrivalTime: null,
+      note: null,
+      markedBy: null,
+      markedAt: null,
+      rowVersion: null,
+    })),
+    counts: { present: 0, absent: 0, late: 0, halfDay: 0, excused: 0 },
+    unmarked: source.students.length,
+    builtFrom: source.date,
+  };
+}
+
+/** The register for a class and day, with this device's queued marks on top. */
+export async function loadRegister(classId: string, date: string): Promise<Register> {
+  let register: Register;
+  try {
+    register = await attendanceApi.register(classId, date);
+  } catch (err) {
+    const built = isUnreachable(err) ? await builtRegister(classId, date) : null;
+    if (!built) throw err;
+    register = built;
+  }
+  return withPending(register, await pendingWrites(ATTENDANCE_COLLECTION, entityOf(classId, date)));
+}
+
+/** A change to one pupil's mark, against the register on screen. */
+export interface MarkChange {
+  student: RegisterStudent;
+  status: AttendanceStatus;
+  arrivalTime?: string;
+  note?: string;
+}
+
+export type SaveResult =
+  | { kind: 'landed'; outcome: OpOutcome; count: number }
+  | { kind: 'waiting'; count: number }
+  | { kind: 'sent'; register: Register; count: number };
+
+/**
+ * Saves changed marks. With an offline store they're queued (one op per 200
+ * marks, sent in order) and Save waits briefly for them to land; without one
+ * (e.g. a private window) they're sent directly, as before.
+ */
+export async function saveRegister(register: Register, changes: MarkChange[]): Promise<SaveResult> {
+  const count = changes.length;
+  const marks: QueuedMark[] = changes.map(({ student, status, arrivalTime, note }) => ({
+    ...(student.schoolStudentId
+      ? { schoolStudentId: student.schoolStudentId }
+      : { studentId: student.studentId }),
+    status,
+    ...(arrivalTime ? { arrivalTime } : {}),
+    ...(note ? { note } : {}),
+    from: fromOf(student),
+  }));
+  const names = Object.fromEntries(
+    changes.map(({ student }) => [student.schoolStudentId ?? student.studentId, student.name]),
+  );
+  const ops: OutboxOp[] = [];
+  try {
+    for (let i = 0; i < marks.length; i += MAX_MARKS) {
+      const input: EnqueueInput = {
+        collection: ATTENDANCE_COLLECTION,
+        entityId: entityOf(register.classId, register.date),
+        method: 'PUT',
+        path: `${ATTENDANCE_BASE}/register`,
+        body: {
+          classId: register.classId,
+          date: register.date,
+          marks: marks.slice(i, i + MAX_MARKS),
+        },
+        label: `Attendance for ${register.className}, ${formatDay(register.date)}`,
+        names,
+      };
+      ops.push(await enqueueWrite(input));
+    }
+  } catch (err) {
+    if (ops.length > 0) throw err;
+    // No offline store on this device: send directly, as before offline support.
+    const direct: Mark[] = changes.map(({ student, status, arrivalTime, note }) => ({
+      studentId: student.studentId,
+      status,
+      ...(arrivalTime ? { arrivalTime } : {}),
+      ...(note ? { note } : {}),
+    }));
+    return {
+      kind: 'sent',
+      register: await attendanceApi.mark(register.classId, register.date, direct),
+      count,
+    };
+  }
+  const outcomes = await Promise.all(ops.map((op) => waitForOp(op.opId, LAND_WAIT_MS)));
+  if (outcomes.some((outcome) => outcome === null)) return { kind: 'waiting', count };
+  const landed = outcomes as OpOutcome[];
+  const worst =
+    landed.find((outcome) => outcome.state === 'forwarded') ??
+    landed.find((outcome) => outcome.state === 'review');
+  return {
+    kind: 'landed',
+    outcome: worst ?? {
+      state: 'applied',
+      cellConflicts: landed.reduce((sum, outcome) => sum + outcome.cellConflicts, 0),
+    },
+    count,
+  };
+}
+
+/** True when an applied op is one of this register's, so the screen should reload. */
+export const isRegisterOp = (op: OutboxOp, classId: string | null, date: string) =>
+  op.collection === ATTENDANCE_COLLECTION && op.entityId === entityOf(classId ?? '', date);
+
+/** The pupil a `NOT_ENROLLED_ON_DATE` refusal names, if any (the whole register was refused). */
+const notEnrolled = (item: ReviewItem): string | null => {
+  const id = item.error?.reason?.schoolStudentId;
+  return item.kind === 'rejected' &&
+    item.error?.code === 'NOT_ENROLLED_ON_DATE' &&
+    typeof id === 'string'
+    ? id
+    : null;
+};
+
+/**
+ * Review for queued registers:
+ * - "Keep mine" for a clashing cell: one pupil's mark again, with `from` set
+ *   to what the server has now, so it applies unless the cell changes again.
+ * - A register refused because one pupil wasn't in the class that day
+ *   (`NOT_ENROLLED_ON_DATE`, e.g. a register built offline from another day's
+ *   list): "Send without <pupil>" resends the rest.
+ */
+export function registerAttendanceResolver() {
+  registerReviewText(ATTENDANCE_COLLECTION, {
+    explain: (item) => {
+      const id = notEnrolled(item);
+      if (!id) return null;
+      const queued = parse(item.op);
+      const who = item.op.names?.[id] ?? 'A pupil';
+      const day = queued ? formatDay(queued.date) : 'that day';
+      return `${who} wasn't in this class on ${day}, so none of these marks were saved.`;
+    },
+    resendLabel: (item) => {
+      const id = notEnrolled(item);
+      return id ? `Send without ${item.op.names?.[id] ?? 'that pupil'}` : null;
+    },
+  });
+  registerReviewResolver(ATTENDANCE_COLLECTION, (item) => {
+    const queued = parse(item.op);
+    const skip = notEnrolled(item);
+    if (skip && queued) {
+      const marks = queued.marks.filter((mark) => mark.schoolStudentId !== skip);
+      if (marks.length === 0 || marks.length === queued.marks.length) return null;
+      return {
+        collection: ATTENDANCE_COLLECTION,
+        entityId: item.op.entityId,
+        method: 'PUT',
+        path: item.op.path,
+        body: { ...queued, marks },
+        label: item.op.label,
+        names: item.op.names,
+      };
+    }
+    const mine = item.cell?.mine as Partial<QueuedMark> | undefined;
+    const current = item.cell?.current as Partial<QueuedMark> | undefined;
+    const schoolStudentId = item.cell?.cell.schoolStudentId;
+    if (item.kind !== 'cell' || !queued || !mine?.status || typeof schoolStudentId !== 'string') {
+      return null;
+    }
+    const mark: QueuedMark = {
+      schoolStudentId,
+      status: mine.status,
+      ...(mine.arrivalTime ? { arrivalTime: mine.arrivalTime } : {}),
+      ...(mine.note ? { note: mine.note } : {}),
+      from: current?.status
+        ? {
+            status: current.status,
+            arrivalTime: current.arrivalTime ?? null,
+            note: current.note ?? null,
+          }
+        : null,
+    };
+    return {
+      collection: ATTENDANCE_COLLECTION,
+      entityId: item.op.entityId,
+      method: 'PUT',
+      path: item.op.path,
+      body: { classId: queued.classId, date: queued.date, marks: [mark] },
+      label: item.op.label,
+      names: item.op.names,
+    };
+  });
+}

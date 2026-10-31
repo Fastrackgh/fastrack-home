@@ -2,15 +2,21 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, Drawer, Group, Stack, Table, Text } from '@mantine/core';
+import { registerAttendanceResolver } from '@/features/attendance/sync';
 import { formatAge } from '@/lib/format';
 import type { ReviewItem } from '@/lib/offline/outbox';
 import {
   canResend,
+  resendLabel,
+  reviewExplanation,
   dismissReviewItem,
   listReviewItems,
   resendReviewItem,
 } from '@/lib/offline/syncEngine';
 import { useSyncStatus } from '@/lib/offline/useSyncStatus';
+
+// "Keep mine" for each feature that queues writes; the tray can open on any page.
+registerAttendanceResolver();
 
 /** Fields that describe a write, not its value. */
 const META_FIELDS = new Set(['updatedBy', 'updatedAt', 'rowVersion', 'version', 'id']);
@@ -83,6 +89,8 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
   const by = typeof current?.updatedBy === 'string' ? current.updatedBy : null;
   const badge = KIND_BADGE[item.kind];
   const clash = item.kind === 'conflict' || item.kind === 'cell';
+  const cellId = item.cell?.cell.schoolStudentId;
+  const pupil = typeof cellId === 'string' ? item.op.names?.[cellId] : undefined;
 
   const act = async (action: 'dismiss' | 'resend') => {
     setBusy(action);
@@ -101,6 +109,7 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
         <Group justify="space-between" align="flex-start" wrap="nowrap">
           <Text size="sm" fw={600}>
             {item.op.label}
+            {pupil ? ` · ${pupil}` : ''}
           </Text>
           {item.kind !== 'forwarded' && (
             <Badge
@@ -127,9 +136,10 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
           item.error?.message &&
           !(clash && rows.length) && (
             <Text size="sm">
-              {item.error.status === 403
-                ? 'You no longer have permission to make this change, so it wasn’t saved. Ask the head teacher or an admin if it’s still needed.'
-                : item.error.message}
+              {reviewExplanation(item) ??
+                (item.error.status === 403
+                  ? 'You no longer have permission to make this change, so it wasn’t saved. Ask the head teacher or an admin if it’s still needed.'
+                  : item.error.message)}
             </Text>
           )
         )}
@@ -181,7 +191,7 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
                   disabled={busy !== null}
                   onClick={() => act('resend')}
                 >
-                  {clash ? 'Keep mine' : 'Send again'}
+                  {clash ? 'Keep mine' : (resendLabel(item) ?? 'Send again')}
                 </Button>
               )}
             </>

@@ -94,9 +94,29 @@ export function registerReviewResolver(collection: string, resolver: ReviewResol
   reviewResolvers.set(collection, resolver);
 }
 
+/**
+ * Plain words for a feature's review items: why it wasn't applied (in place
+ * of the server's message, which may name ids), and the resend button's label.
+ * Either may return null to keep the default.
+ */
+export interface ReviewText {
+  explain?: (item: ReviewItem) => string | null;
+  resendLabel?: (item: ReviewItem) => string | null;
+}
+const reviewTexts = new Map<string, ReviewText>();
+
+export function registerReviewText(collection: string, text: ReviewText) {
+  reviewTexts.set(collection, text);
+}
+
+export const reviewExplanation = (item: ReviewItem) =>
+  reviewTexts.get(item.op.collection)?.explain?.(item) ?? null;
+export const resendLabel = (item: ReviewItem) =>
+  reviewTexts.get(item.op.collection)?.resendLabel?.(item) ?? null;
+
 /** True when "Send mine again" can be offered for this item. */
 export const canResend = (item: ReviewItem) =>
-  item.kind !== 'forwarded' && reviewResolvers.has(item.op.collection);
+  item.kind !== 'forwarded' && Boolean(reviewResolvers.get(item.op.collection)?.(item));
 
 const headersOf = (op: OutboxOp, device: string): Record<string, string> => ({
   'Idempotency-Key': op.opId,
@@ -192,6 +212,28 @@ class SyncEngine {
     await this.changed();
     if (op) this.kick();
     return op !== null;
+  }
+
+  pending(collection: string, entityId?: string): Promise<OutboxOp[]> {
+    return outbox
+      .all(this.db)
+      .then((ops) =>
+        ops.filter(
+          (op) =>
+            op.collection === collection && (entityId === undefined || op.entityId === entityId),
+        ),
+      );
+  }
+
+  /** Where an op stands: still queued (null), or what became of it. */
+  async outcome(opId: string): Promise<OpOutcome | null> {
+    if (await this.db.get<OutboxOp>('outbox', opId)) return null;
+    const items = (await outbox.reviewItems(this.db)).filter((item) => item.op.opId === opId);
+    const cells = items.filter((item) => item.kind === 'cell').length;
+    const whole = items.find((item) => item.kind !== 'cell');
+    if (whole?.kind === 'forwarded') return { state: 'forwarded', cellConflicts: 0 };
+    if (whole) return { state: 'review', cellConflicts: 0 };
+    return { state: 'applied', cellConflicts: cells };
   }
 
   /** Sends now if this tab can lead and nothing is already sending. */
@@ -405,6 +447,44 @@ export function enqueueWrite(input: EnqueueInput): Promise<OutboxOp> {
 
 /** "Sync now". */
 export const syncNow = () => engine?.kick();
+
+/** What became of a queued op: applied (with any batch cells that clashed), sent to review, or forwarded. */
+export interface OpOutcome {
+  state: 'applied' | 'review' | 'forwarded';
+  cellConflicts: number;
+}
+
+/** The user's queued ops for one collection (and entity), oldest first. */
+export const pendingWrites = (collection: string, entityId?: string) =>
+  engine?.pending(collection, entityId) ?? Promise.resolve([]);
+
+/**
+ * Waits up to `timeoutMs` for a queued op to land. Resolves its outcome, or
+ * null if it's still waiting (offline, or the server is slow): the screen
+ * then says it was saved on the device.
+ */
+export function waitForOp(opId: string, timeoutMs: number): Promise<OpOutcome | null> {
+  const current = engine;
+  if (!current) return Promise.resolve(null);
+  return new Promise((resolve) => {
+    let done = false;
+    const finish = (result: OpOutcome | null) => {
+      if (done) return;
+      done = true;
+      window.clearTimeout(timer);
+      unsubscribe();
+      resolve(result);
+    };
+    const check = () =>
+      void current.outcome(opId).then(
+        (result) => result && finish(result),
+        () => undefined,
+      );
+    const timer = window.setTimeout(() => finish(null), timeoutMs);
+    const unsubscribe = syncStatus.subscribe(check);
+    check();
+  });
+}
 
 /** The review tray's items; empty with no offline store. */
 export const listReviewItems = () => engine?.reviewItems() ?? Promise.resolve([]);

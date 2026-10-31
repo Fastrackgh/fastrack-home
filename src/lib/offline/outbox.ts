@@ -28,6 +28,8 @@ export interface OutboxOp {
   dependsOn: string[];
   /** Shown in the review tray and the sign-out guard, e.g. "Attendance for JHS 1A, 28 Oct". */
   label: string;
+  /** Kept on the device only, never sent: display names for ids in the body (e.g. pupils), for the review tray. */
+  names?: Record<string, string>;
   createdAt: number;
   /** Failed sends so far, for the backoff. */
   attempts: number;
@@ -46,6 +48,7 @@ export interface EnqueueInput {
   baseVersion?: number;
   dependsOn?: string[];
   label: string;
+  names?: Record<string, string>;
 }
 
 /**
@@ -91,6 +94,7 @@ function newOp(input: EnqueueInput, seq: number): OutboxOp {
     recordedAt: new Date(now).toISOString(),
     dependsOn: input.dependsOn ?? [],
     label: input.label,
+    names: input.names,
     createdAt: now,
     attempts: 0,
     nextAttemptAt: 0,

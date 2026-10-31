@@ -112,7 +112,7 @@ export interface ReadCache {
 type ReachabilityListener = (reachable: boolean) => void;
 
 /** Failures a saved copy stands in for: no network, or the API down behind its gateway. */
-const isUnreachable = (err: unknown) =>
+export const isUnreachable = (err: unknown) =>
   err instanceof ApiError && (err.statusCode === NETWORK_ERROR_STATUS || err.statusCode >= 502);
 
 class ApiClient {

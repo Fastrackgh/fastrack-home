@@ -1,7 +1,7 @@
 # Offline staff portal: frontend
 
 **Status:** phase 1 frontend built (30 Oct 2026): offline reads, the status chip and the staff service worker. Phase 2 has started: the outbox, the sync engine and the sign-out guard are built (30 Oct). No screen queues writes yet, because only payments are idempotent on the backend (B1). Attendance and marks join once the backend marks those routes (its order: `refreshExpiresAt`, the §6.2 store, then the two write routes, then the B3 feed).
-**Contract:** [sync-contract.md](./sync-contract.md). **Plan:** `humming-tumbling-codd.md` (F1–F5). **QA:** [../qa/offline-sync-qa.md](../qa/offline-sync-qa.md).
+**Contract:** [sync-contract.md](./sync-contract.md) (v0.4.1). **Plan:** `humming-tumbling-codd.md` (F1–F5). **QA:** [../qa/offline-sync-qa.md](../qa/offline-sync-qa.md).
 
 ## Code
 
@@ -110,6 +110,28 @@ flowchart LR
 - **When it runs:** on enqueue, when the API answers again, on window focus and the browser's `online` event, every 30 s while ops wait, and when a backing-off op is due. A send is also how the engine notices the API is back.
 - **Tabs:** only the tab holding the Web Lock `fastrack-sync-<userId>` sends. Every tab keeps counts, and a `BroadcastChannel` tells the others to recount (and to send, if they can take the lock).
 - **Not yet:** Background Sync. Attendance and marks queue their writes (below). In development, `window.__fastrackSync` (`enqueueWrite`, `syncNow`, `syncStatus`, `registerReviewResolver`) queues ops from the console; it's absent from production builds.
+
+## Pull: records from the change feed (backend B3)
+
+- **What:** each staff user's device keeps its own copy of the school records it may see, in the `records` store by `[collection, id]` (`src/lib/offline/pull.ts`). Collections: years, terms, classes, subjects, students, attendance (the last 120 days), mark sheets and marks. A teacher gets only their classes' records. The server decides the scope.
+- **How (contract v0.4.1 §7):**
+  - The first pull pages through `/sync/snapshot`, up to 1000 records a page, resuming from its page token after an interruption. Every later pull reads `/sync/changes` from the stored cursor.
+  - Each page is applied together with the cursor in one IndexedDB transaction: an upsert only when its version is higher, a delete when its version is at or above.
+  - Deletes are kept as tombstones (`deleted: 'deleted' | 'out_of_scope'`), so an older upsert can't bring a record back. Screens skip them.
+  - Feed pages go through `apiClient.request`, so they don't fill the saved reads.
+  - **Any 410** (`NO_CURSOR`, `CURSOR_EXPIRED`, `SCOPE_CHANGED`, `CURSOR_AHEAD`) clears the records and re-snapshots everything, then continues from the new cursor. The outbox is kept. Re-snapshotting only `reason.collections` and moving to the new cursor could skip other collections' changes, so v0.4.1 makes the full re-snapshot the rule.
+- **When:** only in the tab holding the sync lock, after its queue is sent. It pulls on start, after an op lands, on **Sync now**, and every 5 minutes while the app is open. A pull that's offline or refused tries again on the next run. The chip's "Last synced" counts pulls too (`lastPulledAt`).
+- **What the screens get:**
+  - **Attendance:** a register, whether live, saved or built offline, gets newer synced marks laid over it (`withSynced`, by `rowVersion`). A saved copy opened offline therefore shows marks other devices made since. A change on top of it carries the right `from`, so it lands instead of clashing. Offline with no saved register for the class at all, the register is built from the synced class list (banner: "The pupils come from the class list synced to this device.").
+  - **Marks:** an opened sheet, live or saved, takes newer synced sheet fields (status, version, return reason) and pupil rows (`withSyncedSheet`). A sheet submitted or returned on another device shows that way offline.
+  - Both screens reload when a pull changes records (`onRecordsPulled`), unless the user has unsaved edits.
+- **Privacy:** records live in the user's own database and are deleted at sign-out with everything else. Only staff sessions run the engine, never parents or platform users.
+- **Checked (31 Oct, `next dev` against backend 9db902b, then 9c8c6d1, on `fastrack_fe18`, Playwright, 8/8):**
+  - The first pull filled the records and stored a cursor. At 9c8c6d1 Yaw's Basic 1 snapshot holds 10 attendance records, including pupils moved since; before the backend fix it held 2.
+  - The principal's mark arrived through the feed. Offline, a 27 Oct register saved before that mark showed it (Late). A change to Present queued with `from` Late, then landed as v2 with nothing in review.
+  - A forced 410 (`/dev/sync/expire-cursors`) re-snapshotted with a new cursor.
+  - A saved mark sheet opened offline showed a mark the principal entered after it was saved (17).
+  - The attendance (23), marks (15), tray (12) and review (19) suites still pass.
 
 ## Offline attendance (phase 2, backend step 4a)
 

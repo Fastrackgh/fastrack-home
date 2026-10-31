@@ -122,6 +122,7 @@ flowchart LR
   - "Passed to the head teacher" (403, forwarded);
   - offline or slow: "Saved on this device · 1 mark for Basic 1 will be sent when you're back online."
 - **Queued marks show on the register.** They're laid over the loaded or saved copy, and each row reads **Waiting to sync**, also after a reload offline. A second change to the same pupil chains its `from` from the first. When an op lands, the register reloads from the server, unless the teacher has unsaved changes.
+- **Edits made while a save is on its way are kept (OFF-11, fixed 31 Oct).** After a save the register reloads, but any pupil changed since Save was pressed keeps the newer edit, and Save offers it again. Before the fix it was silently reset to the saved value. Checked offline: Kwame Late, then Save, then Absent two seconds later. Absent stayed, "Save register (1)" sent it as a second op chained from Late, and the server ended Absent v2.
 - **A day never opened online:** offline, the register is built from the class's latest saved register: the same pupils, all unmarked. An orange banner reads "Offline: this day's register isn't saved on this device · The pupils come from the register of Fri 30 Oct …". The server checks each mark when it arrives.
 - **Review:**
   - A clashing cell is titled with the pupil ("Attendance for Basic 1, Fri 30 Oct · Admissiontest, Kwesi"), with Now / Yours. **Keep mine** resends that one pupil with `from` set to the server's current value. Pupil names are kept on the op locally (`names`) and never sent.
@@ -211,6 +212,11 @@ flowchart LR
   - **What was applied (OFF-6):** rows carry `appliedBody` and `appliedWithEdits`. An applied change is titled by what was saved, reads "Applied with edits by …", and marks each edited field, e.g. "Amount GHS 7.00 (sent as GHS 5.00)". Amounts in the field table are formatted as money, as in the title.
   - A refusal (a conflict, a closed term) shows on the card, and the change stays open.
   - A batch write that applied with `conflicts[]` says how many entries had changed since and were left as they are.
+- **Registers and mark sheets read plainly (OFF-12, fixed 31 Oct):**
+  - A forwarded register is titled "Attendance register · Basic 1 · Thu 22 Oct · 2 pupils". Its fields show the class name, the day, and an entries table, e.g. "Kwame Adjei Late · 08:15".
+  - Mark-sheet entries show pupil, test and mark.
+  - Server-only fields (`from`, `rowVersion`) are hidden.
+  - Names come from one lookup per page: pupils, including those in `marks[]`, and classes.
 - **Edit** opens the change as JSON (pretty-printed) to correct before **Apply edited change**, which checks that it's valid. It isn't reformatted when the box loses focus. That used to push the button down under a click on compact one-line JSON, so the click was lost (OFF-9, fixed 30 Oct). Feature-specific editors can replace this when attendance and marks arrive.
 - **Dismiss** asks for an optional note. Applied and dismissed changes show who resolved them, when, and the note.
 - **Checked (30 Oct, `next dev` against backend c44f008 on `fastrack_fe18`, Playwright, 13/13):** four teacher payments were forwarded.

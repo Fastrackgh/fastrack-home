@@ -1,4 +1,5 @@
 import { ApiError, apiClient, errorCode, pathId, type PageMeta } from '@/lib/api-client';
+import { formatDay } from '@/features/calendar/dates';
 import { formatCedis } from '@/features/fees/money';
 import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import type { CellConflict } from '@/lib/offline/syncOutcome';
@@ -86,7 +87,7 @@ export const REASONS: Record<string, string> = {
 const count = (value: unknown) => (Array.isArray(value) ? value.length : 0);
 
 /** A one-line description of what the change does. */
-export function describe(change: ForwardedChange): string {
+export function describe(change: ForwardedChange, names?: Map<string, string>): string {
   // Once applied, what was really saved (an edit may differ from what was sent).
   const body = (change.status === 'applied' && change.appliedBody) || change.body || {};
   const { method, path } = change;
@@ -96,8 +97,14 @@ export function describe(change: ForwardedChange): string {
     return `Fee payment${Number.isFinite(amount) ? ` of ${formatCedis(amount)}` : ''}${how}`;
   }
   if (path === '/schools/me/attendance/register') {
-    const date = typeof body.date === 'string' ? ` for ${body.date}` : '';
-    return `Attendance register${date} · ${count(body.marks)} pupils`;
+    const className = names?.get(String(body.classId));
+    const parts = [
+      'Attendance register',
+      className,
+      typeof body.date === 'string' ? formatDay(body.date) : undefined,
+      `${count(body.marks)} pupils`,
+    ];
+    return parts.filter(Boolean).join(' · ');
   }
   if (/^\/schools\/me\/mark-sheets\/[^/]+\/marks$/.test(path)) {
     return `Marks · ${count(body.marks)} entries`;

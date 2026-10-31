@@ -19,6 +19,8 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { formatCedis } from '@/features/fees/money';
+import { formatDay } from '@/features/calendar/dates';
+import { setupApi } from '@/features/school-setup/api';
 import { studentsApi } from '@/features/students/api';
 import { PageHeader } from '@/features/workspace';
 import { errorCode, errorMessage } from '@/lib/api-client';
@@ -62,27 +64,105 @@ const fieldLabel = (key: string) => {
 
 /** Body fields that name a pupil (contract: `studentId` on payments, `schoolStudentId` in sync). */
 const PUPIL_FIELDS = new Set(['studentId', 'schoolStudentId']);
+/** Fields for the server only: the value the device saw, the version it saw. */
+const HIDDEN_FIELDS = new Set(['from', 'rowVersion']);
 
-/** The pupils a page of changes names, as "Ama Mensah · BIS-001/STD/2026/009". */
-async function pupilNames(changes: ForwardedChange[]): Promise<Map<string, string>> {
-  const ids = new Set<string>();
-  for (const change of changes) {
-    for (const [key, value] of Object.entries(change.body ?? {})) {
-      if (PUPIL_FIELDS.has(key) && typeof value === 'string') ids.add(value);
+const pupilIdsOf = (body: Raw | null): string[] => {
+  const ids: string[] = [];
+  for (const [key, value] of Object.entries(body ?? {})) {
+    if (PUPIL_FIELDS.has(key) && typeof value === 'string') ids.push(value);
+    // A register's or mark sheet's entries each name a pupil.
+    if (key === 'marks' && Array.isArray(value)) {
+      for (const entry of value as Raw[]) {
+        for (const field of PUPIL_FIELDS) {
+          if (typeof entry?.[field] === 'string') ids.push(entry[field] as string);
+        }
+      }
     }
   }
+  return ids;
+};
+
+/**
+ * Names for the ids a page of changes holds: pupils as "Ama Mensah ·
+ * BIS-001/STD/2026/009", classes by name. An id that can't be looked up
+ * keeps showing as itself.
+ */
+async function lookupNames(changes: ForwardedChange[]): Promise<Map<string, string>> {
   const names = new Map<string, string>();
-  await Promise.all(
-    [...ids].map((id) =>
+  const pupils = new Set(changes.flatMap((change) => pupilIdsOf(change.body)));
+  const needClasses = changes.some((change) => typeof change.body?.classId === 'string');
+  await Promise.all([
+    ...[...pupils].map((id) =>
       studentsApi.get(id).then(
-        (pupil) => names.set(id, `${pupil.fullName} · ${pupil.studentCode}`),
-        // An unknown pupil keeps showing its id.
+        (pupil) => void names.set(id, `${pupil.fullName} · ${pupil.studentCode}`),
         () => undefined,
       ),
     ),
-  );
+    needClasses
+      ? setupApi.allClasses().then(
+          (classes) => classes.forEach((c) => names.set(c.id, c.className)),
+          () => undefined,
+        )
+      : Promise.resolve(),
+  ]);
   return names;
 }
+
+/** One register or mark-sheet entry's value: "Late · 08:15 · bus", "14", "ABS". */
+function entryMark(entry: Raw): string {
+  const status = String(entry.status ?? '');
+  if (status === 'absent') return 'ABS';
+  if (status === 'exempt') return 'EX';
+  if (status === 'scored') return entry.rawScore != null ? String(entry.rawScore) : 'Band';
+  return [status, entry.arrivalTime, entry.note].filter(Boolean).join(' · ') || 'Cleared';
+}
+
+/** A register's or mark sheet's entries as a small table: pupil, (test), mark. */
+function EntriesTable({ entries, names }: { entries: Raw[]; names: Map<string, string> }) {
+  const tests = entries.some((entry) => entry.componentKey !== undefined);
+  return (
+    <Table withRowBorders={false} verticalSpacing={0} fz="sm">
+      <Table.Tbody>
+        {entries.map((entry, i) => {
+          const pupil = String(entry.schoolStudentId ?? entry.studentId ?? '');
+          return (
+            <Table.Tr key={i}>
+              <Table.Td>{names.get(pupil)?.split(' · ')[0] ?? pupil}</Table.Td>
+              {tests && (
+                <Table.Td c="dimmed">
+                  {String(entry.componentKey)} {String(entry.itemIndex)}
+                </Table.Td>
+              )}
+              <Table.Td fw={600}>{entryMark(entry)}</Table.Td>
+            </Table.Tr>
+          );
+        })}
+      </Table.Tbody>
+    </Table>
+  );
+}
+
+/** A body field for the reviewer: names for ids, a readable day, entries as a table. */
+function fieldValue(key: string, value: unknown, names: Map<string, string>) {
+  if (key === 'marks' && Array.isArray(value)) {
+    return <EntriesTable entries={value as Raw[]} names={names} />;
+  }
+  if (typeof value === 'string' && names.has(value)) return names.get(value);
+  if (key === 'date' && typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value)) {
+    return formatDay(value);
+  }
+  return showField(key, value);
+}
+
+const labelOf = (key: string) =>
+  PUPIL_FIELDS.has(key)
+    ? 'Pupil'
+    : key === 'classId'
+      ? 'Class'
+      : key === 'marks'
+        ? 'Entries'
+        : fieldLabel(key);
 
 /** Why an apply was refused, in words for the reviewer. */
 function applyError(err: unknown): string {
@@ -113,7 +193,7 @@ function ChangeCard({
   // An applied change shows what was really saved, with any edit beside what was sent (OFF-6).
   const edits = row.status === 'applied' && row.appliedWithEdits && row.appliedBody;
   const shown = (edits ? row.appliedBody : change.body) ?? {};
-  const fields = Object.entries(shown);
+  const fields = Object.entries(shown).filter(([key]) => !HIDDEN_FIELDS.has(key));
 
   const apply = async (body: Raw | null) => {
     setBusy(true);
@@ -125,7 +205,7 @@ function ChangeCard({
         title: 'Change applied',
         message: conflicts.length
           ? `${conflicts.length} of the entries had changed since and were left as they are now.`
-          : `${describe(change)} is now saved.`,
+          : `${describe(change, pupils)} is now saved.`,
       });
       onDone();
     } catch (err) {
@@ -172,7 +252,7 @@ function ChangeCard({
       <Stack gap="xs">
         <Group justify="space-between" align="flex-start">
           <div>
-            <Text fw={600}>{describe(row)}</Text>
+            <Text fw={600}>{describe(row, pupils)}</Text>
             <Text size="sm" c="dimmed">
               {change.sentBy?.name ?? 'Unknown'} · made {at(change.recordedAt)}
             </Text>
@@ -197,17 +277,22 @@ function ChangeCard({
                 {fields.map(([key, value]) => (
                   <Table.Tr key={key}>
                     <Table.Td c="dimmed" w="35%">
-                      {PUPIL_FIELDS.has(key) ? 'Pupil' : fieldLabel(key)}
+                      {labelOf(key)}
                     </Table.Td>
                     <Table.Td style={{ wordBreak: 'break-word' }}>
-                      {(PUPIL_FIELDS.has(key) && pupils.get(String(value))) ||
-                        showField(key, value)}
-                      {edits && show(value) !== show(change.body?.[key]) && (
-                        <Text span size="xs" c="dimmed">
-                          {' '}
-                          (sent as {showField(key, change.body?.[key])})
-                        </Text>
-                      )}
+                      {fieldValue(key, value, pupils)}
+                      {edits &&
+                        show(value) !== show(change.body?.[key]) &&
+                        (Array.isArray(value) ? (
+                          <Text size="xs" c="dimmed">
+                            (edited)
+                          </Text>
+                        ) : (
+                          <Text span size="xs" c="dimmed">
+                            {' '}
+                            (sent as {fieldValue(key, change.body?.[key], pupils)})
+                          </Text>
+                        ))}
                     </Table.Td>
                   </Table.Tr>
                 ))}
@@ -280,7 +365,7 @@ function ChangeCard({
       >
         <Stack gap="md">
           <Text size="sm">
-            {describe(change)} from {change.sentBy?.name ?? 'Unknown'} won&apos;t be saved.
+            {describe(change, pupils)} from {change.sentBy?.name ?? 'Unknown'} won&apos;t be saved.
           </Text>
           <Textarea
             label="Note (optional)"
@@ -323,7 +408,7 @@ export function SyncReviewPage() {
     syncReviewApi
       .list(status, page)
       .then(async (result) => {
-        setPupils(await pupilNames(result.items));
+        setPupils(await lookupNames(result.items));
         setItems(result.items);
         setTotal(result.total);
       })

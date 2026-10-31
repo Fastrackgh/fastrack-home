@@ -55,6 +55,18 @@ const draftOf = (register: Register): Draft =>
     ]),
   );
 
+/**
+ * The draft after a save: the reloaded register, except pupils changed since
+ * the save started, which keep their newer, still unsaved edit.
+ */
+function keepEditsSince(reloaded: Draft, sent: Draft, now: Draft): Draft {
+  const same = (a: Draft[string] | undefined, b: Draft[string] | undefined) =>
+    a?.status === b?.status && a?.arrivalTime === b?.arrivalTime && a?.note === b?.note;
+  return Object.fromEntries(
+    Object.entries(reloaded).map(([id, value]) => [id, same(now[id], sent[id]) ? value : now[id]]),
+  );
+}
+
 /** The latest weekday on or before `iso`, so the page opens on a markable day. */
 function lastWeekday(iso: string) {
   let date = iso;
@@ -250,18 +262,19 @@ export function AttendancePage() {
 
   const save = async () => {
     if (!register || changed.length === 0) return;
+    // What was saved, so edits made while it's on its way survive the reload (OFF-11).
+    const sent = draft;
     setSaving(true);
     try {
       const result = await saveRegister(register, changed);
       notifications.show(saveNotice(result, register.className));
-      if (result.kind === 'sent') {
-        setRegister(result.register);
-        setDraft(draftOf(result.register));
-      } else {
-        // The server's copy when it landed; otherwise the saved copy with the queued marks on top.
-        changedRef.current = 0;
-        await loadRegister();
-      }
+      // The server's copy when it landed; otherwise the saved copy with the queued marks on top.
+      const next =
+        result.kind === 'sent'
+          ? result.register
+          : await registerWithPending(register.classId, register.date);
+      setRegister(next);
+      setDraft((now) => keepEditsSince(draftOf(next), sent, now));
     } catch (err) {
       notifications.show({
         title: 'Register not saved',

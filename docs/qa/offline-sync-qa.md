@@ -536,3 +536,10 @@ Tested on 31 Oct 2026 **through the UI** at 1840327 on the QPM-402 Primary 1 Mat
 - **Descriptor sheets:** the per-cell path compares `descriptorBandId` the same way. The backend will cover it with an e2e case in the B3 work, since no QA school has a descriptor sheet.
 - **OUT_OF_SCOPE on marks:** this uses the same forwarding path that passed for attendance (case F), so a separate UI check is optional.
 - **Next:** B3, the change feed.
+
+### Re-test of 59c1296: singular clash notice
+
+Tested on 31 Oct 2026 **through the UI**, running marks cases M1–M3 again at 59c1296. **Result: 5 of 5.**
+- The notice now reads "Someone else changed this sheet: 1 of your marks clashed with theirs and **was** not saved."
+- No regressions: the clash, the tray and Keep mine are unchanged.
+- **Tiny leftover:** the next sentence still says "**They're** outlined in orange" for a single mark.

@@ -463,3 +463,45 @@ Tested on 31 Oct 2026 against a0e58b5, after migration 1792600002600 on `fastrac
 - **Intended behaviour, worth knowing:** with rosters as of the day, a pupil promoted ahead for a later term stays on the old class's register until that term starts.
 
 - **Test-data note:** in BIS-001, pupils with no row for a past term fall back to their current class. So a pupil admitted in 2027 shows on 2026 registers. That's fine for real schools, whose current term covers today.
+
+## Offline attendance screen (a1a1a24, docs da640b6), against backend a0e58b5
+
+Tested on 31 Oct 2026 **through the UI** with `next dev` at da640b6, on FIS-001 Primary 1. The teacher was kwame.mensah@fastrack.school (homeroom) and the head head@fastrack.school, each in their own browser context. Outages were simulated by aborting every request to the API. **Result: 10 of 11 checks pass. The one failure was my test's. Two findings: OFF-11 (Medium) and OFF-12 (Low).**
+
+| # | Case | Result |
+| --- | --- | --- |
+| A | Online save | "Register saved: 8 marks saved for Primary 1". Sent as a keyed op, with the device recorded. |
+| B/C | Opened online, then offline: Hugo Absent and Efua Late saved, then Hugo Late saved again | "Saved on this device: 2 marks for Primary 1 will be sent when you're back online". Two rows show **Waiting to sync**. The chip reads **"Offline · 2 waiting"**. After an offline reload, Hugo still shows Late with Waiting to sync, and 2 ops are queued. |
+| B/C | Meanwhile the head marks Efua Present online. Then the teacher's connection returns. | Hugo ends **Late v2** (the chained `from`, no self-clash). Efua keeps the head's **Present**. The chip reads "1 need review". The tray card: "**Attendance for Primary 1, Mon 26 Oct · Ansah, Efua**", "changed by Ama Owusu", **Now Present / Yours Late**. **Keep mine** gives Late on the server. |
+| D | Offline, Fri 23 Oct never opened | Orange banner: "Offline: this day's register isn't saved on this device. The pupils come from the register of Mon 26 Oct…". The marks were saved later: 8 rows. |
+| E | Serwaa moved to Primary 2 from Wed 28 Oct. Offline, 28 Oct (never opened) is built from Fri 23 Oct, which still lists her. | The whole register is refused, with 0 rows. Tray: "**Boateng, Serwaa wasn't in this class on Wed 28 Oct, so none of these marks were saved.**" with **Send without Boateng, Serwaa**. That saved the other **7**, with none for her. |
+| F | The teacher **loses the class while offline**: a queued 22 Oct register, then the homeroom is cleared before reconnecting | Forwarded: the chip reads "1 sent to head teacher", nothing is saved, and Changes to review shows "They no longer teach this class or pupil". **Apply** saved 8 rows. |
+
+- **My failure:** my notice reader had been removing Mantine notification elements, which crashed React ("removeChild… not a child"). After fixing that, the second offline save's notice reused the first notice's slot, so my counter missed it. Both are mine, not the screen's.
+- **Not a bug:** the screen's first load opens the latest school day (30 Oct). So that day was already saved and correct offline, and the moved-pupil case had to use a day the teacher never opened.
+
+### OFF-11 (Medium; owner: staff frontend): a mark changed while a save is still running is silently dropped
+
+**What happens.** Offline, Save waits up to 8 s before saying "Saved on this device". If the teacher changes a mark in that window, the change is thrown away when the save finishes:
+- The control flips back to the saved value.
+- **Save register** becomes disabled, as if nothing were left to save.
+- Nothing is queued for it.
+
+**Repro** (21 Oct, offline): set Efua to Late and press Save. Two seconds later, set her to Absent.
+- The button goes from loading straight to disabled.
+- The screen shows **Late** (also after a reload). The outbox holds only `Efua: Late from null`. The server ends with **Late v1**.
+- Button samples, 1 s apart: untouched gives `LLLLLLLLLddddd`; with the edit, `LLLLLLdddddddd`.
+
+**Suggested fix.** When a save finishes, keep the unsaved edits made since it started, i.e. diff the draft against what was queued, not against everything. Alternatively, lock the controls while saving. A teacher marking quickly on a slow or no connection will hit this.
+
+### OFF-12 (Low; owner: staff frontend): the head's review card for a forwarded register shows ids and raw JSON
+
+**What happens.** In Changes to review, a forwarded attendance register reads:
+- "Attendance register for **2026-10-22** · 8 pupils"
+- "Class id e9f509e9-…"
+- "Date 2026-10-22"
+- "Marks [{"schoolStudentId":"41f8d6ff-…","status":"Present","from":null},…]"
+
+The head has to decide on the change without seeing the class name or which pupils got which mark.
+
+**Suggested fix.** For attendance bodies, show the class name and a readable day, plus a short table of pupil name and status, the way payments already show "Pupil Yaa RetestP2 · code".

@@ -543,3 +543,23 @@ Tested on 31 Oct 2026 **through the UI**, running marks cases M1–M3 again at 5
 - The notice now reads "Someone else changed this sheet: 1 of your marks clashed with theirs and **was** not saved."
 - No regressions: the clash, the tray and Keep mine are unchanged.
 - **Tiny leftover:** the next sentence still says "**They're** outlined in orange" for a single mark.
+
+## B3a: change log infrastructure (backend 3c6529a)
+
+Tested on 31 Oct 2026 against 3c6529a, after migration 1792600002700 on `fastrack_qab1`. There are no feed endpoints yet, so I made writes through the API (`b3a.js`) and the online attendance screen, then checked `change_log` and `sync_school_seq` directly. **Result: 9 of 9, plus the UI check.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Attendance PUT with 2 cells | Two rows: `attendance <schoolStudentId>:2026-10-12 upsert` each |
+| 2 | Replay of the same op | No new row |
+| 3 | Partial apply (1 conflict, 1 applied) | One row, for the applied cell only |
+| 4 | 422 `NOT_ENROLLED_ON_DATE` (whole register refused) | No row: the rolled-back write logs nothing |
+| 5 | Class renamed twice | Two `classes <id> upsert` rows. `row_version` 1 → 3. |
+| 6 | Subject created, then deleted | `subjects <id> upsert`, then `subjects <id> delete` |
+| 7 | A QPM-402 mark save | QPM's own sequence: `marks <sheetId>:<schoolStudentId> upsert` and `mark-sheets <sheetId> upsert`. FIS's sequence didn't move. |
+| 8 | 9 attendance writes at once | 9 rows. Seqs 8–16 are unique and gap-free, and `sync_school_seq` = 16. |
+| 9 | `row_version` columns | Present on academic_years, academic_terms, subjects, classes and school_students |
+| UI | Online register saves (the teacher's "rest present" = 6, the head's 1 change) | 7 `attendance upsert` rows |
+
+- **Commit order** (an earlier writer committing last gets the later seq) is covered by the backend's e2e test. I didn't reproduce it from outside.
+- **Note:** `change_log` has no `version` column, unlike the plan sketch. B3b's feed will show whether devices get versions some other way.

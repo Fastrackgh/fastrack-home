@@ -109,7 +109,7 @@ flowchart LR
 - **Age:** an op queued more than 25 days ago goes to review as rejected (`OP_TOO_OLD`) instead of being sent, because the server keeps keys for 30.
 - **When it runs:** on enqueue, when the API answers again, on window focus and the browser's `online` event, every 30 s while ops wait, and when a backing-off op is due. A send is also how the engine notices the API is back.
 - **Tabs:** only the tab holding the Web Lock `fastrack-sync-<userId>` sends. Every tab keeps counts, and a `BroadcastChannel` tells the others to recount (and to send, if they can take the lock).
-- **Not yet:** Background Sync. Attendance queues its writes (below); marks follow with backend step 4b. In development, `window.__fastrackSync` (`enqueueWrite`, `syncNow`, `syncStatus`, `registerReviewResolver`) queues ops from the console; it's absent from production builds.
+- **Not yet:** Background Sync. Attendance and marks queue their writes (below). In development, `window.__fastrackSync` (`enqueueWrite`, `syncNow`, `syncStatus`, `registerReviewResolver`) queues ops from the console; it's absent from production builds.
 
 ## Offline attendance (phase 2, backend step 4a)
 
@@ -137,6 +137,29 @@ flowchart LR
   - Meanwhile the principal set Kwesi Absent. Back online, Kwame ended Late (v3) and Kwesi wasn't overwritten. "1 need review" → Keep mine → Excused.
   - A never-opened day offline was built from the class list, then all 4 landed.
   - A register with a pupil from another class was refused whole (nothing saved). "Send without …" saved the rest.
+
+## Offline marks (phase 2, backend step 4b)
+
+- **Saving goes through the outbox, online or not** (`useMarkSheet.ts`, `src/features/results/marks-sync.ts`). Typed marks still gather per cell for 700 ms. They're then queued as one save of the sheet (`PUT /schools/me/mark-sheets/:id/marks`), and saves of one sheet are sent in order.
+- **Every mark carries `from`**, so the server works cell by cell (contract §5):
+  - `from` is the cell as this device saw it: the saved sheet plus saves already queued, in wire form (`{status, rawScore, descriptorBandId}`, or `null` when nothing was entered).
+  - A stale sheet version is accepted.
+  - A cell someone else changed meanwhile isn't overwritten. It's outlined in orange, a notice says so, and it goes to the review tray.
+  - The old 409 reload-and-rebase runs only on the direct path (no offline store).
+- **Status line:** "Saving…", "Unsaved changes", **"2 marks waiting to sync"** or "All changes saved". Queued marks show in their cells, and the pupils' previews include them, also after a reload offline. When a save lands, its rows and the sheet's `rowVersion` are taken from the response.
+- **Submit waits** up to 15 s for this sheet's queued saves. If some are still waiting it says "Not submitted yet · 1 mark is still waiting to be sent. Submit once they've been sent.", so the head never reviews a sheet missing marks that are still on a device.
+- **Review:**
+  - A clashing cell is titled "Marks: Mathematics, Primary 1 · Seed03 Paging · Test 1", with Now / Yours. Band ids show as band names, and the field reads "Descriptor band". **Keep mine** resends that mark with `from` set to the server's current value.
+  - A save with refused cells (422 `details.cells`) saved nothing. The tray says how many were refused and offers **Send without those marks**.
+  - A sheet submitted or approved before the save arrived (422 `SHEET_LOCKED`) saved nothing. The tray reads "The sheet was submitted before these marks arrived, so they weren't saved. Once it's returned to you, send them again.", with **Send again**.
+  - A teacher who may no longer enter that class and subject gets 403 `OUT_OF_SCOPE`, which is forwarded.
+- **Checked (31 Oct, `next dev` against backend 58d7b6f on `fastrack_fe18`, teacher@qpm.test on the Primary 1 Mathematics sheet, Playwright, 14/14, twice):**
+  - Online: 15 landed, sent with `from: null` and the sheet version.
+  - Offline: two pupils showed "2 marks waiting to sync". A second change chained `from` = 12, and the marks survived a reload.
+  - The principal entered 5 meanwhile. Back online, Seed02 = 13, Seed03 kept 5 and went to review, and Keep mine → 18.
+  - Submit with a mark waiting offline → "1 mark is still waiting", and the sheet stayed draft. It landed, then the submit went through.
+  - A save arriving after the submit → `SHEET_LOCKED` explained, with Send again.
+  - The attendance (19/19) and tray (12/12) suites still pass.
 
 ## Needs review tray
 

@@ -85,7 +85,9 @@ flowchart TD
 
 ## Mark entry
 
-Code: `src/features/results/MarkSheetsPage.tsx` and `MarkGridPage.tsx`. Loading and autosave (409 rebase, 422 cells, retry) are in `useMarkSheet.ts`, the cells in `MarkCells.tsx` and the add-test and return modals in `MarkSheetModals.tsx`. The grid's logic is in `marks-model.ts`, checked in `scripts/check-dashboard.cjs`.
+> **Updated 31 Oct 2026 (offline marks, backend `58d7b6f`):** autosave now queues each save in the device's outbox, online or not, with every mark's `from` (the value the device saw). The server then applies cell by cell: a cell someone else changed meanwhile is outlined orange and goes to the review tray ("Keep mine" / "Keep theirs"), instead of the 409 reload. The status line also shows "N marks waiting to sync", and Submit waits until this sheet's queued marks have reached the server. A save that arrives after the sheet was submitted (422 `SHEET_LOCKED`) is explained in the tray. The 409 rebase below still runs when the device has no offline store. Details are in [offline/staff-offline.md](../offline/staff-offline.md#offline-marks-phase-2-backend-step-4b).
+
+Code: `src/features/results/MarkSheetsPage.tsx` and `MarkGridPage.tsx`. Loading and autosave (queued through `marks-sync.ts`; without an offline store: 409 rebase, 422 cells, retry) are in `useMarkSheet.ts`, the cells in `MarkCells.tsx` and the add-test and return modals in `MarkSheetModals.tsx`. The grid's logic is in `marks-model.ts`, checked in `scripts/check-dashboard.cjs`.
 
 **Who:** `marks:enter` with the `results` module on: Principal, Academic Head and Teacher. Secretaries can read results for reports but don't open mark sheets. The Gradebook area opens this page.
 

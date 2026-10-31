@@ -1,6 +1,6 @@
 # Offline sync contract (staff portal)
 
-**Status:** **agreed** v0.3.2 (30 Oct 2026). Signed off by the staff frontend and QA. Phase 1 builds against this version; any change goes through a new version here.
+**Status:** **agreed** v0.4 (31 Oct 2026), changing only §6.2 and adding the `ALREADY_RESOLVED` code. Signed off by the staff frontend; QA re-tests the routes. Phase 2 builds against this version; any change goes through a new version here.
 **Owners:** backend (`fastrack-backend`), staff frontend (`/school-admin`).
 **Plan:** `humming-tumbling-codd.md`, "Sync contract" and "Backend work" B1–B5.
 
@@ -179,6 +179,7 @@ Every sync-relevant error uses one body. It extends the v2 error shape that `Api
 | 409 `CONFLICT`, `LIKELY_DUPLICATE` | conflict | Review tray, showing `current` beside the device value |
 | 409 `IDEMPOTENCY_IN_PROGRESS` | retry | Wait for `Retry-After` |
 | 409 `IDEMPOTENCY_MISMATCH`, `DUPLICATE_ID`, `DUPLICATE_REFERENCE` | rejected | Review tray, never retried |
+| 409 `ALREADY_RESOLVED` | rejected | Only on a reviewer's apply (§6.2): show who dismissed or applied it. Never retried |
 | 400, 404, 422 (any code) | rejected | Review tray, never retried. Exception: `REFERENCE_NOT_FOUND` while the dependency is still queued (§2) |
 | 403 (any code) | forwarded | Mark the op "Sent to the head teacher for review" and remove it from the user's own tray (§6.2) |
 | **401** | pause | **Never a rejection.** Pause the queue, refresh or sign in, then resume as the same user |
@@ -221,12 +222,24 @@ When a teacher loses a class (scope tombstones, §7) or a role, their queued ops
 
 - The device **still sends** them; it doesn't drop them locally. The server rejects each one with its 403, and stores the full op (headers, body, user, device) in `sync_rejections`, separately from `sync_operations`, so the key stays free. The body carries `reason.forwardedTo: "school-review"`.
 - `sync_rejections` is **unique on `(school_id, op_key)`**. A resend of the same key, e.g. after a lost 403 response, returns the same 403 with `reason.forwardedTo` and adds no second row. A head therefore sees each op once, and can apply it once.
-- An applied rejection records the reviewer's resulting op key. A second apply returns the stored result, as with any replay.
-- A school-level list, for heads and admins with the new permission `sync:review`:
-  - `GET /schools/me/sync/rejections?status=open` lists the forwarded ops, with the original user, device and corrected `recorded_at`.
-  - `POST /schools/me/sync/rejections/:id/apply` re-runs the op as the reviewer, through steps 4–13, with its original `recorded_at`.
-  - `POST /schools/me/sync/rejections/:id/dismiss` takes `{note}`.
-  - Both actions are audited.
+- Every 403 carries a `code` (§6) whether or not it has a key. Only a 403 on a keyed write is forwarded.
+- A school-level list, for the principal and academic head (new permission `sync:review`):
+  - `GET /schools/me/sync/rejections?status=open|applied|dismissed&page=&limit=` lists the forwarded ops (v2 list).
+  - `GET /schools/me/sync/rejections/:id` returns one.
+  - Each row: `{id, status, code, message, opKey, method, path, body, baseVersion, sentBy:{id,name}, deviceId, recordedAt, receivedAt, applyOpKey, resolvedBy, resolvedAt, note, appliedOpKey, appliedBody, appliedWithEdits}`. `recordedAt` is the sender's corrected action time.
+- **Applying is done by the reviewer's client, through the normal route** (v0.4), so the op passes every check in §6.1 like any other write, and the head can edit it first:
+  1. Each row has a server-issued **`applyOpKey`** (UUID, made when the row is created). The reviewer's client re-sends the stored `method`, `path` and `body` (edited or not) as the reviewer, with **`Idempotency-Key: <applyOpKey>`**, **`X-Base-Version: <baseVersion>` when the row has one** (so a stale edit gets the normal §5 `CONFLICT` / `conflicts[]` instead of overwriting), and **no `X-Client-Recorded-At`**.
+  2. That op takes its `recorded_at` from the rejection, which also governs the `OP_TOO_OLD` age. The reviewer's device clock is never applied, and the sender's is not applied twice.
+  3. The usual idempotency rules then make the apply exactly once. A retry after a lost answer replays. Editing and re-sending after a failed attempt works, because a non-2xx frees the key. A second reviewer, or an edit after a successful apply, gets `IDEMPOTENCY_MISMATCH`, which the client treats as "already applied".
+     - The key stays bound to its first successful request, not to the original body, so **edits are allowed**. The row records what was really applied: `appliedBody`, and `appliedWithEdits` (true when it differs from `body`).
+     - A write whose key is the `applyOpKey` of a row that is **no longer open** (dismissed, or applied by a different request) is refused **before anything is claimed** with 409 **`ALREADY_RESOLVED`**. Its `reason` is `{rejectionId, status, resolvedBy:{id,name}, resolvedAt}`, and nothing is written. A completed op under that key still replays first (§6.1 step 2).
+     - Apply and dismiss of the same row are serialised by a row lock, and a row whose re-send has been saved can no longer be dismissed (409). It can only be marked applied.
+  4. Then `POST /schools/me/sync/rejections/:id/applied {appliedOpKey, note?}`:
+     - It accepts only `appliedOpKey === applyOpKey`, and only once that op has completed. Otherwise it returns 422.
+     - A repeat with the same key returns 200 and the row, so a retry after a lost answer is clean.
+     - It returns 409 only when the row was resolved differently (dismissed).
+- `POST /schools/me/sync/rejections/:id/dismiss {note?}` closes a row without applying it. It returns 409 if the row is already resolved, or if its re-send has already been saved.
+- Both `applied` and `dismiss` are audited.
 - The table stores forwarded ops from phase 1. The list and the actions ship with phase 2 (offline attendance and marks writes).
 - A `SCHOOL_INACTIVE` op stays on the list until the school is active again.
 - The new `sync:review` permission is added to `DEFAULT_ROLE_PERMISSIONS` for heads and admins. That is an intended, reviewed change to the route snapshot.
@@ -422,3 +435,4 @@ Two non-blocking notes, for a later version:
 | 2026-10-30 | 0.3 | QA review of v0.2: fenced claims with a heartbeat, and side effects outside the database only after commit (§4); forwarded ops deduped by key (§6.2); restore version above the tombstone (§5). QA signed off. |
 | 2026-10-30 | 0.3.1 | Frontend sign-off. The marks row `version` rule is worded the same in §5 and §8, and the clock-change limit is noted in §1. **Agreed.** |
 | 2026-10-30 | 0.3.2 | Built with B1. In §6.1 the claim (step 4) comes after the 403 checks (step 3), so the in-progress and 403 codes swap places when both apply; a replay still comes before both. The §10 wording on dev routes is corrected. No change for the client. |
+| 2026-10-31 | 0.4 | **Agreed.** §6.2: applying a forwarded op is a client re-send through the normal route with a server-issued `applyOpKey` as the `Idempotency-Key`, keeping the sender's `recorded_at`, followed by an idempotent `POST …/applied`. It replaces the server-side `…/apply`. This takes in both of the staff frontend's conditions. Row shape and list routes given. The re-send carries `X-Base-Version` when the row has one. Edits are allowed and recorded (`appliedBody`, `appliedWithEdits`, QA OFF-6). An apply of a row that is no longer open gets 409 `ALREADY_RESOLVED`, and apply and dismiss are serialised (QA OFF-7). Built in backend c44f008 and 2b376d1. |

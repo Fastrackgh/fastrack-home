@@ -103,7 +103,10 @@ function ChangeCard({
   /** The row as last seen: an apply can find it resolved meanwhile (another tab or reviewer). */
   const [row, setRow] = useState(change);
   const open = row.status === 'open';
-  const fields = Object.entries(change.body ?? {});
+  // An applied change shows what was really saved, with any edit beside what was sent (OFF-6).
+  const edits = row.status === 'applied' && row.appliedWithEdits && row.appliedBody;
+  const shown = (edits ? row.appliedBody : change.body) ?? {};
+  const fields = Object.entries(shown);
 
   const apply = async (body: Raw | null) => {
     setBusy(true);
@@ -148,6 +151,10 @@ function ChangeCard({
       onDone();
     } catch (err) {
       setError(errorMessage(err, 'The change could not be dismissed.'));
+      if (err instanceof ApplyRefused && err.current) {
+        setRow(err.current);
+        setDismissing(false);
+      }
     } finally {
       setBusy(false);
     }
@@ -158,7 +165,7 @@ function ChangeCard({
       <Stack gap="xs">
         <Group justify="space-between" align="flex-start">
           <div>
-            <Text fw={600}>{describe(change)}</Text>
+            <Text fw={600}>{describe(row)}</Text>
             <Text size="sm" c="dimmed">
               {change.sentBy?.name ?? 'Unknown'} · made {at(change.recordedAt)}
             </Text>
@@ -187,6 +194,12 @@ function ChangeCard({
                     </Table.Td>
                     <Table.Td style={{ wordBreak: 'break-word' }}>
                       {(PUPIL_FIELDS.has(key) && pupils.get(String(value))) || show(value)}
+                      {edits && show(value) !== show(change.body?.[key]) && (
+                        <Text span size="xs" c="dimmed">
+                          {' '}
+                          (sent as {show(change.body?.[key])})
+                        </Text>
+                      )}
                     </Table.Td>
                   </Table.Tr>
                 ))}
@@ -240,8 +253,12 @@ function ChangeCard({
           </Group>
         ) : (
           <Text size="sm" c="dimmed">
-            {row.status === 'applied' ? 'Applied' : 'Dismissed'} by{' '}
-            {row.resolvedBy?.name ?? 'Unknown'} · {at(row.resolvedAt)}
+            {row.status === 'applied'
+              ? row.appliedWithEdits
+                ? 'Applied with edits'
+                : 'Applied'
+              : 'Dismissed'}{' '}
+            by {row.resolvedBy?.name ?? 'Unknown'} · {at(row.resolvedAt)}
             {row.note ? ` · “${row.note}”` : ''}
           </Text>
         )}

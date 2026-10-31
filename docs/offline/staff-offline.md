@@ -155,7 +155,10 @@ flowchart LR
     - Applied with an edit, or dismissed: reported as above.
     - Still open, with an edit (the original was saved by this reviewer's own lost attempt): "This change was already saved with its original values, so your edit wasn't saved. Apply it without edits to mark it done." The change stays open.
     - Before the fix, every mismatch was marked applied, so a stale tab's edit was silently dropped.
-  - A dismiss in one tab and an apply in another at the same instant still both reach the server. The server has to refuse an `applyOpKey` re-send for a row that isn't open (OFF-7, backend).
+  - **Same-instant races (OFF-7, closed with backend 2b376d1):**
+    - The server refuses a re-send under the `applyOpKey` of a row that's no longer open with 409 `ALREADY_RESOLVED`. The screen re-reads the row and reports "Dismissed by …" just as it does for a stale card. An unedited apply of a row that's already applied still counts as done.
+    - Apply and dismiss lock the row, so a dismiss after the re-send was saved gets 409. The card then reads "Already applied by … so it can't be dismissed."
+  - **What was applied (OFF-6):** rows carry `appliedBody` and `appliedWithEdits`. An applied change is titled by what was saved, reads "Applied with edits by …", and marks each edited field, e.g. "Amount 7 (sent as 5)".
   - A refusal (a conflict, a closed term) shows on the card, and the change stays open.
   - A batch write that applied with `conflicts[]` says how many entries had changed since and were left as they are.
 - **Edit** opens the change as JSON (pretty-printed) to correct before **Apply edited change**, which checks that it's valid. It isn't reformatted when the box loses focus. That used to push the button down under a click on compact one-line JSON, so the click was lost (OFF-9, fixed 30 Oct). Feature-specific editors can replace this when attendance and marks arrive.
@@ -167,6 +170,8 @@ flowchart LR
   - Dismiss with a note.
   - The tabs show who resolved each change.
   - At 390 px there's no sideways scroll.
+  - Against backend ed00507 (19/19): "Applied with edits" with "7 (sent as 5)". A true race (tab B's re-read faked as still open) was refused by the server with `ALREADY_RESOLVED`, with no payment. A stale dismiss after an apply reported "Already applied … can't be dismissed".
+  - **List order:** the server lists oldest first in every tab. That suits "To review", but the backend has been asked to list Applied and Dismissed newest-resolved first.
   - After the OFF-8 fix (17/17): a stale tab's edit after another tab applied, a stale tab's apply after another tab dismissed, and an edit after the reviewer's own lost answer (refused; a plain Apply then marked it done with one payment).
 
 ## Session-expiry warning
@@ -177,6 +182,7 @@ flowchart LR
   - An automatic renewal runs at most once per 10 minutes per device. A successful one stamps `fastrack_session_renewed_at`, which holds across tabs and reloads.
   - A renewal that failed offline isn't stamped, so the next try isn't blocked.
   - Inside a tab, only one runs at a time. Across tabs, the refresh Web Lock refreshes once.
+  - The backend also caps `/auth/refresh` at 10 per sign-in per minute (ed00507). A 429 is treated like an outage: the session and its token are kept, and nothing is stamped, so a later try is free.
 - **Offline from day 12**, a yellow banner shows at the top of every staff page: **"Connect to the internet by Sat 31 Oct, 22:43 to stay signed in."** It says that after that the user will need to sign in again, and when changes are waiting, that the N changes saved on this device are kept until they do. Once the time has passed it turns red: **"Your sign-in has ended"**, with "Connect and sign in again to send the N changes saved on this device." Queued changes are never dropped for this; they're sent after the same user signs in.
 - **Clock correction:** from backend 5fa1c04, `/auth/login` and `/auth/refresh` send `X-Server-Time` too, so the stored expiry is corrected at sign-in. At 9ecbbf7 it came only on queued writes and `/sync/` routes.
 - **Checked (30 Oct, `next dev` against backend 9ecbbf7, Playwright, 7/7):**

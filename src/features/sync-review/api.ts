@@ -1,4 +1,4 @@
-import { apiClient, errorCode, pathId, type PageMeta } from '@/lib/api-client';
+import { ApiError, apiClient, errorCode, pathId, type PageMeta } from '@/lib/api-client';
 import { formatCedis } from '@/features/fees/money';
 import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import type { CellConflict } from '@/lib/offline/syncOutcome';
@@ -36,6 +36,9 @@ export interface ForwardedChange {
   resolvedBy: Person | null;
   resolvedAt: string | null;
   note: string | null;
+  /** What was really applied, when applied (OFF-6); differs from `body` after an edit. */
+  appliedBody: Raw | null;
+  appliedWithEdits: boolean;
 }
 
 export interface ApplyResult {
@@ -67,6 +70,9 @@ const toChange = (raw: Raw): ForwardedChange => ({
   resolvedBy: person(raw.resolvedBy),
   resolvedAt: (raw.resolvedAt as string | null) ?? null,
   note: (raw.note as string | null) ?? null,
+  appliedBody:
+    raw.appliedBody && typeof raw.appliedBody === 'object' ? (raw.appliedBody as Raw) : null,
+  appliedWithEdits: raw.appliedWithEdits === true,
 });
 
 /** Why the sender couldn't save it, in staff words. */
@@ -81,7 +87,8 @@ const count = (value: unknown) => (Array.isArray(value) ? value.length : 0);
 
 /** A one-line description of what the change does. */
 export function describe(change: ForwardedChange): string {
-  const body = change.body ?? {};
+  // Once applied, what was really saved (an edit may differ from what was sent).
+  const body = (change.status === 'applied' && change.appliedBody) || change.body || {};
   const { method, path } = change;
   if (method === 'POST' && path === '/schools/me/payments') {
     const amount = Number(body.amount);
@@ -116,12 +123,30 @@ const stamp = new Intl.DateTimeFormat('en-GB', {
   minute: '2-digit',
 });
 
-function resolvedMessage(row: ForwardedChange, edited = false): string {
+/** Why an apply or dismiss didn't happen: the row was resolved by someone else meanwhile. */
+function resolvedMessage(
+  row: ForwardedChange,
+  { edited = false, action = 'apply' }: { edited?: boolean; action?: 'apply' | 'dismiss' } = {},
+): string {
   const by = row.resolvedBy?.name ?? 'someone else';
   const when = row.resolvedAt ? ` on ${stamp.format(new Date(row.resolvedAt))}` : '';
-  return row.status === 'applied'
-    ? `Already applied by ${by}${when}${edited ? ' with the original values, so your edit wasn’t saved' : ''}.`
-    : `Dismissed by ${by}${when}, so it wasn’t applied.`;
+  if (row.status === 'dismissed') {
+    return action === 'dismiss'
+      ? `Already dismissed by ${by}${when}.`
+      : `Dismissed by ${by}${when}, so it wasn’t applied.`;
+  }
+  const how = row.appliedWithEdits ? ' with their own edits' : ' with the original values';
+  if (action === 'dismiss') return `Already applied by ${by}${when}, so it can’t be dismissed.`;
+  return `Already applied by ${by}${when}${edited ? `${how}, so your edit wasn’t saved` : ''}.`;
+}
+
+/**
+ * The row was resolved meanwhile: an unedited apply of a row already applied
+ * is done (null); anything else is refused with the row as it is now.
+ */
+function resolvedRefusal(now: ForwardedChange, edited: boolean): ApplyRefused | null {
+  if (now.status === 'applied' && !edited) return null;
+  return new ApplyRefused(resolvedMessage(now, { edited }), now);
 }
 
 /** JSON with sorted keys, to tell an edited body from the stored one. */
@@ -168,8 +193,9 @@ export const syncReviewApi = {
     const latest = await syncReviewApi.get(change.id);
     if (latest.status !== 'open') {
       // An unedited apply of a row already applied (e.g. after a lost answer) is done.
-      if (latest.status === 'applied' && !edited) return { conflicts: [] };
-      throw new ApplyRefused(resolvedMessage(latest, edited), latest);
+      const refusal = resolvedRefusal(latest, edited);
+      if (refusal) throw refusal;
+      return { conflicts: [] };
     }
 
     const send = () =>
@@ -192,12 +218,15 @@ export const syncReviewApi = {
         break;
       } catch (err) {
         const code = errorCode(err);
-        if (code === 'IDEMPOTENCY_MISMATCH') {
+        // ALREADY_RESOLVED: dismissed, or applied by another request, meanwhile (OFF-7).
+        if (code === 'ALREADY_RESOLVED' || code === 'IDEMPOTENCY_MISMATCH') {
           const now = await syncReviewApi.get(change.id);
           if (now.status !== 'open') {
-            if (now.status === 'applied' && !edited) return { conflicts: [] };
-            throw new ApplyRefused(resolvedMessage(now, edited), now);
+            const refusal = resolvedRefusal(now, edited);
+            if (refusal) throw refusal;
+            return { conflicts: [] };
           }
+          if (code === 'ALREADY_RESOLVED') throw err;
           if (edited) {
             throw new ApplyRefused(
               'This change was already saved with its original values, so your edit wasn’t saved. Apply it without edits to mark it done.',
@@ -215,9 +244,17 @@ export const syncReviewApi = {
     return { conflicts };
   },
 
+  /** Dismisses a change; a 409 (applied or dismissed meanwhile) throws `ApplyRefused` with the row now. */
   async dismiss(change: ForwardedChange, note: string) {
-    await apiClient.post(`/schools/me/sync/rejections/${pathId(change.id)}/dismiss`, {
-      ...(note.trim() ? { note: note.trim() } : {}),
-    });
+    try {
+      await apiClient.post(`/schools/me/sync/rejections/${pathId(change.id)}/dismiss`, {
+        ...(note.trim() ? { note: note.trim() } : {}),
+      });
+    } catch (err) {
+      if (!(err instanceof ApiError) || err.statusCode !== 409) throw err;
+      const now = await syncReviewApi.get(change.id);
+      if (now.status === 'open') throw err;
+      throw new ApplyRefused(resolvedMessage(now, { action: 'dismiss' }), now);
+    }
   },
 };

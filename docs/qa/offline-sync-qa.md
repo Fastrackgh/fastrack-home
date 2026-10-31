@@ -480,7 +480,7 @@ Tested on 31 Oct 2026 **through the UI** with `next dev` at da640b6, on FIS-001 
 - **My failure:** my notice reader had been removing Mantine notification elements, which crashed React ("removeChild… not a child"). After fixing that, the second offline save's notice reused the first notice's slot, so my counter missed it. Both are mine, not the screen's.
 - **Not a bug:** the screen's first load opens the latest school day (30 Oct). So that day was already saved and correct offline, and the moved-pupil case had to use a day the teacher never opened.
 
-### OFF-11 (Medium; owner: staff frontend): a mark changed while a save is still running is silently dropped
+### OFF-11 (Medium, fixed in 6279ab5; owner: staff frontend): a mark changed while a save is still running is silently dropped
 
 **What happens.** Offline, Save waits up to 8 s before saying "Saved on this device". If the teacher changes a mark in that window, the change is thrown away when the save finishes:
 - The control flips back to the saved value.
@@ -494,7 +494,7 @@ Tested on 31 Oct 2026 **through the UI** with `next dev` at da640b6, on FIS-001 
 
 **Suggested fix.** When a save finishes, keep the unsaved edits made since it started, i.e. diff the draft against what was queued, not against everything. Alternatively, lock the controls while saving. A teacher marking quickly on a slow or no connection will hit this.
 
-### OFF-12 (Low; owner: staff frontend): the head's review card for a forwarded register shows ids and raw JSON
+### OFF-12 (Low, fixed in 6279ab5; owner: staff frontend): the head's review card for a forwarded register shows ids and raw JSON
 
 **What happens.** In Changes to review, a forwarded attendance register reads:
 - "Attendance register for **2026-10-22** · 8 pupils"
@@ -505,3 +505,27 @@ Tested on 31 Oct 2026 **through the UI** with `next dev` at da640b6, on FIS-001 
 The head has to decide on the change without seeing the class name or which pupils got which mark.
 
 **Suggested fix.** For attendance bodies, show the class name and a readable day, plus a short table of pupil name and status, the way payments already show "Pupil Yaa RetestP2 · code".
+
+### Re-test of 6279ab5: OFF-11 and OFF-12 fixed
+
+Tested on 31 Oct 2026 **through the UI** at 6279ab5, against backend 58d7b6f. **Both fixed. The attendance suite is 10 of 11; the one miss is my test's notice counter, as before.**
+- **OFF-11 repro** (offline, Efua Late → Save → Absent 2 s later):
+  - Save samples `LLLLLLeeeeeeee`, so the button is enabled again afterwards. The screen keeps **Absent** and Save reads "(1)".
+  - The second save queues `Efua: Absent from "Late"` next to `Late from null`. Back online, the server ends **Absent v2**.
+  - Unsaved edits are still lost on a reload before Save. That's expected.
+- **OFF-12:** the head's card reads "**Attendance register · Primary 1 · Thu 22 Oct · 8 pupils**", "They no longer teach this class or pupil", "Class Primary 1", "Date Thu 22 Oct", and Entries "Hugo Agyare Present, Efua Ansah Present, …". There are no ids or JSON. Apply saves 8 rows.
+
+## Offline marks (825db22, docs 1840327), against backend 58d7b6f
+
+Tested on 31 Oct 2026 **through the UI** at 1840327 on the QPM-402 Primary 1 Mathematics sheet (Test 1, out of 20). The teacher was teacher@qpm.test; the head, principal@qpm.test; and a second teacher device was another context. Backend 58d7b6f has no migration. **Result: 9 of 9.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| M1 | Online mark (Seed01 11) | Saved, and sent as a keyed `PUT /mark-sheets/:id/marks` with `from: null`. "All changes saved". |
+| M2 | Offline: Seed02 12, then 13 a second later; Seed03 14 | "**3 marks waiting to sync**". After an offline reload, 13 and 14 are still in their cells. |
+| M3 | Meanwhile the head enters 6 for Seed03; then the teacher reconnects | Seed02 is **13** (chained, no self-clash). Seed03 keeps the head's **6**, and the cell is outlined orange with the notice "Someone else changed this sheet…". The tray card: "**Marks: Mathematics, Primary 1 · Seed03 Paging · Test 1**", changed by Ofori Retest, **Raw score Now 6 / Yours 14**. **Keep mine** gives 14. |
+| M4 | The teacher's other device fills the sheet (Seed04 5) and submits it, while the first device has Seed04 7 queued offline | The first device's save is refused. Tray: "The sheet was submitted before these marks arrived, so they weren't saved. Once it's returned to you, send them again." with **Send again**. Seed04 keeps 5. The head then returns the sheet. **Send again** gives a clash, Now 5 / Yours 7 (from the other device). **Keep mine** gives 7. |
+| M5 | Offline, Seed05 9, then **Submit marks** | After about 15 s: "**Not submitted yet**: 1 mark is still waiting to be sent." The sheet stays draft. Once back online and landed: "Marks submitted". |
+
+- **Wording polish (not a finding):** the clash notice says "1 of your marks clashed with theirs and **were** not saved". For one mark it should read "was".
+- **Not covered:** a descriptor-band sheet. QPM-402 has only the scored Mathematics sheet. I'll check band names in the tray when one exists.

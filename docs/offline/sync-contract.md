@@ -1,6 +1,6 @@
 # Offline sync contract (staff portal)
 
-**Status:** **agreed** v0.4 (31 Oct 2026), changing only §6.2 and adding the `ALREADY_RESOLVED` code. Signed off by the staff frontend; QA re-tests the routes. Phase 2 builds against this version; any change goes through a new version here.
+**Status:** **agreed** v0.4.1 (31 Oct 2026). v0.4.1 adds the `CURSOR_AHEAD` 410 cause and the rule that a 410 means a full re-snapshot. Signed off by the staff frontend; QA re-tests the routes. Phase 2 builds against this version; any change goes through a new version here.
 **Owners:** backend (`fastrack-backend`), staff frontend (`/school-admin`).
 **Plan:** `humming-tumbling-codd.md`, "Sync contract" and "Backend work" B1–B5.
 
@@ -302,9 +302,11 @@ The client bootstraps from this endpoint, and again after a 410.
   - `out_of_scope`: the record still exists but this user can no longer see it, e.g. a pupil moved to a class the teacher doesn't take. Drop the record locally, but **keep sending** its pending ops. The server forwards them to the school review list (§6.2).
 - **410 `RESYNC_REQUIRED`** has `reason.cause`:
   - `NO_CURSOR`: `since` is missing.
-  - `CURSOR_EXPIRED`: the cursor is older than the change-log retention.
+  - `CURSOR_EXPIRED`: the cursor is older than the change-log retention, or every cursor was expired (e.g. after a database restore).
+  - `CURSOR_AHEAD`: the cursor is past the school's log (e.g. a database restored from an older backup).
   - `SCOPE_CHANGED`: the user's own scope changed wholesale, e.g. they gained or lost a class assignment or changed role.
-  - `reason.collections` names what to re-snapshot. The client re-snapshots those collections only, and keeps its outbox.
+  - `reason.collections` names the collections affected. **On any 410 the client re-snapshots all its collections and continues from the new snapshot's cursor**; it keeps its outbox. (Re-snapshotting only some collections would leave the others without a valid cursor.)
+  - A cursor is tied to its school and, for a teacher, to their classes: another school's cursor is `SCOPE_CHANGED`.
 
 ### Response headers (R7)
 
@@ -436,3 +438,4 @@ Two non-blocking notes, for a later version:
 | 2026-10-30 | 0.3.1 | Frontend sign-off. The marks row `version` rule is worded the same in §5 and §8, and the clock-change limit is noted in §1. **Agreed.** |
 | 2026-10-30 | 0.3.2 | Built with B1. In §6.1 the claim (step 4) comes after the 403 checks (step 3), so the in-progress and 403 codes swap places when both apply; a replay still comes before both. The §10 wording on dev routes is corrected. No change for the client. |
 | 2026-10-31 | 0.4 | **Agreed.** §6.2: applying a forwarded op is a client re-send through the normal route with a server-issued `applyOpKey` as the `Idempotency-Key`, keeping the sender's `recorded_at`, followed by an idempotent `POST …/applied`. It replaces the server-side `…/apply`. This takes in both of the staff frontend's conditions. Row shape and list routes given. The re-send carries `X-Base-Version` when the row has one. Edits are allowed and recorded (`appliedBody`, `appliedWithEdits`, QA OFF-6). An apply of a row that is no longer open gets 409 `ALREADY_RESOLVED`, and apply and dismiss are serialised (QA OFF-7). Built in backend c44f008 and 2b376d1. |
+| 2026-10-31 | 0.4.1 | **Agreed** (staff frontend). §7: 410 cause `CURSOR_AHEAD` (QA OFF-13); a cursor is tied to its school; on any 410 the client re-snapshots every collection and continues from the new cursor. Backend 5bee8d2. |

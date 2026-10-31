@@ -1,4 +1,6 @@
 import { isWeekend, formatDay } from '@/features/calendar/dates';
+import { toClass, type SchoolClass } from '@/features/school-setup/api';
+import { dataScopeOf, type Role } from '@/lib/rbac';
 import { isUnreachable } from '@/lib/api-client';
 import type { EnqueueInput, OutboxOp, ReviewItem } from '@/lib/offline/outbox';
 import { savedReadsLike } from '@/lib/offline/session';
@@ -133,7 +135,7 @@ export async function loadRegister(classId: string, date: string): Promise<Regis
       ? ((await builtRegister(classId, date)) ?? (await registerFromRecords(classId, date)))
       : null;
     if (!built) throw err;
-    register = built;
+    register = await withPupilsOfTheDay(built);
   }
   return withPending(
     await withSynced(register),
@@ -143,6 +145,29 @@ export async function loadRegister(classId: string, date: string): Promise<Regis
 
 /** A synced attendance record's data: the register entry plus its class and day (§8). */
 type SyncedEntry = RegisterStudent & { classId: string; date: string };
+
+/**
+ * A built register uses a class list from another day (or today's). Synced
+ * attendance records carry the class each pupil was in on their day (§8),
+ * so pupils marked in this class that day who have moved since are added
+ * back. A day nobody marked can't be known offline; the server checks the
+ * day's membership when the marks arrive.
+ */
+async function withPupilsOfTheDay(register: Register): Promise<Register> {
+  const listed = new Set(register.students.map((s) => s.schoolStudentId ?? s.studentId));
+  const missing = (await syncedRecords<SyncedEntry>(ATTENDANCE_COLLECTION))
+    .map((record) => record.data)
+    .filter(
+      (entry): entry is SyncedEntry =>
+        entry?.classId === register.classId &&
+        entry.date === register.date &&
+        !listed.has(entry.schoolStudentId ?? entry.studentId),
+    );
+  if (missing.length === 0) return register;
+  const students: RegisterStudent[] = [...register.students, ...missing];
+  students.sort((a, b) => a.name.localeCompare(b.name));
+  return { ...register, students, unmarked: register.unmarked + missing.length };
+}
 
 /**
  * Lays the device's synced records (the change feed, §7) over the register,
@@ -228,6 +253,30 @@ async function registerFromRecords(classId: string, date: string): Promise<Regis
     unmarked: pupils.length,
     builtFrom: 'records',
   };
+}
+
+/**
+ * The classes to offer offline when the class list can't be loaded: from the
+ * synced records. A teacher's records are already scoped to their classes,
+ * so they get their homeroom plus the classes their synced pupils are in.
+ */
+export async function offlineClassesFor(viewer: {
+  id: string;
+  role: Role;
+}): Promise<SchoolClass[]> {
+  const classes = (await syncedRecords<Record<string, unknown>>('classes'))
+    .filter((record) => record.data)
+    .map((record) => toClass(record.data as Record<string, unknown>));
+  const sorted = classes.sort(
+    (a, b) =>
+      a.sequenceOrder - b.sequenceOrder ||
+      a.className.localeCompare(b.className, undefined, { numeric: true }),
+  );
+  if (dataScopeOf(viewer.role) !== 'assigned_classes') return sorted;
+  const taught = new Set(
+    (await syncedRecords<SyncedPupil>('students')).map((record) => record.data?.classId),
+  );
+  return sorted.filter((c) => c.homeroomStaffId === viewer.id || taught.has(c.id));
 }
 
 /** A change to one pupil's mark, against the register on screen. */

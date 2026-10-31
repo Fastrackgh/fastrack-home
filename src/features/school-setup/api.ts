@@ -263,7 +263,8 @@ const ALL = 'limit=100';
 type StaffRow = { id: string; firstName: string; lastName: string };
 const text = (value: unknown) => (typeof value === 'string' && value ? value : null);
 
-const toClass = (raw: Raw): SchoolClass => {
+/** A class from its API shape (also the `classes` sync record, §8). */
+export const toClass = (raw: Raw): SchoolClass => {
   const department = raw.department as { name?: string } | null;
   return {
     id: String(raw.id),

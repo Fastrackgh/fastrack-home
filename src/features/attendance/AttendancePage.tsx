@@ -25,7 +25,7 @@ import { ConfirmModal } from '@/features/fees/ConfirmModal';
 import { setupApi, type SchoolClass } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
-import { errorMessage } from '@/lib/api-client';
+import { errorMessage, isUnreachable } from '@/lib/api-client';
 import { onRecordsPulled, onSyncApplied } from '@/lib/offline/syncEngine';
 import {
   NO_ARRIVAL,
@@ -40,6 +40,7 @@ import {
 import {
   isRegisterOp,
   loadRegister as registerWithPending,
+  offlineClassesFor,
   saveRegister,
   type MarkChange,
   type SaveResult,
@@ -155,6 +156,11 @@ export function AttendancePage() {
     // A teacher is offered only the classes they teach (QA-016).
     setupApi
       .classesFor(user)
+      // Offline on a device that never loaded the list: the synced classes.
+      .catch((err) => {
+        if (!isUnreachable(err)) throw err;
+        return offlineClassesFor(user).then((rows) => (rows.length ? rows : Promise.reject(err)));
+      })
       .then((rows) => {
         setClasses(rows);
         // A teacher starts on their own class; everyone else on the first.

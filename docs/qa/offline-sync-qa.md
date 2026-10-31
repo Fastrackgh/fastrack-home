@@ -618,3 +618,21 @@ Tested on 31 Oct 2026 **through the API** on FIS-001 (`snap-moved.js`). Five Pri
 - **Feed:** the head changed Efua's 30 Oct mark (a Primary 1 day) to Excused. The teacher's pull got `upsert … Excused`.
 - **Feed:** the head's change to Kofi's 30 Oct mark (a Primary 2 day) reached the teacher only as a **`delete` with no data**, i.e. drop it if you hold it. That's harmless, and no mark data crosses scope.
 - Contract **v0.4.1 (85808ff)** adds `CURSOR_AHEAD` and says any 410 means a full re-snapshot.
+
+## Pull side: records from the change feed (staff frontend ce3508d, docs 64bb1b2)
+
+Tested on 31 Oct 2026 **through the UI** at 64bb1b2, against backend 9c8c6d1 (feed with the OFF-13 fix), using FIS-001 attendance (Primary 1 teacher) and the QPM-402 Mathematics sheet. The heads' changes were made through the API, as another device would. **Result: 7 of 7 in substance.** One check failed on my expected banner text (see the note).
+
+| # | Case | Result |
+| --- | --- | --- |
+| P1 | First sign-in | The snapshot filled `records`: students 3, attendance 52, classes 9, terms 6, academic-years 2. `meta.pullCursor` and `pulledAt` are set. |
+| P2 | The head marks Hugo Absent on Mon 5 Oct (a day the teacher never opened). The teacher syncs, then opens it offline. | Record `attendance 41f8…:2026-10-05` v1 Absent is on the device, and the register built offline shows **Absent**. |
+| P3 | Offline, change Hugo to Late from there | Queued as `Late from Absent`, and it lands as **Late v2** with **no review item** (it chains on the synced value instead of clashing) |
+| P4 | Register for 6 Oct opened online (saved). Then the head sets Hugo Excused, the teacher pulls, and opens it offline. | Shows **Excused**. Changed to Present offline, it lands **Present v2** with no review. |
+| P5 | An op queued offline for 7 Oct, then the restore runbook step (`cursors_valid_from = now()`), then back online | The register landed. The pull got a 410 and re-snapshotted: **new cursor**, 55 attendance records. The outbox wasn't lost. |
+| P6 | The head moves Abena Osei from Primary 1 to Primary 2 | The teacher's device keeps an **`out_of_scope` tombstone** for her |
+| P7 | Marks: the teacher opens the sheet (Seed06 Test 1 empty). The head enters **8**. The teacher pulls, then opens the sheet offline. | The cell shows **8** |
+
+- **Note on P2's banner:** I expected "The pupils come from the class list synced to this device". The device already had a saved register (31 Oct, from the screen's first load), so by design it said "from the register of Sat 31 Oct". The class-list path is only for when no register is saved.
+- **Observation (not a finding):** a past day built offline uses today's pupil list, whether from a saved register or the synced class list. Pupils who were in the class on that day but have moved since (here, four pupils on 5 Oct) aren't listed, so they can't be marked offline for that day. Online, the server's as-of-day register lists them. That's fine for today's register, which is the normal offline case.
+- The other suites (attendance 23, marks 15, tray 12, review 19) are reported passing by fastrack-18. I didn't re-run them here.

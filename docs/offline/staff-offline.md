@@ -171,7 +171,7 @@ flowchart LR
   - The tabs show who resolved each change.
   - At 390 px there's no sideways scroll.
   - Against backend ed00507 (19/19): "Applied with edits" with "7 (sent as 5)". A true race (tab B's re-read faked as still open) was refused by the server with `ALREADY_RESOLVED`, with no payment. A stale dismiss after an apply reported "Already applied … can't be dismissed".
-  - **List order:** the server lists oldest first in every tab. That suits "To review", but the backend has been asked to list Applied and Dismissed newest-resolved first.
+  - **List order:** "To review" lists the oldest action first. From backend b41cf9c, Applied and Dismissed list the most recently resolved first, so what was just handled is on page 1.
   - After the OFF-8 fix (17/17): a stale tab's edit after another tab applied, a stale tab's apply after another tab dismissed, and an edit after the reviewer's own lost answer (refused; a plain Apply then marked it done with one payment).
 
 ## Session-expiry warning

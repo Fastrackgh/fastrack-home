@@ -314,7 +314,7 @@ Tested on 30 Oct 2026, with the teacher's side **through the UI** (staff fronten
 
 - **My script's failure:** its first "retry" changed `X-Client-Recorded-At` between sends. That header is part of the request hash, so the server rightly answered `IDEMPOTENCY_MISMATCH`. The sync engine keeps it fixed per op. Re-checked by hand with it fixed: the retry replays.
 
-### OFF-6 (Low; owner: backend): the apply key isn't tied to the forwarded request
+### OFF-6 (Low, resolved by contract v0.4 29ae61b, backend 2b376d1 and screen 5eaa421; owner: backend): the apply key isn't tied to the forwarded request
 
 **What happens**
 - At c44f008 any request sent with a row's `applyOpKey` takes the teacher's original `recorded_at`. `/applied` then accepts the row once any op with that key has completed.
@@ -347,7 +347,7 @@ Tested on 30 Oct 2026 **through the UI** with `next dev` at 8fe0171, against bac
 | 5b | **Stale card: tab A dismisses, then tab B applies the same change** | **Fail (OFF-7).** The payment of 1.85 **was recorded**. The row stays `dismissed`, and B's card shows only "This change has already been resolved". |
 | 6 | Phone (390 px) | No sideways scroll |
 
-### OFF-7 (Medium; owner: backend; narrowed on the screen in c885507, the server fix is still open): a dismissed change can still be written with its apply key
+### OFF-7 (Medium, fixed in backend 2b376d1 + screen 5eaa421; owner: backend): a dismissed change can still be written with its apply key
 
 **What happens**
 - At c44f008 the idempotency interceptor accepts a request carrying a row's `applyOpKey` whatever the row's status.
@@ -408,3 +408,27 @@ Tested on 30 Oct 2026 **through the UI** at 5384aa7, against c44f008. I ran the 
 - Case 5a showed "Already applied … your edit wasn't saved" on the first click.
 - No regressions: the stale dismiss, the lost answer then edit, the 390 px layout and the teacher's access are unchanged.
 - **Still open:** OFF-7's server refusal (backend) and OFF-6's "record what was applied" (v0.4).
+
+## Backend fixes 2b376d1 and ed00507, and the screen at 5eaa421 (contract v0.4, 29ae61b)
+
+Tested on 31 Oct 2026 against backend ed00507, after running migration 1792600002500 on `fastrack_qab1`. Server cases went through the API (`be-fixes.js`, `be-order.js`). Screen cases went **through the UI** at 5eaa421. Before the UI run I marked the 17 test rows left open from earlier runs as dismissed on my copy. **OFF-7: fixed. OFF-6: resolved as agreed in v0.4.**
+
+**Server (API)**
+
+| Case | Result |
+| --- | --- |
+| Re-send with a **dismissed** row's `applyOpKey` | `409 ALREADY_RESOLVED` with `reason {rejectionId, status: "dismissed", resolvedBy: Ofori Retest, resolvedAt}`. No payment. |
+| **Applied** row | An identical retry replays (`Idempotent-Replayed: true`). A different body gives `IDEMPOTENCY_MISMATCH`. One payment. |
+| Dismiss and re-send fired **at the same time**, 8 times | Every outcome consistent: dismissed, 409 and no payment. Dismiss won all 8. |
+| Re-send saved first, then dismiss | Dismiss gives 409 "This change has already been applied. Mark it applied instead." `/applied` gives 200. One payment. |
+| Edited apply (GHS 2.03 cash sent as GHS 2.08 MoMo) | `appliedWithEdits: true`, and `appliedBody` is the MoMo body. A plain apply gives `appliedWithEdits: false`. |
+| Refresh cap | Within a minute of signing in, **9** refreshes gave 200, then 429, 429. The refused token worked again after a minute. The fix note says 10 per sign-in per minute; the sign-in itself appears to count as one. Harmless. |
+| Refresh-token reuse | Within 30 s: 200 (the multi-tab grace). After 32 s: 401 "Refresh token reuse detected", and the newer token of that sign-in is refused too (the sign-in ended). |
+
+**Screen (UI), 13 of 13**
+- Cases 0–7 pass as before.
+- The **Applied** tab shows what was saved: "Fee payment of GHS 8.47", "Amount 8.47 (sent as 8.42)", "**Applied with edits** by Ofori Retest".
+- **8, true race:** every read of the row was rewritten to "open" by the test, so only the server could stop it. Tab B's Apply was refused with no payment, and the card says "This change was dismissed, so it was not applied."
+- **9:** A applies, then B, on a stale card, dismisses. The row stays applied with one payment, and B's card says "Already applied by Ofori Retest on 31 Oct, 00:19, so it can't be dismissed."
+- **Test note:** the Applied and Dismissed tabs list oldest first, so with many rows the newest are on the last page (fastrack-18 has asked the backend for newest-resolved first). The suite now opens the last page.
+- **Polish (not a finding):** the field table shows amounts unpadded ("Amount 8.9"), while the title shows "GHS 8.90".

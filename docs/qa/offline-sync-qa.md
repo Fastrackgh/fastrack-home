@@ -432,3 +432,10 @@ Tested on 31 Oct 2026 against backend ed00507, after running migration 179260000
 - **9:** A applies, then B, on a stale card, dismisses. The row stays applied with one payment, and B's card says "Already applied by Ofori Retest on 31 Oct, 00:19, so it can't be dismissed."
 - **Test note:** the Applied and Dismissed tabs list oldest first, so with many rows the newest are on the last page (fastrack-18 has asked the backend for newest-resolved first). The suite now opens the last page.
 - **Polish (not a finding):** the field table shows amounts unpadded ("Amount 8.9"), while the title shows "GHS 8.90".
+
+### Re-test of d1234df (money formatting) and backend b41cf9c (resolved tabs newest first)
+
+Tested on 31 Oct 2026 **through the UI**. The suite ran with the last-page workaround switched off. **Result: 13 of 13.**
+- The field table reads "Amount GHS 4.37 (sent as GHS 4.32)", matching the title.
+- This run's applied and dismissed rows were on **page 1** of their tabs, among more than 100 older rows.
+- b41cf9c has no migration.

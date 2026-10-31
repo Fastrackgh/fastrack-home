@@ -442,7 +442,7 @@ Tested on 31 Oct 2026 **through the UI**. The suite ran with the last-page worka
 
 ## Step 4a: queued attendance register writes (backend a0e58b5)
 
-Tested on 31 Oct 2026 against a0e58b5, after migration 1792600002600 on `fastrack_qab1`. No staff screen queues attendance yet: fastrack-18's work is uncommitted. So I checked the new rules **through the API** (`att.js`, 9 of 9), and the existing **online attendance screen through the UI** (committed frontend d1234df). I used FIS-001, whose current term covers this week. BIS-001's current term is in 2027 after fast-forwarded rollovers, which makes the "as of the day" rules misleading there. Accounts: Primary 1 homeroom teacher kwame.mensah@fastrack.school and head@fastrack.school. **Result: pass. One Low finding: OFF-10.**
+Tested on 31 Oct 2026 against a0e58b5, after migration 1792600002600 on `fastrack_qab1`. No staff screen queues attendance yet: fastrack-18's work is uncommitted. So I checked the new rules **through the API** (`att.js`, 9 of 9), and the existing **online attendance screen through the UI** (committed frontend d1234df). I used FIS-001, whose current term covers this week. BIS-001's current term is in 2027 after fast-forwarded rollovers, which makes the "as of the day" rules misleading there. Accounts: Primary 1 homeroom teacher kwame.mensah@fastrack.school and head@fastrack.school. **Result: pass.** OFF-10, raised here, was closed as not a bug (see below).
 
 | # | Case | Result |
 | --- | --- | --- |
@@ -454,14 +454,12 @@ Tested on 31 Oct 2026 against a0e58b5, after migration 1792600002600 on `fastrac
 | 6 | A teacher queues JHS 1, a class that isn't theirs | **403 `OUT_OF_SCOPE`** with `forwardedTo`. The row is `open` with that code. The head re-sends it with `applyOpKey` (200) and marks it applied, so Emmanuel Osei is Late 08:45, with `recorded_at` equal to the teacher's time. |
 | UI | Online register (Primary 1, 30 Oct) | The teacher's "rest present" saved 7 ("7 marks saved for Primary 1"). The head's change of one pupil to Absent saved 1, with version 2. Primary 1 correctly lists 7: the moved pupil counts as Primary 2 from 30 Oct. |
 
-### OFF-10 (Low; owner: backend): a pupil with two enrolment rows in one term is on two registers
+### OFF-10 (closed, not a bug): "one pupil on two registers" was two pupils with the same name
 
-**What happens**
-- `findInClassOn` joins every `enrollment_history` row for the day's term.
-- In BIS-001, Kwame Adjei has two rows for term eb6d (Basic 1, then Basic 2, both on 2026-10-21). Neither has `moved_from_class_id`, because the move predates migration 1792600001800.
-- So on 29 Oct he is listed on **both** the Basic 1 and the Basic 2 registers, and either class can mark him.
-- The unique (pupil, date) row means the second class's mark becomes a cell conflict, not a duplicate. Still, both teachers see him as theirs.
-
-**Suggested fix.** For a term with several rows, use the latest row by `enrolled_on` (then `created_at`) on or before the day, treating rows without `moved_from_class_id` as moves too. Alternatively, backfill `moved_from_class_id` for such rows.
+- What I reported: Kwame Adjei listed on both the Basic 1 and the Basic 2 registers for 29 Oct in BIS-001.
+- These are **two different pupils**: BIS-001/STD/2026/001 (enrolment 8b5106c3, Term 1 2026/27 in Basic 1) and BIS-001/STD/2026/009 (enrolment ce7c650c, Term 1 in Basic 2).
+- My history query grouped rows by first name and merged them.
+- `enrollment_history` has `UNIQUE (school_student_id, term_id)`, so one enrolment can't be on two registers. The backend session confirmed this, and I re-checked it on `fastrack_qab1`.
+- **Intended behaviour, worth knowing:** with rosters as of the day, a pupil promoted ahead for a later term stays on the old class's register until that term starts.
 
 - **Test-data note:** in BIS-001, pupils with no row for a past term fall back to their current class. So a pupil admitted in 2027 shows on 2026 registers. That's fine for real schools, whose current term covers today.

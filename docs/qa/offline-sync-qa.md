@@ -610,3 +610,11 @@ Tested on 31 Oct 2026 **through the API**, with the same setup. **Result: 4 of 4
 - QPM's cursor used by FIS's head gets 410, cause **`SCOPE_CHANGED`**. The fingerprints now differ per school.
 - **Restore runbook** (`UPDATE sync_school_seq SET cursors_valid_from = now()`): an existing cursor gets 410 `CURSOR_EXPIRED`, and a fresh snapshot's cursor works.
 - **Caveat (by design):** `CURSOR_AHEAD` alone only covers the time before the numbering passes a device's old position again. After a real database restore, the runbook step is what protects devices. It's documented in backend end-to-end-api-flow §23.3 and must be part of any restore procedure.
+
+### Re-test of 9c8c6d1: a teacher's attendance snapshot follows the class on the day
+
+Tested on 31 Oct 2026 **through the API** on FIS-001 (`snap-moved.js`). Five Primary 1 pupils have moved to Primary 2 this term: Serwaa from 28 Oct, Kofi from 30 Oct, and Efua, Kojo and Yaw from 31 Oct. **Result: pass.**
+- **Snapshot:** the Primary 1 teacher's `collections=attendance` snapshot contains **all 31** of those pupils' marks dated before their move. It contains **none** of their marks after it (Kofi's Primary 2 mark on 30 Oct, added by the head for this test).
+- **Feed:** the head changed Efua's 30 Oct mark (a Primary 1 day) to Excused. The teacher's pull got `upsert … Excused`.
+- **Feed:** the head's change to Kofi's 30 Oct mark (a Primary 2 day) reached the teacher only as a **`delete` with no data**, i.e. drop it if you hold it. That's harmless, and no mark data crosses scope.
+- Contract **v0.4.1 (85808ff)** adds `CURSOR_AHEAD` and says any 410 means a full re-snapshot.

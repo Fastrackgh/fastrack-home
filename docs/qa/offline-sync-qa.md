@@ -563,3 +563,42 @@ Tested on 31 Oct 2026 against 3c6529a, after migration 1792600002700 on `fastrac
 
 - **Commit order** (an earlier writer committing last gets the later seq) is covered by the backend's e2e test. I didn't reproduce it from outside.
 - **Note:** `change_log` has no `version` column, unlike the plan sketch. B3b's feed will show whether devices get versions some other way.
+
+## B3b: change feed and snapshot (backend 9db902b)
+
+Tested on 31 Oct 2026 **through the API** (`feed.js`), since no screen pulls yet. Backend 9db902b ran on `fastrack_qab1` after migration 1792600002800. Accounts: FIS-001 head@fastrack.school and the Primary 1 teacher kwame.mensah@fastrack.school, plus QPM-402's principal for the cross-school case. **Result: 10 of 11. One finding: OFF-13 (Medium).**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | `changes` with no `since` | 410 `RESYNC_REQUIRED`, `reason.cause: NO_CURSOR`, with the collections to snapshot |
+| 2 | Snapshot `classes,subjects` with `limit=2` | 5 pages, **one** cursor across them. 9 classes = 9 live rows. FIS has no subjects. |
+| 3 | Class renamed twice, then a pull | One upsert with its current state: `version` 11 = `data.rowVersion` 11 = `row_version` in the DB. The next pull is empty, `hasMore: false`. |
+| 4 | Subject created, then deleted | Upsert v1, then a tombstone: `op: delete`, `reason: deleted`, **version 2**, no `data`. (A restore through SQL isn't seen, because it bypasses the app. There's no restore endpoint in phase 1, so restore isn't covered.) |
+| 5 | R8: an attendance write, then a pull for `classes` only | Only classes are returned, and `nextSince` moves past the attendance write. So the frontend needs **one cursor per collection set**. |
+| 6 | `POST /dev/sync/expire-cursors`, then a pull | 410, `cause: CURSOR_EXPIRED` |
+| 7 | Teacher's snapshot of `students,attendance` | Students = exactly the 5 current Primary 1 pupils. Attendance (36 rows) is only for them, with the oldest on 9 Oct, inside the 120-day window. Classes: all 9 (the list is school-wide). |
+| 8 | The head moves a Primary 1 pupil to Primary 2, then the teacher pulls `students` | That pupil arrives as `delete`, `reason: out_of_scope` |
+| 9 | The teacher loses the homeroom (`PATCH /classes` homeroom null) / dev `scope-changed` hook | 410, `cause: SCOPE_CHANGED`, both ways. A direct SQL homeroom change is caught too. |
+| 10 | A cursor from another school / a cursor ahead of the school | **Accepted (200).** See OFF-13. A cursor with a tampered fingerprint gives 410. |
+| 11 | `collections=payments` | 400 "Unknown collection: payments" |
+
+### OFF-13 (Medium; owner: backend): a cursor ahead of the school's sequence is accepted, so the device silently stops getting changes
+
+**What happens**
+- A cursor is base64 `{"s": seq, "t": time, "f": scope fingerprint}`.
+- The fingerprint is the same for every full-scope user (both heads got `rhNM_k50ZpWbear-`), and it doesn't include the school.
+- The server never checks that `s` is at or below the school's current `sync_school_seq`.
+
+**Reproduced**
+- **Cursor ahead of the school:** I took FIS's real cursor (s=31) and set s=81. The pull gave 200 with no changes and `nextSince` 81. After two real class edits, a pull from that cursor still returned **0 changes**. The device would miss every change until FIS's sequence passes 81.
+- **Cursor from another school:** FIS's head pulling with QPM's cursor (s=2) got 200 with FIS changes.
+
+**When it happens for real**
+- **Restoring the database from a backup** rewinds `sync_school_seq`. Every device's cursor is then ahead, and every device silently stops seeing changes, with no 410 to make it re-snapshot.
+- A staff account moved to another school, keeping its device database.
+
+**Suggested fix**
+- If `s` is greater than the school's current seq, answer 410 `RESYNC_REQUIRED` with a cause such as `CURSOR_AHEAD`.
+- Put the school id, or a per-school epoch that changes on a restore, into the fingerprint.
+
+- **Test data:** to test moves on my copy, Primary 1 pupils Kofi Ansah, Serwaa Boateng, Efua Ansah and one more were moved to Primary 2. Their attendance and registers on `fastrack_qab1` reflect that.

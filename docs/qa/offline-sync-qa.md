@@ -582,7 +582,7 @@ Tested on 31 Oct 2026 **through the API** (`feed.js`), since no screen pulls yet
 | 10 | A cursor from another school / a cursor ahead of the school | **Accepted (200).** See OFF-13. A cursor with a tampered fingerprint gives 410. |
 | 11 | `collections=payments` | 400 "Unknown collection: payments" |
 
-### OFF-13 (Medium; owner: backend): a cursor ahead of the school's sequence is accepted, so the device silently stops getting changes
+### OFF-13 (Medium, fixed in 5bee8d2; owner: backend): a cursor ahead of the school's sequence is accepted, so the device silently stops getting changes
 
 **What happens**
 - A cursor is base64 `{"s": seq, "t": time, "f": scope fingerprint}`.
@@ -602,3 +602,11 @@ Tested on 31 Oct 2026 **through the API** (`feed.js`), since no screen pulls yet
 - Put the school id, or a per-school epoch that changes on a restore, into the fingerprint.
 
 - **Test data:** to test moves on my copy, Primary 1 pupils Kofi Ansah, Serwaa Boateng, Efua Ansah and one more were moved to Primary 2. Their attendance and registers on `fastrack_qab1` reflect that.
+
+### Re-test of 5bee8d2: OFF-13 fixed
+
+Tested on 31 Oct 2026 **through the API**, with the same setup. **Result: 4 of 4, and the feed suite 11 of 11. OFF-13: fixed.**
+- A cursor 50 ahead of the school gets 410 `RESYNC_REQUIRED`, cause **`CURSOR_AHEAD`**. The real current cursor still works (200).
+- QPM's cursor used by FIS's head gets 410, cause **`SCOPE_CHANGED`**. The fingerprints now differ per school.
+- **Restore runbook** (`UPDATE sync_school_seq SET cursors_valid_from = now()`): an existing cursor gets 410 `CURSOR_EXPIRED`, and a fresh snapshot's cursor works.
+- **Caveat (by design):** `CURSOR_AHEAD` alone only covers the time before the numbering passes a device's old position again. After a real database restore, the runbook step is what protects devices. It's documented in backend end-to-end-api-flow §23.3 and must be part of any restore procedure.

@@ -26,6 +26,8 @@ export interface SyncError {
   current?: unknown;
   conflictingFields?: string[];
   reason?: Record<string, unknown>;
+  /** Validation detail, e.g. the refused cells of a mark sheet (`{cells: […]}`). */
+  details?: unknown;
 }
 
 /** One cell of a batch-cell write (attendance register, marks) that clashed (§5). */
@@ -68,6 +70,7 @@ function syncError(status: number, body: unknown): SyncError {
       ? b.conflictingFields.filter((f): f is string => typeof f === 'string')
       : undefined,
     reason: asRecord(b.reason),
+    details: b.details,
   };
 }
 

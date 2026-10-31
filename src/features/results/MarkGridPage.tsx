@@ -111,7 +111,16 @@ export function MarkGridPage() {
 
   const submit = async () => {
     if (!sheet) return;
-    if (marks.hasUnsaved()) await marks.flush();
+    // Marks still on this device would be missing from what the head reviews.
+    const waiting = await marks.settle();
+    if (waiting > 0) {
+      notifications.show({
+        color: 'blue',
+        title: 'Not submitted yet',
+        message: `${waiting} ${waiting === 1 ? 'mark is' : 'marks are'} still waiting to be sent. Submit once they've been sent.`,
+      });
+      return;
+    }
     try {
       await marksApi.submit(sheet.id, marks.rowVersion() ?? sheet.rowVersion);
       notifications.show({
@@ -234,12 +243,17 @@ export function MarkGridPage() {
               Not assessed this term
             </Badge>
           )}
-          <Text size="sm" c={marks.saving || marks.hasUnsaved() ? 'blue' : 'dimmed'}>
+          <Text
+            size="sm"
+            c={marks.saving || marks.hasUnsaved() || marks.waiting ? 'blue' : 'dimmed'}
+          >
             {marks.saving
               ? 'Saving…'
               : marks.hasUnsaved()
                 ? 'Unsaved changes'
-                : 'All changes saved'}
+                : marks.waiting
+                  ? `${marks.waiting} ${marks.waiting === 1 ? 'mark' : 'marks'} waiting to sync`
+                  : 'All changes saved'}
           </Text>
         </Group>
         {isHead && sheet && (
@@ -422,7 +436,7 @@ export function MarkGridPage() {
             <Table.Tbody>
               {rows.map((row, rowIndex) => {
                 const preview =
-                  marks.hasUnsaved() || Object.keys(drafts).length
+                  marks.hasUnsaved() || marks.waiting || Object.keys(drafts).length
                     ? localPreview(
                         row,
                         { scheme: data.scheme, scale: data.scale, items },

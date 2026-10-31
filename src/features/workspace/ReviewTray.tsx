@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, Drawer, Group, Stack, Table, Text } from '@mantine/core';
 import { registerAttendanceResolver } from '@/features/attendance/sync';
+import { itemNameKey, registerMarksResolver } from '@/features/results/marks-sync';
 import { formatAge } from '@/lib/format';
 import type { ReviewItem } from '@/lib/offline/outbox';
 import {
@@ -17,13 +18,18 @@ import { useSyncStatus } from '@/lib/offline/useSyncStatus';
 
 // "Keep mine" for each feature that queues writes; the tray can open on any page.
 registerAttendanceResolver();
+registerMarksResolver();
 
 /** Fields that describe a write, not its value. */
 const META_FIELDS = new Set(['updatedBy', 'updatedAt', 'rowVersion', 'version', 'id']);
 
 /** `arrivalTime` → "Arrival time". */
 const fieldLabel = (key: string) => {
-  const words = key.replace(/([A-Z])/g, ' $1').toLowerCase();
+  // "descriptorBandId" → "Descriptor band": the id itself shows as a name.
+  const words = key
+    .replace(/Id$/, '')
+    .replace(/([A-Z])/g, ' $1')
+    .toLowerCase();
   return words.charAt(0).toUpperCase() + words.slice(1);
 };
 
@@ -89,8 +95,20 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
   const by = typeof current?.updatedBy === 'string' ? current.updatedBy : null;
   const badge = KIND_BADGE[item.kind];
   const clash = item.kind === 'conflict' || item.kind === 'cell';
-  const cellId = item.cell?.cell.schoolStudentId;
-  const pupil = typeof cellId === 'string' ? item.op.names?.[cellId] : undefined;
+  // Names kept on the op for the cell: its pupil, and (marks) its test.
+  const names = item.op.names ?? {};
+  /** An id the op has a name for (a pupil, a band) shows as that name. */
+  const named = (value: unknown) =>
+    typeof value === 'string' && names[value] ? names[value] : show(value);
+  const cell = item.cell?.cell ?? {};
+  const pupil = [
+    names[String(cell.schoolStudentId)],
+    cell.componentKey !== undefined
+      ? names[itemNameKey(String(cell.componentKey), Number(cell.itemIndex))]
+      : undefined,
+  ]
+    .filter(Boolean)
+    .join(' · ');
 
   const act = async (action: 'dismiss' | 'resend') => {
     setBusy(action);
@@ -156,8 +174,8 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
               {rows.map((row) => (
                 <Table.Tr key={row.field}>
                   <Table.Td c="dimmed">{fieldLabel(row.field)}</Table.Td>
-                  <Table.Td>{show(row.theirs)}</Table.Td>
-                  <Table.Td fw={600}>{show(row.mine)}</Table.Td>
+                  <Table.Td>{named(row.theirs)}</Table.Td>
+                  <Table.Td fw={600}>{named(row.mine)}</Table.Td>
                 </Table.Tr>
               ))}
             </Table.Tbody>

@@ -109,7 +109,34 @@ flowchart LR
 - **Age:** an op queued more than 25 days ago goes to review as rejected (`OP_TOO_OLD`) instead of being sent, because the server keeps keys for 30.
 - **When it runs:** on enqueue, when the API answers again, on window focus and the browser's `online` event, every 30 s while ops wait, and when a backing-off op is due. A send is also how the engine notices the API is back.
 - **Tabs:** only the tab holding the Web Lock `fastrack-sync-<userId>` sends. Every tab keeps counts, and a `BroadcastChannel` tells the others to recount (and to send, if they can take the lock).
-- **Not yet:** Background Sync, and screens that queue writes. In development, `window.__fastrackSync` (`enqueueWrite`, `syncNow`, `syncStatus`, `registerReviewResolver`) queues ops from the console; it's absent from production builds.
+- **Not yet:** Background Sync. Attendance queues its writes (below); marks follow with backend step 4b. In development, `window.__fastrackSync` (`enqueueWrite`, `syncNow`, `syncStatus`, `registerReviewResolver`) queues ops from the console; it's absent from production builds.
+
+## Offline attendance (phase 2, backend step 4a)
+
+- **Saving goes through the outbox, online or not** (`src/features/attendance/sync.ts`, `saveRegister`). One op is queued per class and day (`PUT /schools/me/attendance/register`, up to 200 marks each), and ops on one register are sent in order.
+- **Each mark** carries the pupil's `schoolStudentId` (or `studentId` on a register saved before the field existed) and `from`, the value the device saw: `null` when unmarked, otherwise `{status, arrivalTime, note}`. A mark someone else changed meanwhile comes back as a cell conflict for review, instead of being overwritten (contract §5).
+- **Save waits up to 8 s** for the op to land, then says one of:
+  - "Register saved · 4 marks saved for Basic 1";
+  - "Register saved, with changes to check" (some cells clashed);
+  - "Register not saved" (refused; see the tray);
+  - "Passed to the head teacher" (403, forwarded);
+  - offline or slow: "Saved on this device · 1 mark for Basic 1 will be sent when you're back online."
+- **Queued marks show on the register.** They're laid over the loaded or saved copy, and each row reads **Waiting to sync**, also after a reload offline. A second change to the same pupil chains its `from` from the first. When an op lands, the register reloads from the server, unless the teacher has unsaved changes.
+- **A day never opened online:** offline, the register is built from the class's latest saved register: the same pupils, all unmarked. An orange banner reads "Offline: this day's register isn't saved on this device · The pupils come from the register of Fri 30 Oct …". The server checks each mark when it arrives.
+- **Review:**
+  - A clashing cell is titled with the pupil ("Attendance for Basic 1, Fri 30 Oct · Admissiontest, Kwesi"), with Now / Yours. **Keep mine** resends that one pupil with `from` set to the server's current value. Pupil names are kept on the op locally (`names`) and never sent.
+  - A register refused because one pupil wasn't in the class that day (422 `NOT_ENROLLED_ON_DATE`) saves none of its marks. The tray says "Adjei, Esi wasn't in this class on Wed 28 Oct, so none of these marks were saved." and offers **Send without Adjei, Esi**, which resends the rest. Features supply that wording with `registerReviewText`.
+  - A teacher who no longer has the class gets 403 `OUT_OF_SCOPE`, which is forwarded to the head's Changes to review.
+- **Without an offline store** (e.g. a private window), Save sends directly, as before.
+- **Checked (31 Oct, `next dev` against backend a0e58b5 on `fastrack_fe18`, yaw.darko@bis.test on Basic 1, Playwright, 19/19):**
+  - Online save landed with a keyed op.
+  - Offline:
+    - Two saves (Kwame Present → Absent, then Late plus Kwesi Excused) showed "Saved on this device", "Waiting to sync" rows and the chip "Offline · 2 waiting".
+    - The second op's `from` was Absent.
+    - The marks survived a reload.
+  - Meanwhile the principal set Kwesi Absent. Back online, Kwame ended Late (v3) and Kwesi wasn't overwritten. "1 need review" → Keep mine → Excused.
+  - A never-opened day offline was built from the class list, then all 4 landed.
+  - A register with a pupil from another class was refused whole (nothing saved). "Send without …" saved the rest.
 
 ## Needs review tray
 

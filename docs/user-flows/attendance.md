@@ -2,6 +2,8 @@
 
 **Status: Live** (21 October 2026). Staff mark a daily register per class at `/school-admin/attendance` and see each pupil's term totals. Parents see their child's month at `/parent/attendance` (see [parent-experience.md](./parent-experience.md)).
 
+> **Updated 31 Oct 2026 (offline, backend `a0e58b5`):** Save queues the register on the device and sends it with the sync contract's headers: one op per class and day, with each mark's `schoolStudentId` and `from`. Online it lands within seconds ("Register saved"). Offline it reads "Saved on this device", the rows show "Waiting to sync", and it's sent when the connection returns. Offline, a day never opened is built from the class's latest saved register. A mark someone else changed meanwhile goes to the review tray ("Keep mine"). A pupil not in the class that day refuses the whole register with 422 `NOT_ENROLLED_ON_DATE`, which used to be a 400; the tray offers "Send without <pupil>". Details are in [offline/staff-offline.md](../offline/staff-offline.md#offline-attendance-phase-2-backend-step-4a). Code: `src/features/attendance/sync.ts`.
+
 > **Updated 26 Oct 2026 (QA-016, backend `3c4a1ed`):** a teacher's class picker offers only the classes they teach: their subject assignments (`GET /schools/me/teaching-assignments`) plus any class where they're the homeroom teacher (`setupApi.classesFor`). Others return 403 "You can only see the classes you teach."
 
 Code:

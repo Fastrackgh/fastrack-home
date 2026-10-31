@@ -20,7 +20,8 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  */
 export function SyncStatusChip() {
   const { online, oldestShownAt } = useConnectivity();
-  const { pending, review, forwarded, syncing, paused, lastSyncedAt } = useSyncStatus();
+  const { pending, review, forwarded, syncing, paused, lastSyncedAt, lastPulledAt } =
+    useSyncStatus();
   const [now, setNow] = useState(() => Date.now());
   const [trayOpen, setTrayOpen] = useState(false);
   const inTray = review + forwarded;
@@ -38,7 +39,9 @@ export function SyncStatusChip() {
 
   const age = oldestShownAt === null ? null : formatAge(oldestShownAt, now);
   const waiting = pending > 0 ? plural(pending, 'change', 'changes') : null;
-  const synced = lastSyncedAt === null ? null : `Last synced ${formatAge(lastSyncedAt, now)}.`;
+  // Sending a change or bringing records down both count as syncing.
+  const lastSync = Math.max(lastSyncedAt ?? 0, lastPulledAt ?? 0) || null;
+  const synced = lastSync === null ? null : `Last synced ${formatAge(lastSync, now)}.`;
 
   const parts: string[] = [];
   const tips: string[] = [];

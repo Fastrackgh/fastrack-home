@@ -1,6 +1,6 @@
 import type { EnqueueInput, OutboxOp, ReviewItem } from '@/lib/offline/outbox';
-import { registerReviewResolver, registerReviewText } from '@/lib/offline/syncEngine';
-import type { Mark, MarkChange, MarkStatus, RosterRow } from './marks-api';
+import { registerReviewResolver, registerReviewText, syncedRecord } from '@/lib/offline/syncEngine';
+import type { Mark, MarkChange, MarkStatus, OpenSheet, RosterRow, Sheet } from './marks-api';
 
 /**
  * Offline marks (docs/offline/staff-offline.md, contract §5 batch cells,
@@ -72,6 +72,47 @@ export interface LandedSave {
 
 export const landedSave = (body: unknown): LandedSave =>
   ((body as { data?: LandedSave } | undefined)?.data ?? {}) as LandedSave;
+
+/**
+ * Lays the device's synced records (the change feed, §7) over an opened
+ * sheet, where newer: the sheet's status and version (submitted or returned
+ * on another device) and each pupil's row (marks entered elsewhere). A row's
+ * version is the sheet version of the write that last changed it (§8).
+ * Online the server's copy is at least as new, so nothing changes.
+ */
+export async function withSyncedSheet(open: OpenSheet): Promise<OpenSheet> {
+  const sheet = open.sheet;
+  if (!sheet) return open;
+  const record = await syncedRecord<Partial<Sheet>>('mark-sheets', sheet.id);
+  const base = sheet.rowVersion;
+  const newer = record && !record.deleted && record.data && record.version > base;
+  const roster = await Promise.all(
+    open.roster.map(async (row) => {
+      const synced = await syncedRecord<RosterRow>(
+        MARKS_COLLECTION,
+        `${sheet.id}:${row.schoolStudentId}`,
+      );
+      return synced && !synced.deleted && synced.data && synced.version > base
+        ? { ...row, ...synced.data }
+        : row;
+    }),
+  );
+  return {
+    ...open,
+    sheet: newer
+      ? {
+          ...sheet,
+          status: record.data?.status ?? sheet.status,
+          notAssessed: record.data?.notAssessed ?? sheet.notAssessed,
+          returnReason: record.data?.returnReason ?? null,
+          submittedAt: record.data?.submittedAt ?? null,
+          submittedBy: record.data?.submittedBy ?? null,
+          rowVersion: record.version,
+        }
+      : sheet,
+    roster,
+  };
+}
 
 /** A key for an item in an op's `names`, next to pupil ids. */
 export const itemNameKey = (componentKey: string, itemIndex: number) =>

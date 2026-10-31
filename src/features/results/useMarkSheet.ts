@@ -7,6 +7,7 @@ import { ApiError, errorDetails, errorMessage, pathId } from '@/lib/api-client';
 import type { OutboxOp } from '@/lib/offline/outbox';
 import {
   enqueueWrite,
+  onRecordsPulled,
   onSyncApplied,
   pendingWrites,
   syncStatus,
@@ -27,6 +28,7 @@ import {
   landedSave,
   queuedChanges,
   wireOf,
+  withSyncedSheet,
   type QueuedMark,
 } from './marks-sync';
 
@@ -80,7 +82,7 @@ export function useMarkSheet(termId: string, classId: string, subjectId: string)
   const load = useCallback(async () => {
     setLoadError(null);
     try {
-      const fresh = await marksApi.open(termId, classId, subjectId);
+      const fresh = await withSyncedSheet(await marksApi.open(termId, classId, subjectId));
       setData(fresh);
       return fresh;
     } catch (err) {
@@ -92,6 +94,16 @@ export function useMarkSheet(termId: string, classId: string, subjectId: string)
   useEffect(() => {
     load();
   }, [load]);
+
+  // New records from the server (marks entered elsewhere, the sheet submitted
+  // or returned) refresh the sheet when nothing typed is waiting here.
+  useEffect(
+    () =>
+      onRecordsPulled(() => {
+        if (pending.current.size === 0 && !timer.current) void load();
+      }),
+    [load],
+  );
 
   // Unsaved marks would be lost on leaving.
   useEffect(() => {

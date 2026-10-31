@@ -62,7 +62,8 @@ export interface Register {
   unmarked: number;
   /**
    * Set on the device when offline and this day was never opened online: the
-   * register is built from the class's latest saved register (that date).
+   * register is built from the class's latest saved register (that date), or
+   * from the synced class list (`'records'`).
    */
   builtFrom?: string;
 }

@@ -7,6 +7,8 @@ import {
   pendingWrites,
   registerReviewResolver,
   registerReviewText,
+  syncedRecord,
+  syncedRecords,
   waitForOp,
   type OpOutcome,
 } from '@/lib/offline/syncEngine';
@@ -127,11 +129,105 @@ export async function loadRegister(classId: string, date: string): Promise<Regis
   try {
     register = await attendanceApi.register(classId, date);
   } catch (err) {
-    const built = isUnreachable(err) ? await builtRegister(classId, date) : null;
+    const built = isUnreachable(err)
+      ? ((await builtRegister(classId, date)) ?? (await registerFromRecords(classId, date)))
+      : null;
     if (!built) throw err;
     register = built;
   }
-  return withPending(register, await pendingWrites(ATTENDANCE_COLLECTION, entityOf(classId, date)));
+  return withPending(
+    await withSynced(register),
+    await pendingWrites(ATTENDANCE_COLLECTION, entityOf(classId, date)),
+  );
+}
+
+/** A synced attendance record's data: the register entry plus its class and day (§8). */
+type SyncedEntry = RegisterStudent & { classId: string; date: string };
+
+/**
+ * Lays the device's synced records (the change feed, §7) over the register,
+ * where newer by version: a saved copy then shows marks other devices made
+ * since it was saved. Online the server's copy is at least as new, so
+ * nothing changes.
+ */
+async function withSynced(register: Register): Promise<Register> {
+  const students = await Promise.all(
+    register.students.map(async (student) => {
+      if (!student.schoolStudentId) return student;
+      const record = await syncedRecord<SyncedEntry>(
+        ATTENDANCE_COLLECTION,
+        `${student.schoolStudentId}:${register.date}`,
+      );
+      if (!record || record.version <= (student.rowVersion ?? 0)) return student;
+      // Out of scope only means this user can't see it now: keep what's shown.
+      if (record.deleted === 'out_of_scope') return student;
+      const synced = record.data;
+      return {
+        ...student,
+        status: synced?.status ?? null,
+        arrivalTime: synced?.arrivalTime ?? null,
+        note: synced?.note ?? null,
+        markedBy: synced?.markedBy ?? null,
+        markedAt: synced?.markedAt ?? null,
+        rowVersion: record.version,
+      };
+    }),
+  );
+  return { ...register, students };
+}
+
+/** A synced pupil (`students`, §8): the roster row. */
+interface SyncedPupil {
+  id: string;
+  studentId: string;
+  studentCode: string | null;
+  firstName: string;
+  surname: string;
+  otherName: string | null;
+  classId: string | null;
+  className: string | null;
+}
+
+/**
+ * Offline with no saved register for the class at all: its pupils from the
+ * synced class list (today's class, so the server checks the day's
+ * membership when the marks arrive).
+ */
+async function registerFromRecords(classId: string, date: string): Promise<Register | null> {
+  const pupils = (await syncedRecords<SyncedPupil>('students'))
+    .map((record) => record.data)
+    .filter((pupil): pupil is SyncedPupil => pupil?.classId === classId);
+  if (pupils.length === 0) return null;
+  const weekend = isWeekend(date);
+  return {
+    classId,
+    className: pupils[0].className ?? '',
+    date,
+    schoolDay: {
+      open: !weekend,
+      termId: null,
+      reason: weekend ? 'WEEKEND' : null,
+      closureTitle: null,
+    },
+    canMark: !weekend,
+    students: pupils
+      .map((pupil) => ({
+        studentId: pupil.studentId,
+        schoolStudentId: pupil.id,
+        rowVersion: null,
+        studentCode: pupil.studentCode,
+        name: [`${pupil.surname},`, pupil.firstName, pupil.otherName].filter(Boolean).join(' '),
+        status: null,
+        arrivalTime: null,
+        note: null,
+        markedBy: null,
+        markedAt: null,
+      }))
+      .sort((a, b) => a.name.localeCompare(b.name)),
+    counts: { present: 0, absent: 0, late: 0, halfDay: 0, excused: 0 },
+    unmarked: pupils.length,
+    builtFrom: 'records',
+  };
 }
 
 /** A change to one pupil's mark, against the register on screen. */

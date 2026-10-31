@@ -26,7 +26,7 @@ import { setupApi, type SchoolClass } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/api-client';
-import { onSyncApplied } from '@/lib/offline/syncEngine';
+import { onRecordsPulled, onSyncApplied } from '@/lib/offline/syncEngine';
 import {
   NO_ARRIVAL,
   STATUSES,
@@ -183,6 +183,15 @@ export function AttendancePage() {
   useEffect(() => {
     loadRegister();
   }, [loadRegister]);
+
+  // New records from the server (another device's marks) refresh the register.
+  useEffect(
+    () =>
+      onRecordsPulled(() => {
+        if (changedRef.current === 0) loadRegister();
+      }),
+    [loadRegister],
+  );
 
   // A queued register landing (this tab or another) brings the server's copy.
   useEffect(
@@ -389,9 +398,11 @@ export function AttendancePage() {
           )}
           {register.builtFrom && (
             <Alert color="orange" title="Offline: this day's register isn't saved on this device">
-              The pupils come from the register of {formatDay(register.builtFrom)}. Marks you save
-              are kept here and checked when they&apos;re sent, so a pupil who wasn&apos;t in the
-              class that day comes back for review.
+              {register.builtFrom === 'records'
+                ? 'The pupils come from the class list synced to this device.'
+                : `The pupils come from the register of ${formatDay(register.builtFrom)}.`}{' '}
+              Marks you save are kept here and checked when they&apos;re sent, so a pupil who
+              wasn&apos;t in the class that day comes back for review.
             </Alert>
           )}
 

@@ -2,6 +2,7 @@ import { ApiError, apiClient } from '@/lib/api-client';
 import { connectivity } from './connectivity';
 import type { OfflineDb } from './db';
 import { deviceId, outbox, type EnqueueInput, type OutboxOp, type ReviewItem } from './outbox';
+import { PULLED_AT_KEY, pull, recordsOf, type SyncedRecord } from './pull';
 import { backoffMs, classify, type SyncOutcome, type SyncResponse } from './syncOutcome';
 
 /**
@@ -30,6 +31,8 @@ export interface SyncStatus {
   paused: boolean;
   /** When an op last landed (any tab), or null. */
   lastSyncedAt: number | null;
+  /** When this device last brought its records up to date from the server (§7), or null. */
+  lastPulledAt: number | null;
 }
 
 const IDLE: SyncStatus = {
@@ -39,6 +42,7 @@ const IDLE: SyncStatus = {
   syncing: false,
   paused: false,
   lastSyncedAt: null,
+  lastPulledAt: null,
 };
 
 const LOCK_PREFIX = 'fastrack-sync-';
@@ -47,6 +51,26 @@ const POLL_MS = 30_000;
 /** Older ops go to review instead of being sent (§4: the server keeps keys for 30 days). */
 export const MAX_OP_AGE_MS = 25 * 24 * 60 * 60_000;
 const LAST_SYNCED_KEY = 'lastSyncedAt';
+/** How often the records are brought up to date while the app is open. */
+const PULL_EVERY_MS = 5 * 60_000;
+
+/** Told when a pull changed this user's records, so a screen can refresh. */
+const pulledListeners = new Set<() => void>();
+
+export function onRecordsPulled(listener: () => void) {
+  pulledListeners.add(listener);
+  return () => {
+    pulledListeners.delete(listener);
+  };
+}
+
+/** A collection's synced records (none without an offline store). */
+export const syncedRecords = <T>(collection: string): Promise<SyncedRecord<T>[]> =>
+  engine?.records<T>(collection) ?? Promise.resolve([]);
+
+/** One synced record, tombstones included (they say a mark was removed). */
+export const syncedRecord = <T>(collection: string, id: string) =>
+  engine?.record<T>(collection, id) ?? Promise.resolve(undefined);
 
 let status: SyncStatus = IDLE;
 const statusListeners = new Set<() => void>();
@@ -145,7 +169,9 @@ class SyncEngine {
     if (typeof BroadcastChannel !== 'undefined') {
       this.channel = new BroadcastChannel(`${CHANNEL_PREFIX}${this.userId}`);
       // Another tab queued or sent something: recount, and send if this tab can lead.
-      this.channel.onmessage = () => {
+      this.channel.onmessage = (event) => {
+        // Another tab's pull changed the records: this tab's screens refresh too.
+        if (event.data === 'pulled') pulledListeners.forEach((listener) => listener());
         void this.refresh();
         this.kick();
       };
@@ -160,7 +186,7 @@ class SyncEngine {
       wasOnline = online;
     });
     this.poll = window.setInterval(() => {
-      if (status.pending > 0) this.kick();
+      if (status.pending > 0 || this.pullDue()) this.kick();
     }, POLL_MS);
     this.cleanups.push(
       () => window.removeEventListener('online', kick),
@@ -236,6 +262,11 @@ class SyncEngine {
     return { state: 'applied', cellConflicts: cells };
   }
 
+  syncNow() {
+    this.pullWanted = true;
+    this.kick();
+  }
+
   /** Sends now if this tab can lead and nothing is already sending. */
   kick() {
     if (this.stopped || this.running) return;
@@ -265,6 +296,8 @@ class SyncEngine {
         const ops = await outbox.all(this.db);
         const next = this.nextReady(ops);
         if (!next) {
+          // Queue sent (or waiting on a backoff): bring the records up to date (§6, §7).
+          if (this.pullDue()) await this.pullNow();
           this.scheduleAt(ops);
           return;
         }
@@ -343,6 +376,7 @@ class SyncEngine {
         }));
         await outbox.moveToReview(this.db, cells, op.opId);
         await this.db.put('meta', now, LAST_SYNCED_KEY);
+        this.pullWanted = true;
         await this.changed();
         appliedListeners.forEach((listener) => listener(op, body));
         return true;
@@ -392,6 +426,35 @@ class SyncEngine {
   }
 
   /** Recounts, and tells the other tabs. */
+  /** Pull wanted: on start, after an op lands, and every 5 minutes. */
+  private pullWanted = true;
+  private pulledAt = 0;
+
+  private pullDue() {
+    return this.pullWanted || Date.now() - this.pulledAt > PULL_EVERY_MS;
+  }
+
+  private async pullNow() {
+    this.pullWanted = false;
+    const { outcome, applied } = await pull(this.db);
+    if (outcome === 'done') this.pulledAt = Date.now();
+    // Offline or refused: try again on the next run.
+    else this.pullWanted = true;
+    if (applied > 0) {
+      pulledListeners.forEach((listener) => listener());
+      this.channel?.postMessage('pulled');
+    }
+    await this.changed();
+  }
+
+  records<T>(collection: string) {
+    return recordsOf<T>(this.db, collection);
+  }
+
+  record<T>(collection: string, id: string) {
+    return this.db.get<SyncedRecord<T>>('records', [collection, id]);
+  }
+
   private async changed() {
     await this.refresh();
     this.channel?.postMessage('changed');
@@ -399,10 +462,11 @@ class SyncEngine {
 
   private async refresh() {
     if (this.stopped) return;
-    const [pending, items, lastSyncedAt] = await Promise.all([
+    const [pending, items, lastSyncedAt, lastPulledAt] = await Promise.all([
       this.db.count('outbox'),
       outbox.reviewItems(this.db),
       this.db.get<number>('meta', LAST_SYNCED_KEY),
+      this.db.get<number>('meta', PULLED_AT_KEY),
     ]);
     if (this.stopped) return;
     const forwarded = items.filter((item) => item.kind === 'forwarded').length;
@@ -411,6 +475,7 @@ class SyncEngine {
       review: items.length - forwarded,
       forwarded,
       lastSyncedAt: lastSyncedAt ?? null,
+      lastPulledAt: lastPulledAt ?? null,
     });
   }
 }
@@ -445,8 +510,8 @@ export function enqueueWrite(input: EnqueueInput): Promise<OutboxOp> {
   return engine.enqueue(input);
 }
 
-/** "Sync now". */
-export const syncNow = () => engine?.kick();
+/** "Sync now": sends the queue and brings the records up to date. */
+export const syncNow = () => engine?.syncNow();
 
 /** What became of a queued op: applied (with any batch cells that clashed), sent to review, or forwarded. */
 export interface OpOutcome {

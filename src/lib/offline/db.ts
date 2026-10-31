@@ -107,6 +107,11 @@ export class OfflineDb {
     });
   }
 
+  /** Values whose key falls in `range`, in key order. */
+  getRange<T>(store: StoreName, range: IDBKeyRange): Promise<T[]> {
+    return request(this.store(store, 'readonly').getAll(range)) as Promise<T[]>;
+  }
+
   count(store: StoreName): Promise<number> {
     return request(this.store(store, 'readonly').count());
   }

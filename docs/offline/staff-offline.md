@@ -158,7 +158,7 @@ flowchart LR
   - **Same-instant races (OFF-7, closed with backend 2b376d1):**
     - The server refuses a re-send under the `applyOpKey` of a row that's no longer open with 409 `ALREADY_RESOLVED`. The screen re-reads the row and reports "Dismissed by …" just as it does for a stale card. An unedited apply of a row that's already applied still counts as done.
     - Apply and dismiss lock the row, so a dismiss after the re-send was saved gets 409. The card then reads "Already applied by … so it can't be dismissed."
-  - **What was applied (OFF-6):** rows carry `appliedBody` and `appliedWithEdits`. An applied change is titled by what was saved, reads "Applied with edits by …", and marks each edited field, e.g. "Amount 7 (sent as 5)".
+  - **What was applied (OFF-6):** rows carry `appliedBody` and `appliedWithEdits`. An applied change is titled by what was saved, reads "Applied with edits by …", and marks each edited field, e.g. "Amount GHS 7.00 (sent as GHS 5.00)". Amounts in the field table are formatted as money, as in the title.
   - A refusal (a conflict, a closed term) shows on the card, and the change stays open.
   - A batch write that applied with `conflicts[]` says how many entries had changed since and were left as they are.
 - **Edit** opens the change as JSON (pretty-printed) to correct before **Apply edited change**, which checks that it's valid. It isn't reformatted when the box loses focus. That used to push the button down under a click on compact one-line JSON, so the click was lost (OFF-9, fixed 30 Oct). Feature-specific editors can replace this when attendance and marks arrive.

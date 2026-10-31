@@ -18,6 +18,7 @@ import {
   Textarea,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
+import { formatCedis } from '@/features/fees/money';
 import { studentsApi } from '@/features/students/api';
 import { PageHeader } from '@/features/workspace';
 import { errorCode, errorMessage } from '@/lib/api-client';
@@ -46,6 +47,12 @@ const show = (value: unknown) =>
     : typeof value === 'object'
       ? JSON.stringify(value)
       : String(value);
+
+/** Body fields holding cedis, shown as money like the title ("GHS 8.90"). */
+const MONEY_FIELDS = new Set(['amount']);
+
+const showField = (key: string, value: unknown) =>
+  MONEY_FIELDS.has(key) && typeof value === 'number' ? formatCedis(value) : show(value);
 
 /** "paymentMethod" → "Payment method". */
 const fieldLabel = (key: string) => {
@@ -193,11 +200,12 @@ function ChangeCard({
                       {PUPIL_FIELDS.has(key) ? 'Pupil' : fieldLabel(key)}
                     </Table.Td>
                     <Table.Td style={{ wordBreak: 'break-word' }}>
-                      {(PUPIL_FIELDS.has(key) && pupils.get(String(value))) || show(value)}
+                      {(PUPIL_FIELDS.has(key) && pupils.get(String(value))) ||
+                        showField(key, value)}
                       {edits && show(value) !== show(change.body?.[key]) && (
                         <Text span size="xs" c="dimmed">
                           {' '}
-                          (sent as {show(change.body?.[key])})
+                          (sent as {showField(key, change.body?.[key])})
                         </Text>
                       )}
                     </Table.Td>

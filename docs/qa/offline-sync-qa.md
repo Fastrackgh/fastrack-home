@@ -439,3 +439,29 @@ Tested on 31 Oct 2026 **through the UI**. The suite ran with the last-page worka
 - The field table reads "Amount GHS 4.37 (sent as GHS 4.32)", matching the title.
 - This run's applied and dismissed rows were on **page 1** of their tabs, among more than 100 older rows.
 - b41cf9c has no migration.
+
+## Step 4a: queued attendance register writes (backend a0e58b5)
+
+Tested on 31 Oct 2026 against a0e58b5, after migration 1792600002600 on `fastrack_qab1`. No staff screen queues attendance yet: fastrack-18's work is uncommitted. So I checked the new rules **through the API** (`att.js`, 9 of 9), and the existing **online attendance screen through the UI** (committed frontend d1234df). I used FIS-001, whose current term covers this week. BIS-001's current term is in 2027 after fast-forwarded rollovers, which makes the "as of the day" rules misleading there. Accounts: Primary 1 homeroom teacher kwame.mensah@fastrack.school and head@fastrack.school. **Result: pass. One Low finding: OFF-10.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Two devices, one register (Primary 1, 29 Oct) | The teacher marks Hugo and Efua Present (`from: null`). The head's device, offline since before, sends Hugo Absent and Kofi Late 08:20 (both `from: null`). The head gets 200 with **one** `conflicts[]` entry: Hugo, `current` Present "Kwame Mensah" rowVersion 1, `mine` Absent. Kofi's Late was applied. Each entry has its own `rowVersion`. |
+| 2 | Keep mine (`from` = the server's value) | Applied, and Hugo is Absent with rowVersion 1 → 2 |
+| 3 | Replay | Same key, body and recorded time: 200 with `Idempotent-Replayed: true`. Another body: `IDEMPOTENCY_MISMATCH`. The register is unchanged. |
+| 4 | Same cell, two keys at once (4 school days; the weekend correctly shows as closed) | Each time: both 200, **exactly one** applied and the other got a conflict, with one row |
+| 5 | Pupil moved mid-term (Kofi Ansah, Primary 1 → Primary 2 from 30 Oct, through `promote`), then marked for 28 Oct | In Primary 1: 200. In Primary 2: **422 `NOT_ENROLLED_ON_DATE`** "was not in Primary 2 on 2026-10-28", for both keyed and online callers. The 28 Oct registers list him in Primary 1 and not in Primary 2. |
+| 6 | A teacher queues JHS 1, a class that isn't theirs | **403 `OUT_OF_SCOPE`** with `forwardedTo`. The row is `open` with that code. The head re-sends it with `applyOpKey` (200) and marks it applied, so Emmanuel Osei is Late 08:45, with `recorded_at` equal to the teacher's time. |
+| UI | Online register (Primary 1, 30 Oct) | The teacher's "rest present" saved 7 ("7 marks saved for Primary 1"). The head's change of one pupil to Absent saved 1, with version 2. Primary 1 correctly lists 7: the moved pupil counts as Primary 2 from 30 Oct. |
+
+### OFF-10 (Low; owner: backend): a pupil with two enrolment rows in one term is on two registers
+
+**What happens**
+- `findInClassOn` joins every `enrollment_history` row for the day's term.
+- In BIS-001, Kwame Adjei has two rows for term eb6d (Basic 1, then Basic 2, both on 2026-10-21). Neither has `moved_from_class_id`, because the move predates migration 1792600001800.
+- So on 29 Oct he is listed on **both** the Basic 1 and the Basic 2 registers, and either class can mark him.
+- The unique (pupil, date) row means the second class's mark becomes a cell conflict, not a duplicate. Still, both teachers see him as theirs.
+
+**Suggested fix.** For a term with several rows, use the latest row by `enrolled_on` (then `created_at`) on or before the day, treating rows without `moved_from_class_id` as moves too. Alternatively, backfill `moved_from_class_id` for such rows.
+
+- **Test-data note:** in BIS-001, pupils with no row for a past term fall back to their current class. So a pupil admitted in 2027 shows on 2026 registers. That's fine for real schools, whose current term covers today.

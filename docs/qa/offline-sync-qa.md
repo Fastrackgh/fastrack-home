@@ -698,3 +698,36 @@ Run **through the UI** against frontend :3001 (`fastrack`) and backend :3000 (ma
 | 6 | Parent (Rita Ansah) opens the Bills tab | The totals card shows (In credit GHS 200.00). No "Could not load the totals". |
 
 This test data stays on the shared dev database: FIS Primary 1 registers for 29 and 30 Oct, and the "Split Check" Test 1 mark of 9 on the QPM Mathematics sheet.
+
+## Step 5a: offline cash payments (frontend 4e4a738, backend cb08fa7)
+
+Tested on 1 Nov 2026 **through the UI** as accounts@bis.test and principal@bis.test on BIS-001, on a database copy, with backend cb08fa7 merged with main 444a778. Setup steps and a few server-only cases went through the API, marked below. **Result: all 18 cases pass. One finding: OFF-14.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online payment | Official receipt with an RCT number. The row also stores an OFF number and a group id. |
+| 2 | Offline payment | "Provisional Payment Receipt", "PROVISIONAL — PENDING SYNC", OFF number, and the crest loads from a blob with the network blocked. Nothing on the server. |
+| 2b | Offline list | "Provisional · waiting to sync", and the "Offline:" note after a refresh |
+| 3 | Second offline payment for the pupil | The form shows GHS 4,110.00 (4,130 less the first 20). Both survive an offline reload. |
+| 4 | Back online | Both land once with RCT numbers and no warnings. The balance is 4,080.00. The list shows "was OFF-…". |
+| 5 | GHS 3,000 offline against GHS 2,930 owed | Tray: "Nothing was recorded: the GHS 3,000.00 is still in the cash drawer. It is GHS 70.00 more than the bill owed." Nothing on the server. |
+| 5b | "Keep as credit" | Lands with the same OFF number |
+| 6 | Offline payment for a whole bill the head paid online meanwhile | Applied with BILL_CHANGED and POSSIBLE_DOUBLE_PAYMENT. The tray's "Saved, but check this" names the other RCT, who recorded it, and the credit kept. |
+| 7 | The head modifies the bill down by GHS 100 (API) | Applied with BILL_CHANGED and CREDIT_KEPT. The bill reads -100.00. |
+| 8 | Another op holds the next OFF number (API) | Lands renumbered (OFF-2227-2), printed_ref keeps OFF-2227-1, and nothing goes to review |
+| R | Generate term bills while the clerk is offline (API) | REALLOCATED / CARRIED_FORWARD: the GHS 40 went onto the Term 3 bill (0047). 1,720 carried, 1,680 now owed. Found through the renumbering case, which used the same pupil. |
+| 9 | Response dropped after the server saved | Exactly one payment |
+| 10 | Head's warnings filter | "Possibly paid twice" finds the payment from the other device, with the badge |
+| 11 | Teacher (API) | Naming money collections is 403. The default snapshot has none. |
+| 12 | Sign out with a payment queued | Guarded |
+| 13 | Sign-out wipe | The user's IndexedDB database is gone |
+| 14 | Next user on the same browser | The OFF number continues (4 after 3) |
+| API | NO_BILL, same-key replay, ref taken | 422 NO_BILL; the same RCT with Idempotent-Replayed and one row; 409 PROVISIONAL_REF_TAKEN |
+
+- **Not run:** backend e2e on cb08fa7. Its session stopped without reporting, so CI on its PR is the first e2e run. Typecheck and unit tests pass on the merge with main: 807/807.
+- **Not tested:** the DUPLICATE_REFERENCE, RECEIPT_NUMBER_TAKEN and PAYMENT_DATE_TOO_EARLY tray cards, and the sibling-transfer resend, in the UI. fastrack-18 reports them passing.
+- **Observation (not a finding):** RCT numbers follow sync order, not the order cash was taken (Yaa's two payments, queued first, got 0017 and 0018, after later ones got 0014–0016). The contract's order is first-in-first-out per record, so this is allowed. The paper trail is the OFF number and the payment date.
+
+### OFF-14 (Medium; owner: staff frontend): the clerk waits about 8 seconds for each provisional receipt while offline
+
+Measured at 8,425 ms. `RecordPaymentModal.tsx settle()` waits `LAND_WAIT_MS = 8_000` for the op to land, even though the device already shows Offline and nothing can land. A clerk with a queue of parents sits behind a spinner on every payment. **Fix:** skip the wait when the device knows it's offline, and show the provisional receipt at once.

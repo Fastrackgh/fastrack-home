@@ -701,7 +701,7 @@ This test data stays on the shared dev database: FIS Primary 1 registers for 29 
 
 ## Step 5a: offline cash payments (frontend 4e4a738, backend cb08fa7)
 
-Tested on 1 Nov 2026 **through the UI** as accounts@bis.test and principal@bis.test on BIS-001, on a database copy, with backend cb08fa7 merged with main 444a778. Setup steps and a few server-only cases went through the API, marked below. **Result: all 18 cases pass. Findings: OFF-14 (fixed) and OFF-15, the second found in the re-test below.**
+Tested on 1 Nov 2026 **through the UI** as accounts@bis.test and principal@bis.test on BIS-001, on a database copy, with backend cb08fa7 merged with main 444a778. Setup steps and a few server-only cases went through the API, marked below. **Result: all 18 cases pass. Findings: OFF-14 and OFF-15 (both fixed), and OFF-16 (open, Low), from the re-tests below.**
 
 | # | Case | Result |
 | --- | --- | --- |
@@ -747,3 +747,24 @@ The queued body has no `paymentDate`. `payments-sync.ts` keeps the date only in 
 **Why it matters:** the parent's provisional receipt shows the day the cash was taken, but the official receipt shows a later one. The payment falls in the wrong day's cash records, and a payment spanning a term end could fall in the wrong term.
 
 **Suggested fix:** send `paymentDate` (the device's local date when queued) in the body. The backend should also default a missing date on a keyed op to the school-local date of `X-Client-Recorded-At`. Add the rule to contract §9.1.
+
+### Re-test of 73b1011: OFF-15 fixed
+
+Tested on 1 Nov 2026 **through the UI** on a database copy, frontend 73b1011 with backend cb08fa7 merged with main 444a778, with the device clock shifted in the page. **Result: pass.**
+
+| Case | Result |
+| --- | --- |
+| Online | Dated today |
+| Clock 2 days behind, reloaded offline (no server offset) | The receipt and the official payment both read 2026-10-30 |
+| "Keep as credit" resend of that kind of payment | Keeps 2026-10-30 |
+| Clock 3 days ahead, reloaded offline | Not saved. Card: "It was dated 2026-11-04, which is in the future, so the device's date was probably wrong", with the cash line and "Made this minute". "Send dated today" lands it as 2026-11-01 with the same OFF number. |
+| Clock 2 days ahead from before sign-in | Dated 2026-11-01 by the server clock, with no refusal |
+
+- `X-Server-Time` is sent on auth, sync and keyed writes, not on ordinary GETs. A clock changed after sign-in is only corrected at the next such request. Until then it behaves like the reloaded cases above.
+- PAYMENT_DATE_TOO_EARLY can't be reached through the UI on BIS-001: its first year began 61 days ago, past the 25-day rule below. API only.
+
+### OFF-16 (Low; owner: staff frontend): two wrong-clock edges
+
+1. **Misleading card past 25 days.** With the clock 30 or more days behind, the card reads "Made 30 days ago … This change waited more than 25 days and was not sent", and only "Discard my change" is offered, not "Send dated today". It's safe: nothing is saved, and the card says the cash is in the drawer. But the clerk has to record the payment again under a new OFF number, while the parent holds the old one.
+2. **The server offset isn't kept across a reload.** `serverOffsetMs` lives in memory. Reloading offline with a clock that is days behind dates the payment on that wrong day, and nothing flags it, because a past date is valid. Storing the offset on the device would fix this.
+

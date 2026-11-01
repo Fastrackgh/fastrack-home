@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, Drawer, Group, Stack, Table, Text } from '@mantine/core';
 import { registerAttendanceResolver } from '@/features/attendance/sync';
+import { registerPaymentsSync } from '@/features/fees/payments-sync';
 import { itemNameKey, registerMarksResolver } from '@/features/results/marks-sync';
 import { formatAge } from '@/lib/format';
 import type { ReviewItem } from '@/lib/offline/outbox';
@@ -19,6 +20,7 @@ import { useSyncStatus } from '@/lib/offline/useSyncStatus';
 // "Keep mine" for each feature that queues writes; the tray can open on any page.
 registerAttendanceResolver();
 registerMarksResolver();
+registerPaymentsSync();
 
 /** Fields that describe a write, not its value. */
 const META_FIELDS = new Set(['updatedBy', 'updatedAt', 'rowVersion', 'version', 'id']);
@@ -86,6 +88,7 @@ const KIND_BADGE: Record<ReviewItem['kind'], { label: string; color: string }> =
   cell: { label: 'Changed by someone else', color: 'orange' },
   rejected: { label: 'Not accepted', color: 'red' },
   forwarded: { label: 'Sent to the head teacher', color: 'blue' },
+  notice: { label: 'Saved, but check this', color: 'red' },
 };
 
 function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) {
@@ -145,7 +148,9 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
           Made {formatAge(item.op.createdAt)}
           {by ? ` · changed by ${by}` : ''}
         </Text>
-        {item.kind === 'forwarded' ? (
+        {item.kind === 'notice' ? (
+          <Text size="sm">{reviewExplanation(item) ?? item.error?.message}</Text>
+        ) : item.kind === 'forwarded' ? (
           <Text size="sm">
             You no longer have access to this, so it was passed to the head teacher or an admin, who
             can apply or dismiss it.
@@ -182,14 +187,14 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
           </Table>
         )}
         <Group justify="flex-end" gap="xs">
-          {item.kind === 'forwarded' ? (
+          {item.kind === 'forwarded' || item.kind === 'notice' ? (
             <Button
               size="compact-sm"
               variant="default"
               loading={busy === 'dismiss'}
               onClick={() => act('dismiss')}
             >
-              OK
+              {item.kind === 'notice' ? 'I’ve checked it' : 'OK'}
             </Button>
           ) : (
             <>

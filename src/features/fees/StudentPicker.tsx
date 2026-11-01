@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Select, type SelectProps } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import { feesApi, type StudentOption } from './api';
+import { offlineStudents, onlineOr } from './payments-sync';
 
 export interface PickedStudent {
   value: string;
@@ -43,9 +44,12 @@ export function StudentPicker({
     if (picked && query === picked.label) return;
     const request = ++latest.current;
     setLoading(true);
-    feesApi
-      .searchStudents(query)
-      .then((list) => {
+    // Offline, the pupils synced to this device.
+    onlineOr(
+      () => feesApi.searchStudents(query),
+      () => offlineStudents(query),
+    )
+      .then(({ value: list }) => {
         // An older, slower answer must not replace a newer one.
         if (request === latest.current)
           setResults(list.map((s) => ({ value: s.id, label: studentLabel(s) })));

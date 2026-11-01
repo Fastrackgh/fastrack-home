@@ -59,9 +59,7 @@ export function errorDetails<T>(err: unknown): T | undefined {
 
 /** The machine `code` of a failed request (e.g. `CONFLICT`, docs/offline/sync-contract.md §6). */
 export function errorCode(err: unknown): string | undefined {
-  return err instanceof ApiError
-    ? (err.details as { code?: string } | undefined)?.code
-    : undefined;
+  return err instanceof ApiError ? (err.details as { code?: string } | undefined)?.code : undefined;
 }
 
 /** Every browser-storage key that belongs to a signed-in session. */
@@ -183,6 +181,11 @@ class ApiClient {
   private noteServerTime(headers: Headers) {
     const at = Date.parse(headers.get('X-Server-Time') ?? '');
     if (!Number.isNaN(at)) this.serverOffsetMs = at - Date.now();
+  }
+
+  /** Now on the server's clock, as of the last `X-Server-Time` seen (the device clock before any). */
+  serverNow(): Date {
+    return new Date(Date.now() + this.serverOffsetMs);
   }
 
   /**

@@ -355,6 +355,7 @@ export async function saveRegister(register: Register, changes: MarkChange[]): P
     outcome: worst ?? {
       state: 'applied',
       cellConflicts: landed.reduce((sum, outcome) => sum + outcome.cellConflicts, 0),
+      opId: landed[0].opId,
     },
     count,
   };

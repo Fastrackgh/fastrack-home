@@ -29,7 +29,7 @@ interface Entry {
   reason?: string;
 }
 
-const CURSOR_KEY = 'pullCursor';
+export const CURSOR_KEY = 'pullCursor';
 /** A snapshot in progress: its fixed cursor and the next page, so it can resume. */
 const SNAPSHOT_KEY = 'pullSnapshot';
 export const PULLED_AT_KEY = 'pulledAt';

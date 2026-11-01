@@ -30,6 +30,8 @@ export interface OutboxOp {
   label: string;
   /** Kept on the device only, never sent: display names for ids in the body (e.g. pupils), for the review tray. */
   names?: Record<string, string>;
+  /** Kept on the device only, never sent: what a screen shows for the op before it lands (e.g. a provisional receipt). */
+  local?: Record<string, unknown>;
   createdAt: number;
   /** Failed sends so far, for the backoff. */
   attempts: number;
@@ -49,6 +51,7 @@ export interface EnqueueInput {
   dependsOn?: string[];
   label: string;
   names?: Record<string, string>;
+  local?: Record<string, unknown>;
 }
 
 /**
@@ -58,10 +61,12 @@ export interface EnqueueInput {
  *   - cell:     one cell of an applied batch write clashed (attendance, marks)
  *   - forwarded: a 403, handed to a head or admin on the server (§6.2); shown
  *     to the user as information only
+ *   - notice:   the op applied, but with something the user must see (e.g. a
+ *     payment that may have been taken twice, §9.1); only acknowledged
  */
 export interface ReviewItem {
   id: string;
-  kind: 'conflict' | 'rejected' | 'cell' | 'forwarded';
+  kind: 'conflict' | 'rejected' | 'cell' | 'forwarded' | 'notice';
   op: OutboxOp;
   error?: SyncError;
   cell?: CellConflict;
@@ -69,6 +74,8 @@ export interface ReviewItem {
 }
 
 const SEQ_KEY = 'outboxSeq';
+/** Where an op that was replaced (renumbered) went, so waiting for it follows. */
+export const aliasKey = (opId: string) => `opAlias:${opId}`;
 const DEVICE_KEY = 'deviceId';
 
 /** The device's id for this user (`X-Device-Id`), created on first use. */
@@ -95,6 +102,7 @@ function newOp(input: EnqueueInput, seq: number): OutboxOp {
     dependsOn: input.dependsOn ?? [],
     label: input.label,
     names: input.names,
+    local: input.local,
     createdAt: now,
     attempts: 0,
     nextAttemptAt: 0,
@@ -140,6 +148,33 @@ export const outbox = {
         };
       };
       tx.oncomplete = () => resolve(op);
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    });
+  },
+
+  /**
+   * Puts `next` in `op`'s place in the queue (same position, a new key), and
+   * points the ops that depend on it, and `aliasKey(op.opId)`, at the new one.
+   */
+  replace(db: OfflineDb, op: OutboxOp, next: OutboxOp): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['outbox', 'meta'], 'readwrite');
+      const store = tx.objectStore('outbox');
+      store.delete(op.opId);
+      store.put(next);
+      const all = store.getAll();
+      all.onsuccess = () => {
+        for (const other of all.result as OutboxOp[]) {
+          if (other.dependsOn.includes(op.opId)) {
+            store.put({
+              ...other,
+              dependsOn: other.dependsOn.map((id) => (id === op.opId ? next.opId : id)),
+            });
+          }
+        }
+      };
+      tx.objectStore('meta').put(next.opId, aliasKey(op.opId));
+      tx.oncomplete = () => resolve();
       tx.onerror = tx.onabort = () => reject(tx.error);
     });
   },

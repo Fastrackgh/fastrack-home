@@ -505,7 +505,7 @@ Dev-only endpoints are mounted only when `NODE_ENV=development`, under the exist
 | Q4 | `marks` granularity | One entry per pupil row, carrying every cell, with a strictly rising `version` (§8). |
 | Q5 | Student edits: partial apply with `conflicts[]`, like the batch cells? | **No** (agreed with the staff frontend), Q1 stands (§9.3). Batch cells are independent records. A pupil's fields often belong together (a mother's name and her number), and half-applying them can pair the wrong ones. The engine's re-base already applies every non-clashing field, as a second op. |
 | Q6 | Does `LIKELY_DUPLICATE` apply to online admissions? | **Yes** (agreed with the staff frontend; §9.2), so a clerk online gets the same protection. It changes today's online behaviour, so the backend's 5b merges together with the frontend's 5b, which adds "Admit anyway" to the online form. |
-| Q7 | Who gets a teacher's queued changes after they lose a class? | Unchanged: the head's Changes to review (§6.2). Still open with the user. |
+| Q7 | Who gets a teacher's queued changes after they lose a class? | **Decided by the user (1 Nov 2026):** the head's Changes to review (§6.2), as built. No code change. |
 
 ## 12. Review log
 

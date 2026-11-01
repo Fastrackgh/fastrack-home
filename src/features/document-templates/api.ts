@@ -250,6 +250,14 @@ export function documentTemplatesApi(schoolId: string, asPlatform: boolean) {
       form.append('file', file);
       return (await apiClient.postForm<DesignImage>('/media', form)).data;
     },
+    /** The school's own logo, which a School header prints unless given another (QA-281). */
+    async schoolLogo() {
+      const path = asPlatform
+        ? `/super-admin/schools/${encodeURIComponent(schoolId)}`
+        : '/schools/me';
+      const logo = (await apiClient.get<{ logoUrl?: string | null }>(path)).data?.logoUrl;
+      return logo || null;
+    },
     /** The school's fee types, for grouping fees in the fee table. */
     async feeTypes() {
       const path = asPlatform

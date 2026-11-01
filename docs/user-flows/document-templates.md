@@ -40,6 +40,7 @@ Backend verified against `fastrack-space/fastrack-backend`, branch `fix/invoice-
 | Load: versions | `GET {base}?kind=` | ✓ | read. Sorted by version, newest first. Returns an array (not paginated). |
 | Load: school samples | `GET /media?ownerType=SCHOOL&ownerId&purpose=TEMPLATE_SAMPLE` | ✓ | Principal of the same school with read, or Super Admin. The frontend filters by `label` (`invoice_bill` or `exam_report`). |
 | Load: design images | `GET /media?…&purpose=TEMPLATE_ASSET` | ✓ | same rule |
+| Load: the school's logo | `GET /schools/me` or `GET /super-admin/schools/:id` (`logoUrl`) | ✓ | For the School header's logo picker (QA-281). The Designs tab uses the viewed school's logo. A failure leaves the tile at "School logo (none set)". |
 | Load: fee types (bill only) | `GET /schools/me/fee-types` or `/super-admin/schools/:id/fee-types` | ✓ | Needs module `fees` plus `fee_types:read`. Errors are swallowed and the list becomes `[]`. |
 | New design (starter) | `POST {base}` `{kind, starter, name}` | ✓ | manage. Version = max + 1. |
 | Autosave | `PATCH {base}/:id` `{layout, expectedUpdatedAt}` | ✓ | manage. Drafts only (409 otherwise). A changed-elsewhere draft → 409 "This design was changed somewhere else…" (QA-067). The layout is validated, compiled to HTML/CSS and test-rendered. |
@@ -132,6 +133,7 @@ Every rule below is checked on the server, by `layout-compiler.ts` and `layout-p
 | Number | min and max from the schema. Clearing the field on the client sends `0`. |
 | List / fee groups | ≤50 items |
 | Image | Must be the school's own `TEMPLATE_ASSET` or logo, else "An image in this design was not found; upload it again" |
+| School header logo | The first tile, selected when the property is empty, is **School logo** with the school's own logo as its thumbnail. An empty value prints that logo. Without a logo, the tile reads "School logo (none set)" and points to School setup → School profile (the school's Overview tab for Fastrack staff). Uploading or picking an image prints that one instead, and **Show crest / logo** turns the logo off. Other image properties keep a "None" tile. (QA-281) |
 | Name | ≤120 characters (DTO). A blank name is ignored. |
 | Preview invoice id | `@IsUUID`, and the invoice must belong to the same school |
 | Code mode (staff) | HTML and CSS sanitised (`template-sanitizer.ts`), CSS ≤200 KB, `settings` shape checked, test-rendered |

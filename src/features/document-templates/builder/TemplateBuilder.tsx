@@ -102,6 +102,7 @@ export function TemplateBuilder({
   const [versions, setVersions] = useState<DocumentTemplate[] | null>(null);
   const [samples, setSamples] = useState<TemplateSample[]>([]);
   const [images, setImages] = useState<DesignImage[]>([]);
+  const [schoolLogo, setSchoolLogo] = useState<string | null>(null);
   const [feeTypes, setFeeTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [current, setCurrent] = useState<DocumentTemplate | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -137,12 +138,14 @@ export function TemplateBuilder({
       api.kinds(),
       api.images(),
       feesEnabled ? api.feeTypes().catch(() => []) : Promise.resolve([]),
+      api.schoolLogo().catch(() => null),
     ])
-      .then(([allKinds, imageList, fees]) => {
+      .then(([allKinds, imageList, fees, logo]) => {
         if (cancelled) return;
         setKinds(allKinds);
         setImages(imageList);
         setFeeTypes(fees);
+        setSchoolLogo(logo);
       })
       .catch((e: unknown) => {
         if (!cancelled) setLoadError(errorMessage(e, 'Could not load designs.'));
@@ -312,6 +315,8 @@ export function TemplateBuilder({
     () => ({
       placeholders: info?.placeholders ?? [],
       images,
+      schoolLogo,
+      logoSetIn: isStaff ? 'this school’s Overview tab' : 'School setup → School profile',
       feeTypes,
       readOnly: !editable,
       uploadImage: async (file) => {
@@ -329,7 +334,7 @@ export function TemplateBuilder({
         }
       },
     }),
-    [api, editable, feeTypes, images, info],
+    [api, editable, feeTypes, images, info, isStaff, schoolLogo],
   );
 
   const selected = layout && selectedId ? locate(layout, selectedId) : null;

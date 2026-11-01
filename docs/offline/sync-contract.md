@@ -1,6 +1,6 @@
 # Offline sync contract (staff portal)
 
-**Status:** **agreed** v0.5.4 (2 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
+**Status:** **agreed** v0.5.5 (2 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
 **Owners:** backend (`fastrack-backend`), staff frontend (`/school-admin`).
 **Plan:** `humming-tumbling-codd.md`, "Sync contract" and "Backend work" B1–B5.
 
@@ -203,6 +203,7 @@ The 422 codes so far: `VALIDATION_FAILED`, `TERM_CLOSED`, `SHEET_LOCKED`, `NOT_E
 | 409 | `PROVISIONAL_REF_TAKEN` | payments | **renumber**: the engine gives the payment the next `n`, keeps its `id` and resends it as a new op. It is never sent to review. |
 | 409 | `RECEIPT_NUMBER_TAKEN` | payments | rejected: a typed `receiptNumber` is already used in the school |
 | 409 | `LIKELY_DUPLICATE` | admissions | conflict (already in the table above): the tray shows `reason.candidates` |
+| 400 | `ID_MISMATCH_RETURNING` | admissions | rejected: a returning pupil sent an id other than their record's |
 | 422 | `PAYMENT_EXCEEDS_BALANCE` | payments | rejected: the clerk typed more than the device showed as owed and didn't confirm credit |
 | 422 | `SHARED_TRANSFER_REFERENCE` | payments | rejected: a MoMo/bank reference already pays another pupil; resend with `sharedReference: true` if it's one transfer for siblings |
 | 422 | `NO_BILL` | payments | rejected: the pupil has no bill to pay against |
@@ -444,12 +445,13 @@ Without `seenBalance` (the online form, today), there are no `BILL_CHANGED` or `
 
 ### 9.2 Admissions: `POST /schools/me/students` (step 5b)
 
-- `id` (UUIDv4) becomes the `schoolStudentId` (§2). The enrolment is already in the body (`admissionClassId`, `classId`, `admissionTermId`), so attendance and marks queued later can `dependsOn` the admission.
+- `id` (UUIDv4) becomes the `schoolStudentId` (§2). A returning pupil (`studentId` of someone with an old record here) keeps that record, so `id` must equal its `schoolStudentId`, and ops queued for them can `dependsOn` the re-admission. Any other `id` is 400 `ID_MISMATCH_RETURNING` with `reason.schoolStudentId`, and nothing is saved.
+- With no `id`, the server allocates one as today. The enrolment is already in the body (`admissionClassId`, `classId`, `admissionTermId`), so attendance and marks queued later can `dependsOn` the admission.
 - `studentCode` is allocated **at sync**, under a per-school advisory lock (`generateNextStudentCode` has none today, so two admissions at once can get the same code). It comes back in the response and the feed. Until then the device shows it as pending. A typed `studentCode` is still accepted, as today.
 - **The duplicate check runs inside the same lock**, before the code is allocated and the pupil is saved, and the lock is held until the admission commits. So of two admissions of the same child at once (two devices syncing together), the second always sees the first and gets `LIKELY_DUPLICATE`. Both can't pass.
 - **Likely duplicate.** Without `studentId` (an admission of a new person), the server looks in this school for a pupil with:
   - the same first name and surname (case and spacing ignored), **and**
-  - the same birth date, **or** a guardian phone (mother's, father's or emergency) equal to one in the request.
+  - the same birth date, **or** a guardian phone (mother's, father's or emergency) with the same last 9 digits as one in the request, so `024…` matches `+23324…`.
 
   If any match, it returns 409 `LIKELY_DUPLICATE` with `reason.candidates: [{id, studentCode, name, className, dateOfBirth, guardianPhone, status}]`. `id` is the candidate's `schoolStudentId`. `guardianPhone` is null for a user without `students:read_sensitive`.
   - "Admit anyway": the client resends as a new op with **`confirmNotDuplicate: true`**, which skips the check.
@@ -621,3 +623,4 @@ QA signs off once these are in. All are now in (v0.5.2):
 | 2026-11-01 | 0.5.2 | QA review of v0.5.1 (§12): the `POSSIBLE_DOUBLE_PAYMENT` warning, with the `seenCursor` field (preferred) and `seenAsOf` (2-minute margin); warnings stored on payments and filterable; where `REALLOCATED` money lands when nothing is owed; the logo cached by the frontend; UI test paths; the duplicate check inside the admission lock; queued payments in the "It's this pupil" remap. **Agreed** (staff frontend and QA). |
 | 2026-11-01 | 0.5.3 | QA: payments queued by the same device (`X-Device-Id`, stored with the payment) never count as unseen for `POSSIBLE_DOUBLE_PAYMENT`; a later payment's `seenBalance` is the device's optimistic balance after its own queued payments (§9.1). `seenCursor` is confirmed. QA signs off. |
 | 2026-11-02 | 0.5.4 | QA OFF-15: a keyed payment without `paymentDate` is dated by the corrected `recorded_at`; the future-date refusal gets the code `PAYMENT_DATE_IN_FUTURE`, with the same 400 and message (§6, §9.1). **Agreed** (staff frontend). Backend a0c3bf4. |
+| 2026-11-02 | 0.5.5 | Built with step 5b (§9.2): guardian phones compare by the last 9 digits; a returning pupil's `id` must be their record's, otherwise 400 `ID_MISMATCH_RETURNING`. **Agreed** (staff frontend, QA). |

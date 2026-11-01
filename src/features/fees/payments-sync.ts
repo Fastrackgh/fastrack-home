@@ -406,7 +406,8 @@ function explain(item: ReviewItem): string | null {
     case 'PAYMENT_DATE_TOO_EARLY':
       return `${cash} It was dated ${dateSent(item)}, before the school's first academic year, so the device's date was probably wrong. Send it dated today, or discard it.`;
     case 'OP_TOO_OLD':
-      return `${cash} It waited more than 25 days to be sent, so it wasn't: it may already have reached the school, and sending it now could record it twice. If this device's date was wrong, correct it. Then look for ${parseBody(item.op)?.provisionalRef ?? 'its OFF number'} under Payments, and record the payment again only if it isn't there.`;
+      // Not "nothing was recorded": an op this old may have landed with its answer lost.
+      return `This payment may not have been recorded. It waited more than 25 days to be sent, so it wasn't sent again: it may already have reached the school, and sending it now could record it twice. If this device's date was wrong, correct it. Then look for ${parseBody(item.op)?.provisionalRef ?? 'its OFF number'} under Payments, and record the payment again only if it isn't there.`;
     default:
       if (futureDate(item)) {
         return `${cash} It was dated ${dateSent(item)}, which is in the future, so the device's date was probably wrong. Send it dated today, or discard it.`;

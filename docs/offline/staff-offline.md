@@ -227,13 +227,16 @@ flowchart LR
     - `NO_BILL`: bill the pupil first, then **Send again**.
     - `PAYMENT_DATE_TOO_EARLY`, or a 400 "can't be in the future": the device's date was probably wrong. The card shows the date sent and offers **Send dated today**.
     - `DUPLICATE_REFERENCE` and `RECEIPT_NUMBER_TAKEN`: discard only.
-    - Too old to send (more than 25 days): discard only. A resend could record the payment twice, because its key may have expired after it landed. The card says to correct the device's date if it was wrong, look for the OFF number under Payments, and record the payment again only if it isn't there.
+    - Too old to send (more than 25 days): discard only. A resend could record the payment twice, because its key may have expired after it landed. This card alone leads with **"This payment may not have been recorded."**, with no cash-drawer line, because the device can't know whether it landed. It says to correct the device's date if it was wrong, look for the OFF number under Payments, and record the payment again only if it isn't there.
   - A **possible double payment** is applied, but it lands in the tray as a red **"Saved, but check this"** notice, with only **I've checked it**. It names the other receipt and the credit kept, and says the school may owe a refund. Notices count in "N need review".
 - **Renumbering:** 409 `PROVISIONAL_REF_TAKEN` gives the op the next number and keeps the first one in `printedRef`. The op is resent under a new key, in the same place in the queue. Ops that depended on it, and anyone waiting for it, follow it (`outbox.replace`, `opAlias:` in meta). It is never sent to review.
 - **Device clocks (OFF-16, fixed 1 Nov):**
   - The server clock offset (from `X-Server-Time`) is saved with the session (`fastrack_server_offset_ms`, cleared at sign-out). An offline reload with a clock that's days off still dates payments by the server's day.
   - An op's `createdAt`, and so its 25-day age, is on that clock. A slow device clock no longer makes a fresh payment look too old.
-  - Still open: `X-Server-Time` comes only on auth, sync and keyed writes, so a clock changed mid-session is corrected at the next one of those.
+  - A device clock changed while the page is open (for example corrected while offline) is noticed: `Date.now()` against `performance.timeOrigin + performance.now()` moves by more than a minute. The saved offset is then dropped, and the device clock is used until the server is heard from again. It isn't adjusted by the measured jump, because `performance.now()` can pause while a laptop sleeps.
+  - Known limits:
+    - A clock changed while the app was closed can't be noticed. The saved offset then shifts the date by the change until the next server contact.
+    - `X-Server-Time` comes only on auth, sync and keyed writes.
 - **Clock jumps:** an op whose next try is more than 10 minutes away is sent now. The backoff caps at 5 minutes, so a longer wait only happens when the device clock jumped back after the op backed off. A review card made while the clock was ahead reads "Made this minute", not "in 4,320 minutes".
 - **Engine fix:** an op queued while the engine was in the middle of a run (for example a long first pull) waited for the 30 s poll. A kick during a run now starts another run straight after it.
 - **Known limit:** right after an online payment, a device that goes offline before its next pull still has the bill's old balance. The next offline payment then gets `BILL_CHANGED`, which is accurate about what the device showed. The pull runs as soon as the payment lands, so this only happens if the device drops within a second or so.
@@ -250,6 +253,10 @@ flowchart LR
   - **Dates (OFF-15, 7/7):**
     - A payment taken offline with the device clock 2 days behind, after a reload so the server offset was gone, showed that day on the provisional receipt and in the queued body, and kept it at sync.
     - One taken with the clock 3 days ahead was refused as a future date. The card showed the date and the cash line, and **Send dated today** landed it dated today under the same OFF number.
+  - **Clock corrected while offline, and the too-old card (OFF-16, 4/4):**
+    - The clock was 2 days behind at sign-in, then corrected while offline. The payment was dated today, not 2 days ahead.
+    - A payment queued and then a 26-day jump with no server contact: the card led with "This payment may not have been recorded", with no cash line and discard only.
+    - When a background request reaches the server first, the offset is learned again and the payment, really only minutes old, is rightly sent.
   - **Clock 30 days behind for a whole session (OFF-16, 5/5):** after an offline reload, the receipt and the queued body were dated today, and the payment landed with nothing in review.
   - The earlier suites still pass: tray 12/12, attendance 23/23, marks 15/15, Changes to review 19/19, pull 8/8, past days 3/3.
 

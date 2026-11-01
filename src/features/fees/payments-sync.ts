@@ -381,9 +381,10 @@ function cashLine(op: OutboxOp) {
 
 const details = (item: ReviewItem) => (item.error?.details ?? {}) as Raw;
 
-/** 400 "The payment date can't be in the future": the device's clock was ahead (no code). */
+/** 400 PAYMENT_DATE_IN_FUTURE (contract v0.5.4; before it, only the message): the device's clock was ahead. */
 const futureDate = (item: ReviewItem) =>
-  item.error?.status === 400 && /payment date can.t be in the future/i.test(item.error.message);
+  item.error?.code === 'PAYMENT_DATE_IN_FUTURE' ||
+  (item.error?.status === 400 && /payment date can.t be in the future/i.test(item.error.message));
 
 const dateSent = (item: ReviewItem) => parseBody(item.op)?.paymentDate ?? 'the date sent';
 

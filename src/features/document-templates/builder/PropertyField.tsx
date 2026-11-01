@@ -31,6 +31,10 @@ import { moveItem } from './layout-ops';
 export interface FieldContext {
   placeholders: Placeholder[];
   images: DesignImage[];
+  /** The school's own logo, the School header's default (QA-281); null when none is set. */
+  schoolLogo: string | null;
+  /** Where the school's logo is set, for a school without one. */
+  logoSetIn: string;
   uploadImage: (file: File) => Promise<DesignImage | null>;
   feeTypes: Array<{ id: string; name: string }>;
   readOnly: boolean;
@@ -205,9 +209,13 @@ function RichTextField({ schema, value, onChange, ctx }: Props) {
   );
 }
 
+/** The School header's `logo`: empty prints the school's own logo, so that's the default tile. */
+const LOGO_KEY = 'logo';
+
 /** Pick an uploaded design image, or upload a new one. */
 function ImageField({ schema, value, onChange, ctx }: Props) {
   const selected = typeof value === 'string' ? value : null;
+  const schoolLogo = schema.key === LOGO_KEY;
   return (
     <Stack gap={4}>
       <Group justify="space-between">
@@ -230,23 +238,53 @@ function ImageField({ schema, value, onChange, ctx }: Props) {
           )}
         </FileButton>
       </Group>
-      {schema.help && (
+      {schoolLogo ? (
         <Text size="xs" c="dimmed">
-          {schema.help}
+          {ctx.schoolLogo
+            ? 'Prints the school logo. Upload or pick an image only to print a different one.'
+            : `No school logo is set yet. Add one in ${ctx.logoSetIn}, or upload a different one here.`}
         </Text>
+      ) : (
+        schema.help && (
+          <Text size="xs" c="dimmed">
+            {schema.help}
+          </Text>
+        )
       )}
       <SimpleGrid cols={4} spacing={6}>
         <UnstyledButton
           onClick={() => onChange(null)}
           disabled={ctx.readOnly}
+          aria-label={
+            schoolLogo ? `Use the school logo${ctx.schoolLogo ? '' : ' (none set)'}` : 'No image'
+          }
+          aria-pressed={!selected}
+          title={schoolLogo ? 'School logo' : undefined}
           style={{
             border: `2px solid ${selected ? 'var(--mantine-color-gray-3)' : 'var(--mantine-color-blue-6)'}`,
             borderRadius: 6,
             height: 56,
             fontSize: 11,
+            overflow: 'hidden',
           }}
         >
-          None
+          {schoolLogo && ctx.schoolLogo ? (
+            <Stack gap={0} align="center">
+              <Image
+                src={ctx.schoolLogo}
+                alt=""
+                fit="contain"
+                style={{ height: 36, maxHeight: 36, width: '100%' }}
+              />
+              <Text fz={10} lh={1.4}>
+                School logo
+              </Text>
+            </Stack>
+          ) : schoolLogo ? (
+            'School logo (none set)'
+          ) : (
+            'None'
+          )}
         </UnstyledButton>
         {ctx.images.map((img) => (
           <UnstyledButton

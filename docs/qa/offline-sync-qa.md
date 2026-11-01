@@ -669,3 +669,32 @@ Run on 31 Oct 2026 **through the UI** in two visible browser windows, with front
     - The `fastrack` database already had all 41 migrations, so no database change was made.
   - **Checked:** with parent rita.ansah@gmail.com, the summary returns **200** (4 bills, GHS 200 overpaid).
 - **Frontend `fastrack`** stays on `feat/rbac-workspace`: it is ahead of `main` (it holds everything in `main` plus 237 commits). 102 of those commits are not on GitHub yet. Pushing them is waiting on the user's go-ahead.
+
+## Merged to main, 1 Nov 2026
+
+- **Merged by the user:** backend PR #6 (payment fixes, 2989a98), PR #7 (offline sync, adfcece) and PR #8 (QA-279, 001dede), and frontend fastrack-home#3 (72aae75). Backend main CI is green at 001dede, its first green run since 26 Oct.
+- **Why CI was red:** commit 3c4a1ed reformatted `test/fixtures/results-fixtures.json`. The content was unchanged, but the bytes changed, so the pinned hash broke. fb738a8 restored the agreed bytes and added the file to `.prettierignore`.
+- **Shared `fastrack` database:**
+  - It was backed up first to `fastrack-space/db-backups/fastrack-2026-11-01-before-offline-sync.dump` (61 tables).
+  - The run was rehearsed on a copy.
+  - Then the migrations were run from main 001dede: **41 → 51**. That's the 8 sync migrations plus PaymentReceiptBalances and LineItemFeeNames from #6, which share timestamps with two sync migrations but have different names.
+  - **Checked:**
+    - All 306 invoice line items have a `fee_name`, with no fallback "Fee".
+    - 11 users got `sync:review`.
+    - Old payments have no stored balances, and the staff receipt shows "—" for them, as designed in QA-277.
+- **Behaviour change in #7:** a payment resent with the same Idempotency-Key and body now replays the original 201 receipt (`Idempotent-Replayed: true`) instead of returning a 409. A different body returns 409 IDEMPOTENCY_MISMATCH. Only one payment row is written.
+
+### Post-merge re-test on the user's own setup
+
+Run **through the UI** against frontend :3001 (`fastrack`) and backend :3000 (main 001dede) on the shared database. **Result: 6 of 6.**
+
+| # | Check | Result |
+| --- | --- | --- |
+| 1 | The teacher saves Primary 1 for Fri 30 Oct online | "Register saved", 8 rows |
+| 2 | The teacher saves Thu 29 Oct offline, then reconnects | "Saved on this device", 0 rows on the server. After reconnecting: 8 rows, Hugo Absent. |
+| 3 | The head opens Changes to review | It opens: "Nothing to review" |
+| 4 | Students search "Abena Osei" (QA-279) | One row: Abena Osei |
+| 5 | The QPM teacher enters a Test 1 mark offline, then reconnects | "1 mark waiting to sync", then saved (9.00) |
+| 6 | Parent (Rita Ansah) opens the Bills tab | The totals card shows (In credit GHS 200.00). No "Could not load the totals". |
+
+This test data stays on the shared dev database: FIS Primary 1 registers for 29 and 30 Oct, and the "Split Check" Test 1 mark of 9 on the QPM Mathematics sheet.

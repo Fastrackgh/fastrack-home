@@ -644,3 +644,28 @@ Tested on 31 Oct 2026 **through the UI** at 9d7e864, against backend 9c8c6d1. A 
 - **Class picker offline:** it offers **Primary 1** (the teacher's homeroom) from synced records.
 - **Fri 23 Oct** (8 pupils marked Present then, 6 of whom have since moved to Primary 2): all **8** are listed with **Present**, including Efua, Kofi, Serwaa, Kojo, Yaw and Abena. That matches the database. The banner reads "The pupils come from the class list synced to this device…".
 - **Fri 2 Oct** (nobody marked): only today's 2 pupils, unmarked. That's the stated limit: a day nobody marked can't be known offline, and the server's whole-register 422 → "Send without…" covers mistakes.
+
+## Live demo for the user: two windows, attendance offline
+
+Run on 31 Oct 2026 **through the UI** in two visible browser windows, with frontend 9d7e864 and backend 9c8c6d1 on the QA database copy. The teacher (Kwame Mensah, Primary 1) was on the left and the head (Ama Owusu) on the right, with a caption bar at each step. Script: `live-demo.js` in the QA scratchpad. **Result: pass.**
+
+| Step | What happened |
+| --- | --- |
+| Offline save | The teacher opened Mon 26 Oct and went offline, then marked Hugo Absent and Efua Late and saved. "Saved on this device" appeared and the rows showed "Waiting to sync". The database held nothing. |
+| Offline reload | After a reload while offline, the unsent register was still there |
+| Clash | The head (online) saved Efua Present on the same day |
+| Reconnect | The register synced by itself. Hugo was saved as **Absent**. Efua went to the teacher's **Needs review** tray (server Present, device Late). "Keep mine" made her **Late** on the server, and the head's register showed the result. |
+| Lost class | The teacher saved Thu 22 Oct offline and was then taken off Primary 1. On reconnect the register was refused and forwarded to the head's **Changes to review**. The head applied it: **8 rows** saved. |
+
+- **First run stopped on a script mistake, not the app:** the head's step used "Mark the rest present", so Hugo clashed too, and the tray correctly held two items while the script expected one. Fixed and re-run.
+
+## Housekeeping, 1 Nov 2026
+
+- **Branches pushed** by fastrack-backend-ed: `feat/offline-sync` (9c8c6d1) and `fix/shared-transfer-reference` (ec023c2, six payment and invoice fixes: QA-019, 029, 042, 084, 216, 277). The PR for the latter isn't open yet because gh isn't logged in. Compare link: https://github.com/Fastrackgh/fastrack-backend-/compare/main...fix/shared-transfer-reference?expand=1
+- **Parent portal "Could not load the totals": an environment problem, not a code bug.** The user's backend ran from `fastrack-backend` on `fix/reinvite-unset-accounts`, 62 commits behind `main`, without `GET /parents/me/wards/:id/invoices/summary` (25eb632, QA-222). The call fell through to `invoices/:invoiceId` and got `400 Validation failed (uuid is expected)`.
+  - **Fix:**
+    - The folder's 14 uncommitted files (an unfinished attendance/calendar helpers/types refactor and an architecture review) were committed to `fix/reinvite-unset-accounts` as **98d0c5d (wip)**. It's local only.
+    - The folder was switched to `main` (b5f7c83).
+    - The `fastrack` database already had all 41 migrations, so no database change was made.
+  - **Checked:** with parent rita.ansah@gmail.com, the summary returns **200** (4 bills, GHS 200 overpaid).
+- **Frontend `fastrack`** stays on `feat/rbac-workspace`: it is ahead of `main` (it holds everything in `main` plus 237 commits). 102 of those commits are not on GitHub yet. Pushing them is waiting on the user's go-ahead.

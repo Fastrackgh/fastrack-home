@@ -1,6 +1,6 @@
 # Offline sync contract (staff portal)
 
-**Status:** **agreed** v0.4.1 (31 Oct 2026). v0.4.1 adds the `CURSOR_AHEAD` 410 cause and the rule that a 410 means a full re-snapshot. Signed off by the staff frontend; QA re-tests the routes. Phase 2 builds against this version; any change goes through a new version here.
+**Status:** **agreed** v0.5.2 (1 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
 **Owners:** backend (`fastrack-backend`), staff frontend (`/school-admin`).
 **Plan:** `humming-tumbling-codd.md`, "Sync contract" and "Backend work" B1–B5.
 
@@ -50,6 +50,7 @@ School devices often have wrong clocks, so the server **never rejects an op beca
 - If that `id` already exists **in the same school** under the same `Idempotency-Key`, the request is a replay (§4).
 - If it exists under a different key, or in another school, the server returns 409 `DUPLICATE_ID`, which the client treats as rejected. The server never reveals which school holds the id.
 - Server-allocated fields (student code, receipt number) are allocated at sync time and returned in the create response. Until then the device shows them as pending.
+- The creates that take an `id` (v0.5): `POST /schools/me/payments` (the payment's `groupId`, §9.1) and `POST /schools/me/students` (the new `schoolStudentId`, §9.2).
 - A create or update that references an id the server doesn't know (e.g. attendance for a pupil whose admission is still queued) returns 422 `REFERENCE_NOT_FOUND` with `reason.missing: [{collection, id}]`. If that dependency is still in the outbox, the client should retry once it lands. Otherwise the op goes to review. The client should send dependencies first anyway (`dependsOn`).
 
 ## 3. Updates: `changes`, or plain fields
@@ -178,7 +179,8 @@ Every sync-relevant error uses one body. It extends the v2 error shape that `Api
 | 2xx | applied | Store the returned record, then pull the feed. With `Idempotent-Replayed: true` the outcome is **replayed** and is treated the same way. With `conflicts[]` it is **applied**, and each conflict becomes a review item. |
 | 409 `CONFLICT`, `LIKELY_DUPLICATE` | conflict | Review tray, showing `current` beside the device value |
 | 409 `IDEMPOTENCY_IN_PROGRESS` | retry | Wait for `Retry-After` |
-| 409 `IDEMPOTENCY_MISMATCH`, `DUPLICATE_ID`, `DUPLICATE_REFERENCE` | rejected | Review tray, never retried |
+| 409 `IDEMPOTENCY_MISMATCH`, `DUPLICATE_ID`, `DUPLICATE_REFERENCE`, `RECEIPT_NUMBER_TAKEN` | rejected | Review tray, never retried |
+| 409 `PROVISIONAL_REF_TAKEN` | renumber | Give the payment the next `n` and resend it as a new op, with the same `id` (§9.1) |
 | 409 `ALREADY_RESOLVED` | rejected | Only on a reviewer's apply (§6.2): show who dismissed or applied it. Never retried |
 | 400, 404, 422 (any code) | rejected | Review tray, never retried. Exception: `REFERENCE_NOT_FOUND` while the dependency is still queued (§2) |
 | 403 (any code) | forwarded | Mark the op "Sent to the head teacher for review" and remove it from the user's own tray (§6.2) |
@@ -193,6 +195,20 @@ The 403 codes:
 - `MODULE_NOT_ENABLED`: the school's subscription no longer includes the module.
 
 The 422 codes so far: `VALIDATION_FAILED`, `TERM_CLOSED`, `SHEET_LOCKED`, `NOT_ENROLLED_ON_DATE`, `RECORD_DELETED`, `REFERENCE_NOT_FOUND`, `OP_TOO_OLD`. New codes are added only through this section.
+
+**Added in v0.5 (phase 3, §9):**
+
+| Status | Code | Route | Outcome |
+| --- | --- | --- | --- |
+| 409 | `PROVISIONAL_REF_TAKEN` | payments | **renumber**: the engine gives the payment the next `n`, keeps its `id` and resends it as a new op. It is never sent to review. |
+| 409 | `RECEIPT_NUMBER_TAKEN` | payments | rejected: a typed `receiptNumber` is already used in the school |
+| 409 | `LIKELY_DUPLICATE` | admissions | conflict (already in the table above): the tray shows `reason.candidates` |
+| 422 | `PAYMENT_EXCEEDS_BALANCE` | payments | rejected: the clerk typed more than the device showed as owed and didn't confirm credit |
+| 422 | `SHARED_TRANSFER_REFERENCE` | payments | rejected: a MoMo/bank reference already pays another pupil; resend with `sharedReference: true` if it's one transfer for siblings |
+| 422 | `NO_BILL` | payments | rejected: the pupil has no bill to pay against |
+| 422 | `PAYMENT_DATE_TOO_EARLY` | payments | rejected: the date is before the school's first academic year |
+
+**Warnings (v0.5).** A 2xx can carry `warnings: [{code, message, …}]`: the op **applied**, but something differed from what the device showed. The engine stores the record and shows the warning on the receipt and in the activity list. A warning never goes to the review tray. The payment warnings are in §9.1.
 
 ### 6.1 Order of checks
 
@@ -320,10 +336,14 @@ The server filters both endpoints by the caller's permissions:
 - A class teacher sees their own classes and those classes' rosters, attendance, mark sheets and marks.
 - A head or admin sees the whole school.
 - No sync data is served to super-admin or platform tokens, or to parents.
+- Each collection also needs its permission key and, for money, the fees module (§8). A user without them never receives the collection, and naming it in `collections=` is 403 `FORBIDDEN`.
+- **v0.5:** the cursor's scope also covers which collections the user may pull and whether they hold `students:read_sensitive`. Gaining or losing any of these (a role change, a permission granted or removed, the fees module switched on or off) gives the next pull 410 `SCOPE_CHANGED`.
 
-## 8. Collections (phase 1)
+## 8. Collections
 
 `data` is **the same shape as the item in the existing GET response** named below, plus `rowVersion`, `updatedBy` and `updatedAt`, all in the §3 wire form. The frontend needs no mappers.
+
+### Phases 1–2
 
 | Collection | `id` | `data` shape |
 | --- | --- | --- |
@@ -336,19 +356,124 @@ The server filters both endpoints by the caller's permissions:
 | `mark-sheets` | sheet uuid | item of `GET /schools/me/mark-sheets`, including its items |
 | `marks` | `<markSheetId>:<schoolStudentId>` | one entry of `rows` in the `PUT /schools/me/mark-sheets/:id/marks` response, plus `markSheetId`. **Every cell of the row** carries `componentKey` and `itemIndex`. `version` is the sheet `rowVersion` of the write that last changed that row. The PUT response returns only the rows it changed (as today), so in a write response this is the sheet's new `rowVersion` (§5). |
 
-`academic-years` is added to the plan's list because terms are fetched per year. Phase 2 adds `invoices`, `payments`, `fee-accounts` and `guardians` to this table, each with its source GET, before they are built.
+`academic-years` is added to the plan's list because terms are fetched per year.
 
-## 9. Fields named for later phases
+### Phase 3 (v0.5)
 
-These are fixed now so the outbox can store them from day one.
+| Collection | `id` | `data` shape | Who receives it |
+| --- | --- | --- | --- |
+| `invoices` | invoice uuid | item of `GET /schools/me/invoices` | `invoices:read` and the fees module (principal, account officer). **Never a teacher.** |
+| `payments` | payment uuid (one row per bill it paid, §9.1) | item of `GET /schools/me/payments`, plus `groupId`, `provisionalRef`, `allocations`, `previousBalance`, `newBalance`, `surplusCredit` and `recordedByName`: everything the printed receipt shows | `payments:read` and the fees module (principal, account officer). **Never a teacher.** |
+| `fee-accounts` | `schoolStudentId` (one account per pupil) | item of the **new** `GET /schools/me/fee-accounts?schoolStudentId=&page=&limit=` (v2 list, same roles as `payments`): `{schoolStudentId, totalBilled, totalPaid, currentBalance, lastInvoiceNumber, rowVersion}`. A negative `currentBalance` is credit. | as `payments` |
+| `student-details` | `schoolStudentId` | `GET /schools/me/students/:id`: the detail view, including the mother, father and emergency contacts and the linked parent accounts. Sensitive fields are nulled exactly as that GET nulls them for a user without `students:read_sensitive`. | as that GET: heads, secretary and admins see the whole school; a teacher sees only pupils in their own classes |
+| `school` | school uuid (one record) | `GET /schools/me`: name, code, logo URL, address, phone, email. It gives offline receipts and bills their header. **The frontend caches the logo file** in its blobs store when it pulls this record (and again when `logoUrl` changes), so an offline print shows it. The backend serves the logo so that the staff portal can fetch it (CORS). | every staff user who pulls anything |
 
-- **Payments (P2):**
-  - The request takes an optional `provisionalRef`: `OFF-<first 4 of deviceId>-<n>`, unique per device.
-  - The response, replays and the feed all carry both `provisionalRef` and the server's `receiptNumber`. That pair is the `OFF-… → RCT/…` mapping.
-  - `provisionalRef` can be searched on the payments list.
-- **Admissions (P2):**
-  - `POST /schools/me/students` takes `id`, the new `schoolStudentId`. `studentCode` is allocated at sync under a lock and returned.
-  - A likely duplicate (same name, DOB and guardian phone) gives 409 `LIKELY_DUPLICATE` with `reason.candidates: [{id, studentCode, name}]`.
+- **The money snapshot is bounded**, so a low-end phone doesn't download a school's whole history:
+  - `invoices`: the current academic year, plus any older invoice with a non-zero balance;
+  - `payments`: the current academic year.
+
+  After the snapshot, the feed sends every change, older years included. The device shows older history online only, so it never shows "no payments" for a year it didn't download. `fee-accounts`, `student-details` and `school` are not bounded.
+- **`guardians` is dropped** from the plan's list. Guardians aren't separate records: they are the mother, father and emergency-contact fields on the pupil, plus links to parent accounts. They travel inside `student-details`.
+- `students` (the roster row) and `student-details` describe the **same record** with the same `rowVersion`. An edit bumps both, and the feed sends both.
+- An invoice changed by a payment, a modification or a carry-forward sends an `invoices` upsert. Every payment also upserts the pupil's `fee-accounts` record.
+
+## 9. Phase 3 writes (v0.5)
+
+Every route below takes the §1 headers and §4 idempotency like the phase 2 writes. A replay returns the original response, `warnings` included.
+
+### 9.1 Cash payments: `POST /schools/me/payments` (step 5a)
+
+**Request**, added to today's body. All the new fields are optional, so the online form keeps working.
+
+| Field | Meaning |
+| --- | --- |
+| `id` | UUIDv4: the payment's **`groupId`** (§2). One payment can pay several bills, and is then saved as one row per bill. Every row carries the same `groupId`, and later ops `dependsOn` it. Without `id`, the server makes one. |
+| `provisionalRef` | `OFF-<first 4 of deviceId>-<n>`. `n` is kept **device-wide** (it survives sign-out), so two users of one device never reuse it. |
+| `seenBalance` | money string: what the device showed as owed when the cash was taken. That is the picked bill's balance with `invoiceId`, or the pupil's unpaid bills otherwise. The server compares it with the bills as they are at sync. |
+| `seenCursor` | the feed cursor (`nextSince`) after the last page the device had applied when the cash was taken. It lets the server see exactly which other payments the device didn't know about (`POSSIBLE_DOUBLE_PAYMENT`). Preferred. |
+| `seenAsOf` | timestamp: the server time (`X-Server-Time`) of the response `seenBalance` came from, e.g. the online GET when the form loaded online. Used only when there is no `seenCursor`. |
+| `allowCredit` | as today (QA-029): the clerk confirmed keeping a surplus as credit |
+
+- `(school, provisionalRef)` is **unique**. A different op (another key, another `groupId`) that sends a ref already used in the school gets 409 `PROVISIONAL_REF_TAKEN`, and nothing is written. The device renumbers and resends; it never merges two payments. The same key replays as usual.
+- **`printedRef`** (optional): when a renumbered payment's provisional receipt was already printed, the resend carries the ref on that paper. It's stored with the payment, returned in the response and the feed, and matched by the payments search. It needn't be unique, because only people search by it. The receipt can then read "OFF-ab12-7 (renumbered OFF-ab12-8) is now RCT/…".
+- **Resending after a refusal.** Nothing was saved, so the resend is a **new op** (new `Idempotency-Key`) with the **same `id`, and therefore the same `groupId`, and the same `provisionalRef`**. Neither the id nor the ref was stored, so this gets neither `DUPLICATE_ID` nor `PROVISIONAL_REF_TAKEN`. The resends are: "Keep as credit" (`allowCredit: true`) after `PAYMENT_EXCEEDS_BALANCE`; a resend once the head has billed the pupil after `NO_BILL`; `sharedReference: true` after `SHARED_TRANSFER_REFERENCE`; and the renumbered resend after `PROVISIONAL_REF_TAKEN`, which keeps `id` and sends the new ref.
+- **Response shape.** A request with `id` always gets an **array**, one row per bill paid, even when there is only one. **Every row carries the same full `warnings` list**, so any row can be shown alone. (Without `id`, today's response is unchanged.)
+- The `RCT/…` number is allocated **at sync**, under the school's receipt lock, as today. The response, replays and the `payments` feed carry `provisionalRef` and `receiptNumber` together: that pair is the `OFF-… → RCT/…` mapping.
+- **The allocation is computed at sync** on the bills as they are then: the picked bill with `invoiceId`, or oldest unpaid first (the waterfall) without it. The device's own allocation is only a preview.
+- `GET /schools/me/payments?search=` matches `receiptNumber`, `provisionalRef` or `printedRef`.
+- The MoMo and bank reference dedupe stays as it is (§4).
+- Each response row carries everything the receipt prints: `groupId`, `provisionalRef`, `printedRef`, `receiptNumber`, `allocations`, `previousBalance`, `newBalance`, `surplusCredit`, `recordedByName`, and `warnings` (`[]` when there are none).
+
+**Cash already taken is applied whenever it can be.** The money is in the school's hands, so a bill that changed while the device was offline doesn't refuse it. The server applies it to the bills as they stand and says what changed:
+
+| What changed since the device saw it | Outcome | What the server does with the money |
+| --- | --- | --- |
+| The bill's balance differs from `seenBalance` (amount modified, discount added, another payment came in) | **applied**, warning `BILL_CHANGED` `{seenBalance, balanceBefore, balanceAfter}` | Applied as usual |
+| Because of that change the payment now exceeds what's owed, but `amount ≤ seenBalance` (the clerk took what the device showed) | **applied**, warning `CREDIT_KEPT` `{surplus}` | The surplus becomes credit on the pupil's account. `allowCredit` isn't needed: the clerk didn't overpay, the bill shrank. |
+| As above, **and** another payment for this pupil is one the device hadn't seen (e.g. one clerk online, another offline, both paid for the same bill) | **applied**, warning `POSSIBLE_DOUBLE_PAYMENT` `{surplus, otherPayments: [{receiptNumber, amount, recordedByName, paymentDate}]}`, **instead of** `CREDIT_KEPT` | The surplus becomes credit, as above. The cash is in hand, so it isn't refused, but the warning says the school may owe a refund. |
+| `amount > seenBalance` and no `allowCredit` (the QA-029 typo case: the clerk typed more than shown) | **rejected**, 422 `PAYMENT_EXCEEDS_BALANCE` `{owed, amount, surplus, against}` | Nothing saved. The tray offers "Keep as credit", which resends with `allowCredit: true` as a new op. |
+| The picked bill was carried forward to a later bill, or deleted | **applied**, warning `REALLOCATED` `{invoiceId, reason: "CARRIED_FORWARD" \| "DELETED", toInvoiceIds}` | Paid against the pupil's account (the waterfall) instead of that bill. A carried-forward balance is owed on the later bill, so the money lands there first. If nothing is owed anywhere, it goes on the pupil's latest bill as credit (today's advance-credit rule), with `CREDIT_KEPT` as well. It is refused only when the pupil has no bill at all (`NO_BILL`, below). |
+| The pupil left the school (exit recorded) | **applied** | Applied as usual: a former pupil can still clear what they owe |
+| The pupil has no bill at all | **rejected**, 422 `NO_BILL` | Nothing saved. A payment must sit on a bill, so the head bills the pupil, then resends from the tray. |
+| A typed `receiptNumber` is already used | **rejected**, 409 `RECEIPT_NUMBER_TAKEN` | Nothing saved |
+| The MoMo/bank reference is already this pupil's | **rejected**, 409 `DUPLICATE_REFERENCE` | Nothing saved |
+| The reference already pays another pupil | **rejected**, 422 `SHARED_TRANSFER_REFERENCE` `{reference, payments}` | Nothing saved. "One transfer for siblings" resends with `sharedReference: true`. |
+| `paymentDate` is before the school's first year | **rejected**, 422 `PAYMENT_DATE_TOO_EARLY` | Nothing saved |
+
+Without `seenBalance` (the online form, today), there are no `BILL_CHANGED` or `CREDIT_KEPT` warnings, and QA-029 applies exactly as it does today. Every rejected payment is cash still in the drawer, so its tray card should say so.
+
+**"A payment the device hadn't seen"** is decided like this:
+- with `seenCursor`: a payment for this pupil whose change-log entry comes after that cursor. This is exact, because the cursor is a position in the log, not a time;
+- otherwise, with `seenAsOf`: a payment for this pupil recorded after `seenAsOf` **minus 2 minutes**. The margin covers a payment that committed just before the response but wasn't in the page read. It errs towards showing the warning;
+- with neither, the server can't tell, and gives `CREDIT_KEPT`.
+
+**Warnings are stored with the payment**, not only returned to the clerk, because the person who must act (the head or account officer) may be someone else:
+- every row keeps its `warnings`, and `GET /schools/me/payments`, `GET /schools/me/payments/:id` and the `payments` feed return them;
+- `GET /schools/me/payments?warning=POSSIBLE_DOUBLE_PAYMENT` (or `CREDIT_KEPT`, `REALLOCATED`, `BILL_CHANGED`; comma-separated for several) lists the payments with that warning, so the staff list can badge them and a head can find them. A parent holding a receipt for bill X can then be told why it sits on bill Y.
+
+**Testing through the UI:**
+- `CREDIT_KEPT`: while the clerk is offline, the head modifies the bill down.
+- `POSSIBLE_DOUBLE_PAYMENT`: while the clerk is offline, another user records a payment for the same pupil online.
+- `REALLOCATED` (`CARRIED_FORWARD`): while the clerk is offline, generate the next term's bills (**Generate term bills**). Generation moves each pupil's unpaid balance onto the new bill, which carries the old bill forward. No dev hook is needed.
+- `DELETED`: no route deletes a bill today, so this case only exists for bills removed outside the app. A unit test covers it.
+
+### 9.2 Admissions: `POST /schools/me/students` (step 5b)
+
+- `id` (UUIDv4) becomes the `schoolStudentId` (§2). The enrolment is already in the body (`admissionClassId`, `classId`, `admissionTermId`), so attendance and marks queued later can `dependsOn` the admission.
+- `studentCode` is allocated **at sync**, under a per-school advisory lock (`generateNextStudentCode` has none today, so two admissions at once can get the same code). It comes back in the response and the feed. Until then the device shows it as pending. A typed `studentCode` is still accepted, as today.
+- **The duplicate check runs inside the same lock**, before the code is allocated and the pupil is saved, and the lock is held until the admission commits. So of two admissions of the same child at once (two devices syncing together), the second always sees the first and gets `LIKELY_DUPLICATE`. Both can't pass.
+- **Likely duplicate.** Without `studentId` (an admission of a new person), the server looks in this school for a pupil with:
+  - the same first name and surname (case and spacing ignored), **and**
+  - the same birth date, **or** a guardian phone (mother's, father's or emergency) equal to one in the request.
+
+  If any match, it returns 409 `LIKELY_DUPLICATE` with `reason.candidates: [{id, studentCode, name, className, dateOfBirth, guardianPhone, status}]`. `id` is the candidate's `schoolStudentId`. `guardianPhone` is null for a user without `students:read_sensitive`.
+  - "Admit anyway": the client resends as a new op with **`confirmNotDuplicate: true`**, which skips the check.
+  - "It's this pupil": the client drops the admission and remaps its queued ops to the candidate's `id`. Nothing is needed from the server.
+  - **The check applies online too**, so the online form gets the same 409 and the same two choices (Q6). **Merge order:** the backend's step 5b merges together with the staff frontend's step 5b. The online form's "Admit anyway" ships in that frontend step, and without it an online clerk would only see a refusal.
+  - **"It's this pupil" with queued dependents.** The device remaps the admission's queued attendance, marks, photo **and payment** ops to the candidate's `schoolStudentId`. A payment for an offline-admitted pupil therefore moves to the candidate and is paid against the candidate's bills; it never fails with `NO_BILL` because of the remap. The register, marks and photo routes accept it with no other change, because the candidate is an ordinary enrolled pupil. If the candidate is in a different class from the one the offline register put them in, the register gives 422 `NOT_ENROLLED_ON_DATE`, as for any pupil (§5).
+- **Guardians** are fields of the admission (mother, father, emergency contact), not records of their own. They need no ids, and nothing is matched or merged by phone at admission. `parents[]` still links **existing** parent accounts by `parentId`. A link to a parent account that isn't in the device's data is made online.
+
+### 9.3 Student edits: `PATCH /schools/me/students/:id` (step 5c)
+
+- The `changes` form from §3, with `X-Base-Version` set to the `rowVersion` of the `students` / `student-details` record (§8).
+- Every field of today's `UpdateStudentDto` can be edited this way. They are the `student-details` fields. The fields of the roster row are a subset.
+- The §5 rule applies as written:
+  - fields that don't clash apply even with a stale base;
+  - a real clash returns 409 `CONFLICT` with `conflictingFields` and `current` (the `student-details` read shape), and **nothing applies**;
+  - the engine re-bases: it resends the non-clashing fields as a new op and sends the clashing fields to review.
+
+  So the pupil ends up with every non-clashing change, as with partial apply, but each write is still all or nothing (Q1, Q5).
+- A pupil's `rowVersion` rises on every edit, whether the field is stored on the pupil's enrolment or on the person (name, birth date and contacts are on the person). A pupil is enrolled at only one school at a time, so no other school edits the same record.
+
+### 9.4 Student photos: `PUT /schools/me/students/:id/photo` (step 5c)
+
+- The queued photo is uploaded **through this route**, not through `POST /media` plus a PATCH: one op, keyed by the pupil's `schoolStudentId`. A photo for a pupil admitted offline simply `dependsOn` the admission op, and its path uses the client `id`.
+- It takes `Idempotency-Key`. The request hash covers the file's SHA-256, so a resend of the same file replays the stored media response. The device keeps the blob until the op is applied.
+- Limits as today: JPEG, PNG or WebP, at most **5 MB**. EXIF is stripped. The file is private to the school.
+- A photo counts as a field (`photo`) for §5. With a stale `X-Base-Version`, if the photo was changed since the base, the server returns 409 `CONFLICT` with `conflictingFields: ["photo"]`. Otherwise the new photo replaces the old one and the `rowVersion` rises.
+
+### 9.5 Session
+
 - **Session:**
   - `POST /auth/refresh` and login responses gain `refreshExpiresAt` (ISO), so the day-12 warning doesn't depend on the device clock.
   - This is additive. Until it ships, compute the warning as login time + 14 days, using `serverTime`.
@@ -376,6 +501,9 @@ Dev-only endpoints are mounted only when `NODE_ENV=development`, under the exist
 | Q2 | Attendance ids | Natural key `<schoolStudentId>:<date>`. Sync uses `schoolStudentId` everywhere (see Pupil identity at the top). |
 | Q3 | Retention | 30 days, configurable (§10). The frontend sends ops to review early at 25 days. |
 | Q4 | `marks` granularity | One entry per pupil row, carrying every cell, with a strictly rising `version` (§8). |
+| Q5 | Student edits: partial apply with `conflicts[]`, like the batch cells? | **No** (agreed with the staff frontend), Q1 stands (§9.3). Batch cells are independent records. A pupil's fields often belong together (a mother's name and her number), and half-applying them can pair the wrong ones. The engine's re-base already applies every non-clashing field, as a second op. |
+| Q6 | Does `LIKELY_DUPLICATE` apply to online admissions? | **Yes** (agreed with the staff frontend; §9.2), so a clerk online gets the same protection. It changes today's online behaviour, so the backend's 5b merges together with the frontend's 5b, which adds "Admit anyway" to the online form. |
+| Q7 | Who gets a teacher's queued changes after they lose a class? | Unchanged: the head's Changes to review (§6.2). Still open with the user. |
 
 ## 12. Review log
 
@@ -428,6 +556,50 @@ Two non-blocking notes, for a later version:
 - **Clock changes while offline.** The skew is measured at send time. A device whose clock is corrected (for example by NTP) between the user's action and the send still sends a `recorded_at` that is off by the old error. The attendance `date` and the feed order don't depend on it, so this only affects audit times. If it matters later, the client could also send the skew it last saw against `X-Server-Time` at enqueue time.
 - **Marks row `version` wording.** §5 says the sheet `rowVersion` *after the write*. §8 says the sheet `rowVersion` *at the row's last write*. If a PUT response returns untouched rows stamped with the new sheet version, that's harmless, because the data is current. Please align the two sentences so QA tests one rule.
 
+### Frontend input for v0.5 (staff frontend, 1 Nov 2026)
+
+| # | Request | In the v0.5 draft |
+| --- | --- | --- |
+| 1 | Payments take a client `id` | Yes: it becomes the `groupId` shared by every row of the payment (§9.1) |
+| 2 | `n` device-wide; `(school, provisionalRef)` unique; 409 `PROVISIONAL_REF_TAKEN` | Yes, as asked (§9.1, §6) |
+| 3 | Don't refuse cash already taken; warnings; a fixed list of refusals | Yes: `seenBalance`, the `BILL_CHANGED`, `CREDIT_KEPT` and `REALLOCATED` warnings, and the full outcome table (§9.1). The server never holds money outside a bill. |
+| 4 | The receipt fields in response, replay and feed | Yes (§9.1, §8 `payments`) |
+| 5 | Every payment through the outbox, online too | Fine: §4 replay and `IDEMPOTENCY_IN_PROGRESS` already work on this route |
+| 6 | Money collections, their GETs, scope, `SCOPE_CHANGED` | Yes (§8). `fee-accounts` needs a new GET. The scope covers permissions and the fees module (§7). |
+| 7 | The school header offline | Yes: a one-record `school` collection (§8) |
+| 8 | Client `id` and enrolment in the admission | Yes. The enrolment is already in the body (§9.2). |
+| 9 | Richer candidates; `confirmNotDuplicate` | Yes, plus `status` (§9.2) |
+| 10 | Guardian ids and phone matching | Not needed: guardians are fields of the pupil (§9.2) |
+| 11 | Field-level partial apply on student edits | Proposed no; see Q5 (§9.3) |
+| 12 | The detail fields offline | Yes: a `student-details` collection (§8) |
+| 13 | Photos as `POST /media` plus PATCH | Changed: one queued `PUT …/students/:id/photo` op, idempotent, ≤ 5 MB (§9.4) |
+
+**Frontend review of the draft (1 Nov 2026).** The frontend accepts #10, Q5, #13, the payment rules, `school`, `fee-accounts` and Q6. It signs off once these five changes are in, and all five are now in:
+
+| # | Change | Where |
+| --- | --- | --- |
+| 1 | `printedRef` for a renumbered payment whose receipt was already printed: stored, searchable, returned | §9.1 |
+| 2 | With `id`, the response is always an array, and every row carries the full `warnings` | §9.1 |
+| 3 | The money snapshot is bounded to the current year (plus older unpaid invoices) | §8 |
+| 4 | A resend after a refusal is a new op with the same `id`, `groupId` and `provisionalRef` | §9.1 |
+| 5 | "It's this pupil" remaps the queued dependents, and a class mismatch gives `NOT_ENROLLED_ON_DATE` | §9.2 |
+
+Also: the backend's step 5b merges together with the frontend's step 5b, for Q6 (§9.2).
+
+### QA review of v0.5.1 (1 Nov 2026)
+
+QA signs off once these are in. All are now in (v0.5.2):
+
+| # | Point | Resolution |
+| --- | --- | --- |
+| 1 | A double collection (one clerk online, one offline) would be hidden as credit | New warning `POSSIBLE_DOUBLE_PAYMENT`, with the other payments, given instead of `CREDIT_KEPT` when another payment for the pupil is one the device hadn't seen. That is decided by the new `seenCursor` (exact), or else `seenAsOf` with a 2-minute margin, as the staff frontend asked. The payment is still applied (§9.1). |
+| 2 | Warnings must outlive the clerk's device | Stored on the payment rows, returned by the payments GETs and the feed, and filterable with `?warning=` (§9.1) |
+| 3 | `REALLOCATED` with nothing left to pay | A carried-forward balance is paid on the later bill. With nothing owed, the money goes on the latest bill as credit (`CREDIT_KEPT` too). `NO_BILL` only when the pupil has no bill at all, because a payment must sit on a bill (§9.1). |
+| 4 | The logo offline | The frontend caches the logo file when it pulls `school`; the backend serves it with CORS (§8) |
+| 5 | A UI path for `REALLOCATED` and `CREDIT_KEPT` | Named in §9.1. Carrying forward happens through **Generate term bills**, so no dev hook is needed. `DELETED` has no UI path and is unit-tested. |
+| 6 | Two simultaneous admissions of the same child | The duplicate check runs inside the code-allocation lock, which is held until the admission commits (§9.2) |
+| 7 | "It's this pupil" also remaps queued payments | Stated (§9.2) |
+
 ## Change history
 
 | Date | Version | Change |
@@ -439,3 +611,6 @@ Two non-blocking notes, for a later version:
 | 2026-10-30 | 0.3.2 | Built with B1. In §6.1 the claim (step 4) comes after the 403 checks (step 3), so the in-progress and 403 codes swap places when both apply; a replay still comes before both. The §10 wording on dev routes is corrected. No change for the client. |
 | 2026-10-31 | 0.4 | **Agreed.** §6.2: applying a forwarded op is a client re-send through the normal route with a server-issued `applyOpKey` as the `Idempotency-Key`, keeping the sender's `recorded_at`, followed by an idempotent `POST …/applied`. It replaces the server-side `…/apply`. This takes in both of the staff frontend's conditions. Row shape and list routes given. The re-send carries `X-Base-Version` when the row has one. Edits are allowed and recorded (`appliedBody`, `appliedWithEdits`, QA OFF-6). An apply of a row that is no longer open gets 409 `ALREADY_RESOLVED`, and apply and dismiss are serialised (QA OFF-7). Built in backend c44f008 and 2b376d1. |
 | 2026-10-31 | 0.4.1 | **Agreed** (staff frontend). §7: 410 cause `CURSOR_AHEAD` (QA OFF-13); a cursor is tied to its school; on any 410 the client re-snapshots every collection and continues from the new cursor. Backend 5bee8d2. |
+| 2026-11-01 | 0.5 | **Draft** for phase 3 (backend), taking in the staff frontend's 13 points (§12). §8: the `invoices`, `payments`, `fee-accounts` (new GET), `student-details` and `school` collections, with a scope rule for each; `guardians` is dropped, because guardians are fields of the pupil. §9: cash payments (`groupId`, `provisionalRef`, `seenBalance`, the outcome table and warnings); admissions (code allocated under a lock, `LIKELY_DUPLICATE` and `confirmNotDuplicate`); student edits under the §5 rule; queued photos through the photo route. §6: new codes and `warnings`. §7: permissions and the fees module are part of the scope. §11: Q5–Q7. |
+| 2026-11-01 | 0.5.1 | **Signed off by the staff frontend**, after its five changes (§12): `printedRef`; the array response with `warnings` on every row; the bounded money snapshot; resends after a refusal keep `id` and `provisionalRef`; "It's this pupil" remaps queued dependents. Q5 and Q6 agreed, and Q6 makes 5b a merge-together step. Awaiting QA review. |
+| 2026-11-01 | 0.5.2 | QA review of v0.5.1 (§12): the `POSSIBLE_DOUBLE_PAYMENT` warning, with the `seenCursor` field (preferred) and `seenAsOf` (2-minute margin); warnings stored on payments and filterable; where `REALLOCATED` money lands when nothing is owed; the logo cached by the frontend; UI test paths; the duplicate check inside the admission lock; queued payments in the "It's this pupil" remap. **Agreed** (staff frontend and QA). |

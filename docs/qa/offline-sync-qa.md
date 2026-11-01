@@ -701,7 +701,7 @@ This test data stays on the shared dev database: FIS Primary 1 registers for 29 
 
 ## Step 5a: offline cash payments (frontend 4e4a738, backend cb08fa7)
 
-Tested on 1 Nov 2026 **through the UI** as accounts@bis.test and principal@bis.test on BIS-001, on a database copy, with backend cb08fa7 merged with main 444a778. Setup steps and a few server-only cases went through the API, marked below. **Result: all 18 cases pass. Findings: OFF-14 and OFF-15 (both fixed), and OFF-16 (open, Low), from the re-tests below.**
+Tested on 1 Nov 2026 **through the UI** as accounts@bis.test and principal@bis.test on BIS-001, on a database copy, with backend cb08fa7 merged with main 444a778. Setup steps and a few server-only cases went through the API, marked below. **Result: all 18 cases pass. Findings: OFF-14 and OFF-15 (both fixed), and OFF-16 (fixed), from the re-tests below.**
 
 | # | Case | Result |
 | --- | --- | --- |
@@ -767,4 +767,16 @@ Tested on 1 Nov 2026 **through the UI** on a database copy, frontend 73b1011 wit
 
 1. **Misleading card past 25 days.** With the clock 30 or more days behind, the card reads "Made 30 days ago … This change waited more than 25 days and was not sent", and only "Discard my change" is offered, not "Send dated today". It's safe: nothing is saved, and the card says the cash is in the drawer. But the clerk has to record the payment again under a new OFF number, while the parent holds the old one.
 2. **The server offset isn't kept across a reload.** `serverOffsetMs` lives in memory. Reloading offline with a clock that is days behind dates the payment on that wrong day, and nothing flags it, because a past date is valid. Storing the offset on the device would fix this.
+
+### Re-test of 67a442b: OFF-16 fixed
+
+Tested on 1 Nov 2026 **through the UI** on a database copy, frontend 67a442b with backend cb08fa7 merged with main 444a778, with the device clock shifted in the page. **Result: 4 of 4.**
+- **Clock 30 days behind from before sign-in, reloaded offline:** the receipt and the payment read today, with nothing in review.
+- **Clock 2 days behind at sign-in, corrected while offline:** dated today, not 2 days ahead.
+- **Payment queued, then a 26-day jump with no server contact** (GETs blocked, so nothing could re-learn the offset first): the card reads "This payment may not have been recorded…", makes no cash-drawer claim, points to the OFF number under Payments, and offers discard only. Nothing was sent.
+- **Ordinary offline payment, correct clock:** dated today, nothing in review.
+
+Nit: that card's badge still reads "Not accepted", which claims slightly more than its text does.
+
+Known limit, from fastrack-18's docs and not tested here: a clock changed while the app is closed can't be detected, and it shifts dates until the next server contact.
 

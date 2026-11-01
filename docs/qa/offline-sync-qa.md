@@ -701,7 +701,7 @@ This test data stays on the shared dev database: FIS Primary 1 registers for 29 
 
 ## Step 5a: offline cash payments (frontend 4e4a738, backend cb08fa7)
 
-Tested on 1 Nov 2026 **through the UI** as accounts@bis.test and principal@bis.test on BIS-001, on a database copy, with backend cb08fa7 merged with main 444a778. Setup steps and a few server-only cases went through the API, marked below. **Result: all 18 cases pass. One finding: OFF-14.**
+Tested on 1 Nov 2026 **through the UI** as accounts@bis.test and principal@bis.test on BIS-001, on a database copy, with backend cb08fa7 merged with main 444a778. Setup steps and a few server-only cases went through the API, marked below. **Result: all 18 cases pass. Findings: OFF-14 (fixed) and OFF-15, the second found in the re-test below.**
 
 | # | Case | Result |
 | --- | --- | --- |
@@ -725,9 +725,25 @@ Tested on 1 Nov 2026 **through the UI** as accounts@bis.test and principal@bis.t
 | API | NO_BILL, same-key replay, ref taken | 422 NO_BILL; the same RCT with Idempotent-Replayed and one row; 409 PROVISIONAL_REF_TAKEN |
 
 - **Not run:** backend e2e on cb08fa7. Its session stopped without reporting, so CI on its PR is the first e2e run. Typecheck and unit tests pass on the merge with main: 807/807.
-- **Not tested:** the DUPLICATE_REFERENCE, RECEIPT_NUMBER_TAKEN and PAYMENT_DATE_TOO_EARLY tray cards, and the sibling-transfer resend, in the UI. fastrack-18 reports them passing.
+- **Correction:** this log first said fastrack-18 reported the DUPLICATE_REFERENCE, RECEIPT_NUMBER_TAKEN and PAYMENT_DATE_TOO_EARLY cards and the sibling resend as passing. That was QA's misreading: nobody had run them through the UI. See the re-test below.
 - **Observation (not a finding):** RCT numbers follow sync order, not the order cash was taken (Yaa's two payments, queued first, got 0017 and 0018, after later ones got 0014–0016). The contract's order is first-in-first-out per record, so this is allowed. The paper trail is the OFF number and the payment date.
 
 ### OFF-14 (Medium; owner: staff frontend): the clerk waits about 8 seconds for each provisional receipt while offline
 
 Measured at 8,425 ms. `RecordPaymentModal.tsx settle()` waits `LAND_WAIT_MS = 8_000` for the op to land, even though the device already shows Offline and nothing can land. A clerk with a queue of parents sits behind a spinner on every payment. **Fix:** skip the wait when the device knows it's offline, and show the provisional receipt at once.
+
+### Re-test of f5a2428: OFF-14 fixed, and the refusal cards
+
+Tested on 1 Nov 2026 on a database copy, frontend f5a2428 with backend cb08fa7 merged with main 444a778.
+- **OFF-14 fixed:** the provisional receipt appears 217 ms after submit on the first offline payment and 114 ms on the second (was 8,425 ms).
+- **SHARED_TRANSFER_REFERENCE, UI:** an offline MoMo payment for another pupil with a used reference. The card reads "Nothing was recorded: the GHS 20.00 is still in the cash drawer", and "Same transfer for siblings" lands it.
+- **DUPLICATE_REFERENCE, UI:** the same pupil and reference. The same cash-drawer wording, only "Discard my change" is offered, and discarding clears it with nothing saved.
+- **RECEIPT_NUMBER_TAKEN and PAYMENT_DATE_TOO_EARLY, API only:** 409 and 422 with the right codes. The form sends neither a receipt number nor a date, so these cards can't be reached from it today.
+
+### OFF-15 (High; owner: staff frontend, with backend input): an offline payment is dated the day it syncs, not the day the cash was taken
+
+The queued body has no `paymentDate`. `payments-sync.ts` keeps the date only in the device's local copy, and `payments.service.ts` defaults a missing date to the server's today. Checked through the API with the same body the form sends: `X-Client-Recorded-At` 29 Oct, synced 1 Nov, `paymentDate` **2026-11-01**. Found from the code and the API, not by waiting days in the UI.
+
+**Why it matters:** the parent's provisional receipt shows the day the cash was taken, but the official receipt shows a later one. The payment falls in the wrong day's cash records, and a payment spanning a term end could fall in the wrong term.
+
+**Suggested fix:** send `paymentDate` (the device's local date when queued) in the body. The backend should also default a missing date on a keyed op to the school-local date of `X-Client-Recorded-At`. Add the rule to contract §9.1.

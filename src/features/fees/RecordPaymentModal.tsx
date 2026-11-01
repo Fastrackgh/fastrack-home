@@ -22,11 +22,13 @@ import { CheckCircle, CloudOff } from 'lucide-react';
 import { useAuth } from '@/lib/auth/auth-context';
 import type { Raw } from '@/lib/pagination';
 import type { ReviewItem } from '@/lib/offline/outbox';
+import { connectivity } from '@/lib/offline/connectivity';
 import {
   dismissReviewItem,
   onSyncApplied,
   resendReviewItem,
   waitForOp,
+  type OpOutcome,
 } from '@/lib/offline/syncEngine';
 import {
   PAYMENT_METHODS,
@@ -60,6 +62,22 @@ import { StudentPicker } from './StudentPicker';
  * shown instead: it stays queued and lands when the server answers.
  */
 const LAND_WAIT_MS = 8_000;
+
+/**
+ * Waits for a queued op to land, but not once the device is known to be
+ * offline (before queuing, or after its first send got no answer): the
+ * provisional receipt is then shown at once (OFF-14).
+ */
+function waitUnlessOffline(opId: string): Promise<OpOutcome | null> {
+  if (!connectivity.get().online) return Promise.resolve(null);
+  let unsubscribe = () => {};
+  const offline = new Promise<null>((resolve) => {
+    unsubscribe = connectivity.subscribe(() => {
+      if (!connectivity.get().online) resolve(null);
+    });
+  });
+  return Promise.race([waitForOp(opId, LAND_WAIT_MS), offline]).finally(() => unsubscribe());
+}
 
 /** The bills with something to pay, less what this device has queued against each. */
 function withQueued(bills: Invoice[], queued: Map<string, number>): Invoice[] {
@@ -213,7 +231,7 @@ export function RecordPaymentModal({
    * is shown and the payment lands later.
    */
   const settle = async (opId: string, provisional: Payment) => {
-    const outcome = await waitForOp(opId, LAND_WAIT_MS);
+    const outcome = await waitUnlessOffline(opId);
     const closed = !open.current;
     if (!outcome) {
       notifications.show({

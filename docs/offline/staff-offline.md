@@ -202,7 +202,7 @@ flowchart LR
 - **Reading the balance:**
   - Online, the window reads the bills **straight from the server** (`liveBills`). It never uses a saved read, because a saved copy from before the device's last payment would show the wrong balance. The payments list does the same (`livePayments`).
   - Offline, the bills come from the synced `invoices` and the account balance from `fee-accounts`. The pupil search uses the synced `students`.
-- **After queuing**, the window waits up to 8 s:
+- **After queuing**, the window waits up to 8 s for the payment to land. It stops waiting as soon as the device is known to be offline: if it was offline before queuing, or when the first send gets no answer. The provisional receipt then shows at once (OFF-14, fixed 1 Nov: it always waited the full 8 s offline; now 0.2 s when already offline, about 0.7 s when the send finds out). Outcomes:
   - **Landed:** the official receipt as before, from the response, or found by its OFF number when another tab sent it. Warnings show as toasts, and a possible double payment's toast stays up.
   - **Not answered** (offline, or slow): a **provisional receipt**.
     - It's titled "Provisional Payment Receipt", has a yellow **PROVISIONAL — PENDING SYNC** badge and shows the OFF number as "Provisional Number".

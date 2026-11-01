@@ -1,6 +1,6 @@
 # Offline sync contract (staff portal)
 
-**Status:** **agreed** v0.5.3 (1 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
+**Status:** **agreed** v0.5.4 (2 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
 **Owners:** backend (`fastrack-backend`), staff frontend (`/school-admin`).
 **Plan:** `humming-tumbling-codd.md`, "Sync contract" and "Backend work" B1–B5.
 
@@ -207,6 +207,7 @@ The 422 codes so far: `VALIDATION_FAILED`, `TERM_CLOSED`, `SHEET_LOCKED`, `NOT_E
 | 422 | `SHARED_TRANSFER_REFERENCE` | payments | rejected: a MoMo/bank reference already pays another pupil; resend with `sharedReference: true` if it's one transfer for siblings |
 | 422 | `NO_BILL` | payments | rejected: the pupil has no bill to pay against |
 | 422 | `PAYMENT_DATE_TOO_EARLY` | payments | rejected: the date is before the school's first academic year |
+| 400 | `PAYMENT_DATE_IN_FUTURE` | payments | rejected: the date is after today |
 
 **Warnings (v0.5).** A 2xx can carry `warnings: [{code, message, …}]`: the op **applied**, but something differed from what the device showed. The engine stores the record and shows the warning on the receipt and in the activity list. A warning never goes to the review tray. The payment warnings are in §9.1.
 
@@ -402,6 +403,7 @@ Every route below takes the §1 headers and §4 idempotency like the phase 2 wri
 - **The allocation is computed at sync** on the bills as they are then: the picked bill with `invoiceId`, or oldest unpaid first (the waterfall) without it. The device's own allocation is only a preview.
 - `GET /schools/me/payments?search=` matches `receiptNumber`, `provisionalRef` or `printedRef`.
 - The MoMo and bank reference dedupe stays as it is (§4).
+- **Payment date.** The device should always send `paymentDate`. A keyed payment without one is dated by the **school-local** date of the corrected `recorded_at` (§1), not by the day it synced. Schools are in Ghana, so that is the UTC date; it doesn't depend on the server's time zone. A date after today is 400 `PAYMENT_DATE_IN_FUTURE`.
 - Each response row carries everything the receipt prints: `groupId`, `provisionalRef`, `printedRef`, `receiptNumber`, `allocations`, `previousBalance`, `newBalance`, `surplusCredit`, `recordedByName`, and `warnings` (`[]` when there are none).
 
 **Cash already taken is applied whenever it can be.** The money is in the school's hands, so a bill that changed while the device was offline doesn't refuse it. The server applies it to the bills as they stand and says what changed:
@@ -419,6 +421,7 @@ Every route below takes the §1 headers and §4 idempotency like the phase 2 wri
 | The MoMo/bank reference is already this pupil's | **rejected**, 409 `DUPLICATE_REFERENCE` | Nothing saved |
 | The reference already pays another pupil | **rejected**, 422 `SHARED_TRANSFER_REFERENCE` `{reference, payments}` | Nothing saved. "One transfer for siblings" resends with `sharedReference: true`. |
 | `paymentDate` is before the school's first year | **rejected**, 422 `PAYMENT_DATE_TOO_EARLY` | Nothing saved |
+| `paymentDate` is after today | **rejected**, 400 `PAYMENT_DATE_IN_FUTURE` | Nothing saved |
 
 Without `seenBalance` (the online form, today), there are no `BILL_CHANGED` or `CREDIT_KEPT` warnings, and QA-029 applies exactly as it does today. Every rejected payment is cash still in the drawer, so its tray card should say so.
 
@@ -617,3 +620,4 @@ QA signs off once these are in. All are now in (v0.5.2):
 | 2026-11-01 | 0.5.1 | **Signed off by the staff frontend**, after its five changes (§12): `printedRef`; the array response with `warnings` on every row; the bounded money snapshot; resends after a refusal keep `id` and `provisionalRef`; "It's this pupil" remaps queued dependents. Q5 and Q6 agreed, and Q6 makes 5b a merge-together step. Awaiting QA review. |
 | 2026-11-01 | 0.5.2 | QA review of v0.5.1 (§12): the `POSSIBLE_DOUBLE_PAYMENT` warning, with the `seenCursor` field (preferred) and `seenAsOf` (2-minute margin); warnings stored on payments and filterable; where `REALLOCATED` money lands when nothing is owed; the logo cached by the frontend; UI test paths; the duplicate check inside the admission lock; queued payments in the "It's this pupil" remap. **Agreed** (staff frontend and QA). |
 | 2026-11-01 | 0.5.3 | QA: payments queued by the same device (`X-Device-Id`, stored with the payment) never count as unseen for `POSSIBLE_DOUBLE_PAYMENT`; a later payment's `seenBalance` is the device's optimistic balance after its own queued payments (§9.1). `seenCursor` is confirmed. QA signs off. |
+| 2026-11-02 | 0.5.4 | QA OFF-15: a keyed payment without `paymentDate` is dated by the corrected `recorded_at`; the future-date refusal gets the code `PAYMENT_DATE_IN_FUTURE`, with the same 400 and message (§6, §9.1). **Agreed** (staff frontend). Backend a0c3bf4. |

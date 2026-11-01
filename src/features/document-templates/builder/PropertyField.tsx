@@ -3,6 +3,7 @@
 import { useRef } from 'react';
 import {
   ActionIcon,
+  Box,
   Button,
   Card,
   Checkbox,
@@ -23,7 +24,7 @@ import {
   Textarea,
   UnstyledButton,
 } from '@mantine/core';
-import { ChevronDown, ChevronUp, Plus, Trash2, Upload, Wand2 } from 'lucide-react';
+import { ChevronDown, ChevronUp, Plus, Trash2, Upload, Wand2, X } from 'lucide-react';
 import type { DateLine, DesignImage, Placeholder, PropSchema } from '../api';
 import { moveItem } from './layout-ops';
 
@@ -36,6 +37,8 @@ export interface FieldContext {
   /** Where the school's logo is set, for a school without one. */
   logoSetIn: string;
   uploadImage: (file: File) => Promise<DesignImage | null>;
+  /** Asks to delete an uploaded image; missing when the user can't manage designs. */
+  removeImage?: (image: DesignImage) => void;
   feeTypes: Array<{ id: string; name: string }>;
   readOnly: boolean;
 }
@@ -287,22 +290,39 @@ function ImageField({ schema, value, onChange, ctx }: Props) {
           )}
         </UnstyledButton>
         {ctx.images.map((img) => (
-          <UnstyledButton
-            key={img.id}
-            onClick={() => onChange(img.id)}
-            disabled={ctx.readOnly}
-            title={img.originalFilename ?? undefined}
-            aria-label={`Use image ${img.originalFilename ?? ''}`.trim()}
-            aria-pressed={selected === img.id}
-            style={{
-              border: `2px solid ${selected === img.id ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-gray-3)'}`,
-              borderRadius: 6,
-              height: 56,
-              overflow: 'hidden',
-            }}
-          >
-            <Image src={img.url} alt="" h={52} fit="contain" />
-          </UnstyledButton>
+          <Box key={img.id} pos="relative">
+            <UnstyledButton
+              w="100%"
+              onClick={() => onChange(img.id)}
+              disabled={ctx.readOnly}
+              title={img.originalFilename ?? undefined}
+              aria-label={`Use image ${img.originalFilename ?? ''}`.trim()}
+              aria-pressed={selected === img.id}
+              style={{
+                border: `2px solid ${selected === img.id ? 'var(--mantine-color-blue-6)' : 'var(--mantine-color-gray-3)'}`,
+                borderRadius: 6,
+                height: 56,
+                overflow: 'hidden',
+              }}
+            >
+              <Image src={img.url} alt="" h={52} fit="contain" />
+            </UnstyledButton>
+            {ctx.removeImage && (
+              <ActionIcon
+                pos="absolute"
+                top={2}
+                right={2}
+                size={18}
+                radius="xl"
+                variant="default"
+                aria-label={`Delete image ${img.originalFilename ?? ''}`.trim()}
+                title="Delete this image"
+                onClick={() => ctx.removeImage?.(img)}
+              >
+                <X size={11} />
+              </ActionIcon>
+            )}
+          </Box>
         ))}
       </SimpleGrid>
     </Stack>

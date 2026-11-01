@@ -53,6 +53,7 @@ Backend verified against `fastrack-space/fastrack-backend`, branch `fix/invoice-
 | Upload school sample | `POST /media` (multipart, `TEMPLATE_SAMPLE`, label) | ✓ | PDF/PNG/JPEG/WebP, ≤10 MB, private |
 | Upload design image | `POST /media` (`TEMPLATE_ASSET`) | ✓ | PNG/JPEG/WebP, ≤2 MB, public URL (bills are opened without signing in) |
 | Remove sample (code editor only) | `DELETE /media/:id` | ✓ | Not available in the visual builder |
+| Delete design image | `DELETE /media/:id` | ✓ (409 refusal: backend, QA-282) | The × on an uploaded tile in an image picker opens "Delete this image?". The open draft is saved first, so the server checks what it uses now. A draft or live design that uses the image gets **409 `IMAGE_IN_USE`** with `details.designs[]` (`id, name, kind, version, status`). The dialog then lists them ("Fee bill v1 · BIS official fee bill (live)") and keeps the image. Unpublished versions don't block a delete. The School logo tile has no ×, because the logo is managed in the school profile. Shown to anyone who can manage designs (principal, Fastrack staff). |
 | Convert to code | `POST {base}/:id/convert-to-code` | ✓ (Super Admin only) | `api.convertToCode` is **never called** by the UI |
 | Code editor save | `PATCH {base}/:id` `{name, html, css, settings}` | ✓ | Super Admin only. It sets `layout = null`, so the draft becomes code mode. |
 

@@ -62,6 +62,7 @@ import {
 import { Outline } from './Outline';
 import { paperWidthFor, PreviewFrame, type PreviewZoom } from './PreviewFrame';
 import { PropertyField, type FieldContext } from './PropertyField';
+import { RemoveImageModal } from './RemoveImageModal';
 import { StarterGallery } from './StarterGallery';
 import classes from './TemplateBuilder.module.css';
 import { useDraftAutosave } from './useDraftAutosave';
@@ -103,6 +104,8 @@ export function TemplateBuilder({
   const [samples, setSamples] = useState<TemplateSample[]>([]);
   const [images, setImages] = useState<DesignImage[]>([]);
   const [schoolLogo, setSchoolLogo] = useState<string | null>(null);
+  /** The design image waiting for the delete to be confirmed (QA-282). */
+  const [removingImage, setRemovingImage] = useState<DesignImage | null>(null);
   const [feeTypes, setFeeTypes] = useState<Array<{ id: string; name: string }>>([]);
   const [current, setCurrent] = useState<DocumentTemplate | null>(null);
   const [selectedId, setSelectedId] = useState<string | null>(null);
@@ -319,6 +322,7 @@ export function TemplateBuilder({
       logoSetIn: isStaff ? 'this school’s Overview tab' : 'School setup → School profile',
       feeTypes,
       readOnly: !editable,
+      removeImage: canManage ? setRemovingImage : undefined,
       uploadImage: async (file) => {
         try {
           const uploaded = await api.uploadImage(file);
@@ -334,7 +338,7 @@ export function TemplateBuilder({
         }
       },
     }),
-    [api, editable, feeTypes, images, info, isStaff, schoolLogo],
+    [api, canManage, editable, feeTypes, images, info, isStaff, schoolLogo],
   );
 
   const selected = layout && selectedId ? locate(layout, selectedId) : null;
@@ -499,8 +503,24 @@ export function TemplateBuilder({
     );
   if (!versions || !info) return <Loader />;
 
+  /** Deletes a design image once confirmed. The open draft is saved first, so the server sees whether it still uses it. */
+  const removeImage = async (image: DesignImage) => {
+    await flush();
+    await api.removeImage(image.id);
+    setImages((list) => list.filter((i) => i.id !== image.id));
+    notifications.show({ color: 'teal', title: 'Image deleted', message: 'Done.' });
+  };
+
   return (
     <Stack gap="sm">
+      {removingImage && (
+        <RemoveImageModal
+          key={removingImage.id}
+          image={removingImage}
+          onClose={() => setRemovingImage(null)}
+          onRemove={removeImage}
+        />
+      )}
       {/* Top bar */}
       <Card withBorder padding="xs">
         <Group justify="space-between" gap="xs">

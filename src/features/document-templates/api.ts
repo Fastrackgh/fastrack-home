@@ -1,4 +1,4 @@
-import { apiClient } from '@/lib/api-client';
+import { ApiError, apiClient, errorCode, pathId } from '@/lib/api-client';
 
 /** Parent-facing documents a school can redesign (backend `DocumentKind`). */
 export type DocumentKind = 'invoice.bill' | 'exam.report';
@@ -152,6 +152,26 @@ export interface DesignImage {
   originalFilename: string | null;
 }
 
+/** A design that still prints an image, from a refused delete (`IMAGE_IN_USE`, QA-282). */
+export interface ImageUse {
+  id: string;
+  name: string;
+  kind: DocumentKind;
+  version: number;
+  status: TemplateStatus;
+}
+
+/** A design image a draft or published design still uses can't be deleted (QA-282). */
+export class ImageInUse extends Error {
+  constructor(
+    message: string,
+    readonly designs: ImageUse[],
+  ) {
+    super(message);
+    this.name = 'ImageInUse';
+  }
+}
+
 /** An uploaded sample design (PDF or image) from `/media`. */
 export interface TemplateSample {
   id: string;
@@ -249,6 +269,20 @@ export function documentTemplatesApi(schoolId: string, asPlatform: boolean) {
       form.append('ownerId', schoolId);
       form.append('file', file);
       return (await apiClient.postForm<DesignImage>('/media', form)).data;
+    },
+    /**
+     * Deletes a design image. One a draft or published design uses is
+     * refused, since a published bill would print a broken image: that
+     * throws `ImageInUse` naming the designs.
+     */
+    async removeImage(id: string) {
+      try {
+        await apiClient.delete(`/media/${pathId(id)}`);
+      } catch (err) {
+        if (!(err instanceof ApiError) || errorCode(err) !== 'IMAGE_IN_USE') throw err;
+        const designs = (err.details as { details?: { designs?: ImageUse[] } }).details?.designs;
+        throw new ImageInUse(err.message, Array.isArray(designs) ? designs : []);
+      }
     },
     /** The school's own logo, which a School header prints unless given another (QA-281). */
     async schoolLogo() {

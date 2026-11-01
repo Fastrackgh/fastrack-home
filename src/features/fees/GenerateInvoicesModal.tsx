@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Box,
@@ -15,32 +15,42 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { CheckCircle, Clock } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
+import { termOption, termRuns, type TermInYear } from '@/features/school-setup/api';
 import { feesApi, type AcademicContext } from './api';
-import { formatGhs } from './money';
-import { errorMessage } from './notify';
+import { TermWarning } from './TermWarning';
 
 export function GenerateInvoicesModal({
   opened,
   onClose,
   term,
+  terms,
   classOptions,
   onGenerated,
 }: {
   opened: boolean;
   onClose: () => void;
+  /** The current term, chosen by default. */
   term: AcademicContext | null;
+  terms: TermInYear[];
   classOptions: { value: string; label: string }[];
   onGenerated: () => void;
 }) {
+  const [termId, setTermId] = useState<string | null>(term?.termId ?? null);
   const [classId, setClassId] = useState('all');
+  // Each opening starts on the current term; staff can pick another (QA-061).
+  useEffect(() => {
+    if (opened) setTermId(term?.termId ?? null);
+  }, [opened, term?.termId]);
+  const chosen = terms.find((t) => t.termId === termId);
   const [dueDate, setDueDate] = useState('');
   const [generating, setGenerating] = useState(false);
 
   const generate = async () => {
-    if (!term) {
+    if (!termId) {
       notifications.show({
-        title: 'Error',
-        message: 'Active academic term is not configured.',
+        title: 'Pick a term',
+        message: 'Choose the term these bills are for.',
         color: 'red',
       });
       return;
@@ -48,13 +58,15 @@ export function GenerateInvoicesModal({
     setGenerating(true);
     try {
       const result = await feesApi.generateInvoices({
-        academicTermId: term.termId,
+        academicTermId: termId,
         classId: classId === 'all' ? undefined : classId,
         dueDate: dueDate || undefined,
       });
       notifications.show({
-        title: 'Invoices Generated Successfully',
-        message: `Generated ${result.count} student invoices totaling ${formatGhs(result.totalFeePayable)}`,
+        title: result.generatedCount > 0 ? 'Invoices generated' : 'No new invoices',
+        message:
+          result.message ||
+          `Generated ${result.generatedCount}, skipped ${result.skippedCount} that already had one.`,
         color: 'green',
         icon: <CheckCircle size={18} />,
         autoClose: 5000,
@@ -82,7 +94,7 @@ export function GenerateInvoicesModal({
             Batch Invoice Generation
           </Title>
           <Text size="xs" c="dimmed">
-            Term: {term?.yearLabel} • {term?.termLabel}
+            Bills every pupil in the chosen classes for one term
           </Text>
         </Box>
       }
@@ -90,6 +102,18 @@ export function GenerateInvoicesModal({
       centered
     >
       <Stack gap="md">
+        <Select
+          label="Term"
+          description={termRuns(chosen)}
+          data={terms.map(termOption)}
+          value={termId}
+          onChange={setTermId}
+          allowDeselect={false}
+          required
+          radius="md"
+          id="modal-gen-term"
+        />
+        <TermWarning termId={termId} terms={terms} />
         <Select
           label="Class Cohort"
           description="Select class or bill entire school"
@@ -124,6 +148,7 @@ export function GenerateInvoicesModal({
             color="fastrackRed"
             onClick={generate}
             loading={generating}
+            disabled={!termId}
             radius="md"
             id="btn-confirm-generate"
           >

@@ -29,6 +29,11 @@ export const APP_ROUTES = {
     label: 'Students',
     rule: { audiences: ['staff'], permission: 'students:read', module: 'students' },
   },
+  promotions: {
+    path: '/school-admin/students/promote',
+    label: 'Move classes up',
+    rule: { audiences: ['staff'], permission: 'enrollment:manage', module: 'students' },
+  },
   attendance: {
     path: '/school-admin/attendance',
     label: 'Attendance',
@@ -39,10 +44,45 @@ export const APP_ROUTES = {
     label: 'Fees & Billing',
     rule: { audiences: ['staff'], permission: 'invoices:read', module: 'fees' },
   },
+  optionalFeeRequests: {
+    path: '/school-admin/fees/requests',
+    label: 'Service requests',
+    rule: {
+      audiences: ['staff'],
+      permission: 'student_fee_preferences:manage',
+      module: 'fees',
+    },
+  },
   staff: {
     path: '/school-admin/staff',
     label: 'Staff',
     rule: { audiences: ['staff'], permission: 'staff:read' },
+  },
+  setup: {
+    path: '/school-admin/setup',
+    label: 'School setup',
+    rule: { audiences: ['staff'], permission: 'classes:manage' },
+  },
+  marks: {
+    path: '/school-admin/results/marks',
+    label: 'Mark sheets',
+    // Secretaries read results for reports, but don't open mark sheets.
+    rule: { audiences: ['staff'], permission: 'marks:enter', module: 'results' },
+  },
+  reports: {
+    path: '/school-admin/results/reports',
+    label: 'Term reports',
+    rule: { audiences: ['staff'], permission: 'reports:read', module: 'results' },
+  },
+  resultsSetup: {
+    path: '/school-admin/results/setup',
+    label: 'Grading setup',
+    rule: { audiences: ['staff'], permission: 'grading:manage', module: 'results' },
+  },
+  account: {
+    path: '/school-admin/account',
+    label: 'My account',
+    rule: { audiences: ['staff'] },
   },
   templates: {
     path: '/school-admin/templates',
@@ -58,6 +98,11 @@ export const APP_ROUTES = {
     path: '/school-admin/admissions',
     label: 'Online admissions',
     rule: { audiences: ['staff'], permission: 'enrollment:manage', module: 'students' },
+  },
+  syncReview: {
+    path: '/school-admin/sync-review',
+    label: 'Changes to review',
+    rule: { audiences: ['staff'], permission: 'sync:review' },
   },
   platform: {
     path: '/school-admin/platform',

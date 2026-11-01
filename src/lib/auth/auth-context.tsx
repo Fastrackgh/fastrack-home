@@ -1,8 +1,9 @@
 'use client';
 
-import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { apiClient, SESSION_STORAGE_KEYS } from '@/lib/api-client';
+import { apiClient, SESSION_ENDED_EVENT, SESSION_STORAGE_KEYS } from '@/lib/api-client';
+import { discardOfflineData } from '@/lib/offline/session';
 import { can as canWith, loginPathFor, type AccessPermission } from '@/lib/rbac';
 import {
   parseAuthUser,
@@ -19,6 +20,11 @@ interface AuthContextType {
   isAuthenticated: boolean;
   login: (
     email: string,
+    password: string,
+  ) => Promise<{ user: AuthUser; school: SchoolProfile | null }>;
+  /** Accepts a staff invitation (`POST /auth/setup-password`) and signs it in. */
+  acceptInvite: (
+    token: string,
     password: string,
   ) => Promise<{ user: AuthUser; school: SchoolProfile | null }>;
   /** Creates a parent account (`POST /auth/register-parent`) and signs it in. */
@@ -39,6 +45,8 @@ export interface ParentRegistration {
 interface LoginResponse {
   accessToken: string;
   refreshToken: string;
+  /** When the refresh token ends (server clock); the staff portal warns before it. */
+  refreshExpiresAt?: string;
   user: unknown;
 }
 
@@ -95,6 +103,30 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   }, []);
 
+  /**
+   * Replaces the stored user's role and permissions with the server's, so a
+   * session started before a permission was added gets it without signing in
+   * again (QA-239). A different user means the session is inconsistent.
+   */
+  const refreshProfile = useCallback(
+    async (stored: AuthUser) => {
+      try {
+        const res = await apiClient.get('/auth/profile');
+        const fresh = parseAuthUser(res.data);
+        if (!fresh) return;
+        if (fresh.id !== stored.id) {
+          endSession();
+          return;
+        }
+        setUser((current) => (current ? { ...fresh, modules: current.modules } : current));
+        localStorage.setItem(SESSION_STORAGE_KEYS.user, JSON.stringify(fresh));
+      } catch {
+        // Offline or signed out: keep the stored copy; the backend still checks.
+      }
+    },
+    [endSession],
+  );
+
   // Restore a stored session on first mount. A school user stays loading
   // until their school's modules are known, so no page shows and then vanishes.
   useEffect(() => {
@@ -115,14 +147,57 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       return;
     }
     setUser(restored);
+    const profile = refreshProfile(restored);
     if (!restored.schoolId) {
-      setIsLoading(false);
+      profile.finally(() => setIsLoading(false));
       return;
     }
     if (cachedSchool?.id === restored.schoolId) setSchool(cachedSchool);
     fetchSchoolProfile(restored.schoolId);
-    fetchModules().finally(() => setIsLoading(false));
-  }, [fetchSchoolProfile, fetchModules]);
+    Promise.all([profile, fetchModules()]).finally(() => setIsLoading(false));
+  }, [fetchSchoolProfile, fetchModules, refreshProfile]);
+
+  const userRef = useRef(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  // The server ended the session (refresh rejected): sign this tab out
+  // without a reload; RouteGuard sends the user to sign in and back.
+  useEffect(() => {
+    const onEnded = () => {
+      setUser(null);
+      setSchool(null);
+    };
+    window.addEventListener(SESSION_ENDED_EVENT, onEnded);
+    return () => window.removeEventListener(SESSION_ENDED_EVENT, onEnded);
+  }, []);
+
+  // Tabs share one stored session. When another tab signs out, follow it;
+  // when another tab signs in as someone else, reload so this tab can't keep
+  // showing one person while acting as another. (The signing-in tab already
+  // cleared the previous user's caches.)
+  useEffect(() => {
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== SESSION_STORAGE_KEYS.user && event.key !== null) return;
+      const next = event.key === null ? null : event.newValue;
+      if (!next) {
+        setUser(null);
+        setSchool(null);
+        return;
+      }
+      let nextId: string | undefined;
+      try {
+        nextId = parseAuthUser(JSON.parse(next))?.id;
+      } catch {
+        nextId = undefined;
+      }
+      const current = userRef.current;
+      if (current && nextId !== current.id) window.location.reload();
+    };
+    window.addEventListener('storage', onStorage);
+    return () => window.removeEventListener('storage', onStorage);
+  }, []);
 
   /**
    * Starts a session from a login-shaped response, after dropping any previous
@@ -140,7 +215,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       const authUser = parseAuthUser(res.data.user);
       if (!authUser) throw new Error(UNRECOGNISED_ROLE_MESSAGE);
 
-      apiClient.setTokens(res.data.accessToken, res.data.refreshToken);
+      apiClient.setTokens(res.data.accessToken, res.data.refreshToken, res.data.refreshExpiresAt);
       localStorage.setItem(SESSION_STORAGE_KEYS.user, JSON.stringify(authUser));
       setUser(authUser);
       return await finish(authUser);
@@ -149,17 +224,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  /** Loads a school user's profile and modules once their session has started. */
+  const loadSchoolSession = async (authUser: AuthUser) => {
+    if (!authUser.schoolId) return { user: authUser, school: null };
+    const [schoolProfile, modules] = await Promise.all([
+      fetchSchoolProfile(authUser.schoolId),
+      fetchModules(),
+    ]);
+    return { user: { ...authUser, modules }, school: schoolProfile };
+  };
+
   const login = (email: string, password: string) =>
     signIn(
       () => apiClient.post<LoginResponse>('/auth/login', { email, password }),
-      async (authUser) => {
-        if (!authUser.schoolId) return { user: authUser, school: null };
-        const [schoolProfile, modules] = await Promise.all([
-          fetchSchoolProfile(authUser.schoolId),
-          fetchModules(),
-        ]);
-        return { user: { ...authUser, modules }, school: schoolProfile };
-      },
+      loadSchoolSession,
+    );
+
+  // The setup response is already a sign-in, so no second login is needed.
+  const acceptInvite = (token: string, password: string) =>
+    signIn(
+      () => apiClient.post<LoginResponse>('/auth/setup-password', { token, password }),
+      loadSchoolSession,
     );
 
   const registerParent = (input: ParentRegistration) =>
@@ -169,7 +254,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     );
 
   const logout = () => {
+    const signedOut = userRef.current?.id;
+    apiClient.revokeSession();
     endSession();
+    // Signing out (not a session that merely expired) removes this user's offline data.
+    if (signedOut) void discardOfflineData(signedOut);
     router.replace(loginPathFor(window.location.pathname));
   };
 
@@ -186,6 +275,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         isLoading,
         isAuthenticated: user !== null,
         login,
+        acceptInvite,
         registerParent,
         logout,
         refreshSchool,

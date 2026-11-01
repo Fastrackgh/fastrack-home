@@ -3,7 +3,7 @@
 import { useState, type ReactNode } from 'react';
 import { Button, Group, Modal, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { errorMessage } from './notify';
+import { errorMessage } from '@/lib/api-client';
 
 /** Asks before a destructive action; shows the error and stays open if it fails. */
 export function ConfirmModal({

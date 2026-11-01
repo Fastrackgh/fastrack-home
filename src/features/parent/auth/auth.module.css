@@ -1,0 +1,13 @@
+.frame {
+  background:
+    radial-gradient(
+      circle at 20% 0%,
+      light-dark(#fff0f2, rgba(224, 26, 43, 0.15)) 0%,
+      transparent 55%
+    ),
+    var(--mantine-color-body);
+}
+
+.logo {
+  border-radius: 10px;
+}

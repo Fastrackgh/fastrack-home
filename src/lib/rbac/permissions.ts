@@ -12,6 +12,7 @@ export const PERMISSIONS = [
   'modules:manage',
   'school_modules:read',
   'school_modules:manage',
+  'school_profile:manage',
 
   // Academic calendar
   'academic_years:read',
@@ -41,10 +42,12 @@ export const PERMISSIONS = [
 
   // Students & enrollment
   'students:read',
+  'students:read_sensitive',
   'students:create',
   'students:update',
   'students:delete',
   'students:exit',
+  'student_fee_preferences:manage',
   'enrollment:read',
   'enrollment:manage',
 
@@ -76,9 +79,21 @@ export const PERMISSIONS = [
   'timetable:read',
   'timetable:manage',
 
+  // Results: grading, marks and term reports (backend results phase 1)
+  'grading:manage',
+  'marks:read',
+  'marks:enter',
+  'reports:read',
+  'reports:remark',
+  'reports:generate',
+  'reports:approve',
+
   // Analytics & audit
   'analytics:read',
   'audit_logs:read',
+
+  // Offline sync: changes forwarded to the school for review (contract §6.2)
+  'sync:review',
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

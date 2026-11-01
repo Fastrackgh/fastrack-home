@@ -1,198 +1,76 @@
 'use client';
 
-import { useState, type ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
-import { Badge, Button, Group, Text } from '@mantine/core';
-import { ArrowRight, CheckCheck, ChevronRight, ClipboardList, Users, Wallet } from 'lucide-react';
+import { Button, Group, Text } from '@mantine/core';
+import { ArrowRight } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import {
-  areaHref,
-  areaLabel,
-  areaPage,
-  canAccess,
-  isPhaseArea,
-  roleConfig,
-  type DashboardData,
-  type RecordRow,
-} from './model';
-import { sampleTerms } from './fixtures';
-import { PhaseShortcuts, phaseMetrics } from './phase-one/Workspace';
-import { RecordDetail, RecordTable } from './RecordTable';
-import { WorkspaceContent, useWorkspace } from './WorkspaceProvider';
-import { WorkspaceHeader } from './WorkspaceHeader';
+import { PageHeader, useViewer } from '@/features/workspace';
+import { setupApi, type CurrentTerm } from '@/features/school-setup/api';
+import { areaHref, areaLabel, areaPage, canAccess, roleConfig, type Viewer } from './model';
+import { PhaseShortcuts } from './phase-one/Workspace';
+import { OverviewTiles } from './OverviewTiles';
 import styles from './Dashboard.module.css';
 
-const metricIcons = [Users, Wallet, CheckCheck, ClipboardList];
-
-/** The landing page for every school user: their role's summary of the school. */
+/**
+ * The landing page for every school user: live figures for what their role
+ * and the school's modules allow, and the pages they use most. Nothing here
+ * is sample data; the preview areas keep their own notice.
+ */
 export function Overview() {
   const { user } = useAuth();
-  const { viewer } = useWorkspace();
+  const viewer = useViewer();
+  // undefined while loading; null when no current term is set.
+  const [term, setTerm] = useState<CurrentTerm | null | undefined>(undefined);
+
+  useEffect(() => {
+    setupApi
+      .currentTerm()
+      .then(setTerm)
+      .catch(() => setTerm(null));
+  }, []);
+
+  if (!viewer) return null;
   return (
     <>
-      <WorkspaceHeader
+      <PageHeader
         title={`Welcome back, ${user?.firstName ?? ''}`}
-        subtitle={roleConfig[viewer.role].subtitle}
+        subtitle={
+          term
+            ? `${roleConfig[viewer.role].subtitle} · ${term.termLabel}, ${term.yearLabel}`
+            : roleConfig[viewer.role].subtitle
+        }
       />
-      <WorkspaceContent>{(data) => <OverviewBody data={data} />}</WorkspaceContent>
+      {term !== undefined && <OverviewTiles term={term} />}
+      <PhaseShortcuts viewer={viewer} />
+      <LivePages viewer={viewer} />
     </>
   );
 }
 
-function OverviewBody({ data }: { data: DashboardData }) {
-  const { viewer, term, phase } = useWorkspace();
-  const [detail, setDetail] = useState<RecordRow | null>(null);
-  // Areas that open the same live page are featured once.
+/** The role's featured areas that open a live page; areas that open the same page show once. */
+function LivePages({ viewer }: { viewer: Viewer }) {
   const featured = roleConfig[viewer.role].featured
-    .filter((area) => canAccess(viewer, area))
+    .filter((area) => canAccess(viewer, area) && areaPage(viewer, area))
     .filter(
       (area, i, all) => all.findIndex((a) => areaHref(viewer, a) === areaHref(viewer, area)) === i,
     );
+  if (!featured.length) return null;
   return (
-    <>
-      <section className={styles.kpis} aria-label="Key metrics">
-        {(phaseMetrics(viewer, term, phase) ?? data.metrics).map((m, i) => {
-          const Icon = metricIcons[i % metricIcons.length];
-          return (
-            <article className={styles.metric} key={m.label}>
-              <Group justify="space-between" gap="xs">
-                <Text size="xs" fw={600} c="#748092">
-                  {m.label}
-                </Text>
-                <div className={styles.metricIcon}>
-                  <Icon size={17} />
-                </div>
-              </Group>
-              <div className={styles.metricValue}>{m.value}</div>
-              <Text
-                size="10px"
-                c={m.tone === 'green' ? '#168168' : m.tone === 'orange' ? '#b47731' : 'dimmed'}
-              >
-                {m.detail}
-              </Text>
-            </article>
-          );
-        })}
-      </section>
-      <PhaseShortcuts viewer={viewer} />
-      <div className={styles.middle}>
-        <section className={styles.card}>
-          <Group justify="space-between">
-            <div>
-              <h2 className={styles.cardTitle}>{data.chartTitle}</h2>
-              <Text size="xs" c="dimmed" mt={4}>
-                Sample comparison · {sampleTerms.find((t) => t.value === term)?.label}
-              </Text>
-            </div>
-            <Badge variant="light" color="gray" size="xs">
-              Illustrative
-            </Badge>
-          </Group>
-          <Group gap="lg" mt="lg">
-            {data.chartLegend.map((l, i) => (
-              <Group gap={6} key={l}>
-                <span
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: 2,
-                    background: i === 0 ? '#df3547' : '#f3c4ca',
-                  }}
-                />
-                <Text size="10px" c="dimmed">
-                  {l}
-                </Text>
-              </Group>
-            ))}
-          </Group>
-          <div
-            className={styles.chart}
-            role="img"
-            aria-label={data.bars
-              .map(
-                (b) =>
-                  `${b.label}: ${data.chartLegend[0]} ${b.value}; ${data.chartLegend[1]} ${b.secondary}`,
-              )
-              .join('. ')}
-          >
-            {data.bars.map((b) => (
-              <div className={styles.barGroup} key={b.label}>
-                <div className={styles.bar} style={{ height: `${b.value}%` }}>
-                  <span>{b.value}</span>
-                </div>
-                <div
-                  className={`${styles.bar} ${styles.alt}`}
-                  style={{ height: `${b.secondary}%` }}
-                >
-                  <span>{b.secondary}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-          <div className={styles.chartLabels}>
-            {data.bars.map((b) => (
-              <span key={b.label}>{b.label}</span>
-            ))}
-          </div>
-        </section>
-        <section className={styles.card}>
-          <Group justify="space-between">
-            <h2 className={styles.cardTitle}>Your focus today</h2>
-            <Badge size="xs" color="red" variant="light">
-              {data.priorities.length} areas
-            </Badge>
-          </Group>
-          <Text size="xs" c="dimmed" mt={4}>
-            A few things worth a closer look.
+    <div className={styles.grid}>
+      {featured.map((area) => (
+        <FeatureCard
+          key={area}
+          title={areaLabel(viewer, area)}
+          href={areaHref(viewer, area)}
+          action="Open"
+        >
+          <Text size="sm" c="dimmed">
+            Your school’s live records. Open this page to review and act on them.
           </Text>
-          {data.priorities.map((p, i) => (
-            <Link className={styles.priority} key={p.area} href={areaHref(viewer, p.area)}>
-              <span className={styles.priorityNumber}>0{i + 1}</span>
-              <span>
-                <strong style={{ fontSize: 12 }}>{p.title}</strong>
-                <Text size="11px" c="dimmed" mt={5}>
-                  {p.detail}
-                </Text>
-              </span>
-              <ChevronRight size={15} style={{ flexShrink: 0, marginLeft: 'auto', marginTop: 5 }} />
-            </Link>
-          ))}
-          {data.priorities.length === 0 && (
-            <Text mt="xl" c="dimmed" size="sm">
-              No current actions for this archived term.
-            </Text>
-          )}
-        </section>
-      </div>
-      <div className={styles.grid}>
-        {featured.map((area) => {
-          const href = areaHref(viewer, area);
-          if (areaPage(viewer, area))
-            return (
-              <FeatureCard key={area} title={areaLabel(viewer, area)} href={href} action="Open">
-                <Text size="sm" c="dimmed">
-                  Your school’s live records. Open this page to review and act on them.
-                </Text>
-              </FeatureCard>
-            );
-          const panel = data.panels[area];
-          if (!panel) return null;
-          return (
-            <FeatureCard key={area} title={panel.title} href={href} action="View all">
-              {isPhaseArea(area, viewer) ? (
-                <Text size="sm" c="dimmed">
-                  Open this workspace to review current preview records, reports, and available
-                  actions. Changes are shared across the phase-one screens.
-                </Text>
-              ) : (
-                <RecordTable panel={panel} rows={panel.rows.slice(0, 3)} onDetail={setDetail} />
-              )}
-            </FeatureCard>
-          );
-        })}
-      </div>
-      <RecordDetail record={detail} onClose={() => setDetail(null)} />
-    </>
+        </FeatureCard>
+      ))}
+    </div>
   );
 }
 

@@ -81,6 +81,13 @@ export function ReceiptModal({
                 {payment.className || '—'}
               </Text>
             </Field>
+            {payment.invoiceNumber ? (
+              <Field label="Bill Paid:">
+                <Text size="sm" fw={600}>
+                  {payment.invoiceNumber}
+                </Text>
+              </Field>
+            ) : null}
           </SimpleGrid>
 
           <Divider />
@@ -104,6 +111,14 @@ export function ReceiptModal({
                 </Text>
               </Group>
             ) : null}
+            {payment.sharedTransfer?.payments.length ? (
+              <Text size="xs" c="dimmed" ta="right" id="receipt-shared-transfer">
+                Part of transfer {payment.sharedTransfer.reference} · also covers{' '}
+                {payment.sharedTransfer.payments
+                  .map((p) => `${p.studentName} (${p.receiptNumber})`)
+                  .join(', ')}
+              </Text>
+            ) : null}
             <Group
               justify="space-between"
               py="xs"
@@ -116,20 +131,28 @@ export function ReceiptModal({
                 {formatGhs(payment.amountPaid)}
               </Text>
             </Group>
-            <Group justify="space-between">
-              <Text size="sm" c="dimmed">
-                Previous Debt:
-              </Text>
-              <Text size="sm">{formatGhs(payment.previousBalance)}</Text>
-            </Group>
-            <Group justify="space-between">
-              <Text size="sm" fw={700}>
-                Remaining Outstanding:
-              </Text>
-              <Text size="sm" fw={800} c={payment.newBalance > 0 ? 'red.7' : 'teal.7'}>
-                {formatGhs(payment.newBalance)}
-              </Text>
-            </Group>
+            {payment.balancesRecorded === false ? (
+              <>
+                <BalanceLine label="Account balance before:" value="—" />
+                <BalanceLine label="Account balance after:" value="—" />
+                <Text size="xs" c="dimmed">
+                  Balances weren&apos;t recorded for payments made before 27 Oct 2026.
+                </Text>
+              </>
+            ) : (
+              <>
+                <BalanceLine
+                  label="Account balance before:"
+                  value={accountBalance(payment.previousBalance)}
+                />
+                <BalanceLine
+                  label={payment.newBalance < 0 ? 'Credit on account:' : 'Account balance after:'}
+                  value={formatGhs(Math.abs(payment.newBalance))}
+                  color={payment.newBalance > 0 ? 'red.7' : 'teal.7'}
+                  strong
+                />
+              </>
+            )}
           </Stack>
 
           <Box ta="center" pt="md" style={{ borderTop: '1px dashed #cbd5e1' }}>
@@ -155,6 +178,33 @@ export function ReceiptModal({
         </Stack>
       ) : null}
     </Modal>
+  );
+}
+
+/** A negative balance is money the school holds for the student (QA-277). */
+const accountBalance = (balance: number) =>
+  balance < 0 ? `${formatGhs(-balance)} credit` : formatGhs(balance);
+
+function BalanceLine({
+  label,
+  value,
+  color,
+  strong = false,
+}: {
+  label: string;
+  value: string;
+  color?: string;
+  strong?: boolean;
+}) {
+  return (
+    <Group justify="space-between">
+      <Text size="sm" c={strong ? undefined : 'dimmed'} fw={strong ? 700 : undefined}>
+        {label}
+      </Text>
+      <Text size="sm" fw={strong ? 800 : undefined} c={color}>
+        {value}
+      </Text>
+    </Group>
   );
 }
 

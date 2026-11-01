@@ -3,7 +3,17 @@
 import { useEffect, useState, type ReactNode } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { ActionIcon, Avatar, Badge, Drawer, Group, Modal, Stack, Text } from '@mantine/core';
+import {
+  ActionIcon,
+  Avatar,
+  Badge,
+  Drawer,
+  Group,
+  Modal,
+  Stack,
+  Text,
+  UnstyledButton,
+} from '@mantine/core';
 import {
   Archive,
   Baby,
@@ -17,17 +27,18 @@ import {
   ChevronRight,
   CircleHelp,
   ClipboardList,
+  CloudUpload,
   CreditCard,
   FileQuestion,
   GraduationCap,
   Images,
   Inbox,
   LayoutDashboard,
-  LogOut,
   Menu,
   MessageSquare,
   NotebookPen,
   Palette,
+  Settings2,
   SlidersHorizontal,
   UserPlus,
   Users,
@@ -35,11 +46,14 @@ import {
   Wallet,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/atoms';
-import { apiClient } from '@/lib/api-client';
+import { setupApi } from '@/features/school-setup/api';
 import { useAuth } from '@/lib/auth';
-import { ROLE_LABELS, dataScopeOf } from '@/lib/rbac';
+import { APP_ROUTES, ROLE_LABELS, dataScopeOf, findRoute } from '@/lib/rbac';
 import { activeNavItem, workspaceNavigation, type NavItem } from './navigation';
 import { useViewer } from './useViewer';
+import { SessionExpiryWarning } from './SessionExpiryWarning';
+import { SignOutButton } from './SignOutButton';
+import { SyncStatusChip } from './SyncStatusChip';
 import styles from './AppShell.module.css';
 
 const icons: Record<NavItem['id'], typeof Users> = {
@@ -67,6 +81,8 @@ const icons: Record<NavItem['id'], typeof Users> = {
   archive: Archive,
   questions: FileQuestion,
   templates: Palette,
+  setup: Settings2,
+  syncReview: CloudUpload,
 };
 
 /** The school's current academic year and term, when the school has them set. */
@@ -78,15 +94,13 @@ function useAcademicSession(schoolId: string | null) {
   useEffect(() => {
     if (!schoolId) return;
     let active = true;
-    Promise.allSettled([
-      apiClient.get<{ yearLabel: string }>('/schools/me/academic-years/current'),
-      apiClient.get<{ termLabel: string }>('/schools/me/academic-terms/current'),
-    ]).then(([year, term]) => {
-      if (!active) return;
-      const yearLabel = year.status === 'fulfilled' ? year.value.data?.yearLabel : undefined;
-      const termLabel = term.status === 'fulfilled' ? term.value.data?.termLabel : undefined;
-      setSession(yearLabel && termLabel ? { year: yearLabel, term: termLabel } : null);
-    });
+    // The header badge is a hint, so a failed read just leaves it out.
+    setupApi
+      .currentTerm()
+      .catch(() => null)
+      .then((current) => {
+        if (active) setSession(current && { year: current.yearLabel, term: current.termLabel });
+      });
     return () => {
       active = false;
     };
@@ -100,7 +114,7 @@ function useAcademicSession(schoolId: string | null) {
  * between the overview, preview areas and live pages keeps one skeleton.
  */
 export function AppShell({ children }: { children: ReactNode }) {
-  const { user, school, logout } = useAuth();
+  const { user, school } = useAuth();
   const viewer = useViewer();
   const pathname = usePathname();
   const [drawer, setDrawer] = useState(false);
@@ -200,10 +214,11 @@ export function AppShell({ children }: { children: ReactNode }) {
             </Text>
             <ChevronRight size={13} color="#a8b0ba" />
             <Text size="sm" fw={600}>
-              {active?.label}
+              {active?.label ?? findRoute(pathname)?.label}
             </Text>
           </Group>
           <Group gap="md">
+            <SyncStatusChip />
             {session && (
               <Badge
                 variant="light"
@@ -216,23 +231,31 @@ export function AppShell({ children }: { children: ReactNode }) {
                 {session.year} · {session.term}
               </Badge>
             )}
-            <Avatar radius="xl" size={34} color="red">
-              {initials}
-            </Avatar>
-            <div className={styles.desktopOnly}>
-              <Text size="xs" fw={700}>
-                {user.firstName} {user.lastName}
-              </Text>
-              <Text size="10px" c="dimmed">
-                {ROLE_LABELS[viewer.role]}
-              </Text>
-            </div>
-            <ActionIcon variant="subtle" color="gray" aria-label="Sign out" onClick={logout}>
-              <LogOut size={17} />
-            </ActionIcon>
+            <UnstyledButton
+              component={Link}
+              href={APP_ROUTES.account.path}
+              aria-label="My account"
+              title="My account"
+            >
+              <Group gap="sm" wrap="nowrap">
+                <Avatar radius="xl" size={34} color="red">
+                  {initials}
+                </Avatar>
+                <div className={styles.desktopOnly}>
+                  <Text size="xs" fw={700}>
+                    {user.firstName} {user.lastName}
+                  </Text>
+                  <Text size="10px" c="dimmed">
+                    {ROLE_LABELS[viewer.role]}
+                  </Text>
+                </div>
+              </Group>
+            </UnstyledButton>
+            <SignOutButton />
           </Group>
         </header>
         <main className={styles.content}>
+          <SessionExpiryWarning />
           {children}
           <footer className={styles.footer}>
             <span>© {new Date().getFullYear()} Fastrack Management Services</span>

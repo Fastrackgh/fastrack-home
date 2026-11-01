@@ -7,14 +7,15 @@ import {
   Loader,
   Pagination,
   ScrollArea,
-  Select,
   Stack,
   Table,
   Text,
 } from '@mantine/core';
 import { BadgePercent, PlusCircle, Trash2 } from 'lucide-react';
+import { LoadErrorRow } from './LoadErrorRow';
 import { PAGE_SIZE, type Discount } from './api';
 import { formatGhs } from './money';
+import { StudentPicker } from './StudentPicker';
 
 export interface DiscountFilters {
   studentId: string | null;
@@ -28,18 +29,21 @@ export function DiscountsTab({
   discounts,
   total,
   loading,
+  error = null,
+  onRetry,
   filters,
   onFiltersChange,
-  studentOptions,
   onAdd,
   onRemove,
 }: {
   discounts: Discount[];
   total: number;
   loading: boolean;
+  /** Set when the list failed to load; shown instead of the empty state. */
+  error?: string | null;
+  onRetry?: () => void;
   filters: DiscountFilters;
   onFiltersChange: (filters: DiscountFilters) => void;
-  studentOptions: { value: string; label: string }[];
   /** Both actions are absent when the user may not manage discounts. */
   onAdd?: () => void;
   onRemove?: (discount: Discount) => void;
@@ -50,12 +54,10 @@ export function DiscountsTab({
   return (
     <>
       <Group justify="space-between" mb="md" wrap="wrap">
-        <Select
+        <StudentPicker
           placeholder="All students"
-          data={studentOptions}
           value={filters.studentId}
           onChange={(studentId) => onFiltersChange({ studentId, page: 1 })}
-          searchable
           clearable
           radius="md"
           w={300}
@@ -95,6 +97,8 @@ export function DiscountsTab({
                   </Stack>
                 </Table.Td>
               </Table.Tr>
+            ) : error ? (
+              <LoadErrorRow colSpan={columns} message={error} onRetry={onRetry} />
             ) : discounts.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={columns}>

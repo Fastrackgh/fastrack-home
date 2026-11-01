@@ -15,6 +15,7 @@ import {
 import { Check, ShieldCheck, ArrowRight } from 'lucide-react';
 import { businessInfo } from '@/data/businessInfo';
 import { honeypotStyle, submitLead } from '@/lib/leads';
+import { fieldSetter } from '@/lib/state';
 import { motion } from 'framer-motion';
 
 export const WaitlistForm: React.FC = () => {
@@ -27,6 +28,7 @@ export const WaitlistForm: React.FC = () => {
     studentCount: '200 - 500 Students',
     currentSystem: 'Manual Records / Excel',
   });
+  const setField = fieldSetter(setForm);
 
   const [sending, setSending] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -89,7 +91,7 @@ export const WaitlistForm: React.FC = () => {
         </Box>
 
         <Badge size="md" color="green" variant="light" mb="xs">
-          Waitlist Registration Confirmed
+          Request received
         </Badge>
 
         <Text
@@ -101,7 +103,7 @@ export const WaitlistForm: React.FC = () => {
             marginBottom: 8,
           }}
         >
-          Registration Received for {form.schoolName}
+          We&apos;ll be in touch
         </Text>
 
         <Text
@@ -109,8 +111,10 @@ export const WaitlistForm: React.FC = () => {
           c="dimmed"
           style={{ maxWidth: 440, margin: '0 auto 20px', lineHeight: 1.6 }}
         >
-          Thank you. Our team from Fastrack Accra headquarters will send login credentials and
-          system onboarding materials to <strong>{form.email}</strong>.
+          {/* Only the request is saved; a person follows up. Promise nothing automatic (QA-020). */}
+          Thank you, we&apos;ve received {form.schoolName}&apos;s request. Someone from our Accra
+          team will contact you at <strong>{form.email}</strong> to arrange a demo and set up your
+          school.
         </Text>
 
         <Box
@@ -183,7 +187,7 @@ export const WaitlistForm: React.FC = () => {
               placeholder="e.g. Achimota Prep Academy"
               required
               value={form.schoolName}
-              onChange={(e) => setForm({ ...form, schoolName: e.target.value })}
+              onChange={(e) => setField('schoolName', e.target.value)}
               radius="md"
             />
             <TextInput
@@ -191,7 +195,7 @@ export const WaitlistForm: React.FC = () => {
               placeholder="e.g. Dr. Kwesi Boateng"
               required
               value={form.adminName}
-              onChange={(e) => setForm({ ...form, adminName: e.target.value })}
+              onChange={(e) => setField('adminName', e.target.value)}
               radius="md"
             />
           </SimpleGrid>
@@ -203,7 +207,7 @@ export const WaitlistForm: React.FC = () => {
               required
               type="email"
               value={form.email}
-              onChange={(e) => setForm({ ...form, email: e.target.value })}
+              onChange={(e) => setField('email', e.target.value)}
               radius="md"
             />
             <TextInput
@@ -211,7 +215,7 @@ export const WaitlistForm: React.FC = () => {
               placeholder="0243-630-648"
               required
               value={form.phone}
-              onChange={(e) => setForm({ ...form, phone: e.target.value })}
+              onChange={(e) => setField('phone', e.target.value)}
               radius="md"
             />
           </SimpleGrid>
@@ -226,14 +230,14 @@ export const WaitlistForm: React.FC = () => {
                 '1,500+ Students',
               ]}
               value={form.studentCount}
-              onChange={(val) => setForm({ ...form, studentCount: val || '' })}
+              onChange={(val) => setField('studentCount', val || '')}
               radius="md"
             />
             <Select
               label="Current Administration System"
               data={['Manual Records / Excel', 'Legacy Software', 'Paper-Based Only', 'Other']}
               value={form.currentSystem}
-              onChange={(val) => setForm({ ...form, currentSystem: val || '' })}
+              onChange={(val) => setField('currentSystem', val || '')}
               radius="md"
             />
           </SimpleGrid>

@@ -36,7 +36,9 @@ export type Area =
   | 'plans'
   | 'admissions'
   | 'grading'
-  | 'templates';
+  | 'templates'
+  | 'setup'
+  | 'syncReview';
 export interface Metric {
   label: string;
   value: string;
@@ -122,6 +124,10 @@ export const roleConfig: Record<
       'archive',
       'questions',
       'templates',
+      'gradebook',
+      'grading',
+      'setup',
+      'syncReview',
     ],
     featured: ['enrollment', 'performance', 'attendance', 'communication'],
     fullWorkspaces: ['reports'],
@@ -143,7 +149,10 @@ export const roleConfig: Record<
       'questions',
       'communication',
       'schedule',
+      'gradebook',
       'grading',
+      'setup',
+      'syncReview',
     ],
     featured: ['performance', 'faculty', 'reports', 'enrollment'],
     fullWorkspaces: ['reports', 'schedule'],
@@ -229,6 +238,8 @@ export const areaLabels: Record<Area, string> = {
   admissions: 'Online admissions',
   grading: 'Grading configuration',
   templates: 'Bill & report designs',
+  setup: 'School setup',
+  syncReview: 'Changes to review',
 };
 /** The permission needed to open each area, on top of it being in the viewer's layout. */
 export const areaPermission: Record<Area, AccessPermission> = {
@@ -248,6 +259,8 @@ export const areaPermission: Record<Area, AccessPermission> = {
   gradebook: 'marks:enter',
   grading: 'grading:manage',
   templates: 'document_templates:read',
+  setup: 'classes:manage',
+  syncReview: 'sync:review',
   schedule: 'timetable:read',
   questions: 'question_bank:read',
   communication: 'messages:read',
@@ -287,15 +300,36 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   staffing: 'staff',
   templates: 'templates',
   calendar: 'calendar',
+  setup: 'setup',
+  grading: 'resultsSetup',
+  gradebook: 'marks',
+  reports: 'reports',
+  syncReview: 'syncReview',
 };
+
+/**
+ * With the results module on, the sample "Academic performance" gives way to
+ * the live term reports: for roles without a Reports area (teachers) it opens
+ * them; for the rest it's hidden, as Reports already does (QA, 24 Oct).
+ * Only a known module list counts, so an unloaded one keeps the preview.
+ */
+const resultsLive = (viewer: Viewer) => !!viewer.modules?.includes('results');
 
 /** The live page that serves `area` for this viewer, if any. */
 export function areaPage(viewer: Viewer, area: Area): AppRouteKey | undefined {
-  return audienceOf(viewer.role) === 'staff' ? areaPages[area] : undefined;
+  if (audienceOf(viewer.role) !== 'staff') return undefined;
+  if (area === 'performance' && resultsLive(viewer)) return 'reports';
+  return areaPages[area];
 }
 
 export function canAccess(viewer: Viewer, area: Area) {
   if (!roleConfig[viewer.role].areas.includes(area)) return false;
+  if (
+    area === 'performance' &&
+    resultsLive(viewer) &&
+    roleConfig[viewer.role].areas.includes('reports')
+  )
+    return false;
   const requiredModule = areaModule[area];
   if (requiredModule && !hasModule(viewer, requiredModule)) return false;
   const page = areaPage(viewer, area);

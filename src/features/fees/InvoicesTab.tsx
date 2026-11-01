@@ -11,6 +11,7 @@ import {
   Pagination,
   ScrollArea,
   SegmentedControl,
+  Switch,
   Select,
   Stack,
   Table,
@@ -20,6 +21,7 @@ import {
   Tooltip,
 } from '@mantine/core';
 import { Check, Copy, Eye, Filter, Search, ShieldCheck } from 'lucide-react';
+import { LoadErrorRow } from './LoadErrorRow';
 import { PAGE_SIZE, type Invoice, type InvoiceStatus } from './api';
 import { formatGhs } from './money';
 
@@ -37,6 +39,8 @@ export interface InvoiceFilters {
   search: string;
   classId: string | null;
   status: InvoiceStatus | null;
+  /** Only the bills of pupils who have left. */
+  leavers: boolean;
   page: number;
 }
 
@@ -44,6 +48,8 @@ export function InvoicesTab({
   invoices,
   total,
   loading,
+  error = null,
+  onRetry,
   filters,
   onFiltersChange,
   classOptions,
@@ -52,6 +58,9 @@ export function InvoicesTab({
   invoices: Invoice[];
   total: number;
   loading: boolean;
+  /** Set when the list failed to load; shown instead of the empty state. */
+  error?: string | null;
+  onRetry?: () => void;
   filters: InvoiceFilters;
   onFiltersChange: (filters: InvoiceFilters) => void;
   classOptions: { value: string; label: string }[];
@@ -83,6 +92,13 @@ export function InvoicesTab({
             radius="md"
             w={180}
             id="select-filter-invoice-class"
+          />
+          <Switch
+            label="Leavers"
+            description="Pupils who have left; their bills are still owed"
+            checked={filters.leavers}
+            onChange={(e) => filter({ leavers: e.currentTarget.checked })}
+            color="fastrackRed"
           />
         </Group>
         <SegmentedControl
@@ -120,6 +136,8 @@ export function InvoicesTab({
                   </Stack>
                 </Table.Td>
               </Table.Tr>
+            ) : error ? (
+              <LoadErrorRow colSpan={8} message={error} onRetry={onRetry} />
             ) : invoices.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={8}>
@@ -201,6 +219,7 @@ export function InvoicesTab({
                                 color={copied ? 'teal' : 'gray'}
                                 variant="subtle"
                                 onClick={copy}
+                                aria-label={copied ? 'Link copied' : 'Copy the parent link'}
                               >
                                 {copied ? <Check size={16} /> : <Copy size={16} />}
                               </ActionIcon>

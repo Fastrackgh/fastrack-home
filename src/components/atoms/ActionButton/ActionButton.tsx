@@ -29,6 +29,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
         radius="xl"
         variant="white"
         onClick={onClick}
+        aria-label={typeof children === 'string' ? children : 'Play'}
         style={{
           boxShadow: '0 4px 16px rgba(0, 0, 0, 0.08), 0 0 0 1px rgba(0, 0, 0, 0.05)',
           color: '#0b0f17',
@@ -66,7 +67,7 @@ export const ActionButton: React.FC<ActionButtonProps> = ({
   } else if (variantStyle === 'dark') {
     customStyle = {
       ...customStyle,
-      background: '#0b0f17',
+      background: '#0f172a',
       color: '#ffffff',
       boxShadow: '0 8px 16px -12px rgba(11, 15, 23, 0.35)',
     };

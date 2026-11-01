@@ -1,98 +1,61 @@
 'use client';
 
 import { useState } from 'react';
-import { Alert, Button, Modal, NumberInput, SegmentedControl, Stack, Text } from '@mantine/core';
-import { AlertCircle, Lock } from 'lucide-react';
-import { errorMessage } from '@/features/fees/notify';
+import { Button, Modal, NumberInput, SegmentedControl, Stack, Text } from '@mantine/core';
+import { Lock } from 'lucide-react';
 import { formatGhs, toCedis, toPesewas } from '@/features/fees/money';
+import { errorMessage } from '@/lib/api-client';
 import { parentApi } from '../api';
-import { PAYMENT_CHANNELS, type ParentInvoice, type PaymentChannel } from '../types';
+import { checkoutKeys } from '../domain/CheckoutKeyStore';
+import { checkoutAmountError, PAYMENT_CHANNELS } from '../domain/invoices';
+import { useAsyncAction } from '../hooks/useAsyncAction';
+import { parentRoutes } from '../routes';
+import type { ParentInvoice, PaymentChannel } from '../types';
+import { ErrorAlert } from '../ui';
 
-const KEY_PREFIX = 'fastrack_parent_checkout:';
-
-/**
- * One key per bill, amount and channel, kept until the payment resolves: a
- * second tap, a reload or a retry after a dropped connection repeats the same
- * checkout instead of starting a new charge (QA-004).
- */
-function idempotencyKey(invoiceId: string, amount: number, channel: PaymentChannel) {
-  const storageKey = `${KEY_PREFIX}${invoiceId}:${amount}:${channel}`;
-  try {
-    const existing = sessionStorage.getItem(storageKey);
-    if (existing) return existing;
-    const key = crypto.randomUUID();
-    sessionStorage.setItem(storageKey, key);
-    return key;
-  } catch {
-    return crypto.randomUUID();
-  }
-}
-
-/** Forgets the checkout keys of a bill once its payment has resolved. */
-export function clearCheckoutKeys(invoiceId: string) {
-  try {
-    Object.keys(sessionStorage)
-      .filter((key) => key.startsWith(`${KEY_PREFIX}${invoiceId}:`))
-      .forEach((key) => sessionStorage.removeItem(key));
-  } catch {
-    // Nothing stored.
-  }
-}
-
+/** Starts an online payment and sends the parent to the provider's checkout page. */
 export function PayInvoiceModal({
-  opened,
   onClose,
   studentId,
   invoice,
 }: {
-  opened: boolean;
   onClose: () => void;
   studentId: string;
   invoice: ParentInvoice;
 }) {
   const [cedis, setCedis] = useState<number | string>(toCedis(invoice.balance));
   const [channel, setChannel] = useState<PaymentChannel>('mobile_money');
-  const [busy, setBusy] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const { busy, error, run } = useAsyncAction();
 
   const amount = toPesewas(cedis);
-  // Online payments can't exceed what is owed (QA-029).
-  const amountError =
-    amount <= 0
-      ? 'Enter an amount.'
-      : amount > invoice.balance
-        ? `You can pay at most ${formatGhs(invoice.balance)}.`
-        : null;
+  const amountError = checkoutAmountError(amount, invoice.balance);
 
-  const pay = async () => {
+  const pay = () => {
     if (amountError) return;
-    setError(null);
-    setBusy(true);
-    try {
-      const session = await parentApi.checkout(studentId, invoice.id, {
-        amount,
-        channel,
-        idempotencyKey: idempotencyKey(invoice.id, amount, channel),
-        callbackUrl: `${window.location.origin}/parent/fees/pay/callback`,
-      });
-      window.location.assign(session.authorizationUrl);
-    } catch (err) {
-      setError(errorMessage(err, 'Could not start the payment. Try again.'));
-      setBusy(false);
-    }
+    run(
+      async () => {
+        const session = await parentApi.checkout(studentId, invoice.id, {
+          amount,
+          channel,
+          idempotencyKey: checkoutKeys.keyFor(invoice.id, amount, channel),
+          callbackUrl: `${window.location.origin}${parentRoutes.paymentCallback}`,
+        });
+        window.location.assign(session.authorizationUrl);
+      },
+      {
+        failure: (err) => errorMessage(err, 'Could not start the payment. Try again.'),
+        holdOnSuccess: true,
+      },
+    );
   };
 
   return (
-    <Modal opened={opened} onClose={onClose} title="Pay fees" radius="lg" centered>
+    <Modal opened onClose={onClose} title="Pay fees" radius="lg" centered>
       <Stack>
         <Text size="sm" c="dimmed">
           Balance on {invoice.invoiceNumber}: <strong>{formatGhs(invoice.balance)}</strong>
         </Text>
-        {error && (
-          <Alert color="red" radius="md" icon={<AlertCircle size={16} />}>
-            {error}
-          </Alert>
-        )}
+        <ErrorAlert>{error}</ErrorAlert>
         <NumberInput
           label="Amount (GHS)"
           description="Pay the full balance or part of it."

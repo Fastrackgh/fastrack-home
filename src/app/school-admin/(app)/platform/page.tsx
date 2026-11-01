@@ -4,22 +4,20 @@ import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import Link from 'next/link';
 import {
   ActionIcon,
+  Alert,
   Badge,
   Box,
   Button,
   Card,
   Container,
   Divider,
-  Drawer,
   Group,
   LoadingOverlay,
   Menu,
-  Modal,
   Paper,
   ScrollArea,
   SimpleGrid,
   Stack,
-  Switch,
   Table,
   Tabs,
   Text,
@@ -30,6 +28,7 @@ import {
 import { useDisclosure } from '@mantine/hooks';
 import { notifications } from '@mantine/notifications';
 import {
+  BarChart3,
   Building2,
   CheckCircle2,
   CreditCard,
@@ -45,56 +44,32 @@ import {
   Search,
   Settings2,
   ShieldCheck,
+  UserCog,
   Users,
   XCircle,
 } from 'lucide-react';
 import { useAuth } from '@/lib/auth';
-import { apiClient } from '@/lib/api-client';
-import type { ModuleEntitlement } from '@/features/platform-schools/model';
-
-interface SchoolItem {
-  id: string;
-  name: string;
-  code: string;
-  address: string | null;
-  phone: string | null;
-  email: string | null;
-  website: string | null;
-  logoUrl: string | null;
-  isActive: boolean;
-  createdAt: string;
-  studentsCount?: number;
-  staffCount?: number;
-}
-
-interface PlatformAnalytics {
-  totalStudents: number;
-  activeStudents: number;
-  totalStaff: number;
-  totalSchools: number;
-  totalInvoiced: number;
-  totalCollected: number;
-  outstandingBalance: number;
-  collectionRate: number;
-  netOperatingCashflow: number;
-  attendanceRate: number;
-  staffStudentRatio: string;
-}
-
-interface PlatformModule {
-  id: string;
-  moduleKey: string;
-  name: string;
-  description: string;
-  category: string;
-  isCore: boolean;
-}
+import { AnalyticsPanel } from '@/features/platform/AnalyticsPanel';
+import { LoginAuditPanel } from '@/features/platform/LoginAuditPanel';
+import { PlatformUsersPanel } from '@/features/platform/PlatformUsersPanel';
+import { ProvisionSchoolModal } from '@/features/platform/ProvisionSchoolModal';
+import { SchoolModulesDrawer } from '@/features/platform/SchoolModulesDrawer';
+import { formatCedis } from '@/features/fees/money';
+import { formatDate } from '@/lib/format';
+import { platformSchoolsApi } from '@/features/platform-schools/api';
+import {
+  platformApi,
+  type PlatformAnalytics,
+  type PlatformModule,
+  type SchoolItem,
+} from '@/features/platform/api';
 
 export default function PlatformConsolePage() {
   const { user, logout } = useAuth();
 
   const [activeTab, setActiveTab] = useState<string | null>('schools');
   const [loading, setLoading] = useState(true);
+  const [schoolsError, setSchoolsError] = useState<string | null>(null);
   const [schools, setSchools] = useState<SchoolItem[]>([]);
   const [analytics, setAnalytics] = useState<PlatformAnalytics | null>(null);
   const [platformModules, setPlatformModules] = useState<PlatformModule[]>([]);
@@ -103,42 +78,30 @@ export default function PlatformConsolePage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<'ALL' | 'ACTIVE' | 'INACTIVE'>('ALL');
 
-  // Provision School Modal
   const [provisionOpened, { open: openProvision, close: closeProvision }] = useDisclosure(false);
-  const [provisionSubmitting, setProvisionSubmitting] = useState(false);
-  const [newSchoolName, setNewSchoolName] = useState('');
-  const [newSchoolCode, setNewSchoolCode] = useState('');
-  const [newSchoolAddress, setNewSchoolAddress] = useState('');
-  const [newSchoolPhone, setNewSchoolPhone] = useState('');
-  const [newSchoolEmail, setNewSchoolEmail] = useState('');
-  const [newSchoolWebsite, setNewSchoolWebsite] = useState('');
-
-  // Module Entitlements Drawer
   const [drawerOpened, { open: openDrawer, close: closeDrawer }] = useDisclosure(false);
   const [selectedSchool, setSelectedSchool] = useState<SchoolItem | null>(null);
-  const [schoolModules, setSchoolModules] = useState<ModuleEntitlement[]>([]);
-  const [drawerLoading, setDrawerLoading] = useState(false);
-  const [togglingModuleId, setTogglingModuleId] = useState<string | null>(null);
 
-  // Load Data
   const loadPlatformData = useCallback(async () => {
     setLoading(true);
     try {
       const [schoolsRes, analyticsRes, modulesRes] = await Promise.allSettled([
-        apiClient.get<SchoolItem[]>('/super-admin/schools?limit=50'),
-        apiClient.get<PlatformAnalytics>('/super-admin/analytics/overview'),
-        apiClient.get<PlatformModule[]>('/super-admin/modules?limit=50'),
+        platformApi.listSchools(),
+        platformApi.overview(),
+        platformApi.listModules(),
       ]);
 
-      if (schoolsRes.status === 'fulfilled' && schoolsRes.value.data) {
-        setSchools(schoolsRes.value.data || []);
-      }
-      if (analyticsRes.status === 'fulfilled' && analyticsRes.value.data) {
-        setAnalytics(analyticsRes.value.data);
-      }
-      if (modulesRes.status === 'fulfilled' && modulesRes.value.data) {
-        setPlatformModules(modulesRes.value.data || []);
-      }
+      if (schoolsRes.status === 'fulfilled') setSchools(schoolsRes.value);
+      setSchoolsError(
+        schoolsRes.status === 'rejected'
+          ? schoolsRes.reason instanceof Error
+            ? schoolsRes.reason.message
+            : 'Could not load the schools.'
+          : null,
+      );
+      if (analyticsRes.status === 'fulfilled' && analyticsRes.value)
+        setAnalytics(analyticsRes.value);
+      if (modulesRes.status === 'fulfilled') setPlatformModules(modulesRes.value);
     } catch {
       notifications.show({
         color: 'red',
@@ -155,69 +118,15 @@ export default function PlatformConsolePage() {
     loadPlatformData();
   }, [loadPlatformData]);
 
-  // Open Modules Drawer
-  const handleOpenModules = async (school: SchoolItem) => {
+  const handleOpenModules = (school: SchoolItem) => {
     setSelectedSchool(school);
-    setDrawerLoading(true);
     openDrawer();
-    try {
-      const res = await apiClient.get<ModuleEntitlement[]>(
-        `/super-admin/modules/schools/${school.id}`,
-      );
-      setSchoolModules(res.data || []);
-    } catch {
-      notifications.show({
-        color: 'red',
-        title: 'Failed to load modules',
-        message: 'Could not fetch module entitlements for this school.',
-      });
-    } finally {
-      setDrawerLoading(false);
-    }
-  };
-
-  // Toggle Module
-  const handleToggleModule = async (moduleId: string, currentEnabled: boolean) => {
-    if (!selectedSchool) return;
-    const nextState = !currentEnabled;
-    setTogglingModuleId(moduleId);
-
-    // Optimistic update
-    setSchoolModules((prev) =>
-      prev.map((m) => (m.moduleId === moduleId ? { ...m, isEnabled: nextState } : m)),
-    );
-
-    try {
-      await apiClient.post(`/super-admin/modules/schools/${selectedSchool.id}/toggle`, {
-        moduleId,
-        isEnabled: nextState,
-      });
-      notifications.show({
-        color: 'green',
-        title: 'Module Entitlement Updated',
-        message: `Module ${nextState ? 'enabled' : 'disabled'} for ${selectedSchool.name}.`,
-      });
-    } catch (err: unknown) {
-      // Revert optimistic update
-      setSchoolModules((prev) =>
-        prev.map((m) => (m.moduleId === moduleId ? { ...m, isEnabled: currentEnabled } : m)),
-      );
-      const msg = err instanceof Error ? err.message : 'Failed to update module entitlement';
-      notifications.show({
-        color: 'red',
-        title: 'Update Failed',
-        message: msg,
-      });
-    } finally {
-      setTogglingModuleId(null);
-    }
   };
 
   // Toggle School Activation
   const handleToggleSchoolStatus = async (school: SchoolItem) => {
-    const action = school.isActive ? 'deactivate' : 'activate';
     try {
-      await apiClient.patch(`/super-admin/schools/${school.id}/${action}`, {});
+      await platformSchoolsApi.setActive(school.id, !school.isActive);
       notifications.show({
         color: 'green',
         title: `School ${school.isActive ? 'Deactivated' : 'Activated'}`,
@@ -231,55 +140,6 @@ export default function PlatformConsolePage() {
         title: 'Error',
         message: msg,
       });
-    }
-  };
-
-  // Provision School Submit
-  const handleProvisionSchool = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newSchoolName.trim()) {
-      notifications.show({
-        color: 'red',
-        title: 'Validation Error',
-        message: 'School name is required.',
-      });
-      return;
-    }
-
-    setProvisionSubmitting(true);
-    try {
-      await apiClient.post('/super-admin/schools', {
-        name: newSchoolName.trim(),
-        code: newSchoolCode.trim() || undefined,
-        address: newSchoolAddress.trim() || undefined,
-        phone: newSchoolPhone.trim() || undefined,
-        email: newSchoolEmail.trim() || undefined,
-        website: newSchoolWebsite.trim() || undefined,
-      });
-
-      notifications.show({
-        color: 'green',
-        title: 'School Provisioned',
-        message: `${newSchoolName} has been successfully created.`,
-      });
-
-      closeProvision();
-      setNewSchoolName('');
-      setNewSchoolCode('');
-      setNewSchoolAddress('');
-      setNewSchoolPhone('');
-      setNewSchoolEmail('');
-      setNewSchoolWebsite('');
-      loadPlatformData();
-    } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Failed to provision school';
-      notifications.show({
-        color: 'red',
-        title: 'Provisioning Failed',
-        message: msg,
-      });
-    } finally {
-      setProvisionSubmitting(false);
     }
   };
 
@@ -342,6 +202,7 @@ export default function PlatformConsolePage() {
               size="lg"
               onClick={loadPlatformData}
               title="Refresh Platform Data"
+              aria-label="Refresh platform data"
             >
               <RefreshCw size={18} color="#94a3b8" />
             </ActionIcon>
@@ -359,7 +220,14 @@ export default function PlatformConsolePage() {
                 </Text>
               </div>
             </Group>
-            <ActionIcon variant="subtle" color="red" size="lg" onClick={logout} title="Sign Out">
+            <ActionIcon
+              variant="subtle"
+              color="red"
+              size="lg"
+              onClick={logout}
+              title="Sign Out"
+              aria-label="Sign out"
+            >
               <LogOut size={18} />
             </ActionIcon>
           </Group>
@@ -475,17 +343,11 @@ export default function PlatformConsolePage() {
                   Platform Invoiced
                 </Text>
                 <Title order={3} fw={800} mt={6} style={{ color: '#0f172a' }}>
-                  GHS{' '}
-                  {(analytics?.totalInvoiced ?? 0).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}
+                  {formatCedis(analytics?.totalInvoiced)}
                 </Title>
                 <Text size="xs" c="teal" fw={600} mt={4}>
-                  GHS{' '}
-                  {(analytics?.totalCollected ?? 0).toLocaleString(undefined, {
-                    minimumFractionDigits: 2,
-                  })}{' '}
-                  collected ({analytics?.collectionRate ?? 0}%)
+                  {formatCedis(analytics?.totalCollected)} collected (
+                  {analytics?.collectionRate ?? 0}%)
                 </Text>
               </div>
               <ThemeIcon size={44} radius="md" color="violet" variant="light">
@@ -532,13 +394,22 @@ export default function PlatformConsolePage() {
           style={{ background: '#ffffff', borderColor: '#e2e8f0' }}
           p="lg"
         >
-          <Tabs value={activeTab} onChange={setActiveTab}>
+          <Tabs value={activeTab} onChange={setActiveTab} keepMounted={false}>
             <Tabs.List mb="lg">
               <Tabs.Tab value="schools" leftSection={<Building2 size={16} />}>
                 Tenant Schools ({filteredSchools.length})
               </Tabs.Tab>
               <Tabs.Tab value="modules" leftSection={<Layers size={16} />}>
                 Platform Modules ({platformModules.length})
+              </Tabs.Tab>
+              <Tabs.Tab value="analytics" leftSection={<BarChart3 size={16} />}>
+                Analytics
+              </Tabs.Tab>
+              <Tabs.Tab value="users" leftSection={<UserCog size={16} />}>
+                Platform users
+              </Tabs.Tab>
+              <Tabs.Tab value="logins" leftSection={<ShieldCheck size={16} />}>
+                Sign-in log
               </Tabs.Tab>
             </Tabs.List>
 
@@ -587,7 +458,25 @@ export default function PlatformConsolePage() {
                         </Table.Tr>
                       </Table.Thead>
                       <Table.Tbody>
-                        {filteredSchools.length === 0 ? (
+                        {schoolsError ? (
+                          <Table.Tr>
+                            <Table.Td colSpan={6}>
+                              <Alert color="red" title="Unable to load schools" my="md">
+                                <Stack gap="xs" align="flex-start">
+                                  <Text size="sm">{schoolsError}</Text>
+                                  <Button
+                                    size="xs"
+                                    variant="light"
+                                    color="red"
+                                    onClick={loadPlatformData}
+                                  >
+                                    Try again
+                                  </Button>
+                                </Stack>
+                              </Alert>
+                            </Table.Td>
+                          </Table.Tr>
+                        ) : filteredSchools.length === 0 ? (
                           <Table.Tr>
                             <Table.Td
                               colSpan={6}
@@ -641,11 +530,7 @@ export default function PlatformConsolePage() {
                               </Table.Td>
                               <Table.Td>
                                 <Text size="xs" c="dimmed">
-                                  {new Date(school.createdAt).toLocaleDateString(undefined, {
-                                    year: 'numeric',
-                                    month: 'short',
-                                    day: 'numeric',
-                                  })}
+                                  {formatDate(school.createdAt)}
                                 </Text>
                               </Table.Td>
                               <Table.Td>
@@ -680,7 +565,12 @@ export default function PlatformConsolePage() {
                                   </Button>
                                   <Menu position="bottom-end" shadow="md" width={180}>
                                     <Menu.Target>
-                                      <ActionIcon variant="subtle" color="gray" size="sm">
+                                      <ActionIcon
+                                        variant="subtle"
+                                        color="gray"
+                                        size="sm"
+                                        aria-label={`More actions for ${school.name}`}
+                                      >
                                         <MoreVertical size={16} />
                                       </ActionIcon>
                                     </Menu.Target>
@@ -753,157 +643,26 @@ export default function PlatformConsolePage() {
                 </SimpleGrid>
               </Stack>
             </Tabs.Panel>
+            <Tabs.Panel value="analytics">
+              <AnalyticsPanel />
+            </Tabs.Panel>
+            <Tabs.Panel value="users">
+              <PlatformUsersPanel />
+            </Tabs.Panel>
+            <Tabs.Panel value="logins">
+              <LoginAuditPanel />
+            </Tabs.Panel>
           </Tabs>
         </Paper>
       </Container>
 
-      {/* PROVISION SCHOOL MODAL */}
-      <Modal
+      <ProvisionSchoolModal
         opened={provisionOpened}
         onClose={closeProvision}
-        title={
-          <Group gap="xs">
-            <ThemeIcon size={28} radius="md" color="red" variant="light">
-              <Building2 size={16} />
-            </ThemeIcon>
-            <Text fw={700} size="md">
-              Provision New Tenant School
-            </Text>
-          </Group>
-        }
-        centered
-        size="md"
-        radius="md"
-        closeOnClickOutside={false}
-      >
-        <form onSubmit={handleProvisionSchool}>
-          <Stack gap="md">
-            <TextInput
-              label="School Name"
-              placeholder="e.g. Morning Star International"
-              required
-              value={newSchoolName}
-              onChange={(e) => setNewSchoolName(e.currentTarget.value)}
-            />
-            <TextInput
-              label="School Code (Optional)"
-              placeholder="e.g. MSI-001 (auto-generated if empty)"
-              value={newSchoolCode}
-              onChange={(e) => setNewSchoolCode(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Contact Email"
-              placeholder="admin@morningstar.edu.gh"
-              type="email"
-              value={newSchoolEmail}
-              onChange={(e) => setNewSchoolEmail(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Phone Number"
-              placeholder="+233 24 000 1122"
-              value={newSchoolPhone}
-              onChange={(e) => setNewSchoolPhone(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Physical Address / Campus"
-              placeholder="10 Cantonments Road, Accra"
-              value={newSchoolAddress}
-              onChange={(e) => setNewSchoolAddress(e.currentTarget.value)}
-            />
-            <TextInput
-              label="Website URL"
-              placeholder="https://morningstar.edu.gh"
-              value={newSchoolWebsite}
-              onChange={(e) => setNewSchoolWebsite(e.currentTarget.value)}
-            />
-            <Group justify="flex-end" mt="md">
-              <Button variant="default" onClick={closeProvision}>
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                color="fastrackRed"
-                loading={provisionSubmitting}
-                style={{
-                  background: 'linear-gradient(135deg, #e01a2b 0%, #b31422 100%)',
-                }}
-              >
-                Provision School
-              </Button>
-            </Group>
-          </Stack>
-        </form>
-      </Modal>
+        onProvisioned={loadPlatformData}
+      />
 
-      {/* MODULE ENTITLEMENTS DRAWER */}
-      <Drawer
-        opened={drawerOpened}
-        onClose={closeDrawer}
-        position="right"
-        size="md"
-        title={
-          <Group gap="xs">
-            <ThemeIcon size={28} radius="md" color="blue" variant="light">
-              <Settings2 size={16} />
-            </ThemeIcon>
-            <div>
-              <Text fw={700} size="sm">
-                Module Entitlements
-              </Text>
-              <Text size="xs" c="dimmed">
-                {selectedSchool?.name} ({selectedSchool?.code})
-              </Text>
-            </div>
-          </Group>
-        }
-      >
-        <Box pos="relative" pt="xs">
-          <LoadingOverlay visible={drawerLoading} />
-          <Text size="xs" c="dimmed" mb="md">
-            Enable or disable platform feature modules for this school tenant. Changes take effect
-            immediately.
-          </Text>
-
-          <Stack gap="sm">
-            {schoolModules.map((item) => (
-              <Card
-                key={item.moduleId}
-                radius="md"
-                withBorder
-                padding="sm"
-                style={{
-                  background: item.isEnabled ? '#f0fdf4' : '#ffffff',
-                  borderColor: item.isEnabled ? '#bbf7d0' : '#e2e8f0',
-                  transition: 'all 0.2s ease',
-                }}
-              >
-                <Group justify="space-between" align="center">
-                  <div>
-                    <Group gap="xs">
-                      <Text fw={700} size="sm" style={{ color: '#0f172a' }}>
-                        {item.moduleName}
-                      </Text>
-                      <Badge size="xs" color={item.isEnabled ? 'teal' : 'gray'} variant="light">
-                        {item.isEnabled ? 'Active' : 'Disabled'}
-                      </Badge>
-                    </Group>
-                    <Text size="xs" c="dimmed" mt={2}>
-                      {item.description || item.moduleKey}
-                    </Text>
-                  </div>
-                  <Switch
-                    checked={item.isEnabled}
-                    disabled={togglingModuleId === item.moduleId}
-                    onChange={() => handleToggleModule(item.moduleId, item.isEnabled)}
-                    color="teal"
-                    size="md"
-                  />
-                </Group>
-              </Card>
-            ))}
-          </Stack>
-        </Box>
-      </Drawer>
+      <SchoolModulesDrawer school={selectedSchool} opened={drawerOpened} onClose={closeDrawer} />
     </Box>
   );
 }

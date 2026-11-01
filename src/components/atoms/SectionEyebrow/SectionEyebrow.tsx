@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Group, Text } from '@mantine/core';
+import { Group, Text } from '@mantine/core';
 
 interface SectionEyebrowProps {
   label: string;

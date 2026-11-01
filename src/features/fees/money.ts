@@ -24,6 +24,9 @@ export function formatGhs(pesewas: Pesewas): string {
   return `GHS ${ghs.format(toCedis(pesewas))}`;
 }
 
+/** The same, for an amount the API gives in cedis (e.g. platform analytics). */
+export const formatCedis = (cedis: number | null | undefined) => formatGhs(toPesewas(cedis ?? 0));
+
 export function sumPesewas<T>(items: readonly T[], amount: (item: T) => Pesewas): Pesewas {
   return items.reduce((total, item) => total + amount(item), 0);
 }

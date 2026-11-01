@@ -1,6 +1,11 @@
-import { apiClient, PageMeta } from '@/lib/api-client';
-import { pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
-import { toCedis, toPesewas, type Pesewas } from './money';
+import { setupApi, type TermInYear } from '@/features/school-setup/api';
+import { ApiError, apiClient, errorCode, errorDetails, PageMeta } from '@/lib/api-client';
+import { fetchAll, pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
+import { formatGhs, sumPesewas, toCedis, toPesewas, type Pesewas } from './money';
+
+/** A payment whose first attempt is still running is asked about again (the server's `Retry-After`). */
+const IN_PROGRESS_WAIT_MS = 2000;
+const IN_PROGRESS_TRIES = 4;
 
 // Amount fields below are whole pesewas; the API sends and receives cedis.
 
@@ -21,8 +26,18 @@ export interface Invoice {
   studentCode?: string | null;
   studentName?: string;
   className?: string;
+  /** Set on extra bills, e.g. "Sports day"; term bills read "Term 2 Term Fees". */
+  title?: string | null;
+  createdAt?: string;
   /** Negative when the student carries a credit into this invoice. */
   arrearsBf: Pesewas;
+  /** Extra bills from this same term rolled into `arrearsBf` (QA-219). */
+  sameTermBills: SameTermBill[];
+  /** The part of `arrearsBf` from earlier terms; negative for a credit. */
+  arrearsFromEarlierTerms: Pesewas;
+  /** On a carried-forward bill: what moved onto a later bill (negative for a credit), and which (QA-278). */
+  carriedForwardAmount?: Pesewas;
+  carriedForwardToInvoiceNumber?: string | null;
   totalFees: Pesewas;
   discountAmount: Pesewas;
   feePayable: Pesewas;
@@ -32,6 +47,13 @@ export interface Invoice {
   /** Absent from list responses; loaded with `getInvoice`. */
   lineItems?: InvoiceLineItem[];
   signature?: string | null;
+  viewUrl?: string | null;
+}
+
+export interface SameTermBill {
+  invoiceNumber: string;
+  title: string;
+  amount: Pesewas;
   viewUrl?: string | null;
 }
 
@@ -46,8 +68,15 @@ export interface Payment {
   studentName?: string;
   studentCode?: string | null;
   className?: string;
+  /** The bill the payment went to. */
+  invoiceNumber?: string | null;
+  /** The student's account balance before and after; negative is a credit. */
   previousBalance: Pesewas;
   newBalance: Pesewas;
+  /** Set when one transfer also paid for other pupils (QA-216). */
+  sharedTransfer?: SharedTransfer | null;
+  /** False when the backend has no balances for this payment, made before they were stored (QA-277); both then read 0. */
+  balancesRecorded?: boolean;
   recordedByName?: string;
 }
 
@@ -133,9 +162,19 @@ export const PAYMENT_METHODS = [
 export interface InvoiceQuery {
   page: number;
   search?: string;
+  /** One term's bills. */
+  termId?: string | null;
   classId?: string | null;
   status?: InvoiceStatus;
+  /** One pupil's bills (their school membership id). */
+  studentId?: string | null;
+  /** Only pupils who have left: their bills stay owed and payable. */
+  leavers?: boolean;
 }
+
+/** Query parameters for an invoice filter; `leavers` is sent as "true" only when set. */
+const invoiceParams = (page: number, { leavers, ...filters }: Omit<InvoiceQuery, 'page'>) =>
+  pageParams(page, { ...filters, leavers: leavers ? 'true' : null });
 
 export interface PaymentQuery {
   page: number;
@@ -193,32 +232,167 @@ export interface RecordPaymentRequest {
   paymentMethod: string;
   bankType?: string;
   transactionReference?: string;
+  /** Keep any amount above what's owed as credit; without it the backend refuses with 422 (QA-029). */
+  allowCredit?: boolean;
+  /** This transfer also paid for another pupil; without it a reused reference is refused (QA-216). */
+  sharedReference?: boolean;
 }
+
+/** Other pupils' payments made from the same MoMo or bank transfer (QA-216). */
+export interface SharedTransfer {
+  reference: string;
+  payments: { receiptNumber: string; studentName: string; amount: Pesewas }[];
+}
+
+const toSharedTransfer = (raw: unknown): SharedTransfer | null => {
+  if (!raw || typeof raw !== 'object') return null;
+  const { reference, payments } = raw as Raw;
+  return {
+    reference: String(reference ?? ''),
+    payments: (Array.isArray(payments) ? (payments as Raw[]) : []).map((p) => ({
+      receiptNumber: String(p.receiptNumber ?? ''),
+      studentName: String(p.studentName ?? ''),
+      amount: toPesewas(p.amount),
+    })),
+  };
+};
+
+/** The backend's 422 when a non-cash reference was already used for another pupil, or null. */
+export function sharedTransferOf(err: unknown): SharedTransfer | null {
+  if (!(err instanceof ApiError) || err.statusCode !== 422) return null;
+  if ((err.details as Raw | undefined)?.error !== 'Shared Transfer Reference') return null;
+  return toSharedTransfer(errorDetails<Raw>(err));
+}
+
+/** The backend's 422 when a payment is more than it would clear (`details`, QA-029). */
+export interface PaymentExcess {
+  owed: Pesewas;
+  amount: Pesewas;
+  surplus: Pesewas;
+  /** `INVOICE`: owed is the picked bill's balance; `ACCOUNT`: everything unpaid. */
+  against: 'INVOICE' | 'ACCOUNT';
+}
+
+/** The excess from an overpayment refusal, or null for any other error. */
+export function paymentExcessOf(err: unknown): PaymentExcess | null {
+  if (!(err instanceof ApiError) || err.statusCode !== 422) return null;
+  if ((err.details as Raw | undefined)?.error === 'Shared Transfer Reference') return null;
+  const details = errorDetails<Raw>(err);
+  if (details?.surplus == null) return null;
+  return {
+    owed: toPesewas(details.owed),
+    amount: toPesewas(details.amount),
+    surplus: toPesewas(details.surplus),
+    against: details.against === 'ACCOUNT' ? 'ACCOUNT' : 'INVOICE',
+  };
+}
+
+/** One "Correct bill" from the bill's audit log (QA-042); amounts in pesewas. */
+export interface InvoiceCorrection {
+  id: string;
+  createdAt: string;
+  actorName: string | null;
+  actorRole: string | null;
+  reason: string;
+  lines: { name: string; before: Pesewas | null; after: Pesewas | null }[];
+  before: CorrectionTotals | null;
+  after: CorrectionTotals | null;
+}
+
+export interface CorrectionTotals {
+  feePayable: Pesewas;
+  discountAmount: Pesewas;
+  balance: Pesewas;
+}
+
+const toTotals = (raw: unknown): CorrectionTotals | null =>
+  raw && typeof raw === 'object'
+    ? {
+        feePayable: toPesewas((raw as Raw).feePayable),
+        discountAmount: toPesewas((raw as Raw).discountAmount),
+        balance: toPesewas((raw as Raw).balance),
+      }
+    : null;
+
+/** Each fee line before and after, matched by fee type; only the ones that changed. */
+function changedLines(raw: unknown): InvoiceCorrection['lines'] {
+  const { before = [], after = [] } = (raw ?? {}) as { before?: Raw[]; after?: Raw[] };
+  const lines = new Map<string, InvoiceCorrection['lines'][number]>();
+  const keyOf = (line: Raw) => String(line.feeTypeId ?? line.name);
+  for (const line of before)
+    lines.set(keyOf(line), {
+      name: String(line.name ?? 'Fee'),
+      before: toPesewas(line.amount),
+      after: null,
+    });
+  for (const line of after) {
+    const known = lines.get(keyOf(line));
+    lines.set(keyOf(line), {
+      name: String(line.name ?? known?.name ?? 'Fee'),
+      before: known?.before ?? null,
+      after: toPesewas(line.amount),
+    });
+  }
+  return [...lines.values()].filter((line) => line.before !== line.after);
+}
+
+const toCorrection = (raw: Raw): InvoiceCorrection => {
+  const metadata = (raw.metadata ?? {}) as Raw;
+  const totals = (metadata.totals ?? {}) as Raw;
+  return {
+    id: String(raw.id),
+    createdAt: String(raw.createdAt),
+    actorName: (raw.actorName as string | null) ?? null,
+    actorRole: (raw.actorRole as string | null) ?? null,
+    reason: typeof metadata.reason === 'string' ? metadata.reason : '',
+    lines: changedLines(metadata.lineItems),
+    before: toTotals(totals.before),
+    after: toTotals(totals.after),
+  };
+};
 
 export type { Page };
 export { PAGE_SIZE } from '@/lib/pagination';
 
-export const toInvoice = (raw: Raw): Invoice => ({
-  ...(raw as unknown as Invoice),
-  arrearsBf: toPesewas(raw.arrearsBf),
-  totalFees: toPesewas(raw.totalFees),
-  discountAmount: toPesewas(raw.discountAmount),
-  feePayable: toPesewas(raw.feePayable),
-  totalPayment: toPesewas(raw.totalPayment),
-  balance: toPesewas(raw.balance),
-  lineItems: Array.isArray(raw.lineItems)
-    ? (raw.lineItems as Raw[]).map((item) => ({
-        ...(item as unknown as InvoiceLineItem),
-        amount: toPesewas(item.amount),
+export function toInvoice(raw: Raw): Invoice {
+  const arrearsBf = toPesewas(raw.arrearsBf);
+  // Older backends send neither field: all of arrearsBf then counts as earlier terms'.
+  const sameTermBills = Array.isArray(raw.sameTermBills)
+    ? (raw.sameTermBills as Raw[]).map((bill) => ({
+        ...(bill as unknown as SameTermBill),
+        amount: toPesewas(bill.amount),
       }))
-    : undefined,
-});
+    : [];
+  return {
+    ...(raw as unknown as Invoice),
+    arrearsBf,
+    carriedForwardAmount: toPesewas(raw.carriedForwardAmount),
+    sameTermBills,
+    arrearsFromEarlierTerms:
+      raw.arrearsFromEarlierTerms == null
+        ? arrearsBf - sumPesewas(sameTermBills, (bill) => bill.amount)
+        : toPesewas(raw.arrearsFromEarlierTerms),
+    totalFees: toPesewas(raw.totalFees),
+    discountAmount: toPesewas(raw.discountAmount),
+    feePayable: toPesewas(raw.feePayable),
+    totalPayment: toPesewas(raw.totalPayment),
+    balance: toPesewas(raw.balance),
+    lineItems: Array.isArray(raw.lineItems)
+      ? (raw.lineItems as Raw[]).map((item) => ({
+          ...(item as unknown as InvoiceLineItem),
+          amount: toPesewas(item.amount),
+        }))
+      : undefined,
+  };
+}
 
 export const toPayment = (raw: Raw): Payment => ({
   ...(raw as unknown as Payment),
   amountPaid: toPesewas(raw.amountPaid),
   previousBalance: toPesewas(raw.previousBalance),
   newBalance: toPesewas(raw.newBalance),
+  balancesRecorded: raw.previousBalance != null && raw.newBalance != null,
+  sharedTransfer: toSharedTransfer(raw.sharedTransfer),
 });
 
 const toFeeStructure = (raw: Raw): FeeStructure => ({
@@ -234,16 +408,105 @@ const toDiscount = (raw: Raw): Discount => ({
   value: isPercentage(raw.discountType) ? Number(raw.discountValue) : toPesewas(raw.discountValue),
 });
 
+/** School-wide totals for the invoices matching a filter (`GET /schools/me/invoices/summary`). */
+export interface InvoiceSummary {
+  invoiceCount: number;
+  billed: Pesewas;
+  collected: Pesewas;
+  outstanding: Pesewas;
+  overpaid: Pesewas;
+  /** Unpaid balances moved to a later bill: still owed, but on that bill (QA-271). */
+  carriedForward: Pesewas;
+  /** Overpayments moved to a later bill as credit: in collected, but not this bill's fees (QA-272). */
+  creditCarriedForward: Pesewas;
+  /** Credit from earlier bills used to pay these ones: paid toward them, though not collected now (QA-274). */
+  creditBroughtForward: Pesewas;
+  /** Of `amountDue`, the share collected, as a percentage to one decimal. */
+  collectionRate: number;
+}
+
+/**
+ * What these bills were owed: their fees plus any debts brought in from earlier
+ * bills. The collection rate is a share of this, so it can exceed `billed`.
+ */
+export const amountDue = (s: InvoiceSummary): Pesewas =>
+  s.collected -
+  s.creditCarriedForward -
+  s.overpaid +
+  s.creditBroughtForward +
+  s.outstanding +
+  s.carriedForward;
+
+/** "20.4% of GHS 13,260.00 due", naming what was billed when debts brought in make it differ. */
+export function collectionNote(s: InvoiceSummary): string {
+  const due = amountDue(s);
+  const billed = due === s.billed ? '' : ` (${formatGhs(s.billed)} billed)`;
+  return `${s.collectionRate}% of ${formatGhs(due)} due${billed}`;
+}
+
+export interface GenerateResult {
+  generatedCount: number;
+  skippedCount: number;
+  message: string;
+}
+
+export interface SupplementaryRequest {
+  academicTermId: string;
+  title: string;
+  feeTypeId: string;
+  classId?: string;
+  studentId?: string;
+  /** Leave out to use the class's fee structure amount. */
+  amount?: Pesewas;
+  dueDate?: string;
+}
+
+export interface BroadcastRequest {
+  academicTermId?: string;
+  classId?: string;
+  channel?: 'SMS' | 'EMAIL' | 'BOTH';
+}
+
+export interface ModifyRequest {
+  reason: string;
+  lineItems: { feeTypeId: string; amount: Pesewas; description?: string }[];
+}
+
 export const feesApi = {
   async listInvoices({ page, ...filters }: InvoiceQuery): Promise<Page<Invoice>> {
     const res = await apiClient.get<Raw[], PageMeta>(
-      `/schools/me/invoices?${pageParams(page, filters)}`,
+      `/schools/me/invoices?${invoiceParams(page, filters)}`,
     );
     return toPage(res, toInvoice);
+  },
+  /** Totals over every matching invoice, not just one page. */
+  async invoiceSummary(filters: Omit<InvoiceQuery, 'page'>): Promise<InvoiceSummary> {
+    const query = invoiceParams(1, filters);
+    query.delete('page');
+    query.delete('limit');
+    const raw = (await apiClient.get<Raw>(`/schools/me/invoices/summary?${query}`)).data ?? {};
+    return {
+      invoiceCount: Number(raw.invoiceCount ?? 0),
+      billed: toPesewas(raw.totalBilled),
+      collected: toPesewas(raw.totalCollected),
+      outstanding: toPesewas(raw.outstanding),
+      overpaid: toPesewas(raw.overpaid),
+      carriedForward: toPesewas(raw.carriedForward),
+      creditCarriedForward: toPesewas(raw.creditCarriedForward),
+      creditBroughtForward: toPesewas(raw.creditBroughtForward),
+      collectionRate: Number(raw.collectionRate ?? 0),
+    };
   },
   async getInvoice(id: string): Promise<Invoice> {
     const res = await apiClient.get<Raw>(`/schools/me/invoices/${encodeURIComponent(id)}`);
     return toInvoice(res.data);
+  },
+  /** The bill's corrections, newest first (QA-042). */
+  async invoiceHistory(id: string): Promise<InvoiceCorrection[]> {
+    const res = await apiClient.get<Raw[]>(
+      `/schools/me/invoices/${encodeURIComponent(id)}/history?limit=50`,
+    );
+    return Array.isArray(res.data) ? res.data.map(toCorrection) : [];
   },
   async latestInvoiceFor(studentId: string): Promise<Invoice> {
     const res = await apiClient.get<Raw>(
@@ -251,15 +514,56 @@ export const feesApi = {
     );
     return toInvoice(res.data);
   },
+  /** The pupil's bills with something still to pay, newest first (QA-221). */
+  async openInvoicesFor(studentId: string): Promise<Invoice[]> {
+    const lists = await Promise.all(
+      (['UNPAID', 'PARTIAL'] as const).map((status) =>
+        fetchAll(`/schools/me/invoices?${new URLSearchParams({ studentId, status })}`),
+      ),
+    );
+    return lists
+      .flat()
+      .map(toInvoice)
+      .sort((a, b) => (b.createdAt ?? '').localeCompare(a.createdAt ?? ''));
+  },
   async generateInvoices(request: { academicTermId: string; classId?: string; dueDate?: string }) {
-    const res = await apiClient.post<{ totalInvoicesGenerated: number; totalFeePayable: number }>(
-      '/schools/me/invoices/generate',
+    const res = await apiClient.post<GenerateResult>('/schools/me/invoices/generate', request);
+    return res.data;
+  },
+  /** A one-off bill (e.g. mock exam fee) for one student, one class or the whole school. */
+  async generateSupplementary(request: SupplementaryRequest) {
+    const { amount, ...rest } = request;
+    const res = await apiClient.post<GenerateResult>('/schools/me/invoices/supplementary', {
+      ...rest,
+      ...(amount !== undefined ? { amount: toCedis(amount) } : {}),
+    });
+    return res.data;
+  },
+  /** Texts or emails the parent the bill's view link. */
+  async sendInvoiceLink(id: string) {
+    const res = await apiClient.post<{ success: boolean; message: string }>(
+      `/schools/me/invoices/${encodeURIComponent(id)}/send-link`,
+    );
+    return res.data;
+  },
+  /** Queues bill links to every matching parent. */
+  async broadcastInvoiceLinks(request: BroadcastRequest) {
+    const res = await apiClient.post<{ queuedCount: number; message: string }>(
+      '/schools/me/invoices/broadcast-links',
       request,
     );
-    return {
-      count: res.data.totalInvoicesGenerated,
-      totalFeePayable: toPesewas(res.data.totalFeePayable),
-    };
+    return res.data;
+  },
+  /** Changes a bill's amounts; the reason is kept in the audit log. */
+  async modifyInvoice(id: string, request: ModifyRequest) {
+    const res = await apiClient.patch<Raw>(
+      `/schools/me/invoices/${encodeURIComponent(id)}/modify`,
+      {
+        reason: request.reason,
+        lineItems: request.lineItems.map((item) => ({ ...item, amount: toCedis(item.amount) })),
+      },
+    );
+    return toInvoice(res.data);
   },
   async listPayments({ page, ...filters }: PaymentQuery): Promise<Page<Payment>> {
     const res = await apiClient.get<Raw[], PageMeta>(
@@ -267,16 +571,31 @@ export const feesApi = {
     );
     return toPage(res, toPayment);
   },
-  /** `idempotencyKey`: one per payment attempt, so a retried submit is not recorded twice. */
+  /**
+   * `idempotencyKey`: one per payment attempt, so a retried submit is not recorded twice.
+   * A resend of a saved payment returns its original receipt; a resend while the first
+   * attempt is still running (`IDEMPOTENCY_IN_PROGRESS`) waits and asks again.
+   */
   async recordPayment(
     { amount, ...request }: RecordPaymentRequest,
     idempotencyKey?: string,
   ): Promise<Payment | null> {
-    const res = await apiClient.post<Raw[] | Raw>(
-      '/schools/me/payments',
-      { ...request, amount: toCedis(amount) },
-      idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
-    );
+    const send = () =>
+      apiClient.post<Raw[] | Raw>(
+        '/schools/me/payments',
+        { ...request, amount: toCedis(amount) },
+        idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
+      );
+    let res;
+    for (let attempt = 1; ; attempt++) {
+      try {
+        res = await send();
+        break;
+      } catch (err) {
+        if (errorCode(err) !== 'IDEMPOTENCY_IN_PROGRESS' || attempt >= IN_PROGRESS_TRIES) throw err;
+        await new Promise((resolve) => setTimeout(resolve, IN_PROGRESS_WAIT_MS));
+      }
+    }
     const created = Array.isArray(res.data) ? res.data[0] : res.data;
     return created ? toPayment(created) : null;
   },
@@ -343,44 +662,23 @@ export const feesApi = {
   async deleteDiscount(id: string) {
     await apiClient.delete(`/schools/me/discounts/${encodeURIComponent(id)}`);
   },
-  async listClasses() {
-    return (await apiClient.get<SchoolClass[]>('/schools/me/classes')).data ?? [];
+  /** Every class (the list endpoint pages, at most 100 a page). */
+  async listClasses(): Promise<SchoolClass[]> {
+    return setupApi.allClasses();
   },
-  async listStudentOptions() {
-    return (await apiClient.get<StudentOption[]>('/schools/me/students?limit=100')).data ?? [];
+  /** Up to a page of pupils matching a name or code; the first page when empty (QA-030). */
+  async searchStudents(search: string): Promise<StudentOption[]> {
+    return (
+      (await apiClient.get<StudentOption[]>(`/schools/me/students?${pageParams(1, { search })}`))
+        .data ?? []
+    );
   },
   /** Every term of every academic year, newest year first. */
-  async listTerms(): Promise<AcademicContext[]> {
-    const years =
-      (await apiClient.get<{ id: string; yearLabel: string }[]>('/schools/me/academic-years'))
-        .data ?? [];
-    const termsByYear = await Promise.all(
-      years.map(async (year) => {
-        const res = await apiClient.get<{ id: string; termLabel: string }[]>(
-          `/schools/me/academic-years/${encodeURIComponent(year.id)}/terms`,
-        );
-        return (res.data ?? []).map((term) => ({
-          yearId: year.id,
-          yearLabel: year.yearLabel,
-          termId: term.id,
-          termLabel: term.termLabel,
-        }));
-      }),
-    );
-    return termsByYear.flat();
+  async listTerms(): Promise<TermInYear[]> {
+    return setupApi.listTerms();
   },
   /** The current year and term, or null when either is not set up. */
   async currentTerm(): Promise<AcademicContext | null> {
-    const [year, term] = await Promise.all([
-      apiClient.get<{ id: string; yearLabel: string }>('/schools/me/academic-years/current'),
-      apiClient.get<{ id: string; termLabel: string }>('/schools/me/academic-terms/current'),
-    ]);
-    if (!year.data || !term.data) return null;
-    return {
-      yearId: year.data.id,
-      yearLabel: year.data.yearLabel,
-      termId: term.data.id,
-      termLabel: term.data.termLabel,
-    };
+    return setupApi.currentTerm();
   },
 };

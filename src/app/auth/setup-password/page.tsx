@@ -20,6 +20,7 @@ import { BrandLogo } from '@/components/atoms';
 import { apiClient } from '@/lib/api-client';
 import { useAuth } from '@/lib/auth';
 import { landingPathFor } from '@/lib/rbac';
+import { AuthShell } from '../AuthShell';
 
 const MIN_PASSWORD_LENGTH = 8;
 
@@ -37,9 +38,9 @@ export default function SetupPasswordPage() {
   return (
     <Suspense
       fallback={
-        <Centered>
+        <AuthShell>
           <Loader />
-        </Centered>
+        </AuthShell>
       }
     >
       <SetupPassword />
@@ -50,7 +51,7 @@ export default function SetupPasswordPage() {
 function SetupPassword() {
   const router = useRouter();
   const token = useSearchParams().get('token') ?? '';
-  const { login } = useAuth();
+  const { acceptInvite } = useAuth();
 
   const [invite, setInvite] = useState<InviteCheck | null>(null);
   const [password, setPassword] = useState('');
@@ -93,13 +94,12 @@ function SetupPassword() {
     }
     setSubmitting(true);
     try {
-      await apiClient.post('/auth/setup-password', { token, password });
+      const { user } = await acceptInvite(token, password);
       notifications.show({
         color: 'green',
         title: 'Password set',
-        message: 'Your account is ready. Signing you in…',
+        message: 'Your account is ready.',
       });
-      const { user } = await login(invite?.email ?? '', password);
       router.replace(landingPathFor(user.role));
     } catch (err: unknown) {
       setError(err instanceof Error ? err.message : 'Could not set your password.');
@@ -110,14 +110,14 @@ function SetupPassword() {
 
   if (!invite) {
     return (
-      <Centered>
+      <AuthShell>
         <Loader />
-      </Centered>
+      </AuthShell>
     );
   }
 
   return (
-    <Centered>
+    <AuthShell>
       <Card withBorder radius="lg" padding="xl" w="100%" maw={420}>
         <Stack gap="md">
           <BrandLogo />
@@ -174,23 +174,6 @@ function SetupPassword() {
           )}
         </Stack>
       </Card>
-    </Centered>
-  );
-}
-
-function Centered({ children }: { children: React.ReactNode }) {
-  return (
-    <Box
-      style={{
-        minHeight: '100vh',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: 16,
-        background: '#f8fafc',
-      }}
-    >
-      {children}
-    </Box>
+    </AuthShell>
   );
 }

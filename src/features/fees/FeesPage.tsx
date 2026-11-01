@@ -1,34 +1,46 @@
 'use client';
 
+import Link from 'next/link';
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Button, Card, Tabs } from '@mantine/core';
+import { Badge, Button, Card, Menu, Tabs } from '@mantine/core';
 import { useDebouncedValue } from '@mantine/hooks';
 import {
   BadgePercent,
+  ChevronDown,
   CreditCard,
+  FilePlus2,
   FileText,
+  Inbox,
   PlusCircle,
   Receipt,
   RefreshCw,
+  Send,
   Tags,
 } from 'lucide-react';
 import { PageHeader } from '@/features/workspace';
 import { useAuth } from '@/lib/auth';
+import { APP_ROUTES } from '@/lib/rbac';
+import { errorMessage } from '@/lib/api-client';
 import {
   feesApi,
   type AcademicContext,
   type FeeType,
   type Invoice,
+  type InvoiceSummary,
   type Page,
   type Payment,
   type SchoolClass,
-  type StudentOption,
 } from './api';
 import { DiscountsPanel } from './DiscountsPanel';
 import { FeeMetrics } from './FeeMetrics';
 import { FeeTypesPanel } from './FeeTypesPanel';
 import { GenerateInvoicesModal } from './GenerateInvoicesModal';
+import { optionalFeeRequestsApi } from '@/features/optional-fee-requests/api';
+import type { TermInYear } from '@/features/school-setup/api';
+import { BroadcastLinksModal } from './BroadcastLinksModal';
 import { InvoiceDrawer } from './InvoiceDrawer';
+import { ModifyInvoiceModal } from './ModifyInvoiceModal';
+import { SupplementaryInvoiceModal } from './SupplementaryInvoiceModal';
 import { InvoicesTab, type InvoiceFilters } from './InvoicesTab';
 import { notifyLoadError } from './notify';
 import { PaymentsTab, type PaymentFilters } from './PaymentsTab';
@@ -41,11 +53,14 @@ const countOf = (total: number | null | undefined) => (total == null ? '' : ` ($
 
 /** Invoices, payments, and the fee setup for the signed-in user's school. */
 export function FeesPage() {
-  const { can, school } = useAuth();
+  const { can, school, user } = useAuth();
   const may = {
     readPayments: can('payments:read'),
     collectPayments: can('payments:collect'),
     generateInvoices: can('invoices:generate'),
+    // The backend lets only the Principal correct an issued bill.
+    correctInvoices: can('invoices:generate') && user?.role === 'PRINCIPAL',
+    reviewServiceRequests: can('student_fee_preferences:manage'),
     readStructures: can('fee_structures:read'),
     manageStructures: can('fee_structures:manage'),
     readFeeTypes: can('fee_types:read'),
@@ -57,21 +72,26 @@ export function FeesPage() {
 
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [term, setTerm] = useState<AcademicContext | null>(null);
-  const [terms, setTerms] = useState<AcademicContext[]>([]);
-  const [students, setStudents] = useState<StudentOption[]>([]);
+  const [terms, setTerms] = useState<TermInYear[]>([]);
   const [feeTypes, setFeeTypes] = useState<FeeType[]>([]);
   const [feeTypesLoading, setFeeTypesLoading] = useState(false);
+  const [feeTypesError, setFeeTypesError] = useState<string | null>(null);
 
   const [filters, setFilters] = useState<InvoiceFilters>({
     search: '',
     classId: null,
     status: null,
+    leavers: false,
     page: 1,
   });
   const [search] = useDebouncedValue(filters.search.trim(), 300);
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [invoicesTotal, setInvoicesTotal] = useState(0);
   const [invoicesLoading, setInvoicesLoading] = useState(true);
+  const [invoicesError, setInvoicesError] = useState<string | null>(null);
+  const [summary, setSummary] = useState<InvoiceSummary | null>(null);
+  /** Bumped after a write, so the cards reload once alongside the table. */
+  const [summaryKey, setSummaryKey] = useState(0);
 
   const [paymentFilters, setPaymentFilters] = useState<PaymentFilters>({
     studentId: null,
@@ -80,6 +100,7 @@ export function FeesPage() {
   });
   const [payments, setPayments] = useState<Page<Payment> | null>(null);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
+  const [paymentsError, setPaymentsError] = useState<string | null>(null);
 
   // Totals reported by the self-loading setup tabs, for their tab labels.
   const [structuresTotal, setStructuresTotal] = useState<number | null>(null);
@@ -89,33 +110,43 @@ export function FeesPage() {
   const [breakdown, setBreakdown] = useState<Invoice | null>(null);
   const [breakdownLoading, setBreakdownLoading] = useState(false);
   const [generating, setGenerating] = useState(false);
+  const [extraBill, setExtraBill] = useState(false);
+  const [broadcasting, setBroadcasting] = useState(false);
+  const [correcting, setCorrecting] = useState<Invoice | null>(null);
+  /** Parents' optional-service requests awaiting a decision; null until known. */
+  const [pendingRequests, setPendingRequests] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!may.reviewServiceRequests) return;
+    // A hint on a button: when the count can't load, the button still works.
+    optionalFeeRequestsApi
+      .pendingCount()
+      .then(setPendingRequests)
+      .catch(() => setPendingRequests(null));
+  }, [may.reviewServiceRequests]);
   const [paying, setPaying] = useState(false);
   const [receipt, setReceipt] = useState<Payment | null>(null);
 
   useEffect(() => {
-    Promise.allSettled([
-      feesApi.listClasses(),
-      feesApi.currentTerm(),
-      feesApi.listTerms(),
-      feesApi.listStudentOptions(),
-    ]).then(([classesRes, termRes, termsRes, studentsRes]) => {
-      if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
-      else notifyLoadError('classes', classesRes.reason);
-      // No current term is a valid setup state; generating invoices explains it.
-      if (termRes.status === 'fulfilled') setTerm(termRes.value);
-      if (termsRes.status === 'fulfilled') setTerms(termsRes.value);
-      else notifyLoadError('academic terms', termsRes.reason);
-      if (studentsRes.status === 'fulfilled') setStudents(studentsRes.value);
-      else notifyLoadError('students', studentsRes.reason);
-    });
+    Promise.allSettled([feesApi.listClasses(), feesApi.currentTerm(), feesApi.listTerms()]).then(
+      ([classesRes, termRes, termsRes]) => {
+        if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
+        else notifyLoadError('classes', classesRes.reason);
+        // No current term is a valid setup state; generating invoices explains it.
+        if (termRes.status === 'fulfilled') setTerm(termRes.value);
+        if (termsRes.status === 'fulfilled') setTerms(termsRes.value);
+        else notifyLoadError('academic terms', termsRes.reason);
+      },
+    );
   }, []);
 
   const loadFeeTypes = useCallback(async () => {
     setFeeTypesLoading(true);
+    setFeeTypesError(null);
     try {
       setFeeTypes(await feesApi.listFeeTypes());
     } catch (err) {
-      notifyLoadError('fee types', err);
+      setFeeTypesError(errorMessage(err, 'Could not load the fee types.'));
     } finally {
       setFeeTypesLoading(false);
     }
@@ -126,31 +157,34 @@ export function FeesPage() {
     if (may.readFeeTypes) loadFeeTypes();
   }, [may.readFeeTypes, loadFeeTypes]);
 
-  const { page, classId, status } = filters;
+  const { page, classId, status, leavers } = filters;
   const loadInvoices = useCallback(async () => {
     setInvoicesLoading(true);
+    setInvoicesError(null);
     try {
       const result = await feesApi.listInvoices({
         page,
         search,
         classId,
         status: status ?? undefined,
+        leavers,
       });
       setInvoices(result.items);
       setInvoicesTotal(result.total);
     } catch (err) {
-      notifyLoadError('invoices', err);
+      setInvoicesError(errorMessage(err, 'Could not load the invoices.'));
     } finally {
       setInvoicesLoading(false);
     }
-  }, [page, search, classId, status]);
+  }, [page, search, classId, status, leavers]);
 
   const loadPayments = useCallback(async () => {
     setPaymentsLoading(true);
+    setPaymentsError(null);
     try {
       setPayments(await feesApi.listPayments(paymentFilters));
     } catch (err) {
-      notifyLoadError('payments', err);
+      setPaymentsError(errorMessage(err, 'Could not load the payments.'));
     } finally {
       setPaymentsLoading(false);
     }
@@ -160,6 +194,18 @@ export function FeesPage() {
     loadInvoices();
   }, [loadInvoices]);
 
+  // The cards cover the same invoices as the table's filters, across every page.
+  useEffect(() => {
+    let current = true;
+    feesApi
+      .invoiceSummary({ search, classId, status: status ?? undefined, leavers })
+      .then((result) => current && setSummary(result))
+      .catch(() => current && setSummary(null));
+    return () => {
+      current = false;
+    };
+  }, [search, classId, status, leavers, summaryKey]);
+
   useEffect(() => {
     if (activeTab === 'payments' && may.readPayments) loadPayments();
   }, [activeTab, may.readPayments, loadPayments]);
@@ -167,17 +213,6 @@ export function FeesPage() {
   const classOptions = useMemo(
     () => classes.map((c) => ({ value: c.id, label: `${c.className} (${c.classCode})` })),
     [classes],
-  );
-  const studentOptions = useMemo(
-    () =>
-      students.map((s) => ({
-        // The enrolment id: the payments filter accepts only this, the other endpoints either id.
-        value: s.id,
-        label: [`${s.fullName} (${s.studentCode || 'no code'})`, s.className]
-          .filter(Boolean)
-          .join(' • '),
-      })),
-    [students],
   );
 
   // The list response has no line items, so the breakdown loads the full invoice.
@@ -193,8 +228,26 @@ export function FeesPage() {
     }
   };
 
-  const refresh = () => {
+  /** Opens a bill known only by its number, e.g. the one a balance moved to (QA-278). */
+  const openInvoiceNumber = async (invoiceNumber: string) => {
+    try {
+      const { items } = await feesApi.listInvoices({ page: 1, search: invoiceNumber });
+      const found = items.find((inv) => inv.invoiceNumber === invoiceNumber);
+      if (found) await openBreakdown(found);
+      else notifyLoadError(invoiceNumber, new Error('That bill was not found.'));
+    } catch (err) {
+      notifyLoadError(invoiceNumber, err);
+    }
+  };
+
+  /** After a write: the table and the cards, once each. */
+  const reloadInvoices = () => {
     loadInvoices();
+    setSummaryKey((key) => key + 1);
+  };
+
+  const refresh = () => {
+    reloadInvoices();
     if (may.readPayments) loadPayments();
     if (may.readFeeTypes) loadFeeTypes();
     setReloadKey((key) => key + 1);
@@ -222,6 +275,24 @@ export function FeesPage() {
             >
               Refresh
             </Button>
+            {may.reviewServiceRequests && (
+              <Button
+                component={Link}
+                href={APP_ROUTES.optionalFeeRequests.path}
+                variant="default"
+                radius="md"
+                leftSection={<Inbox size={16} />}
+                rightSection={
+                  pendingRequests ? (
+                    <Badge size="sm" color="fastrackRed" circle={pendingRequests < 10}>
+                      {pendingRequests}
+                    </Badge>
+                  ) : undefined
+                }
+              >
+                Service requests
+              </Button>
+            )}
             {startPayment && (
               <Button
                 leftSection={<Receipt size={16} />}
@@ -244,11 +315,31 @@ export function FeesPage() {
                 Generate Term Invoices
               </Button>
             )}
+            {may.generateInvoices && (
+              <Menu position="bottom-end" radius="md" shadow="md">
+                <Menu.Target>
+                  <Button variant="default" radius="md" rightSection={<ChevronDown size={14} />}>
+                    More billing
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  <Menu.Item
+                    leftSection={<FilePlus2 size={14} />}
+                    onClick={() => setExtraBill(true)}
+                  >
+                    Extra bill (exam, excursion…)
+                  </Menu.Item>
+                  <Menu.Item leftSection={<Send size={14} />} onClick={() => setBroadcasting(true)}>
+                    Send bill links to parents
+                  </Menu.Item>
+                </Menu.Dropdown>
+              </Menu>
+            )}
           </>
         }
       />
 
-      <FeeMetrics invoices={invoices} />
+      <FeeMetrics invoices={invoices} summary={summary} />
 
       <Card withBorder radius="lg" p="lg" style={{ borderColor: '#e8edf3' }}>
         <Tabs value={activeTab} onChange={setActiveTab} color="fastrackRed">
@@ -283,6 +374,8 @@ export function FeesPage() {
               invoices={invoices}
               total={invoicesTotal}
               loading={invoicesLoading}
+              error={invoicesError}
+              onRetry={loadInvoices}
               filters={filters}
               onFiltersChange={setFilters}
               classOptions={classOptions}
@@ -295,9 +388,10 @@ export function FeesPage() {
                 payments={payments?.items ?? []}
                 total={payments?.total ?? 0}
                 loading={paymentsLoading}
+                error={paymentsError}
+                onRetry={loadPayments}
                 filters={paymentFilters}
                 onFiltersChange={setPaymentFilters}
-                studentOptions={studentOptions}
                 onRecordPayment={startPayment}
                 onShowReceipt={setReceipt}
               />
@@ -322,6 +416,8 @@ export function FeesPage() {
               <FeeTypesPanel
                 feeTypes={feeTypes}
                 loading={feeTypesLoading}
+                error={feeTypesError}
+                onRetry={loadFeeTypes}
                 canManage={may.manageFeeTypes}
                 onChanged={loadFeeTypes}
               />
@@ -334,7 +430,6 @@ export function FeesPage() {
                 reloadKey={reloadKey}
                 terms={terms}
                 currentTermId={term?.termId ?? null}
-                studentOptions={studentOptions}
                 feeTypes={feeTypes}
                 canManage={may.manageDiscounts}
                 onTotal={setDiscountsTotal}
@@ -348,22 +443,60 @@ export function FeesPage() {
         invoice={breakdown}
         loading={breakdownLoading}
         onClose={() => setBreakdown(null)}
+        canSendLink={may.generateInvoices}
+        onModify={may.correctInvoices ? setCorrecting : undefined}
+        onOpenInvoiceNumber={openInvoiceNumber}
       />
+      {correcting && (
+        <ModifyInvoiceModal
+          invoice={correcting}
+          onClose={() => setCorrecting(null)}
+          onSaved={(updated) => {
+            setCorrecting(null);
+            setBreakdown(updated);
+            reloadInvoices();
+          }}
+        />
+      )}
+      {extraBill && (
+        <SupplementaryInvoiceModal
+          terms={terms}
+          currentTermId={term?.termId ?? null}
+          feeTypes={feeTypes}
+          classOptions={classOptions}
+          onClose={() => setExtraBill(false)}
+          onGenerated={() => {
+            setExtraBill(false);
+            reloadInvoices();
+          }}
+        />
+      )}
+      {broadcasting && (
+        <BroadcastLinksModal
+          terms={terms}
+          currentTermId={term?.termId ?? null}
+          classOptions={classOptions}
+          onClose={() => setBroadcasting(false)}
+        />
+      )}
       <GenerateInvoicesModal
         opened={generating}
         onClose={() => setGenerating(false)}
         term={term}
+        terms={terms}
         classOptions={classOptions}
-        onGenerated={loadInvoices}
+        onGenerated={reloadInvoices}
       />
       {paying && (
         <RecordPaymentModal
-          studentOptions={studentOptions}
           onClose={() => setPaying(false)}
-          onRecorded={(payment) => {
-            setPaying(false);
-            loadInvoices();
+          onRecorded={(payment, closed) => {
+            reloadInvoices();
             if (may.readPayments) loadPayments();
+            // A late answer for a closed window is left to its toast, so it
+            // can't close a newer Record Payment window (QA-273).
+            if (closed) return;
+            setPaying(false);
             if (payment) setReceipt(payment);
           }}
         />

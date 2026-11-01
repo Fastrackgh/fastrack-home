@@ -1,127 +1,46 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import React from 'react';
 import Link from 'next/link';
 import { useSearchParams } from 'next/navigation';
 import { Button, Loader, Paper, Stack, Text, ThemeIcon, Title } from '@mantine/core';
 import { CheckCircle2, Clock, XCircle } from 'lucide-react';
 import { formatGhs } from '@/features/fees/money';
-import { parentApi } from '../api';
+import { parentRoutes } from '../routes';
 import type { PaymentVerification } from '../types';
-import { clearCheckoutKeys } from './PayInvoiceModal';
+import { usePaymentVerification } from './usePaymentVerification';
 
-/** Waits between checks while a payment is pending, e.g. a MoMo prompt not yet approved. */
-const POLL_DELAYS_MS = [0, 2000, 3000, 5000, 5000, 8000, 8000];
-
-/**
- * Where the payment provider returns the parent. The backend confirms the
- * payment with the provider (and from its webhook); this page only asks it
- * for the outcome, never trusts the query string.
- */
+/** Where the payment provider returns the parent after paying. */
 export function PaymentCallback() {
   const params = useSearchParams();
   const reference = params.get('reference') ?? params.get('trxref');
-  const [result, setResult] = useState<PaymentVerification | null>(null);
-  const [checking, setChecking] = useState(true);
-  const [attempt, setAttempt] = useState(0);
-
-  useEffect(() => {
-    if (!reference) {
-      setChecking(false);
-      return;
-    }
-    let cancelled = false;
-    (async () => {
-      setChecking(true);
-      for (const delay of POLL_DELAYS_MS) {
-        await new Promise((resolve) => setTimeout(resolve, delay));
-        if (cancelled) return;
-        try {
-          const verification = await parentApi.verifyPayment(reference);
-          if (cancelled) return;
-          setResult(verification);
-          if (verification.status !== 'pending') {
-            if (verification.invoiceId) clearCheckoutKeys(verification.invoiceId);
-            break;
-          }
-        } catch {
-          // A failed check is retried; the outcome stays pending until one succeeds.
-        }
-      }
-      if (!cancelled) setChecking(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [reference, attempt]);
-
-  const status = !reference ? 'failed' : (result?.status ?? 'pending');
-  const billHref = result?.invoiceId ? `/parent/fees/${result.invoiceId}` : '/parent/fees';
+  const { status, result, checking, checkAgain } = usePaymentVerification(reference);
+  const billHref = result?.invoiceId ? parentRoutes.invoice(result.invoiceId) : parentRoutes.fees;
 
   return (
     <Paper withBorder radius="lg" p="xl" mt="xl">
       <Stack align="center" ta="center" gap="sm">
-        {status === 'pending' && checking && (
-          <>
-            <Loader color="fastrackRed" size="lg" />
-            <Title order={3}>Confirming your payment…</Title>
-            <Text size="sm" c="dimmed">
-              If you paid with Mobile Money, approve the prompt on your phone. Keep this page open.
-            </Text>
-          </>
-        )}
+        {status === 'pending' && checking && <Confirming />}
         {status === 'pending' && !checking && (
-          <>
-            <ThemeIcon size={56} radius="xl" color="orange" variant="light">
-              <Clock size={28} />
-            </ThemeIcon>
-            <Title order={3}>Payment still processing</Title>
+          <Outcome icon={<Clock size={28} />} color="orange" title="Payment still processing">
             <Text size="sm" c="dimmed">
               We have not heard back yet. You will not be charged twice. Check again in a minute, or
               look for it under Fees → Payments.
             </Text>
-            <Button color="fastrackRed" onClick={() => setAttempt((a) => a + 1)}>
+            <Button color="fastrackRed" onClick={checkAgain}>
               Check again
             </Button>
-            <Button variant="default" component={Link} href={billHref}>
-              Back to bill
-            </Button>
-          </>
+            <BackToBill href={billHref} />
+          </Outcome>
         )}
         {status === 'success' && (
-          <>
-            <ThemeIcon size={56} radius="xl" color="green" variant="light">
-              <CheckCircle2 size={28} />
-            </ThemeIcon>
-            <Title order={3}>Payment received</Title>
-            {result?.payment && (
-              <Text size="sm" c="dimmed">
-                {formatGhs(result.payment.amountPaid)} paid. Receipt {result.payment.receiptNumber}.
-                {result.payment.newBalance > 0
-                  ? ` Balance left: ${formatGhs(result.payment.newBalance)}.`
-                  : ' This bill is fully paid.'}
-              </Text>
-            )}
-            {result?.payment && (
-              <Button
-                color="fastrackRed"
-                component={Link}
-                href={`/parent/receipts/${result.payment.id}`}
-              >
-                View receipt
-              </Button>
-            )}
-            <Button variant="default" component={Link} href={billHref}>
-              Back to bill
-            </Button>
-          </>
+          <Outcome icon={<CheckCircle2 size={28} />} color="green" title="Payment received">
+            <PaymentReceived payment={result?.payment ?? null} />
+            <BackToBill href={billHref} />
+          </Outcome>
         )}
         {status === 'failed' && (
-          <>
-            <ThemeIcon size={56} radius="xl" color="red" variant="light">
-              <XCircle size={28} />
-            </ThemeIcon>
-            <Title order={3}>Payment not completed</Title>
+          <Outcome icon={<XCircle size={28} />} color="red" title="Payment not completed">
             <Text size="sm" c="dimmed">
               {result?.message ??
                 'The payment was cancelled or declined. You have not been charged.'}
@@ -129,9 +48,70 @@ export function PaymentCallback() {
             <Button color="fastrackRed" component={Link} href={billHref}>
               Try again
             </Button>
-          </>
+          </Outcome>
         )}
       </Stack>
     </Paper>
+  );
+}
+
+function Confirming() {
+  return (
+    <>
+      <Loader color="fastrackRed" size="lg" />
+      <Title order={3}>Confirming your payment…</Title>
+      <Text size="sm" c="dimmed">
+        If you paid with Mobile Money, approve the prompt on your phone. Keep this page open.
+      </Text>
+    </>
+  );
+}
+
+function Outcome({
+  icon,
+  color,
+  title,
+  children,
+}: {
+  icon: React.ReactNode;
+  color: string;
+  title: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <>
+      <ThemeIcon size={56} radius="xl" color={color} variant="light">
+        {icon}
+      </ThemeIcon>
+      <Title order={3}>{title}</Title>
+      {children}
+    </>
+  );
+}
+
+function PaymentReceived({ payment }: { payment: PaymentVerification['payment'] }) {
+  if (!payment) return null;
+  return (
+    <>
+      <Text size="sm" c="dimmed">
+        {formatGhs(payment.amountPaid)} paid. Receipt {payment.receiptNumber}.
+        {payment.newBalance === null
+          ? ''
+          : payment.newBalance > 0
+            ? ` Balance left: ${formatGhs(payment.newBalance)}.`
+            : ' This bill is fully paid.'}
+      </Text>
+      <Button color="fastrackRed" component={Link} href={parentRoutes.receipt(payment.id)}>
+        View receipt
+      </Button>
+    </>
+  );
+}
+
+function BackToBill({ href }: { href: string }) {
+  return (
+    <Button variant="default" component={Link} href={href}>
+      Back to bill
+    </Button>
   );
 }

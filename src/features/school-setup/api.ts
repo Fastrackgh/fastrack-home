@@ -1,0 +1,522 @@
+import { ApiError, apiClient, pathId, type PageMeta } from '@/lib/api-client';
+import { fetchAll, pageParams, toPage, type Raw } from '@/lib/pagination';
+import { dataScopeOf, type Role } from '@/lib/rbac';
+
+export interface AcademicTerm {
+  id: string;
+  academicYearId: string;
+  termSequence: number;
+  termLabel: string;
+  /** YYYY-MM-DD; null until the school sets the period's dates. */
+  startDate: string | null;
+  endDate: string | null;
+  /** False for a period created with its year and not dated yet; it can't be used until it is. */
+  datesSet: boolean;
+  isCurrent: boolean;
+}
+
+export interface AcademicYear {
+  id: string;
+  /** Derived by the backend from the start date, e.g. "2026/2027". */
+  yearLabel: string;
+  startDate: string;
+  endDate: string;
+  isCurrent: boolean;
+  /** When the year was archived; null while it's live. Archived years are read-only. */
+  archivedAt: string | null;
+  terms: AcademicTerm[];
+}
+
+/**
+ * How the school divides a year (`/term-pattern`). Applies to years created
+ * afterwards, which get their periods automatically, undated.
+ */
+export interface TermPattern {
+  /** One period, "Whole year", carrying the year's dates. */
+  wholeYear: boolean;
+  /** "Term", "Semester"…; ignored for a whole-year school. */
+  periodName: string;
+  periodCount: number;
+}
+
+/** A term with its year, as pickers and filters use it. */
+export interface TermInYear {
+  termId: string;
+  termLabel: string;
+  termSequence: number;
+  startDate: string | null;
+  endDate: string | null;
+  datesSet: boolean;
+  isCurrent: boolean;
+  yearId: string;
+  yearLabel: string;
+}
+
+/** A term whose dates are set: the only kind that bills, registers or calendars can use. */
+export type DatedTerm = TermInYear & { startDate: string; endDate: string };
+
+export const isDated = (term: TermInYear): term is DatedTerm =>
+  term.datesSet && !!term.startDate && !!term.endDate;
+
+const dated = new Intl.DateTimeFormat('en-GB', {
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+  timeZone: 'UTC',
+});
+/** "1 Sept 2026 – 18 Dec 2026": a year's or term's dates (YYYY-MM-DD). */
+export const formatSpan = (start: string, end: string) =>
+  `${dated.format(new Date(`${start.slice(0, 10)}T00:00:00Z`))} – ${dated.format(new Date(`${end.slice(0, 10)}T00:00:00Z`))}`;
+
+/** The dated term that `day` (YYYY-MM-DD) falls in, if any. */
+export const termOn = (terms: TermInYear[], day: string): DatedTerm | null =>
+  terms.filter(isDated).find((t) => t.startDate <= day && day <= t.endDate) ?? null;
+
+const termAndYear = (t: TermInYear) => `${t.termLabel}, ${t.yearLabel}`;
+
+/** "Runs 8 Jan 2027 – 9 Apr 2027" under a term picker; nothing for an undated term. */
+export const termRuns = (term: TermInYear | null | undefined) =>
+  term && isDated(term) ? `Runs ${formatSpan(term.startDate, term.endDate)}` : undefined;
+
+/**
+ * A warning when something is about to be made for a term that today isn't
+ * in, e.g. a bulk bill run for next term (QA-061). Null when today is inside.
+ * `what` starts the last sentence: "These bills", "These fees"…
+ */
+export function outOfTermWarning(
+  term: TermInYear | null | undefined,
+  terms: TermInYear[],
+  today: string,
+  what = 'These bills',
+): string | null {
+  if (!term || !isDated(term) || (term.startDate <= today && today <= term.endDate)) return null;
+  const now = termOn(terms, today);
+  return [
+    `${termAndYear(term)} runs ${formatSpan(term.startDate, term.endDate)}.`,
+    now ? `Today is in ${termAndYear(now)}.` : "Today isn't in any term.",
+    `${what} will be for ${termAndYear(term)}.`,
+  ].join(' ');
+}
+
+/** The years' terms with their year, as pickers use them. */
+export const termsOf = (years: AcademicYear[]): TermInYear[] =>
+  years.flatMap((year) =>
+    year.terms.map((term) => ({
+      termId: term.id,
+      termLabel: term.termLabel,
+      termSequence: term.termSequence,
+      startDate: term.startDate,
+      endDate: term.endDate,
+      datesSet: term.datesSet,
+      isCurrent: term.isCurrent,
+      yearId: year.id,
+      yearLabel: year.yearLabel,
+    })),
+  );
+
+/** "2026/27 · Term 2 (current)"; every term picker uses this wording. */
+export const termName = (term: Pick<TermInYear, 'yearLabel' | 'termLabel' | 'isCurrent'>) =>
+  `${term.yearLabel} · ${term.termLabel}${term.isCurrent ? ' (current)' : ''}`;
+
+/**
+ * A term as a picker option. A period without dates can't be used for bills,
+ * attendance, marks or anything else yet, so it shows but can't be chosen.
+ */
+export const termOption = (term: TermInYear) => ({
+  value: term.termId,
+  label: term.datesSet ? termName(term) : `${termName(term)} · dates not set`,
+  disabled: !term.datesSet,
+});
+
+/** The school's current year and term. */
+export interface CurrentTerm {
+  yearId: string;
+  yearLabel: string;
+  termId: string;
+  termLabel: string;
+}
+
+/** A 404 means "not set up yet", which callers treat as nothing. */
+const orNullIfMissing = (err: unknown) => {
+  if (err instanceof ApiError && err.statusCode === 404) return null;
+  throw err;
+};
+
+export interface Department {
+  id: string;
+  code: string;
+  name: string;
+  description: string | null;
+  headStaffId: string | null;
+  headStaffName: string | null;
+  sequenceOrder: number;
+  classCount: number;
+}
+
+export interface SchoolClass {
+  id: string;
+  classCode: string;
+  className: string;
+  departmentId: string | null;
+  departmentName: string | null;
+  homeroomStaffId: string | null;
+  /** Promotion moves pupils to the class with the next number (QA-207). */
+  sequenceOrder: number;
+}
+
+/** A teacher who can head a department or a class. */
+export interface StaffOption {
+  id: string;
+  name: string;
+}
+
+export interface SchoolDetails {
+  name: string;
+  code: string;
+  address: string | null;
+  phone: string | null;
+  email: string | null;
+  website: string | null;
+  logoUrl: string | null;
+}
+
+export interface DatesInput {
+  startDate: string;
+  endDate: string;
+  isCurrent?: boolean;
+}
+
+export interface DepartmentInput {
+  code: string;
+  name: string;
+  description?: string;
+  headStaffId?: string | null;
+  sequenceOrder?: number;
+}
+
+export interface ClassInput {
+  classCode: string;
+  className: string;
+  departmentId: string | null;
+  homeroomStaffId: string | null;
+  /** Left out on a new class, which then goes after the last one. */
+  sequenceOrder?: number;
+}
+
+/**
+ * A subject in the school's catalogue. One English serves every class that
+ * takes it; which classes take it is set per class (docs/api/results.md).
+ */
+export interface Subject {
+  id: string;
+  subjectCode: string;
+  subjectName: string;
+  shortName: string | null;
+  category: string | null;
+  isActive: boolean;
+  classCount: number;
+}
+
+export interface SubjectInput {
+  subjectCode: string;
+  subjectName: string;
+  shortName?: string | null;
+  category?: string | null;
+  isActive?: boolean;
+}
+
+/** How a subject counts in a BECE-style aggregate: always, among the best others, or not at all. */
+export type AggregateRole = 'none' | 'core' | 'pool';
+
+/**
+ * A subject a class takes. It stands until someone changes it, through every
+ * term and year; pupils take their current class's subjects.
+ */
+export interface ClassSubject {
+  subjectId: string;
+  subjectCode: string;
+  subjectName: string;
+  sequenceOrder: number;
+  /** Printed on the report instead of the subject's name, e.g. "Ga". */
+  reportLabel: string | null;
+  countsInAverage: boolean;
+  aggregateRole: AggregateRole;
+  /** Empty means any teacher can enter its marks. */
+  teachers: StaffOption[];
+}
+
+export interface ClassSubjectInput {
+  subjectId: string;
+  sequenceOrder: number;
+  reportLabel: string | null;
+  countsInAverage: boolean;
+  aggregateRole: AggregateRole;
+  teacherIds: string[];
+}
+
+export type SchoolDetailsInput = Partial<Omit<SchoolDetails, 'code' | 'logoUrl'>>;
+
+/** The backend caps every list at 100 rows. */
+/** Years, terms and departments are few, so one full page holds them all. */
+const ALL = 'limit=100';
+
+type StaffRow = { id: string; firstName: string; lastName: string };
+const text = (value: unknown) => (typeof value === 'string' && value ? value : null);
+
+/** A class from its API shape (also the `classes` sync record, §8). */
+export const toClass = (raw: Raw): SchoolClass => {
+  const department = raw.department as { name?: string } | null;
+  return {
+    id: String(raw.id),
+    classCode: String(raw.classCode ?? ''),
+    className: String(raw.className ?? ''),
+    departmentId: text(raw.departmentId),
+    departmentName: department?.name ?? null,
+    homeroomStaffId: text(raw.homeroomStaffId),
+    sequenceOrder: Number(raw.sequenceOrder ?? 0),
+  };
+};
+
+const toSubject = (raw: Raw): Subject => ({
+  id: String(raw.id),
+  subjectCode: String(raw.subjectCode ?? ''),
+  subjectName: String(raw.subjectName ?? ''),
+  shortName: text(raw.shortName),
+  category: text(raw.category),
+  isActive: raw.isActive !== false,
+  classCount: Number(raw.classCount ?? 0),
+});
+
+const toClassSubject = (raw: Raw): ClassSubject => ({
+  subjectId: String(raw.subjectId),
+  subjectCode: String(raw.subjectCode ?? ''),
+  subjectName: String(raw.subjectName ?? ''),
+  sequenceOrder: Number(raw.sequenceOrder ?? 0),
+  reportLabel: text(raw.reportLabel),
+  countsInAverage: raw.countsInAverage !== false,
+  aggregateRole:
+    raw.aggregateRole === 'core' || raw.aggregateRole === 'pool' ? raw.aggregateRole : 'none',
+  teachers: ((raw.teachers as Raw[] | undefined) ?? []).map((t) => ({
+    id: String(t.staffId),
+    name: String(t.name ?? ''),
+  })),
+});
+
+export const setupApi = {
+  /** Every live academic year with its terms, newest first; archived ones on request. */
+  async listYears({ includeArchived = false } = {}): Promise<AcademicYear[]> {
+    const years =
+      (
+        await apiClient.get<Omit<AcademicYear, 'terms'>[]>(
+          `/schools/me/academic-years?${ALL}${includeArchived ? '&includeArchived=true' : ''}`,
+        )
+      ).data ?? [];
+    const withTerms = await Promise.all(
+      years.map(async (year) => {
+        const terms =
+          (
+            await apiClient.get<AcademicTerm[]>(
+              `/schools/me/academic-years/${pathId(year.id)}/terms?${ALL}`,
+            )
+          ).data ?? [];
+        return { ...year, terms: [...terms].sort((a, b) => a.termSequence - b.termSequence) };
+      }),
+    );
+    return withTerms.sort((a, b) => b.startDate.localeCompare(a.startDate));
+  },
+  /** Every term of every live year, newest year first, terms in order. */
+  async listTerms(): Promise<TermInYear[]> {
+    return termsOf(await setupApi.listYears());
+  },
+  /** The current year and term, or null when either isn't set up. */
+  async currentTerm(): Promise<CurrentTerm | null> {
+    const [year, term] = await Promise.all([
+      apiClient
+        .get<{ id: string; yearLabel: string }>('/schools/me/academic-years/current')
+        .then((res) => res.data ?? null, orNullIfMissing),
+      apiClient
+        .get<{ id: string; termLabel: string }>('/schools/me/academic-terms/current')
+        .then((res) => res.data ?? null, orNullIfMissing),
+    ]);
+    if (!year || !term) return null;
+    return {
+      yearId: year.id,
+      yearLabel: year.yearLabel,
+      termId: term.id,
+      termLabel: term.termLabel,
+    };
+  },
+  async getTermPattern(): Promise<TermPattern> {
+    return (await apiClient.get<TermPattern>('/schools/me/term-pattern')).data;
+  },
+  async setTermPattern(pattern: TermPattern): Promise<TermPattern> {
+    return (await apiClient.put<TermPattern>('/schools/me/term-pattern', pattern)).data;
+  },
+  /** Refused for the current year, or one that already has bills, pupils, marks… */
+  async archiveYear(yearId: string) {
+    await apiClient.post(`/schools/me/academic-years/${pathId(yearId)}/archive`);
+  },
+  async restoreYear(yearId: string) {
+    await apiClient.post(`/schools/me/academic-years/${pathId(yearId)}/restore`);
+  },
+  async createYear(input: DatesInput) {
+    await apiClient.post('/schools/me/academic-years', input);
+  },
+  async updateYear(yearId: string, change: Partial<DatesInput>) {
+    await apiClient.patch(`/schools/me/academic-years/${pathId(yearId)}`, change);
+  },
+  async createTerm(yearId: string, input: DatesInput & { termSequence: number }) {
+    await apiClient.post(`/schools/me/academic-years/${pathId(yearId)}/terms`, input);
+  },
+  async updateTerm(
+    yearId: string,
+    termId: string,
+    change: Partial<DatesInput & { termSequence: number }>,
+  ) {
+    await apiClient.patch(
+      `/schools/me/academic-years/${pathId(yearId)}/terms/${pathId(termId)}`,
+      change,
+    );
+  },
+
+  async listDepartments(): Promise<Department[]> {
+    const rows = (await apiClient.get<Department[]>(`/schools/me/departments?${ALL}`)).data ?? [];
+    return [...rows].sort(
+      (a, b) => a.sequenceOrder - b.sequenceOrder || a.name.localeCompare(b.name),
+    );
+  },
+  async createDepartment(input: DepartmentInput) {
+    await apiClient.post('/schools/me/departments', input);
+  },
+  async updateDepartment(departmentId: string, change: Partial<DepartmentInput>) {
+    await apiClient.patch(`/schools/me/departments/${pathId(departmentId)}`, change);
+  },
+  async deleteDepartment(departmentId: string) {
+    await apiClient.delete(`/schools/me/departments/${pathId(departmentId)}`);
+  },
+  /** Adds the standard departments (Pre-School, Lower Primary, …) that are missing. */
+  async addDefaultDepartments() {
+    await apiClient.post('/schools/me/departments/seed-defaults');
+  },
+
+  async listClasses(page: number, search: string) {
+    const res = await apiClient.get<Raw[], PageMeta>(
+      `/schools/me/classes?${pageParams(page, { search: search.trim() })}`,
+    );
+    return toPage(res, toClass);
+  },
+  /**
+   * The classes a person can pick: every class for school-wide roles, only
+   * the ones they teach (a subject, or as homeroom) for a teacher, since the
+   * backend refuses the others (QA-016).
+   */
+  async classesFor(viewer: { id: string; role: Role }): Promise<SchoolClass[]> {
+    const all = await setupApi.allClasses();
+    if (dataScopeOf(viewer.role) !== 'assigned_classes') return all;
+    const assigned =
+      (await apiClient.get<{ classId: string }[]>('/schools/me/teaching-assignments')).data ?? [];
+    const taught = new Set(assigned.map((a) => a.classId));
+    return all.filter((c) => taught.has(c.id) || c.homeroomStaffId === viewer.id);
+  },
+  /** Every class, fetched a full page at a time, for pickers. */
+  async allClasses(): Promise<SchoolClass[]> {
+    const rows = (await fetchAll('/schools/me/classes')).map(toClass);
+    return rows.sort(
+      (a, b) =>
+        a.sequenceOrder - b.sequenceOrder ||
+        a.className.localeCompare(b.className, undefined, { numeric: true }),
+    );
+  },
+  async createClass(input: ClassInput) {
+    const body = Object.fromEntries(Object.entries(input).filter(([, value]) => value !== null));
+    await apiClient.post('/schools/me/classes', body);
+  },
+  async updateClass(classId: string, change: ClassInput) {
+    await apiClient.patch(`/schools/me/classes/${pathId(classId)}`, change);
+  },
+
+  /** The whole catalogue in one list; it isn't paged, and `limit` is refused. */
+  async listSubjects(includeInactive = false): Promise<Subject[]> {
+    const rows =
+      (
+        await apiClient.get<Raw[]>(
+          `/schools/me/subjects${includeInactive ? '?includeInactive=true' : ''}`,
+        )
+      ).data ?? [];
+    return rows
+      .map(toSubject)
+      .sort((a, b) => a.subjectName.localeCompare(b.subjectName, undefined, { numeric: true }));
+  },
+  async createSubject(input: SubjectInput) {
+    await apiClient.post('/schools/me/subjects', input);
+  },
+  async updateSubject(subjectId: string, change: Partial<SubjectInput>) {
+    await apiClient.patch(`/schools/me/subjects/${pathId(subjectId)}`, change);
+  },
+  /** Refused (409) while a class or a mark uses it; deactivate it instead. */
+  async deleteSubject(subjectId: string) {
+    await apiClient.delete(`/schools/me/subjects/${pathId(subjectId)}`);
+  },
+  async listClassSubjects(classId: string): Promise<ClassSubject[]> {
+    const rows =
+      (await apiClient.get<Raw[]>(`/schools/me/classes/${pathId(classId)}/subjects`)).data ?? [];
+    return rows.map(toClassSubject).sort((a, b) => a.sequenceOrder - b.sequenceOrder);
+  },
+  /**
+   * Replaces the class's whole list. A subject left out is removed from the
+   * class, or kept inactive if it already has marks.
+   */
+  async saveClassSubjects(classId: string, subjects: ClassSubjectInput[]) {
+    const rows =
+      (await apiClient.put<Raw[]>(`/schools/me/classes/${pathId(classId)}/subjects`, subjects))
+        .data ?? [];
+    return rows.map(toClassSubject);
+  },
+  /** Adds subjects to every class in a department, or to chosen classes. */
+  async applySubjects(input: { subjectIds: string[]; departmentId?: string; classIds?: string[] }) {
+    return (
+      await apiClient.post<{ added: number; alreadyThere: number }>(
+        '/schools/me/class-subjects/apply',
+        input,
+      )
+    ).data;
+  },
+
+  /** Any active staff member can teach a subject, heads included. */
+  async listActiveStaff(): Promise<StaffOption[]> {
+    const rows = await fetchAll<StaffRow>('/schools/me/staff?isActive=true');
+    return rows
+      .map((s) => ({ id: s.id, name: `${s.firstName} ${s.lastName}`.trim() }))
+      .sort((a, b) => a.name.localeCompare(b.name));
+  },
+
+  async listStaffOptions(): Promise<StaffOption[]> {
+    // Heads of department and class teachers must be active teachers.
+    const rows = await fetchAll<StaffRow>('/schools/me/staff?role=TEACHER&isActive=true');
+    return rows.map((s) => ({ id: s.id, name: `${s.firstName} ${s.lastName}`.trim() }));
+  },
+
+  async getSchool(): Promise<SchoolDetails> {
+    const raw = (await apiClient.get<Raw>('/schools/me')).data ?? {};
+    return {
+      name: String(raw.name ?? ''),
+      code: String(raw.code ?? ''),
+      address: text(raw.address),
+      phone: text(raw.phone),
+      email: text(raw.email),
+      website: text(raw.website),
+      logoUrl: text(raw.logoUrl),
+    };
+  },
+  async updateSchool(change: SchoolDetailsInput) {
+    await apiClient.patch('/schools/me', change);
+  },
+  async uploadLogo(file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    await apiClient.request('/schools/me/logo', { method: 'PUT', body: form });
+  },
+  async removeLogo() {
+    await apiClient.delete('/schools/me/logo');
+  },
+};

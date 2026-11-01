@@ -13,8 +13,10 @@ import {
   Text,
 } from '@mantine/core';
 import { Printer, Receipt } from 'lucide-react';
+import { LoadErrorRow } from './LoadErrorRow';
 import { PAGE_SIZE, PAYMENT_METHODS, type Payment } from './api';
 import { formatGhs } from './money';
+import { StudentPicker } from './StudentPicker';
 
 export interface PaymentFilters {
   studentId: string | null;
@@ -26,18 +28,21 @@ export function PaymentsTab({
   payments,
   total,
   loading,
+  error = null,
+  onRetry,
   filters,
   onFiltersChange,
-  studentOptions,
   onRecordPayment,
   onShowReceipt,
 }: {
   payments: Payment[];
   total: number;
   loading: boolean;
+  /** Set when the list failed to load; shown instead of the empty state. */
+  error?: string | null;
+  onRetry?: () => void;
   filters: PaymentFilters;
   onFiltersChange: (filters: PaymentFilters) => void;
-  studentOptions: { value: string; label: string }[];
   /** Absent when the user may not record payments. */
   onRecordPayment?: () => void;
   onShowReceipt: (payment: Payment) => void;
@@ -52,12 +57,10 @@ export function PaymentsTab({
     <>
       <Group justify="space-between" mb="md" wrap="wrap">
         <Group gap="sm" wrap="wrap">
-          <Select
+          <StudentPicker
             placeholder="All students"
-            data={studentOptions}
             value={filters.studentId}
             onChange={(studentId) => filter({ studentId })}
-            searchable
             clearable
             radius="md"
             w={300}
@@ -109,6 +112,8 @@ export function PaymentsTab({
                   </Stack>
                 </Table.Td>
               </Table.Tr>
+            ) : error ? (
+              <LoadErrorRow colSpan={8} message={error} onRetry={onRetry} />
             ) : payments.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={8}>
@@ -150,6 +155,12 @@ export function PaymentsTab({
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm">{p.transactionReference || '—'}</Text>
+                    {p.sharedTransfer?.payments.length ? (
+                      <Text size="xs" c="dimmed">
+                        Shared with{' '}
+                        {p.sharedTransfer.payments.map((other) => other.studentName).join(', ')}
+                      </Text>
+                    ) : null}
                   </Table.Td>
                   <Table.Td>
                     <Text size="sm" c="dimmed">

@@ -5,7 +5,7 @@ import { ActionIcon, Badge, Button, Group, Paper, Stack, Text, Tooltip } from '@
 import { ArrowDown, ArrowUp, Copy, Eye, EyeOff, GripVertical, Plus, Trash2 } from 'lucide-react';
 import type { BlockSchema, DocumentLayout, LayoutBlock } from '../api';
 import { BlockIcon } from './BlockIcon';
-import type { BlockSlot } from './layout-ops';
+import { columnSides, type BlockSlot } from './layout-ops';
 import classes from './Outline.module.css';
 
 interface OutlineProps {
@@ -25,6 +25,12 @@ interface OutlineProps {
 const DRAG_TYPE = 'application/x-fastrack-block';
 
 /** The page's sections in order: select one to edit it, drag to reorder. */
+
+const COLUMN_LABELS = {
+  left: 'Left column',
+  middle: 'Middle column',
+  right: 'Right column',
+} as const;
 export function Outline(props: OutlineProps) {
   const { layout } = props;
   return (
@@ -49,6 +55,8 @@ function BlockList(props: OutlineProps & { list: LayoutBlock[]; slot: BlockSlot 
   const allowDrop = (e: DragEvent) => {
     if (readOnly || !e.dataTransfer.types.includes(DRAG_TYPE)) return;
     e.preventDefault();
+    // An empty column is the target, not the Columns section around it.
+    e.stopPropagation();
     setOver(true);
   };
   return (
@@ -58,6 +66,10 @@ function BlockList(props: OutlineProps & { list: LayoutBlock[]; slot: BlockSlot 
       onDragLeave={() => setOver(false)}
       onDrop={(e) => {
         if (list.length !== 0) return;
+        // Without this the drop bubbles to the Columns section, which moves the
+        // section out of the column, to just above it on the page (QA-266).
+        e.preventDefault();
+        e.stopPropagation();
         setOver(false);
         const id = e.dataTransfer.getData(DRAG_TYPE);
         if (id) onDrop(id, { slot });
@@ -158,6 +170,7 @@ function BlockRow(
                 <ActionIcon
                   size="sm"
                   variant="subtle"
+                  aria-label="Move up"
                   disabled={index === 0}
                   onClick={() => props.onMove(block.id, -1)}
                 >
@@ -168,6 +181,7 @@ function BlockRow(
                 <ActionIcon
                   size="sm"
                   variant="subtle"
+                  aria-label="Move down"
                   disabled={index === count - 1}
                   onClick={() => props.onMove(block.id, 1)}
                 >
@@ -178,13 +192,19 @@ function BlockRow(
                 <ActionIcon
                   size="sm"
                   variant="subtle"
+                  aria-label={block.hidden ? 'Show' : 'Hide'}
                   onClick={() => props.onToggleHidden(block.id)}
                 >
                   {block.hidden ? <Eye size={13} /> : <EyeOff size={13} />}
                 </ActionIcon>
               </Tooltip>
               <Tooltip label="Duplicate">
-                <ActionIcon size="sm" variant="subtle" onClick={() => props.onDuplicate(block.id)}>
+                <ActionIcon
+                  size="sm"
+                  variant="subtle"
+                  aria-label="Duplicate"
+                  onClick={() => props.onDuplicate(block.id)}
+                >
                   <Copy size={13} />
                 </ActionIcon>
               </Tooltip>
@@ -193,6 +213,7 @@ function BlockRow(
                   size="sm"
                   variant="subtle"
                   color="red"
+                  aria-label="Delete"
                   onClick={() => props.onRemove(block.id)}
                 >
                   <Trash2 size={13} />
@@ -203,14 +224,14 @@ function BlockRow(
         </Group>
         {block.children && (
           <Stack gap={8} mt={6} onClick={(e) => e.stopPropagation()}>
-            {(['left', 'right'] as const).map((side) => (
+            {columnSides(block).map((side) => (
               <Stack key={side} gap={4} className={classes.column}>
                 <Text size="xs" c="dimmed">
-                  {side === 'left' ? 'Left column' : 'Right column'}
+                  {COLUMN_LABELS[side]}
                 </Text>
                 <BlockList
                   {...props}
-                  list={block.children![side]}
+                  list={block.children![side] ?? []}
                   slot={{ parentId: block.id, side }}
                 />
                 {!readOnly && (

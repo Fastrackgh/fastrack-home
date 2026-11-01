@@ -1,0 +1,22 @@
+{
+  "id": "/school-admin",
+  "name": "Fastrack School",
+  "short_name": "Fastrack",
+  "description": "Your school's students, fees, attendance and results, even when the internet drops.",
+  "start_url": "/school-admin/dashboard",
+  "scope": "/school-admin",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#e01a2b",
+  "categories": ["education", "productivity"],
+  "icons": [
+    { "src": "/school-app/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/school-app/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/school-app/maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/school-app/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }
+  ],
+  "shortcuts": [
+    { "name": "Attendance", "url": "/school-admin/attendance", "icons": [{ "src": "/school-app/icon-192.png", "sizes": "192x192" }] },
+    { "name": "Fees", "url": "/school-admin/fees", "icons": [{ "src": "/school-app/icon-192.png", "sizes": "192x192" }] }
+  ]
+}

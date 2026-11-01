@@ -1,4 +1,5 @@
-import { ApiError, apiClient } from '@/lib/api-client';
+import { setupApi, type DatedTerm, type TermInYear } from '@/features/school-setup/api';
+import { apiClient } from '@/lib/api-client';
 
 /** Values of the backend's `SchoolEventType` enum. */
 export type EventType =
@@ -73,14 +74,8 @@ export interface SchoolDays {
   schoolDays: number;
 }
 
-export interface Term {
-  termId: string;
-  termLabel: string;
-  yearLabel: string;
-  startDate: string;
-  endDate: string;
-  isCurrent: boolean;
-}
+/** The term the calendar shows; only a dated term has months to draw. */
+export type Term = DatedTerm;
 
 export interface SchoolClass {
   id: string;
@@ -134,48 +129,16 @@ export const calendarApi = {
   async deleteEvent(id: string) {
     await apiClient.delete(`${BASE}/events/${encodeURIComponent(id)}`);
   },
-  /** Every term of every academic year, newest year first. */
-  async listTerms(): Promise<Term[]> {
-    const years =
-      (await apiClient.get<{ id: string; yearLabel: string }[]>('/schools/me/academic-years'))
-        .data ?? [];
-    const termsByYear = await Promise.all(
-      years.map(async (year) => {
-        const res = await apiClient.get<
-          {
-            id: string;
-            termLabel: string;
-            startDate: string;
-            endDate: string;
-            isCurrent: boolean;
-          }[]
-        >(`/schools/me/academic-years/${encodeURIComponent(year.id)}/terms`);
-        return (res.data ?? []).map((term) => ({
-          termId: term.id,
-          termLabel: term.termLabel,
-          yearLabel: year.yearLabel,
-          startDate: term.startDate,
-          endDate: term.endDate,
-          isCurrent: term.isCurrent,
-        }));
-      }),
-    );
-    return termsByYear.flat();
+  /** Every term of every academic year, newest year first, undated ones included. */
+  async listTerms(): Promise<TermInYear[]> {
+    return setupApi.listTerms();
   },
   /** The school's current term id, or null when none is set up. */
   async currentTermId(): Promise<string | null> {
-    try {
-      const res = await apiClient.get<{ id: string }>('/schools/me/academic-terms/current');
-      return res.data?.id ?? null;
-    } catch (err) {
-      if (err instanceof ApiError && err.statusCode === 404) return null;
-      throw err;
-    }
+    return (await setupApi.currentTerm())?.termId ?? null;
   },
-  async listClasses() {
-    return (await apiClient.get<SchoolClass[]>('/schools/me/classes')).data ?? [];
+  /** Every class (the list endpoint pages, at most 100 a page). */
+  async listClasses(): Promise<SchoolClass[]> {
+    return setupApi.allClasses();
   },
 };
-
-export const errorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;

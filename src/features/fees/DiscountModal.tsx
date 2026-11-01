@@ -15,36 +15,31 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Info } from 'lucide-react';
-import {
-  DISCOUNT_TYPES,
-  feesApi,
-  type AcademicContext,
-  type DiscountType,
-  type FeeType,
-} from './api';
+import { errorMessage } from '@/lib/api-client';
+import { termOption, type TermInYear } from '@/features/school-setup/api';
+import { DISCOUNT_TYPES, feesApi, type DiscountType, type FeeType } from './api';
 import { toPesewas } from './money';
-import { errorMessage } from './notify';
+import { StudentPicker } from './StudentPicker';
 
 const WHOLE_BILL = 'all';
 const EVERY_TERM = 'every';
 
 /** Grants a student a discount. Rendered only while open. */
 export function DiscountModal({
-  studentOptions,
   feeTypes,
   terms,
   initialTermId,
   onClose,
   onSaved,
 }: {
-  studentOptions: { value: string; label: string }[];
   feeTypes: FeeType[];
-  terms: AcademicContext[];
+  terms: TermInYear[];
   initialTermId: string | null;
   onClose: () => void;
   onSaved: () => void;
 }) {
   const [studentId, setStudentId] = useState<string | null>(null);
+  const [studentName, setStudentName] = useState('');
   const [feeTypeId, setFeeTypeId] = useState(WHOLE_BILL);
   const [termId, setTermId] = useState(initialTermId ?? EVERY_TERM);
   const [discountType, setDiscountType] = useState<DiscountType>('percentage');
@@ -80,7 +75,7 @@ export function DiscountModal({
       });
       notifications.show({
         title: 'Discount added',
-        message: studentOptions.find((o) => o.value === studentId)?.label ?? '',
+        message: studentName,
         color: 'green',
       });
       onSaved();
@@ -99,13 +94,14 @@ export function DiscountModal({
     <Modal opened onClose={onClose} title="Add a student discount" size="lg" radius="lg" centered>
       <form onSubmit={submit}>
         <Stack gap="md">
-          <Select
+          <StudentPicker
             label="Student"
             placeholder="Search by student name or code"
-            data={studentOptions}
             value={studentId}
-            onChange={setStudentId}
-            searchable
+            onChange={(id, picked) => {
+              setStudentId(id);
+              setStudentName(picked?.label ?? '');
+            }}
             required
             radius="md"
             id="select-discount-student"
@@ -127,13 +123,7 @@ export function DiscountModal({
             <Grid.Col span={{ base: 12, sm: 6 }}>
               <Select
                 label="Term"
-                data={[
-                  ...terms.map((t) => ({
-                    value: t.termId,
-                    label: `${t.yearLabel} · ${t.termLabel}`,
-                  })),
-                  { value: EVERY_TERM, label: 'Every term' },
-                ]}
+                data={[...terms.map(termOption), { value: EVERY_TERM, label: 'Every term' }]}
                 value={termId}
                 onChange={(v) => setTermId(v ?? EVERY_TERM)}
                 allowDeselect={false}

@@ -2,12 +2,14 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { notifications } from '@mantine/notifications';
-import { feesApi, type AcademicContext, type FeeStructure, type FeeType, type Page } from './api';
+import { errorMessage } from '@/lib/api-client';
+import { termOption, type TermInYear } from '@/features/school-setup/api';
+import { feesApi, type FeeStructure, type FeeType, type Page } from './api';
 import { ConfirmModal } from './ConfirmModal';
 import { EditFeeStructureModal } from './EditFeeStructureModal';
 import { FeeStructureModal } from './FeeStructureModal';
 import { formatGhs } from './money';
-import { notifyLoadError } from './notify';
+
 import { StructuresTab, type FeeStructureFilters } from './StructuresTab';
 
 /** The Fee Structures tab: loads while `active`, and owns its filters and forms. */
@@ -24,7 +26,7 @@ export function StructuresPanel({
   active: boolean;
   /** Changes when the page asks every tab to reload. */
   reloadKey: number;
-  terms: AcademicContext[];
+  terms: TermInYear[];
   currentTermId: string | null;
   classOptions: { value: string; label: string }[];
   feeTypes: FeeType[];
@@ -38,6 +40,7 @@ export function StructuresPanel({
   });
   const [structures, setStructures] = useState<Page<FeeStructure> | null>(null);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [adding, setAdding] = useState(false);
   const [editing, setEditing] = useState<FeeStructure | null>(null);
   const [removing, setRemoving] = useState<FeeStructure | null>(null);
@@ -49,12 +52,13 @@ export function StructuresPanel({
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
       const page = await feesApi.listFeeStructures(filters);
       setStructures(page);
       onTotal(page.total);
     } catch (err) {
-      notifyLoadError('fee structures', err);
+      setError(errorMessage(err, 'Could not load the fee structures.'));
     } finally {
       setLoading(false);
     }
@@ -64,10 +68,7 @@ export function StructuresPanel({
     if (active) load();
   }, [active, load, reloadKey]);
 
-  const termOptions = terms.map((t) => ({
-    value: t.termId,
-    label: `${t.yearLabel} · ${t.termLabel}`,
-  }));
+  const termOptions = terms.map(termOption);
 
   return (
     <>
@@ -75,6 +76,8 @@ export function StructuresPanel({
         structures={structures?.items ?? []}
         total={structures?.total ?? 0}
         loading={loading}
+        error={error}
+        onRetry={load}
         filters={filters}
         onFiltersChange={setFilters}
         termOptions={termOptions}

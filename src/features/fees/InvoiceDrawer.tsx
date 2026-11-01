@@ -2,6 +2,7 @@
 
 import {
   Alert,
+  Anchor,
   Badge,
   Box,
   Button,
@@ -15,8 +16,12 @@ import {
   Text,
   Title,
 } from '@mantine/core';
-import { ExternalLink, ShieldCheck } from 'lucide-react';
-import type { Invoice } from './api';
+import { useState } from 'react';
+import { notifications } from '@mantine/notifications';
+import { ExternalLink, PencilLine, Send, ShieldCheck } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
+import { feesApi, type Invoice } from './api';
+import { CorrectionHistory } from './CorrectionHistory';
 import { invoiceStatusColor, invoiceStatusLabel } from './InvoicesTab';
 import { formatGhs } from './money';
 
@@ -24,12 +29,41 @@ export function InvoiceDrawer({
   invoice,
   loading,
   onClose,
+  canSendLink = false,
+  onModify,
+  onOpenInvoiceNumber,
 }: {
   invoice: Invoice | null;
   /** True while the line items are still loading. */
   loading: boolean;
   onClose: () => void;
+  /** Texts or emails the parent this bill's link. */
+  canSendLink?: boolean;
+  /** Opens the correction form; only the Principal may correct a bill. */
+  onModify?: (invoice: Invoice) => void;
+  /** Opens another bill by its number, e.g. the one a balance moved to. */
+  onOpenInvoiceNumber?: (invoiceNumber: string) => void;
 }) {
+  const [sending, setSending] = useState(false);
+  const sendLink = async (target: Invoice) => {
+    setSending(true);
+    try {
+      const result = await feesApi.sendInvoiceLink(target.id);
+      notifications.show({
+        title: 'Bill link sent',
+        message: result.message || target.invoiceNumber,
+        color: 'green',
+      });
+    } catch (err) {
+      notifications.show({
+        title: 'Could not send the bill link',
+        message: errorMessage(err, 'Try again.'),
+        color: 'red',
+      });
+    } finally {
+      setSending(false);
+    }
+  };
   return (
     <Drawer
       opened={invoice !== null}
@@ -87,17 +121,24 @@ export function InvoiceDrawer({
               {invoice.lineItems?.map((item) => (
                 <AmountRow key={item.id} label={item.feeTypeName} amount={formatGhs(item.amount)} />
               ))}
-              {invoice.arrearsBf > 0 ? (
+              {invoice.sameTermBills.map((bill) => (
                 <AmountRow
-                  label="Arrears Brought Forward"
-                  amount={formatGhs(invoice.arrearsBf)}
+                  key={bill.invoiceNumber}
+                  label={`${bill.title} (${bill.invoiceNumber})`}
+                  amount={signedGhs(bill.amount)}
+                />
+              ))}
+              {invoice.arrearsFromEarlierTerms > 0 ? (
+                <AmountRow
+                  label="Arrears brought forward from earlier terms"
+                  amount={formatGhs(invoice.arrearsFromEarlierTerms)}
                   color="red.7"
                 />
               ) : null}
-              {invoice.arrearsBf < 0 ? (
+              {invoice.arrearsFromEarlierTerms < 0 ? (
                 <AmountRow
-                  label="Credit Brought Forward"
-                  amount={`- ${formatGhs(-invoice.arrearsBf)}`}
+                  label="Credit brought forward from earlier terms"
+                  amount={signedGhs(invoice.arrearsFromEarlierTerms)}
                   color="teal.7"
                 />
               ) : null}
@@ -128,6 +169,13 @@ export function InvoiceDrawer({
               value={formatGhs(invoice.totalPayment)}
               color="teal.7"
             />
+            {invoice.carriedForwardAmount ? (
+              <MovedLine
+                amount={invoice.carriedForwardAmount}
+                to={invoice.carriedForwardToInvoiceNumber}
+                onOpen={onOpenInvoiceNumber}
+              />
+            ) : null}
             <Group justify="space-between" pt="xs" style={{ borderTop: '1px solid #e2e8f0' }}>
               <Text size="md" fw={800} c={invoice.balance > 0 ? 'red.7' : 'teal.7'}>
                 Current Balance:
@@ -152,6 +200,36 @@ export function InvoiceDrawer({
             </Alert>
           ) : null}
 
+          {(canSendLink || onModify) && (
+            <Group grow>
+              {canSendLink && (
+                <Button
+                  variant="light"
+                  color="fastrackRed"
+                  leftSection={<Send size={16} />}
+                  radius="md"
+                  loading={sending}
+                  onClick={() => sendLink(invoice)}
+                >
+                  Send link to parent
+                </Button>
+              )}
+              {onModify && (
+                <Button
+                  variant="default"
+                  leftSection={<PencilLine size={16} />}
+                  radius="md"
+                  disabled={loading || !invoice.lineItems?.length}
+                  onClick={() => onModify(invoice)}
+                >
+                  Correct bill
+                </Button>
+              )}
+            </Group>
+          )}
+
+          <CorrectionHistory invoice={invoice} />
+
           {invoice.viewUrl ? (
             <Button
               component="a"
@@ -170,6 +248,45 @@ export function InvoiceDrawer({
     </Drawer>
   );
 }
+
+/**
+ * A balance moved onto a later bill (QA-278): a debt leaves this bill (−), a
+ * credit is taken off it (+), as on the printed bill since QA-276.
+ */
+function MovedLine({
+  amount,
+  to,
+  onOpen,
+}: {
+  amount: number;
+  to?: string | null;
+  onOpen?: (invoiceNumber: string) => void;
+}) {
+  const target = to ? (
+    onOpen ? (
+      <Anchor component="button" type="button" size="sm" onClick={() => onOpen(to)}>
+        {to}
+      </Anchor>
+    ) : (
+      to
+    )
+  ) : (
+    'a later bill'
+  );
+  return (
+    <Group justify="space-between" wrap="nowrap">
+      <Text size="sm" c="dimmed">
+        {amount > 0 ? 'Balance moved to ' : 'Credit moved to '}
+        {target}:
+      </Text>
+      <Text size="sm" fw={600} c="orange.8">
+        {amount > 0 ? `- ${formatGhs(amount)}` : `+ ${formatGhs(-amount)}`}
+      </Text>
+    </Group>
+  );
+}
+
+const signedGhs = (amount: number) => (amount < 0 ? `- ${formatGhs(-amount)}` : formatGhs(amount));
 
 function AmountRow({ label, amount, color }: { label: string; amount: string; color?: string }) {
   return (

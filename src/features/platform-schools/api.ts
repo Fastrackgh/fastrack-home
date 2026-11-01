@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { fetchAll } from '@/lib/pagination';
 import type {
   ModuleEntitlement,
   PageMeta,
@@ -18,6 +19,24 @@ export const platformSchoolsApi = {
   async updateSchool(schoolId: string, update: SchoolProfileUpdate) {
     await apiClient.patch(schoolPath(schoolId), update);
   },
+  /** Invites the school's principal; refused when it has an active one or an open invitation. */
+  async assignPrincipal(
+    schoolId: string,
+    head: { firstName: string; lastName: string; email: string; phone?: string },
+  ) {
+    await apiClient.post(`${schoolPath(schoolId)}/school-head`, head);
+  },
+  async resendInvitation(invitationId: string) {
+    await apiClient.post(`/invitations/${encodeURIComponent(invitationId)}/resend`, {});
+  },
+  async revokeInvitation(invitationId: string) {
+    await apiClient.patch(`/invitations/${encodeURIComponent(invitationId)}/revoke`, {});
+  },
+  async uploadLogo(schoolId: string, file: File) {
+    const form = new FormData();
+    form.append('file', file);
+    await apiClient.request(`${schoolPath(schoolId)}/logo`, { method: 'PUT', body: form });
+  },
   async setActive(schoolId: string, active: boolean) {
     await apiClient.patch(`${schoolPath(schoolId)}/${active ? 'activate' : 'deactivate'}`, {});
   },
@@ -29,9 +48,9 @@ export const platformSchoolsApi = {
     );
     return { items: res.data ?? [], meta: res.meta };
   },
+  /** Every staff member of the school, however many pages (QA-030). */
   async listStaff(schoolId: string) {
-    const res = await apiClient.get<PlatformStaff[]>(`${schoolPath(schoolId)}/staff?limit=100`);
-    return res.data ?? [];
+    return fetchAll<PlatformStaff>(`${schoolPath(schoolId)}/staff`);
   },
   async listModules(schoolId: string) {
     const res = await apiClient.get<ModuleEntitlement[]>(

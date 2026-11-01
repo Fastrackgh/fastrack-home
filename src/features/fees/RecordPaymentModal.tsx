@@ -1,7 +1,8 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -18,22 +19,45 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { CheckCircle } from 'lucide-react';
-import { feesApi, PAYMENT_METHODS, type Invoice, type Payment } from './api';
+import { ApiError, errorCode, errorMessage } from '@/lib/api-client';
+import {
+  feesApi,
+  PAYMENT_METHODS,
+  paymentExcessOf,
+  sharedTransferOf,
+  type Invoice,
+  type Payment,
+  type PaymentExcess,
+  type SharedTransfer,
+} from './api';
 import { formatGhs, toCedis, toPesewas } from './money';
-import { errorMessage, notifyLoadError } from './notify';
+import { notifyLoadError } from './notify';
+import { attemptKeyFor, settleAttempt } from './payment-attempts';
+import { StudentPicker } from './StudentPicker';
+
+/** After this long without an answer, the modal says it's still waiting and may be closed. */
+const SLOW_MS = 20_000;
 
 /** Rendered only while open, so every payment starts from an empty form. */
 export function RecordPaymentModal({
-  studentOptions,
   onClose,
   onRecorded,
 }: {
-  studentOptions: { value: string; label: string }[];
   onClose: () => void;
-  onRecorded: (payment: Payment | null) => void;
+  /** `closed`: the answer came after the cashier closed this window (QA-273). */
+  onRecorded: (payment: Payment | null, closed: boolean) => void;
 }) {
+  const open = useRef(true);
+  useEffect(() => {
+    open.current = true;
+    return () => {
+      open.current = false;
+    };
+  }, []);
   const [studentId, setStudentId] = useState<string | null>(null);
   const [invoice, setInvoice] = useState<Invoice | null>(null);
+  // Bills the payment can go to: the open ones and the latest (QA-221).
+  const [bills, setBills] = useState<Invoice[]>([]);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   // `typed`: the user entered the amount, so a loaded balance must not replace it.
   const [amountField, setAmountField] = useState<{ value: number | ''; typed: boolean }>({
@@ -41,27 +65,58 @@ export function RecordPaymentModal({
     typed: false,
   });
   const amount = amountField.value;
-  // One key per payment attempt: a double-click or network retry of the same
-  // attempt is refused by the server (409) instead of recorded twice.
-  const [attemptKey, setAttemptKey] = useState(() => crypto.randomUUID());
   const [method, setMethod] = useState('MoMo');
   const [channel, setChannel] = useState('');
   const [reference, setReference] = useState('');
   const [saving, setSaving] = useState(false);
-
-  // The payment goes against the student's latest invoice; default to its
-  // balance unless an amount was already typed.
+  // The backend refused an amount above what's owed: ask before keeping it as credit (QA-029).
+  const [excess, setExcess] = useState<PaymentExcess | null>(null);
+  // A reference already used for another pupil: is this the same transfer? (QA-216)
+  const [shared, setShared] = useState<SharedTransfer | null>(null);
+  // What the cashier has agreed to for this payment, kept so a second question doesn't undo the first.
+  const [agreed, setAgreed] = useState<Agreed>({});
+  // A changed form makes the questions and answers stale; the next submit asks again if needed.
   useEffect(() => {
+    setExcess(null);
+    setShared(null);
+    setAgreed({});
+  }, [studentId, invoice, amount, method, reference]);
+  // The server has taken longer than SLOW_MS: say so, and let the cashier close.
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    if (!saving) return setSlow(false);
+    const timer = setTimeout(() => setSlow(true), SLOW_MS);
+    return () => clearTimeout(timer);
+  }, [saving]);
+  const locked = saving && !slow;
+
+  // The payment goes against the bill picked, by default the student's latest;
+  // its balance fills the amount unless one was already typed.
+  const pickInvoice = (next: Invoice | null) => {
+    setInvoice(next);
+    setAmountField((field) =>
+      field.typed || !next
+        ? field
+        : { value: next.balance > 0 ? toCedis(next.balance) : '', typed: false },
+    );
+  };
+
+  useEffect(() => {
+    setBills([]);
     setInvoice(null);
-    setAttemptKey(crypto.randomUUID());
     setAmountField((field) => (field.typed ? field : { value: '', typed: false }));
     if (!studentId) return;
     let current = true;
     setInvoiceLoading(true);
-    feesApi
-      .latestInvoiceFor(studentId)
-      .then((latest) => {
+    Promise.all([
+      feesApi.latestInvoiceFor(studentId),
+      // Without the list the latest bill can still be paid, as before QA-221.
+      feesApi.openInvoicesFor(studentId).catch(() => []),
+    ])
+      .then(([latest, open]) => {
         if (!current) return;
+        setBills(open.some((bill) => bill.id === latest.id) ? open : [latest, ...open]);
         setInvoice(latest);
         setAmountField((field) =>
           field.typed
@@ -76,8 +131,18 @@ export function RecordPaymentModal({
     };
   }, [studentId]);
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    void send();
+  };
+
+  /**
+   * `agree`: the cashier's answer to a question (keep the extra as credit, or
+   * the same transfer for another pupil). The resend keeps the same key, so
+   * it's still one payment.
+   */
+  const send = async (agree: Agreed = {}) => {
+    const answers = { ...agreed, ...agree };
     const pesewas = toPesewas(amount);
     if (!studentId) {
       notifications.show({ title: 'Error', message: 'Please select a student.', color: 'red' });
@@ -92,6 +157,15 @@ export function RecordPaymentModal({
       });
       return;
     }
+    // The same payment keeps its key until confirmed, so a retry is never recorded twice.
+    const signature = {
+      studentId,
+      invoiceId: invoice?.id ?? null,
+      amount: pesewas,
+      method,
+      reference,
+    };
+    const attemptKey = attemptKeyFor(signature);
     setSaving(true);
     try {
       const payment = await feesApi.recordPayment(
@@ -102,6 +176,8 @@ export function RecordPaymentModal({
           paymentMethod: method,
           bankType: channel.trim() || undefined,
           transactionReference: reference.trim() || undefined,
+          allowCredit: answers.allowCredit || undefined,
+          sharedReference: answers.sharedReference || undefined,
         },
         attemptKey,
       );
@@ -112,8 +188,42 @@ export function RecordPaymentModal({
         icon: <CheckCircle size={18} />,
         autoClose: 6000,
       });
-      onRecorded(payment);
+      settleAttempt(signature);
+      setExcess(null);
+      setShared(null);
+      onRecorded(payment, !open.current);
     } catch (err) {
+      // Nothing was saved, and the key stays for the confirmed resend.
+      const refused = paymentExcessOf(err);
+      const reused = sharedTransferOf(err);
+      if (refused || reused) {
+        setAgreed(answers);
+        setExcess(refused);
+        setShared(reused);
+        return;
+      }
+      if (errorCode(err) === 'IDEMPOTENCY_IN_PROGRESS') {
+        // The first attempt is still being saved; the key stays, so submitting again can't double it.
+        notifications.show({
+          title: 'Still saving',
+          message: 'This payment is still being saved. Check Payments in a moment before trying again.',
+          color: 'yellow',
+          autoClose: false,
+        });
+        return;
+      }
+      if (err instanceof ApiError && err.statusCode === 409) {
+        // The server already has this payment: a key reused with other details, or a known reference.
+        settleAttempt(signature);
+        notifications.show({
+          title: 'Already recorded',
+          message: `${err.message}. It was not recorded again; find it under Payments.`,
+          color: 'yellow',
+          autoClose: false,
+        });
+        onRecorded(null, !open.current);
+        return;
+      }
       notifications.show({
         title: 'Payment Failed',
         message: errorMessage(err, 'Could not record payment.'),
@@ -127,7 +237,10 @@ export function RecordPaymentModal({
   return (
     <Modal
       opened
-      onClose={onClose}
+      onClose={() => !locked && onClose()}
+      closeOnEscape={!locked}
+      closeOnClickOutside={!locked}
+      withCloseButton={!locked}
       title={
         <Box>
           <Title order={4} style={{ fontFamily: 'var(--font-heading)' }}>
@@ -143,13 +256,11 @@ export function RecordPaymentModal({
     >
       <form onSubmit={submit}>
         <Stack gap="md">
-          <Select
+          <StudentPicker
             label="Select Student"
             placeholder="Search by student name or code"
-            data={studentOptions}
             value={studentId}
             onChange={setStudentId}
-            searchable
             required
             radius="md"
             id="select-pay-student"
@@ -163,26 +274,43 @@ export function RecordPaymentModal({
               </Text>
             </Group>
           ) : invoice ? (
-            <Card withBorder radius="md" p="sm" bg="gray.0">
-              <Group justify="space-between">
-                <Box>
-                  <Text size="xs" c="dimmed">
-                    Target Invoice:
-                  </Text>
-                  <Text size="sm" fw={700}>
-                    {invoice.invoiceNumber}
-                  </Text>
-                </Box>
-                <Box ta="right">
-                  <Text size="xs" c="dimmed">
-                    Outstanding Debt:
-                  </Text>
-                  <Text size="md" fw={800} c={invoice.balance > 0 ? 'red.7' : 'teal.7'}>
-                    {formatGhs(invoice.balance)}
-                  </Text>
-                </Box>
-              </Group>
-            </Card>
+            <>
+              {bills.length > 1 ? (
+                <Select
+                  label="Bill to pay"
+                  description={`${bills.length} bills have something to pay`}
+                  data={bills.map((bill) => ({
+                    value: bill.id,
+                    label: `${bill.invoiceNumber} · ${bill.title || 'Bill'} · ${formatGhs(bill.balance)} due`,
+                  }))}
+                  value={invoice.id}
+                  onChange={(id) => pickInvoice(bills.find((bill) => bill.id === id) ?? invoice)}
+                  allowDeselect={false}
+                  radius="md"
+                  id="select-pay-invoice"
+                />
+              ) : null}
+              <Card withBorder radius="md" p="sm" bg="gray.0">
+                <Group justify="space-between">
+                  <Box>
+                    <Text size="xs" c="dimmed">
+                      Target Invoice:
+                    </Text>
+                    <Text size="sm" fw={700}>
+                      {invoice.invoiceNumber}
+                    </Text>
+                  </Box>
+                  <Box ta="right">
+                    <Text size="xs" c="dimmed">
+                      Outstanding Debt:
+                    </Text>
+                    <Text size="md" fw={800} c={invoice.balance > 0 ? 'red.7' : 'teal.7'}>
+                      {formatGhs(invoice.balance)}
+                    </Text>
+                  </Box>
+                </Group>
+              </Card>
+            </>
           ) : null}
 
           <NumberInput
@@ -198,12 +326,13 @@ export function RecordPaymentModal({
               )
             }
             description={
-              invoice &&
-              invoice.balance > 0 &&
-              amount !== '' &&
-              toPesewas(amount) !== invoice.balance
-                ? `Outstanding balance is ${formatGhs(invoice.balance)}`
-                : undefined
+              !invoice || amount === ''
+                ? undefined
+                : toPesewas(amount) > Math.max(invoice.balance, 0)
+                  ? `${formatGhs(toPesewas(amount) - Math.max(invoice.balance, 0))} more than this bill owes: you'll be asked to keep it as credit`
+                  : invoice.balance > 0 && toPesewas(amount) !== invoice.balance
+                    ? `Outstanding balance is ${formatGhs(invoice.balance)}`
+                    : undefined
             }
             radius="md"
             id="input-pay-amount"
@@ -241,22 +370,184 @@ export function RecordPaymentModal({
             id="input-pay-ref"
           />
 
-          <Group justify="flex-end" mt="md">
-            <Button variant="default" onClick={onClose} radius="md" disabled={saving}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              color="teal"
-              loading={saving}
-              radius="md"
-              id="btn-confirm-payment"
-            >
-              Record Payment & Print Receipt
-            </Button>
-          </Group>
+          {slow && (
+            <Alert color="yellow" radius="md" title="Still waiting for the server">
+              Don&apos;t record this payment again. If you close this window, check Payments in a
+              minute: submitting the same payment again is safe and won&apos;t charge twice.
+            </Alert>
+          )}
+
+          {shared ? (
+            <SharedTransferPrompt
+              shared={shared}
+              studentName={invoice?.studentName}
+              saving={saving}
+              onConfirm={() => void send({ sharedReference: true })}
+              onChange={() => {
+                setShared(null);
+                document.getElementById('input-pay-ref')?.focus();
+              }}
+            />
+          ) : excess ? (
+            <CreditPrompt
+              excess={excess}
+              studentName={invoice?.studentName}
+              saving={saving}
+              onKeep={() => void send({ allowCredit: true })}
+              onChange={() => {
+                setExcess(null);
+                document.getElementById('input-pay-amount')?.focus();
+              }}
+            />
+          ) : (
+            <Group justify="flex-end" mt="md">
+              <Button variant="default" onClick={onClose} radius="md" disabled={locked}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                color="teal"
+                loading={saving}
+                radius="md"
+                id="btn-confirm-payment"
+              >
+                Record Payment & Print Receipt
+              </Button>
+            </Group>
+          )}
         </Stack>
       </form>
     </Modal>
+  );
+}
+
+interface Agreed {
+  allowCredit?: boolean;
+  sharedReference?: boolean;
+}
+
+function SharedTransferPrompt({
+  shared,
+  studentName,
+  saving,
+  onConfirm,
+  onChange,
+}: {
+  shared: SharedTransfer;
+  studentName?: string;
+  saving: boolean;
+  onConfirm: () => void;
+  onChange: () => void;
+}) {
+  const earlier = shared.payments
+    .map((p) => `${p.studentName} (${p.receiptNumber}, ${formatGhs(p.amount)})`)
+    .join(', ');
+  return (
+    <Alert color="yellow" radius="md" title="Reference already used" id="alert-pay-shared">
+      <Stack gap="sm">
+        <Text size="sm">
+          <b>{shared.reference}</b> was already used for {earlier || 'another pupil'}. Is this the
+          same transfer, also paying for {studentName || 'this pupil'}?
+        </Text>
+        <Group justify="flex-end">
+          <Button
+            variant="default"
+            onClick={onChange}
+            disabled={saving}
+            radius="md"
+            id="btn-pay-change-ref"
+          >
+            Change reference
+          </Button>
+          <Button
+            color="teal"
+            onClick={onConfirm}
+            loading={saving}
+            radius="md"
+            id="btn-pay-same-transfer"
+          >
+            Yes, same transfer
+          </Button>
+        </Group>
+      </Stack>
+    </Alert>
+  );
+}
+
+/** A refusal over GHS 100 and more than double what's owed is likely a typo. */
+const isLikelyTypo = ({ owed, surplus }: PaymentExcess) => surplus >= 10_000 && surplus > owed;
+
+function CreditPrompt({
+  excess,
+  studentName,
+  saving,
+  onKeep,
+  onChange,
+}: {
+  excess: PaymentExcess;
+  studentName?: string;
+  saving: boolean;
+  onKeep: () => void;
+  onChange: () => void;
+}) {
+  const { owed, amount, surplus, against } = excess;
+  const typo = isLikelyTypo(excess);
+  // A likely typo puts the safe choice under the cashier's Enter key.
+  const changeButton = useRef<HTMLButtonElement>(null);
+  useEffect(() => {
+    if (typo) changeButton.current?.focus();
+  }, [typo]);
+  const what = against === 'ACCOUNT' ? 'is owed in total' : 'this bill owes';
+  const whose = studentName ? `${studentName}'s` : "the student's";
+  return (
+    <Alert
+      color={typo ? 'red' : 'yellow'}
+      radius="md"
+      title={typo ? 'Check the amount: this is far more than is owed' : 'More than is owed'}
+      id="alert-pay-credit"
+    >
+      <Stack gap="sm">
+        {typo ? (
+          <Text size="xl" fw={900} c="red.8">
+            {formatGhs(amount)}
+          </Text>
+        ) : null}
+        <Text size="sm">
+          {owed > 0 ? (
+            <>
+              {formatGhs(amount)} is <b>{formatGhs(surplus)}</b> more than {what} ({formatGhs(owed)}
+              ).
+            </>
+          ) : (
+            <>Nothing {against === 'ACCOUNT' ? 'is owed' : 'is owed on this bill'}.</>
+          )}{' '}
+          Keep {owed > 0 ? '' : 'all '}
+          {formatGhs(surplus)} as credit on {whose} account?
+        </Text>
+        <Group justify="flex-end">
+          <Button
+            variant={typo ? 'filled' : 'default'}
+            color={typo ? 'red' : undefined}
+            onClick={onChange}
+            disabled={saving}
+            radius="md"
+            ref={changeButton}
+            id="btn-pay-change-amount"
+          >
+            Change amount
+          </Button>
+          <Button
+            variant={typo ? 'default' : 'filled'}
+            color="teal"
+            onClick={onKeep}
+            loading={saving}
+            radius="md"
+            id="btn-pay-keep-credit"
+          >
+            Keep as credit
+          </Button>
+        </Group>
+      </Stack>
+    </Alert>
   );
 }

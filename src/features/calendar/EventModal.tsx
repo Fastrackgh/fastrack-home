@@ -16,13 +16,13 @@ import {
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Info } from 'lucide-react';
+import { errorMessage } from '@/lib/api-client';
 import {
   AUDIENCES,
   CLOSURE_TYPES,
   EVENT_TYPES,
   STATUSES,
   calendarApi,
-  errorMessage,
   type EventAudience,
   type EventInput,
   type EventStatus,

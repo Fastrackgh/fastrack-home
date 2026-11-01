@@ -29,7 +29,22 @@ export type PropType =
   | 'number'
   | 'image'
   | 'list'
-  | 'feeGroups';
+  | 'feeGroups'
+  | 'dateLines';
+
+/**
+ * One line of a bill's Dates section (`dateLines`). The list holds each key
+ * once, in print order. An empty `text` prints the date from the bill's data.
+ */
+export interface DateLine {
+  key: 'termPeriod' | 'dueDate' | 'vacation' | 'reopening';
+  show: boolean;
+  /** Printed before the date; empty prints the date alone. */
+  label: string;
+  text: string;
+  /** The line's text colour, `#rrggbb`; empty uses the section's. */
+  color: string;
+}
 
 /** One editable property of a section; the builder draws its form from this. */
 export interface PropSchema {
@@ -70,8 +85,11 @@ export interface LayoutBlock {
   hidden?: boolean;
   /** Placement on the page; absent when everything is at its default. */
   style?: Record<string, unknown>;
-  children?: { left: LayoutBlock[]; right: LayoutBlock[] };
+  /** A columns section's contents; `middle` only when its ratio has three parts. */
+  children?: { left: LayoutBlock[]; middle?: LayoutBlock[]; right: LayoutBlock[] };
 }
+
+export type ColumnSide = 'left' | 'middle' | 'right';
 
 export interface DocumentLayout {
   version: 1;
@@ -173,9 +191,17 @@ export function documentTemplatesApi(schoolId: string, asPlatform: boolean) {
     ) {
       return (await apiClient.post<DocumentTemplate>(base, input)).data;
     },
+    /**
+     * Saves changes to a draft. With `expectedUpdatedAt` (the `updatedAt` last
+     * received), a draft changed elsewhere since is refused with 409 (QA-067).
+     */
     async update(
       id: string,
-      input: { name?: string; layout?: DocumentLayout } & Partial<TemplateParts>,
+      input: {
+        name?: string;
+        layout?: DocumentLayout;
+        expectedUpdatedAt?: string;
+      } & Partial<TemplateParts>,
     ) {
       return (await apiClient.patch<DocumentTemplate>(one(id), input)).data;
     },

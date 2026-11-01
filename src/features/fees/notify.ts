@@ -1,7 +1,5 @@
 import { notifications } from '@mantine/notifications';
-
-export const errorMessage = (err: unknown, fallback: string) =>
-  err instanceof Error ? err.message : fallback;
+import { errorMessage } from '@/lib/api-client';
 
 export function notifyLoadError(what: string, err: unknown) {
   notifications.show({

@@ -1,3 +1,4 @@
+import type { SchoolDays, SchoolEvent } from '@/features/calendar/api';
 import type { Invoice, Payment } from '@/features/fees/api';
 import type { Pesewas } from '@/features/fees/money';
 
@@ -19,7 +20,8 @@ export interface Ward {
   gender?: string | null;
   status: WardStatus | string;
   relationship?: string | null;
-  school: { id: string; code: string; name: string };
+  /** `enabledModules` lists the school's turned-on areas; absent on older responses. */
+  school: { id: string; code: string; name: string; enabledModules?: string[] };
   currentClass?: { id: string; name: string; department?: string | null } | null;
 }
 
@@ -33,7 +35,8 @@ export interface Guardian {
 export interface WardProfile extends Ward {
   photoUrl?: string | null;
   admissionDate?: string | null;
-  house?: string | null;
+  /** "Day" or "Boarding", as the school records it. */
+  boardingStatus?: string | null;
   guardians: Guardian[];
   school: Ward['school'] & {
     logoUrl?: string | null;
@@ -77,14 +80,33 @@ export interface ParentInvoice extends Invoice {
   carriedForwardToInvoiceNumber?: string | null;
 }
 
+/**
+ * Totals across a ward's bills, optionally for one term. Arrears carried onto a
+ * later bill are counted once, so these don't equal a sum of `feePayable`
+ * (QA-222).
+ */
+export interface ParentInvoiceSummary {
+  invoiceCount: number;
+  /** New charges after discounts; balances brought forward aren't counted again. */
+  totalBilled: Pesewas;
+  totalPaid: Pesewas;
+  outstanding: Pesewas;
+  overpaid: Pesewas;
+  /** Unpaid balances of earlier bills, outside the selection, included in these bills. */
+  broughtForward: Pesewas;
+  /** Balances of these bills moved onto later bills outside the selection. */
+  carriedForward: Pesewas;
+}
+
 export type PaymentChannel = 'mobile_money' | 'card';
 
-export const PAYMENT_CHANNELS: { value: PaymentChannel; label: string }[] = [
-  { value: 'mobile_money', label: 'Mobile Money' },
-  { value: 'card', label: 'Card' },
-];
-
-export interface ParentPayment extends Payment {
+export interface ParentPayment extends Omit<Payment, 'previousBalance' | 'newBalance'> {
+  /** The balance stored when the payment was recorded; null for payments from before it was (QA-277). */
+  previousBalance: Pesewas | null;
+  newBalance: Pesewas | null;
+  surplusCredit?: Pesewas | null;
+  /** `STUDENT_ACCOUNT`: the balances above cover the ward's whole account, not just this bill. */
+  balanceScope?: string | null;
   invoiceId?: string | null;
   invoiceNumber?: string | null;
   termLabel?: string | null;
@@ -119,12 +141,32 @@ export interface PaymentVerification {
 
 export interface SubjectResult {
   subject: string;
+  /** The continuous and exam groups' sums, for schools with two columns. */
   classScore: number | null;
   examScore: number | null;
   total: number | null;
   grade: string | null;
   position?: number | null;
+  positionTied?: boolean;
   remark?: string | null;
+  // Added with results phase 4 (docs/api/results.md); all optional.
+  status?: 'ok' | 'incomplete' | 'exempt' | 'missing' | 'not_assessed';
+  mode?: 'numeric' | 'descriptor';
+  /** One per scheme part, in the order of the report's `components`. */
+  componentScores?: { key: string; score: number | null; display: string }[];
+  points?: number | null;
+  /** Descriptor subjects: the overall descriptor and each strand's. */
+  descriptor?: string | null;
+  strands?: { label: string; descriptor: string }[];
+}
+
+/** A part of the school's weighting, e.g. "Class score" worth 40. */
+export interface ReportComponent {
+  key: string;
+  label: string;
+  shortLabel?: string;
+  weight: number;
+  group?: 'continuous' | 'exam';
 }
 
 /** A published terminal report; the list endpoint omits `subjects`. */
@@ -145,25 +187,87 @@ export interface TermReport {
   headRemark?: string | null;
   promotedTo?: string | null;
   nextTermBegins?: string | null;
+  // Added with results phase 4; all optional.
+  positionTied?: boolean;
+  components?: ReportComponent[] | null;
+  /** The backend sends the status capitalised ("Promoted"); compare ignoring case. */
+  promotion?: { status: string; toClass?: string | null } | null;
+  /** BECE-style total of points; lower is better. */
+  aggregate?: number | null;
+  /** Above 1 when the school corrected and republished the report. */
+  revision?: number;
+  updatedAt?: string | null;
 }
 
-export type AttendanceMark = 'present' | 'absent' | 'late' | 'excused';
+export type AttendanceMark = 'present' | 'absent' | 'late' | 'half_day' | 'excused';
 
 export interface AttendanceDay {
   /** ISO date (yyyy-mm-dd). */
   date: string;
   status: AttendanceMark;
+  /** HH:MM, when the register recorded one. */
+  arrivalTime?: string | null;
   note?: string | null;
 }
 
 export interface AttendanceRecord {
+  /** Marked days only; an unmarked school day isn't listed. */
   days: AttendanceDay[];
   summary: {
     present: number;
     absent: number;
     late: number;
+    halfDay: number;
     excused: number;
-    /** Days the school was open in the range. */
+    /** Days the school was open in the range, up to today. */
     schoolDays: number;
+    /** Open days the register hasn't been marked for yet. */
+    unmarked: number;
   };
+}
+
+/** Start (`OPT_IN`) or stop (`OPT_OUT`) an optional service such as the school bus. */
+export type OptionalFeeRequestAction = 'OPT_IN' | 'OPT_OUT';
+export type OptionalFeeRequestStatus = 'PENDING' | 'APPROVED' | 'DECLINED' | 'CANCELLED';
+
+/** A parent's ask to change an optional service; the school approves or declines it. */
+export interface OptionalFeeRequest {
+  id: string;
+  feeTypeId: string;
+  feeTypeName: string;
+  action: OptionalFeeRequestAction;
+  status: OptionalFeeRequestStatus;
+  parentNote: string | null;
+  /** The school's reply, mainly when it declines. */
+  staffNote: string | null;
+  createdAt: string;
+  decidedAt: string | null;
+  /** Made by the signed-in parent (only they can cancel it). */
+  isMine: boolean;
+}
+
+/** An optional fee the ward's school offers (bus, feeding, extra classes...). */
+export interface OptionalService {
+  feeTypeId: string;
+  name: string;
+  description: string | null;
+  /** This term's price for the ward's class; null when the school hasn't priced it. */
+  amount: Pesewas | null;
+  /** The ward takes it now. */
+  enrolled: boolean;
+  pendingRequest: OptionalFeeRequest | null;
+}
+
+export interface WardOptionalServices {
+  termLabel: string | null;
+  className: string | null;
+  /** False while the school isn't taking requests (e.g. suspended). */
+  canRequest: boolean;
+  services: OptionalService[];
+}
+
+/** `GET /parents/me/wards/:studentId/calendar`: the ward's events for one term (never staff-only ones). */
+export interface WardCalendar {
+  events: SchoolEvent[];
+  schoolDays: SchoolDays;
 }

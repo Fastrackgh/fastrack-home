@@ -8,6 +8,7 @@ import {
   Badge,
   Button,
   Card,
+  FileButton,
   Group,
   Loader,
   Modal,
@@ -34,7 +35,8 @@ import {
   Settings2,
   Users,
 } from 'lucide-react';
-import { ApiError } from '@/lib/api-client';
+import { ApiError, errorMessage } from '@/lib/api-client';
+import { formatDate } from '@/lib/format';
 import { APP_ROUTES } from '@/lib/rbac';
 import { platformSchoolsApi as api } from './api';
 import type {
@@ -46,17 +48,9 @@ import type {
   SchoolProfileUpdate,
 } from './model';
 import { SchoolDesigns } from '@/features/document-templates';
+import { fieldSetter } from '@/lib/state';
+import { AssignPrincipalModal } from './AssignPrincipalModal';
 import styles from './SchoolDetail.module.css';
-
-const errorMessage = (error: unknown, fallback: string) =>
-  error instanceof Error ? error.message : fallback;
-
-const formatDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('en-GB', {
-    day: 'numeric',
-    month: 'short',
-    year: 'numeric',
-  });
 
 /** One school as the platform sees it, loaded from the Super Admin API. */
 export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
@@ -176,7 +170,9 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
                 'Principal',
                 school.schoolHead
                   ? `${school.schoolHead.firstName} ${school.schoolHead.lastName}`
-                  : 'Not assigned',
+                  : school.pendingPrincipalInvite
+                    ? 'Invited'
+                    : 'Not assigned',
               ],
             ].map(([label, value]) => (
               <Card withBorder radius="md" padding="md" key={label}>
@@ -209,7 +205,7 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
               </Tabs.Tab>
             </Tabs.List>
             <Tabs.Panel value="overview" pt="lg">
-              <OverviewTab school={school} />
+              <OverviewTab school={school} onChanged={load} />
             </Tabs.Panel>
             <Tabs.Panel value="students" pt="lg">
               <StudentsTab schoolId={school.id} />
@@ -241,8 +237,64 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
   );
 }
 
-function OverviewTab({ school }: { school: PlatformSchool }) {
+function OverviewTab({ school, onChanged }: { school: PlatformSchool; onChanged: () => void }) {
   const head = school.schoolHead;
+  const invite = head ? null : school.pendingPrincipalInvite;
+  // The invitee never set up, so their email is taken: invite them again rather than anew (QA-253).
+  const lapsed = head || invite ? null : school.lapsedPrincipalInvite;
+  const [assigning, setAssigning] = useState(false);
+  const [confirmingRevoke, setConfirmingRevoke] = useState(false);
+  const [logoBusy, setLogoBusy] = useState(false);
+  const [inviteBusy, setInviteBusy] = useState<'resend' | 'revoke' | null>(null);
+
+  const inviteAction = async (action: 'resend' | 'revoke', invitationId: string) => {
+    setConfirmingRevoke(false);
+    setInviteBusy(action);
+    try {
+      if (action === 'resend') await api.resendInvitation(invitationId);
+      else await api.revokeInvitation(invitationId);
+      notifications.show({
+        color: 'green',
+        title: action === 'resend' ? 'Invitation resent' : 'Invitation revoked',
+        message: school.name,
+      });
+    } catch (e) {
+      notifications.show({
+        color: 'red',
+        title: action === 'resend' ? 'Could not resend the invitation' : 'Could not revoke it',
+        message: errorMessage(e, 'Try again.'),
+      });
+    } finally {
+      setInviteBusy(null);
+      onChanged();
+    }
+  };
+
+  const uploadLogo = async (file: File | null) => {
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      notifications.show({
+        color: 'red',
+        title: 'That image is too large',
+        message: 'Use a logo under 2 MB.',
+      });
+      return;
+    }
+    setLogoBusy(true);
+    try {
+      await api.uploadLogo(school.id, file);
+      notifications.show({ color: 'green', title: 'Logo updated', message: school.name });
+      onChanged();
+    } catch (e) {
+      notifications.show({
+        color: 'red',
+        title: 'Could not upload the logo',
+        message: errorMessage(e, 'Try another image.'),
+      });
+    } finally {
+      setLogoBusy(false);
+    }
+  };
   const contact: [typeof Mail, string | null][] = [
     [Mail, school.email],
     [Phone, school.phone],
@@ -282,12 +334,148 @@ function OverviewTab({ school }: { school: PlatformSchool }) {
               </Text>
             </div>
           </Group>
+        ) : invite ? (
+          <Stack gap="sm" align="flex-start">
+            <Group gap="sm" wrap="nowrap">
+              <Avatar color="gray" radius="xl">
+                {`${invite.firstName[0] ?? ''}${invite.lastName[0] ?? ''}`}
+              </Avatar>
+              <div>
+                <Group gap={6}>
+                  <Text fw={700} size="sm">
+                    {invite.firstName} {invite.lastName}
+                  </Text>
+                  <Badge size="sm" variant="light" color="yellow">
+                    Invited
+                  </Badge>
+                </Group>
+                <Text size="xs" c="dimmed">
+                  {invite.email}
+                </Text>
+              </div>
+            </Group>
+            <Text c="dimmed" size="xs">
+              Sent {formatDate(invite.sentAt)}
+              {invite.resendCount > 0
+                ? ` (resent ${invite.resendCount} time${invite.resendCount === 1 ? '' : 's'})`
+                : ''}{' '}
+              · Expires {formatDate(invite.expiresAt)}. The school can&apos;t sign in until they
+              accept.
+            </Text>
+            <Group gap="xs">
+              <Button
+                size="xs"
+                variant="light"
+                color="fastrackRed"
+                loading={inviteBusy === 'resend'}
+                disabled={inviteBusy !== null}
+                onClick={() => inviteAction('resend', invite.invitationId)}
+              >
+                Resend
+              </Button>
+              <Button
+                size="xs"
+                variant="subtle"
+                color="red"
+                loading={inviteBusy === 'revoke'}
+                disabled={inviteBusy !== null}
+                onClick={() => setConfirmingRevoke(true)}
+              >
+                Revoke
+              </Button>
+            </Group>
+          </Stack>
         ) : (
-          <Text c="dimmed" size="sm">
-            Not assigned
-          </Text>
+          <Stack gap="sm" align="flex-start">
+            <Text c="dimmed" size="sm">
+              Not assigned. The school can&apos;t sign in until it has a principal.
+            </Text>
+            {lapsed && (
+              <Text size="sm">
+                {lapsed.firstName} {lapsed.lastName}{' '}
+                <Text span c="dimmed" size="xs">
+                  {lapsed.email} · invitation {lapsed.status === 'REVOKED' ? 'revoked' : 'expired'}
+                </Text>
+              </Text>
+            )}
+            <Group gap="xs">
+              {lapsed && (
+                <Button
+                  size="xs"
+                  color="fastrackRed"
+                  loading={inviteBusy === 'resend'}
+                  onClick={() => inviteAction('resend', lapsed.invitationId)}
+                >
+                  Invite again
+                </Button>
+              )}
+              <Button
+                size="xs"
+                color="fastrackRed"
+                variant={lapsed ? 'light' : 'filled'}
+                disabled={inviteBusy !== null}
+                onClick={() => setAssigning(true)}
+              >
+                {lapsed ? 'Assign someone else' : 'Assign principal'}
+              </Button>
+            </Group>
+          </Stack>
+        )}
+        {invite && (
+          <Modal
+            opened={confirmingRevoke}
+            onClose={() => setConfirmingRevoke(false)}
+            title="Revoke the invitation?"
+            radius="lg"
+            centered
+          >
+            <Text size="sm">
+              Revoke the invitation to {invite.firstName} {invite.lastName}? Their link stops
+              working; you can invite them again.
+            </Text>
+            <Group justify="flex-end" mt="lg">
+              <Button variant="default" radius="md" onClick={() => setConfirmingRevoke(false)}>
+                Cancel
+              </Button>
+              <Button
+                color="red"
+                radius="md"
+                onClick={() => inviteAction('revoke', invite.invitationId)}
+              >
+                Revoke
+              </Button>
+            </Group>
+          </Modal>
         )}
       </Card>
+      <Card withBorder radius="md" padding="lg">
+        <Text fw={800} mb="md">
+          Logo
+        </Text>
+        <Group gap="md">
+          <Avatar src={school.logoUrl ?? undefined} size={64} radius="md" color="gray">
+            <School size={28} />
+          </Avatar>
+          <FileButton onChange={uploadLogo} accept="image/png,image/jpeg,image/webp">
+            {(props) => (
+              <Button {...props} size="xs" variant="light" color="fastrackRed" loading={logoBusy}>
+                {school.logoUrl ? 'Replace logo' : 'Upload logo'}
+              </Button>
+            )}
+          </FileButton>
+        </Group>
+      </Card>
+      {assigning && (
+        <AssignPrincipalModal
+          schoolId={school.id}
+          schoolName={school.name}
+          onClose={() => setAssigning(false)}
+          onAssigned={() => {
+            setAssigning(false);
+            onChanged();
+          }}
+        />
+      )}
     </div>
   );
 }
@@ -534,6 +722,7 @@ function ProfileEditor({
     email: school.email ?? '',
     website: school.website ?? '',
   });
+  const setField = fieldSetter(setDraft);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const fields: [keyof SchoolProfileUpdate, string][] = [
@@ -585,7 +774,7 @@ function ProfileEditor({
               label={label}
               required={key === 'name' || key === 'code'}
               value={draft[key]}
-              onChange={(e) => setDraft({ ...draft, [key]: e.currentTarget.value })}
+              onChange={(e) => setField(key, e.currentTarget.value)}
             />
           ))}
         </div>

@@ -1,6 +1,6 @@
 # API contract: parent portal
 
-The parent portal (`/parent`, `src/features/parent/api.ts`) needs these endpoints. The **Exists** column records what the backend has today (checked against `fastrack-backend/src/modules/identity/parents`). Everything marked **Proposed** is what the frontend is built against. It runs on sample data until then (`NEXT_PUBLIC_PARENT_API_MOCK=1`).
+The parent portal (`/parent`, `src/features/parent/api/`) needs these endpoints. The **Exists** column records what the backend has today (checked against `fastrack-backend/src/modules/identity/parents`). Everything marked **Proposed** is what the frontend is built against. It runs on sample data until then (`NEXT_PUBLIC_PARENT_API_MOCK=1`).
 
 ## Ground rules
 
@@ -37,10 +37,11 @@ Ward profile = `ParentWardResponseDto` plus:
 | Method | Path | Query / body | Response `data` |
 | --- | --- | --- | --- |
 | GET | `…/wards/:studentId/invoices` | `page, limit, termId?` | `Invoice[]`, newest term first. Same fields as `/schools/me/invoices` (including `status: 'CARRIED_FORWARD'` with `carriedForwardAmount, carriedForwardToInvoiceNumber`), plus `termId, termLabel, yearLabel, dueDate, canPayOnline` |
-| GET | `…/wards/:studentId/invoices/:invoiceId` | – | `Invoice` with `lineItems` |
+| GET | `…/wards/:studentId/invoices/summary` | `termId?` | `{invoiceCount, totalBilled, totalPaid, outstanding, overpaid, broughtForward, carriedForward}` in cedis, across every page. `totalBilled` leaves out arrears brought forward. Invariant: billed + broughtForward − paid − carriedForward = outstanding − overpaid (QA-222) |
+| GET | `…/wards/:studentId/invoices/:invoiceId` | – | `Invoice` with `lineItems`, plus `sameTermBills: [{invoiceNumber, title, amount, viewUrl}]` and `arrearsFromEarlierTerms` (= `arrearsBf` − the same-term bills). When a backend sends neither, the portal counts all of `arrearsBf` as earlier terms' (QA-219) |
 | GET | `…/wards/:studentId/invoices/:invoiceId/document` | – | `{html}` |
 | GET | `…/wards/:studentId/payments` | `page, limit` | `Payment[]`, newest first. Same fields as `/schools/me/payments`, plus `invoiceId, invoiceNumber, termLabel, reference` |
-| GET | `…/wards/:studentId/payments/:paymentId` | – | `Payment` |
+| GET | `…/wards/:studentId/payments/:paymentId` | – | `Payment`. `previousBalance`, `newBalance` and `surplusCredit` are the balances stored when the payment was recorded, or null for payments from before they were stored. `balanceScope: 'STUDENT_ACCOUNT'` means they cover the ward's whole account (QA-277) |
 | GET | `…/wards/:studentId/payments/:paymentId/document` | – | `{html}` (receipt) |
 
 These must not expose staff emails or signatures beyond what the printed bill shows (QA-010).
@@ -67,6 +68,19 @@ Backend rules:
 3. **Verify** returns `pending` until the transaction settles. The UI polls for about 30 seconds and then offers "Check again".
 4. **Disabling.** A school can turn online payment off: set `canPayOnline: false` on the invoice and return 403 from checkout.
 
+## Optional services (bus, feeding, ...)
+
+**Built** and merged to backend `main` (`src/modules/finance/optional-fee-requests`). Deploy from `main`: `feat/parent-fees` lacks fix `08c9ee3`, so the staff list returns 500 there (QA-060). Parents can't change a bill. Optional fees are billed from each enrolment's `fee_preferences`, which only staff set, so a parent **asks** and a Principal or Account Officer approves or declines. An approved change applies to the next bill the school generates. Bills already issued stay as they are. Amounts are in cedis on the wire.
+
+| Method | Path | Body | Returns |
+| --- | --- | --- | --- |
+| GET | `/parents/me/wards/:studentId/optional-services` | – | `{termLabel, className, canRequest, services: [{feeTypeId, name, description, amount \| null, enrolled, pendingRequest}]}`. `amount` is this term's price for the ward's class; a per-child price wins. |
+| GET | `/parents/me/wards/:studentId/optional-fee-requests` | – | `[{id, feeTypeId, feeTypeName, action, status, parentNote, staffNote, createdAt, decidedAt, isMine}]`, newest first |
+| POST | `/parents/me/wards/:studentId/optional-fee-requests` | `{feeTypeId, action: 'OPT_IN' \| 'OPT_OUT', note?}` | the request. 404 if it isn't an optional fee of the ward's school; 409 if one is already waiting or nothing would change; 403 while the school is suspended. |
+| POST | `/parents/me/wards/:studentId/optional-fee-requests/:requestId/cancel` | – | the request. Only the parent who asked; 409 once decided. |
+
+Staff review them at `/school-admin/fees/requests` (`GET /schools/me/optional-fee-requests?status`, `GET …/pending-count`, `POST …/:id/approve`, `POST …/:id/decline` with `{note?}`; PRINCIPAL and ACCOUNT_OFFICER with `student_fee_preferences:manage`).
+
 ## Reports
 
 | Method | Path | Response `data` |
@@ -76,6 +90,15 @@ Backend rules:
 | GET | `…/wards/:studentId/reports/:reportId/document` | `{html}` (`exam.report` design) |
 
 Only reports the school has **published** are visible. Drafts stay hidden.
+
+**Since results phase 4 (24 Oct, backend `a0220a2`)** — live, and additive:
+- **Visibility:** withheld reports are hidden too, and a reopened report keeps showing its last published version. An unlinked child or a hidden report id gets 404; a school without `results` gets 403.
+- **List and detail:** `revision`, `updatedAt`, `positionTied`, `components: [{key, label, shortLabel, weight, group}]`, `aggregate`, and `promotion: {status, toClass}` (or null when it isn't the year's last term; see Wards below for the status values).
+- **Per subject:** `status` (ok, incomplete or exempt; not-assessed subjects are left out), `mode`, `componentScores: [{key, score, display}]` (match them by `key`; `display` is "12", "EX" or "—"), `points`, `descriptor`, `strands: [{label, descriptor}]` and `positionTied`.
+- **Positions** follow the school's visibility setting at the time of reading.
+- **The full contract** is in [`results.md`](./results.md).
+
+**Wards:** `GET /parents/me/wards` and `/wards/:studentId` include `school.enabledModules: string[]`, sorted, e.g. `['fees', 'results', 'students']`. The link-verify response doesn't carry it, so re-read `/wards` after linking. A report's `promotion.status` is lower case: `promoted`, `repeated` or `graduated`.
 
 ## Attendance
 

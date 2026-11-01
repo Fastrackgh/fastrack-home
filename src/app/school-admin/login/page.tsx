@@ -1,9 +1,11 @@
 'use client';
 
 import React, { useEffect, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { motion } from 'framer-motion';
 import {
+  Anchor,
   Box,
   Button,
   Group,
@@ -19,6 +21,7 @@ import { notifications } from '@mantine/notifications';
 import { ArrowRight, CheckCircle2, Lock, Mail, ShieldCheck, AlertCircle } from 'lucide-react';
 import { BrandLogo } from '@/components/atoms';
 import { useAuth } from '@/lib/auth';
+import { emailInputProps } from '@/lib/email-input';
 import { landingPathFor, safeRedirectTarget } from '@/lib/rbac';
 
 const highlights = [
@@ -283,6 +286,8 @@ export default function SchoolAdminLoginPage() {
                   <TextInput
                     label="School email"
                     placeholder="you@yourschool.com"
+                    {...emailInputProps}
+                    autoComplete="username"
                     required
                     size="md"
                     radius="md"
@@ -301,6 +306,15 @@ export default function SchoolAdminLoginPage() {
                     value={password}
                     onChange={(e) => setPassword(e.currentTarget.value)}
                   />
+                  <Anchor
+                    component={Link}
+                    href="/auth/forgot-password"
+                    size="sm"
+                    ta="right"
+                    mt={-8}
+                  >
+                    Forgot password?
+                  </Anchor>
 
                   <Button
                     type="submit"

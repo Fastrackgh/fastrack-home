@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "test:dashboard": "node scripts/check-dashboard.cjs",
-    "dev": "next dev",
+    "test:sync": "node scripts/check-sync-outcome.cjs",
+    "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",
     "lint": "eslint .",

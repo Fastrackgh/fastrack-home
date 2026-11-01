@@ -36,6 +36,7 @@ const dates = load('src/features/calendar/dates.ts');
 // the keys the dashboard checks.
 const backendDefaults = {
   PRINCIPAL: [
+    'student_fee_preferences:manage',
     'students:read',
     'students:create',
     'students:update',
@@ -55,6 +56,18 @@ const backendDefaults = {
     'timetable:manage',
     'calendar:read',
     'calendar:manage',
+    'school_profile:manage',
+    'academic_years:manage',
+    'academic_terms:manage',
+    'classes:manage',
+    'departments:manage',
+    'grading:manage',
+    'marks:read',
+    'marks:enter',
+    'reports:read',
+    'reports:remark',
+    'reports:generate',
+    'reports:approve',
   ],
   ACADEMIC_HEAD: [
     'students:read',
@@ -71,8 +84,20 @@ const backendDefaults = {
     'timetable:manage',
     'calendar:read',
     'calendar:manage',
+    'academic_years:manage',
+    'academic_terms:manage',
+    'classes:manage',
+    'departments:manage',
+    'grading:manage',
+    'marks:read',
+    'marks:enter',
+    'reports:read',
+    'reports:remark',
+    'reports:generate',
+    'reports:approve',
   ],
   ACCOUNT_OFFICER: [
+    'student_fee_preferences:manage',
     'students:read',
     'enrollment:read',
     'staff:read',
@@ -94,6 +119,10 @@ const backendDefaults = {
     'attendance:mark',
     'calendar:read',
     'calendar:manage',
+    'reports:read',
+    // 18 Oct product decision; requested from the backend's results grants on 24 Oct.
+    'marks:read',
+    'reports:generate',
   ],
   TEACHER: [
     'students:read',
@@ -101,6 +130,10 @@ const backendDefaults = {
     'attendance:mark',
     'timetable:read',
     'calendar:read',
+    'marks:read',
+    'marks:enter',
+    'reports:read',
+    'reports:remark',
   ],
   PARENT: [
     'students:read',
@@ -109,6 +142,7 @@ const backendDefaults = {
     'payments:read',
     'timetable:read',
     'calendar:read',
+    'marks:read',
   ],
 };
 const viewer = (role, permissions = backendDefaults[role]) => ({
@@ -278,14 +312,22 @@ const accountOfficer = subject('ACCOUNT_OFFICER', [
   'payments:collect',
 ]);
 const secretary = subject('SECRETARY', ['students:read', 'attendance:read', 'enrollment:manage']);
-const parent = subject('PARENT', ['students:read', 'attendance:read', 'invoices:read'], null);
+// marks:read comes from the backend since results phase 1 (reports in the parent portal).
+const parent = subject('PARENT', ['students:read', 'attendance:read', 'invoices:read', 'marks:read'], null);
 const superAdmin = subject('SUPER_ADMIN', ['schools:read', 'schools:manage'], null);
 const routes = (s) => Object.keys(rbac.APP_ROUTES).filter((key) => rbac.canAccessRoute(s, key));
 
 check('each role reaches only its own pages', () => {
-  assert.deepEqual(routes(teacher), ['dashboard', 'students', 'attendance']);
-  assert.deepEqual(routes(accountOfficer), ['dashboard', 'students', 'fees']);
-  assert.deepEqual(routes(secretary), ['dashboard', 'students', 'attendance', 'admissions']);
+  assert.deepEqual(routes(teacher), ['dashboard', 'students', 'attendance', 'account']);
+  assert.deepEqual(routes(accountOfficer), ['dashboard', 'students', 'fees', 'account']);
+  assert.deepEqual(routes(secretary), [
+    'dashboard',
+    'students',
+    'promotions',
+    'attendance',
+    'account',
+    'admissions',
+  ]);
   assert.deepEqual(routes(parent), [
     'parentHome',
     'parentWards',
@@ -448,6 +490,25 @@ check(
     assert.ok(family.includes('/school-admin/dashboard/calendar'));
   },
 );
+check('school setup is for the Principal and Academic Head only, never parents or the platform', () => {
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD']) {
+    assert.ok(rbac.canAccessRoute(viewer(role), 'setup'), role);
+    const items = nav.workspaceNavigation(viewer(role)).map((i) => i.href);
+    assert.ok(items.includes('/school-admin/setup'), role);
+  }
+  for (const role of ['TEACHER', 'ACCOUNT_OFFICER', 'SECRETARY', 'PARENT']) {
+    assert.equal(rbac.canAccessRoute(viewer(role), 'setup'), false, role);
+    const items = nav.workspaceNavigation(viewer(role)).map((i) => i.href);
+    assert.equal(items.includes('/school-admin/setup'), false, role);
+  }
+  assert.equal(rbac.canAccessRoute(viewer('SUPER_ADMIN', []), 'setup'), false);
+  const withoutManage = viewer(
+    'ACADEMIC_HEAD',
+    backendDefaults.ACADEMIC_HEAD.filter((p) => p !== 'classes:manage'),
+  );
+  assert.equal(rbac.canAccessRoute(withoutManage, 'setup'), false);
+  assert.equal(m.canAccess(withoutManage, 'setup'), false);
+});
 check("parents keep the preview for their own children's fees and attendance", () => {
   const family = nav.workspaceNavigation(viewer('PARENT')).map((i) => i.href);
   assert.ok(family.includes('/school-admin/dashboard/finance'));
@@ -553,5 +614,284 @@ check('calendar months run Monday to Sunday and cross year ends', () => {
   ]);
   assert.equal(dates.isWeekend('2027-02-06'), true);
   assert.equal(dates.isWeekend('2027-02-08'), false);
+});
+check('only fee staff review parents\' optional-service requests', () => {
+  const path = '/school-admin/fees/requests';
+  // Its own rule guards it, not the wider Fees & Billing rule.
+  assert.equal(rbac.findRoute(path).path, path);
+  for (const role of ['PRINCIPAL', 'ACCOUNT_OFFICER'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['fees'] }, path), role);
+  for (const role of ['TEACHER', 'SECRETARY', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['fees'] }, path), false, role);
+});
+check('only enrolment managers move whole classes up', () => {
+  const path = '/school-admin/students/promote';
+  // Its own rule guards it, not the wider Students rule that teachers pass.
+  assert.equal(rbac.findRoute(path).path, path);
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD', 'SECRETARY'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['students'] }, path), role);
+  for (const role of ['TEACHER', 'ACCOUNT_OFFICER', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['students'] }, path), false, role);
+  assert.equal(rbac.canAccessPath({ ...viewer('PRINCIPAL'), modules: [] }, path), false);
+});
+check('results engine gives the worked answers in docs/api/results-fixtures.json', () => {
+  const engine = load('src/features/results/engine.ts');
+  const fx = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '..', 'docs/api/results-fixtures.json'), 'utf8'),
+  );
+  const settings = (c) => ({ ...fx.defaults.settings, ...c.settings });
+  for (const c of fx.round) assert.equal(engine.roundHalfUp(c.x, c.decimals), c.expected, c.name);
+  for (const c of fx.grade)
+    assert.equal(engine.gradeFor(c.total, c.bands ?? fx.defaults.bands)?.label, c.expected, c.name);
+  for (const c of fx.subject) {
+    const r = engine.subjectResult(
+      c.components ?? fx.defaults.components,
+      c.marks,
+      c.bands ?? fx.defaults.bands,
+      settings(c),
+    );
+    const scores = Object.fromEntries(r.componentScores.map((s) => [s.key, s.score]));
+    assert.deepEqual(
+      {
+        status: r.status,
+        componentScores: scores,
+        total: r.total,
+        grade: r.grade,
+        reweighted: r.reweighted,
+      },
+      c.expected,
+      c.name,
+    );
+  }
+  for (const c of fx.summary)
+    assert.deepEqual(engine.pupilSummary(c.subjects, settings(c)), c.expected, c.name);
+  for (const c of fx.ranks)
+    assert.deepEqual(engine.competitionRanks(c.values, c.lowerIsBetter), c.expected, c.name);
+  for (const c of fx.positions)
+    assert.deepEqual(
+      engine.classPositions(c.pupils, c.subjectsAssessed, settings(c), c.classHasAggregate),
+      c.expected,
+      c.name,
+    );
+});
+check('grading setup is for heads with the results module; its maths matches the engine', () => {
+  const path = '/school-admin/results/setup';
+  assert.equal(rbac.findRoute(path).path, path);
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), role);
+  for (const role of ['TEACHER', 'SECRETARY', 'ACCOUNT_OFFICER', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), false, role);
+  assert.equal(rbac.canAccessPath({ ...viewer('PRINCIPAL'), modules: [] }, path), false);
+
+  const sm = load('src/features/results/setup-model.ts');
+  const parts = (weights) =>
+    weights.map((weight, i) => ({ key: `c${i}`, label: `C${i}`, shortLabel: '', weight, defaultMaxRaw: 10, entry: 'single', bestOf: null, group: 'exam' }));
+  assert.deepEqual(sm.evenSplit(parts([0, 0, 0])).map((c) => c.weight), [33.33, 33.33, 33.34]);
+  assert.equal(sm.weightTotal(sm.evenSplit(parts([0, 0, 0]))), 100);
+  assert.equal(sm.weightsProblem({ components: parts([30, 65]), bands: [] }, 'numeric'), 'The weights add up to 95, not 100.');
+  const band = (label, minScore) => ({ label, remark: '', minScore, points: null, isPass: true, description: null });
+  const bands = [band('A', 80), band('B', 70), band('F', 0)];
+  assert.equal(sm.bandsProblem({ components: [], bands }, 'numeric'), null);
+  assert.equal(sm.bandsProblem({ components: [], bands: [band('A', 80), band('B', 85), band('F', 0)] }, 'numeric'), 'B must start below A (80).');
+  assert.equal(sm.bandsProblem({ components: [], bands: [band('A', 80), band('F', 5)] }, 'numeric'), 'The lowest grade, F, must start at 0.');
+  const preset = { scheme: { name: 'GES 30/70', mode: 'numeric', components: parts([30, 70]) }, scale: { name: 'GES A–F', mode: 'numeric', bands } };
+  assert.equal(sm.overridesFor(preset, sm.editFrom(preset)), undefined);
+  const edit = sm.editFrom(preset);
+  edit.components[0].weight = 40;
+  edit.components[1].weight = 60;
+  edit.bands[0].minScore = 85;
+  assert.deepEqual(sm.overridesFor(preset, edit), {
+    components: { c0: { weight: 40 }, c1: { weight: 60 } },
+    bands: [{ index: 0, minScore: 85 }],
+    schemeName: 'C0 40 / C1 60',
+    scaleName: 'GES A–F (edited)',
+  });
+  // A renamed part alone keeps the preset's names.
+  const renamed = sm.editFrom(preset);
+  renamed.components[0].label = 'Classwork';
+  assert.deepEqual(sm.overridesFor(preset, renamed), { components: { c0: { label: 'Classwork' } } });
+  // Running setup again starts from what is stored (QA-257): each distinct
+  // stored setup is its own copy, even on the same preset as the school.
+  const stored = sm.editFrom(preset);
+  stored.components[0].weight = 40;
+  stored.components[1].weight = 60;
+  const current = {
+    rows: [
+      { scope: 'school', schemeFamilyId: 's0', scaleFamilyId: 'g1' },
+      { scope: 'department', departmentId: 'lp', schemeFamilyId: 's1', scaleFamilyId: 'g1' },
+      { scope: 'department', departmentId: 'up', schemeFamilyId: 's1', scaleFamilyId: 'g1' },
+      { scope: 'class', classId: 'p4', schemeFamilyId: null, scaleFamilyId: 'g1' },
+    ],
+    schemes: [
+      { familyId: 's0', presetKey: 'ges', name: 'GES 30/70', components: sm.editFrom(preset).components },
+      { familyId: 's1', presetKey: 'ges', name: 'Class score 40 / Exam 60', components: stored.components },
+    ],
+    scales: [{ familyId: 'g1', presetKey: 'ges', name: 'GES A–F', bands }],
+  };
+  const pre = sm.prefillFrom(current, [{ ...preset, key: 'ges', name: 'GES basic' }]);
+  assert.equal(pre.defaultKey, 'ges', 'an unedited school row is the plain preset');
+  assert.deepEqual(pre.deptKeys, { lp: 'current-1', up: 'current-1' });
+  assert.deepEqual(pre.copies.map((c) => c.label), ['GES basic: your current (Class score 40 / Exam 60, GES A–F)']);
+  assert.deepEqual(pre.edits['current-1'].components.map((c) => c.weight), [40, 60]);
+  assert.equal(pre.notShown, 1);
+  assert.ok(sm.sameEdit(pre.edits['current-1'], stored));
+  assert.equal(sm.sameEdit(stored, sm.editFrom(preset)), false);
+  // 79.5 is an A at whole numbers and a B at one decimal, as in the fixtures.
+  assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 0), { printed: 80, grade: 'A' });
+  assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 1), { printed: 79.5, grade: 'B' });
+});
+check('mark sheets: teachers and heads with results; cell typing, missing marks and conflicts', () => {
+  const path = '/school-admin/results/marks/sheet';
+  assert.equal(rbac.findRoute(path).path, '/school-admin/results/marks');
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD', 'TEACHER'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), role);
+  for (const role of ['SECRETARY', 'ACCOUNT_OFFICER', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), false, role);
+  assert.equal(rbac.canAccessPath({ ...viewer('TEACHER'), modules: [] }, path), false);
+
+  const mm = load('src/features/results/marks-model.ts');
+  assert.deepEqual(mm.parseCell('7.5', 10), { change: { status: 'scored', rawScore: 7.5 } });
+  assert.deepEqual(mm.parseCell(' A ', 10), { change: { status: 'absent', rawScore: null } });
+  assert.deepEqual(mm.parseCell('x', 10), { change: { status: 'exempt', rawScore: null } });
+  assert.deepEqual(mm.parseCell('', 10), { change: { status: null } });
+  assert.deepEqual(mm.parseCell('11', 10), { error: 'The most is 10.' });
+  assert.ok('error' in mm.parseCell('7.555', 10));
+  assert.ok('error' in mm.parseCell('-1', 10));
+
+  const item = (componentKey, itemIndex, maxRaw = 10) => ({ id: `${componentKey}${itemIndex}`, componentKey, itemIndex, label: `T${itemIndex}`, maxRaw, takenOn: null });
+  const items = [item('class', 1), item('class', 2), item('exam', 1, 70)];
+  const mark = (componentKey, itemIndex, rawScore, maxRaw = 10) => ({ componentKey, itemIndex, status: 'scored', rawScore, maxRaw, descriptorBandId: null, enteredBy: null, enteredAt: null });
+  const row = (marks, extra = {}) => ({ schoolStudentId: 'p1', studentCode: 'S1', fullName: 'Ama', flags: {}, marks, notRequired: [], carried: [], preview: null, ...extra });
+  assert.equal(mm.missingFor(row([mark('class', 1, 8)]), items), 2);
+  // Tests before the pupil joined aren't needed, and leavers never need marks.
+  assert.equal(mm.missingFor(row([mark('exam', 1, 50, 70)], { notRequired: [{ componentKey: 'class', itemIndex: 1 }, { componentKey: 'class', itemIndex: 2 }] }), items), 0);
+  assert.equal(mm.missingFor(row([], { flags: { leftOn: '2026-11-02' } }), items), 0);
+
+  // The local preview matches the engine: a late joiner's missed test is exempt, so
+  // class 8/10 = 0.8 x 30 = 24 and exam 56/70 = 56 give 80, an A.
+  const sheet = {
+    scheme: { components: [{ key: 'class', weight: 30, bestOf: null }, { key: 'exam', weight: 70, bestOf: null }] },
+    scale: { bands: [{ label: 'A', minScore: 80 }, { label: 'B', minScore: 70 }, { label: 'F', minScore: 0 }] },
+    items,
+  };
+  const late = row([mark('class', 2, 8), mark('exam', 1, 56, 70)], { notRequired: [{ componentKey: 'class', itemIndex: 1 }] });
+  const p = mm.localPreview(late, sheet, load('src/features/results/api.ts').DEFAULT_SETTINGS);
+  assert.deepEqual([p.status, p.total, p.grade], ['ok', 80, 'A']);
+
+  // Changes show at once; a cleared cell removes its mark.
+  const changed = mm.withChanges(row([mark('class', 1, 8)]), items, [
+    { schoolStudentId: 'p1', componentKey: 'class', itemIndex: 1, status: null },
+    { schoolStudentId: 'p1', componentKey: 'exam', itemIndex: 1, status: 'absent', rawScore: null },
+  ]);
+  assert.deepEqual(changed.marks.map((m) => [m.componentKey, m.status]), [['exam', 'absent']]);
+
+  // A mark carried from another class keeps its own total and says so (QA, phase 2).
+  assert.equal(mm.showMark(mark('class', 1, 40, 50), 20), '40/50');
+  assert.equal(mm.showMark(mark('class', 1, 8, 10), 10), '8');
+  // A descriptor cell shows the band id or absent/exempt, and saves the matching change.
+  const band = { ...mark('class', 1, null), descriptorBandId: 'b-secure' };
+  assert.equal(mm.descriptorValue(band), 'b-secure');
+  assert.equal(mm.descriptorValue({ ...band, status: 'absent' }), 'absent');
+  assert.equal(mm.descriptorValue(undefined), null);
+  assert.deepEqual(mm.descriptorChange('b-secure'), { status: 'scored', descriptorBandId: 'b-secure' });
+  assert.deepEqual(mm.descriptorChange('exempt'), { status: 'exempt', descriptorBandId: null });
+  assert.deepEqual(mm.descriptorChange(null), { status: null, descriptorBandId: null });
+  assert.equal(mm.markFor(row([mark('exam', 1, 50, 70)]), item('exam', 1, 70)).rawScore, 50);
+  // ApiError.details holds the whole error body; the backend's own details sit one level in.
+  const client = load('src/lib/api-client.ts');
+  const refused = new client.ApiError(422, 'Above the maximum of 20.', {
+    success: false,
+    message: 'Above the maximum of 20.',
+    details: { cells: [{ schoolStudentId: 'p1', componentKey: 'class', itemIndex: 1, message: 'Above the maximum of 20.' }] },
+  });
+  assert.equal(client.errorDetails(refused).cells[0].message, 'Above the maximum of 20.');
+  assert.equal(client.errorDetails(new Error('x')), undefined);
+  // After a 409, a change is kept only if nobody else changed that cell meanwhile.
+  const fresh = [row([mark('class', 1, 9), mark('class', 2, 6)])];
+  const { keep, conflicts } = mm.rebase(
+    [
+      { change: { schoolStudentId: 'p1', componentKey: 'class', itemIndex: 1, status: 'scored', rawScore: 7 }, base: '8' },
+      { change: { schoolStudentId: 'p1', componentKey: 'class', itemIndex: 2, status: 'scored', rawScore: 5 }, base: '6' },
+    ],
+    fresh,
+    items,
+  );
+  assert.deepEqual(keep.map((k) => k.change.itemIndex), [2]);
+  assert.deepEqual(conflicts, ['p1|class|1']);
+});
+check('with results on, Academic performance gives way to the live term reports', () => {
+  const on = (role) => ({ ...viewer(role), modules: ['results', 'students'] });
+  const off = (role) => ({ ...viewer(role), modules: ['students'] });
+  // Teachers have no Reports area, so their Academic performance opens Term reports.
+  assert.equal(m.areaPage(on('TEACHER'), 'performance'), 'reports');
+  assert.ok(m.canAccess(on('TEACHER'), 'performance'));
+  assert.equal(m.areaHref(on('TEACHER'), 'performance'), '/school-admin/results/reports');
+  // Heads already have Reports, so the preview is simply hidden.
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD']) {
+    assert.equal(m.canAccess(on(role), 'performance'), false, role);
+    assert.ok(m.canAccess(on(role), 'reports'), role);
+  }
+  // Without results, everyone keeps the labelled preview.
+  for (const role of ['TEACHER', 'PRINCIPAL', 'ACADEMIC_HEAD']) {
+    assert.equal(m.areaPage(off(role), 'performance'), undefined, role);
+    assert.ok(m.canAccess(off(role), 'performance'), role);
+  }
+});
+check('design columns: two or three by ratio, and switching to two keeps the middle', () => {
+  // Undated terms (made from the term pattern) show in pickers but can't be chosen.
+  const setup = load('src/features/school-setup/api.ts');
+  const t = (extra) => ({ termId: 't1', termLabel: 'Term 2', termSequence: 2, startDate: '2027-01-08', endDate: '2027-04-09', datesSet: true, isCurrent: false, yearId: 'y', yearLabel: '2026/27', ...extra });
+  assert.deepEqual(setup.termOption(t({ isCurrent: true })), { value: 't1', label: '2026/27 · Term 2 (current)', disabled: false });
+  assert.deepEqual(setup.termOption(t({ startDate: null, endDate: null, datesSet: false })), { value: 't1', label: '2026/27 · Term 2 · dates not set', disabled: true });
+  assert.equal(setup.isDated(t({ startDate: null, endDate: null, datesSet: false })), false);
+  assert.equal(setup.isDated(t()), true);
+  // Billing for a term today isn't in warns, naming today's term (QA-061).
+  const t1 = t({ termId: 'a', termLabel: 'Term 1', startDate: '2026-09-01', endDate: '2026-12-18', isCurrent: false });
+  const t2 = t({ termId: 'b', termLabel: 'Term 2', startDate: '2027-01-08', endDate: '2027-04-09', isCurrent: true });
+  assert.equal(setup.termOn([t1, t2], '2026-10-26').termId, 'a');
+  assert.equal(setup.termOn([t1, t2], '2026-12-25'), null);
+  assert.equal(setup.outOfTermWarning(t1, [t1, t2], '2026-10-26'), null);
+  assert.match(setup.outOfTermWarning(t2, [t1, t2], '2026-10-26'), /^Term 2, 2026\/27 runs .+\. Today is in Term 1, 2026\/27\. These bills will be for Term 2, 2026\/27\.$/);
+  assert.match(setup.outOfTermWarning(t2, [t1, t2], '2026-12-25', 'These fees'), /Today isn't in any term\. These fees will be for Term 2/);
+  const ops = load('src/features/document-templates/builder/layout-ops.ts');
+  const cols = (ratio) => ({ id: 'c', type: 'columns', props: { ratio, gap: 16 }, children: { left: [], right: [] } });
+  assert.deepEqual(ops.columnSides(cols('50-50')), ['left', 'right']);
+  assert.deepEqual(ops.columnSides(cols('25-50-25')), ['left', 'middle', 'right']);
+  // Reordering list items (Dates lines, notes, signers) stops at either end.
+  assert.deepEqual(ops.moveItem(['a', 'b', 'c'], 2, -1), ['a', 'c', 'b']);
+  assert.deepEqual(ops.moveItem(['a', 'b', 'c'], 0, 1), ['b', 'a', 'c']);
+  assert.deepEqual(ops.moveItem(['a', 'b'], 0, -1), ['a', 'b']);
+  assert.deepEqual(ops.moveItem(['a', 'b'], 1, 1), ['a', 'b']);
+  const text = (id) => ({ id, type: 'text', props: {} });
+  let layout = { version: 1, theme: {}, blocks: [cols('33-33-33')] };
+  layout = ops.insertBlock(layout, text('a'), { parentId: 'c', side: 'left' });
+  layout = ops.insertBlock(layout, text('m'), { parentId: 'c', side: 'middle' });
+  layout = ops.insertBlock(layout, text('r'), { parentId: 'c', side: 'right' });
+  assert.deepEqual(ops.locate(layout, 'm').slot, { parentId: 'c', side: 'middle' });
+  // Duplicating gives every column's sections new ids.
+  const dup = ops.duplicateBlock(layout, 'c');
+  assert.notEqual(dup.blocks[1].children.middle[0].id, 'm');
+  // A columns section can't go inside a column.
+  const nested = ops.insertBlock(layout, cols('50-50'), { parentId: 'c', side: 'middle' });
+  assert.equal(nested.blocks.length, 2);
+  // Back to two columns: the middle's sections join the left column.
+  const two = ops.updateProps(layout, 'c', { ratio: '60-40', gap: 16 });
+  assert.deepEqual(two.blocks[0].children.left.map((b) => b.id), ['a', 'm']);
+  assert.equal(two.blocks[0].children.middle, undefined);
+  assert.deepEqual(ops.moveTo(two, 'r', { slot: { parentId: 'c', side: 'left' } }).blocks[0].children.left.map((b) => b.id), ['a', 'm', 'r']);
+});
+check('shared formatting: ordinals and shared places', () => {
+  const fmt = load('src/lib/format.ts');
+  assert.deepEqual([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111, 112].map(fmt.ordinal), [
+    '1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '23rd', '101st', '111th', '112th',
+  ]);
+  assert.equal(fmt.place(2, true), '2nd=');
+  assert.equal(fmt.place(1, false), '1st');
+  assert.equal(fmt.formatDate('2026-03-14'), '14 Mar 2026');
+  assert.equal(fmt.formatDate(null), '');
+  assert.equal(money.formatCedis(1234.5), 'GHS 1,234.50');
+  assert.equal(money.formatCedis(undefined), 'GHS 0.00');
+  const client = load('src/lib/api-client.ts');
+  assert.equal(client.pathId('PRM-001/STD/2026/005'), 'PRM-001%2FSTD%2F2026%2F005');
 });
 console.log(`${checks} dashboard and access checks passed.`);

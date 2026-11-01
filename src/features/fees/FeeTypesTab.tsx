@@ -2,17 +2,23 @@
 
 import { Badge, Button, Group, Loader, ScrollArea, Stack, Table, Text } from '@mantine/core';
 import { Pencil, PlusCircle, Tags } from 'lucide-react';
+import { LoadErrorRow } from './LoadErrorRow';
 import type { FeeType } from './api';
 
 export function FeeTypesTab({
   feeTypes,
   loading,
+  error = null,
+  onRetry,
   onAdd,
   onEdit,
   onAddDefaults,
 }: {
   feeTypes: FeeType[];
   loading: boolean;
+  /** Set when the list failed to load; shown instead of the empty state. */
+  error?: string | null;
+  onRetry?: () => void;
   /** The three actions are absent when the user may not manage fee types. */
   onAdd?: () => void;
   onEdit?: (feeType: FeeType) => void;
@@ -57,6 +63,8 @@ export function FeeTypesTab({
                   </Stack>
                 </Table.Td>
               </Table.Tr>
+            ) : error ? (
+              <LoadErrorRow colSpan={4} message={error} onRetry={onRetry} />
             ) : feeTypes.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={4}>

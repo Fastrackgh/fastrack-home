@@ -1,4 +1,5 @@
 import { apiClient } from '@/lib/api-client';
+import { fetchAll } from '@/lib/pagination';
 import type { SchoolRole } from '@/lib/rbac';
 
 /** A teaching staff record from `GET /schools/me/staff`. */
@@ -12,7 +13,23 @@ export interface StaffMember {
   staffCode: string | null;
   position: string | null;
   department: string | null;
+  staffCategory?: StaffCategory | null;
   isActive: boolean;
+  /** False until they accept their invitation and set a password. */
+  accountSetUp?: boolean;
+}
+
+export type StaffCategory = 'Teaching' | 'Non-Teaching';
+
+/** Fields `PATCH /schools/me/staff/:id` takes. */
+export interface StaffUpdate {
+  firstName: string;
+  lastName: string;
+  phone: string;
+  staffCode: string;
+  position: string;
+  department: string;
+  staffCategory: StaffCategory | null;
 }
 
 export type InvitationStatus = 'PENDING' | 'ACCEPTED' | 'EXPIRED' | 'REVOKED';
@@ -26,6 +43,22 @@ export interface Invitation {
   status: InvitationStatus;
   expiresAt: string;
   createdAt: string;
+}
+
+/**
+ * Who may edit, deactivate or reactivate a staff member: a Principal manages
+ * every role below them, an Academic Head only teachers and secretaries, and
+ * nobody manages themselves. The backend enforces the same ranks.
+ */
+export function canManageMember(
+  viewer: { id: string; role: string } | null,
+  member: StaffMember,
+): boolean {
+  if (!viewer || viewer.id === member.id) return false;
+  if (viewer.role === 'PRINCIPAL')
+    return ['ACADEMIC_HEAD', 'ACCOUNT_OFFICER', 'SECRETARY', 'TEACHER'].includes(member.role);
+  if (viewer.role === 'ACADEMIC_HEAD') return ['TEACHER', 'SECRETARY'].includes(member.role);
+  return false;
 }
 
 /** Roles a school user can invite. Principals are assigned by the platform. */
@@ -47,11 +80,12 @@ export interface InviteRequest {
 }
 
 export const staffApi = {
+  /** Every staff member, however many pages (QA-030). */
   async listStaff() {
-    return (await apiClient.get<StaffMember[]>('/schools/me/staff?limit=100')).data ?? [];
+    return fetchAll<StaffMember>('/schools/me/staff');
   },
   async listInvitations() {
-    return (await apiClient.get<Invitation[]>('/invitations?limit=100')).data ?? [];
+    return fetchAll<Invitation>('/invitations');
   },
   /** Creates the account without a password, so the backend emails an invitation. */
   async invite(request: InviteRequest) {
@@ -59,6 +93,15 @@ export const staffApi = {
   },
   async resend(id: string) {
     await apiClient.post(`/invitations/${encodeURIComponent(id)}/resend`, {});
+  },
+  async update(id: string, change: Partial<StaffUpdate>) {
+    await apiClient.patch(`/schools/me/staff/${encodeURIComponent(id)}`, change);
+  },
+  async setActive(id: string, active: boolean) {
+    await apiClient.patch(
+      `/schools/me/staff/${encodeURIComponent(id)}/${active ? 'activate' : 'deactivate'}`,
+      {},
+    );
   },
   async revoke(id: string) {
     await apiClient.patch(`/invitations/${encodeURIComponent(id)}/revoke`, {});

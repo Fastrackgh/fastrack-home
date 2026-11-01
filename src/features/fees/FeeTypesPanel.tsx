@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { notifications } from '@mantine/notifications';
+import { errorMessage } from '@/lib/api-client';
 import { feesApi, type FeeType } from './api';
 import { FeeTypeModal } from './FeeTypeModal';
 import { FeeTypesTab } from './FeeTypesTab';
-import { errorMessage } from './notify';
 
 /**
  * The Fee Types tab. The page owns the list, since fee structure and
@@ -14,11 +14,15 @@ import { errorMessage } from './notify';
 export function FeeTypesPanel({
   feeTypes,
   loading,
+  error,
+  onRetry,
   canManage,
   onChanged,
 }: {
   feeTypes: FeeType[];
   loading: boolean;
+  error?: string | null;
+  onRetry?: () => void;
   canManage: boolean;
   onChanged: () => void;
 }) {
@@ -43,6 +47,8 @@ export function FeeTypesPanel({
       <FeeTypesTab
         feeTypes={feeTypes}
         loading={loading}
+        error={error}
+        onRetry={onRetry}
         onAdd={canManage ? () => setEditing(null) : undefined}
         onEdit={canManage ? setEditing : undefined}
         onAddDefaults={canManage ? addDefaults : undefined}

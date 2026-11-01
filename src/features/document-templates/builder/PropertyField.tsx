@@ -255,7 +255,9 @@ function ImageField({ schema, value, onChange, ctx }: Props) {
         <UnstyledButton
           onClick={() => onChange(null)}
           disabled={ctx.readOnly}
-          aria-label={schoolLogo ? 'Use the school logo' : 'No image'}
+          aria-label={
+            schoolLogo ? `Use the school logo${ctx.schoolLogo ? '' : ' (none set)'}` : 'No image'
+          }
           aria-pressed={!selected}
           title={schoolLogo ? 'School logo' : undefined}
           style={{

@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, Drawer, Group, Stack, Table, Text } from '@mantine/core';
 import { registerAttendanceResolver } from '@/features/attendance/sync';
 import { registerPaymentsSync } from '@/features/fees/payments-sync';
+import { registerAdmissionsSync } from '@/features/students/admissions-sync';
 import { itemNameKey, registerMarksResolver } from '@/features/results/marks-sync';
 import { formatAge } from '@/lib/format';
 import { apiClient } from '@/lib/api-client';
@@ -14,6 +15,7 @@ import type { ReviewItem } from '@/lib/offline/outbox';
 import {
   canResend,
   resendLabel,
+  reviewActions,
   reviewExplanation,
   dismissReviewItem,
   listReviewItems,
@@ -25,6 +27,7 @@ import { useSyncStatus } from '@/lib/offline/useSyncStatus';
 registerAttendanceResolver();
 registerMarksResolver();
 registerPaymentsSync();
+registerAdmissionsSync();
 
 /** Fields that describe a write, not its value. */
 const META_FIELDS = new Set(['updatedBy', 'updatedAt', 'rowVersion', 'version', 'id']);
@@ -65,6 +68,9 @@ function sentValues(item: ReviewItem): Record<string, unknown> {
     : body;
 }
 
+/** A 409 that isn't about changed fields: a likely duplicate is explained by its feature, not as a table. */
+const notAClash = (item: ReviewItem) => item.error?.code === 'LIKELY_DUPLICATE';
+
 /** Rows of "field: on the server / yours" for a clash. */
 function clashRows(item: ReviewItem): { field: string; theirs: unknown; mine: unknown }[] {
   if (item.kind === 'cell' && item.cell) {
@@ -76,7 +82,7 @@ function clashRows(item: ReviewItem): { field: string; theirs: unknown; mine: un
       .map((field) => ({ field, theirs: current[field], mine: mine[field] }))
       .filter((row) => show(row.theirs) !== show(row.mine));
   }
-  if (item.kind === 'conflict') {
+  if (item.kind === 'conflict' && !notAClash(item)) {
     const current = asRecord(item.error?.current);
     const mine = sentValues(item);
     const fields = item.error?.conflictingFields?.length
@@ -96,7 +102,7 @@ const KIND_BADGE: Record<ReviewItem['kind'], { label: string; color: string }> =
 };
 
 function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) {
-  const [busy, setBusy] = useState<'dismiss' | 'resend' | null>(null);
+  const [busy, setBusy] = useState<'dismiss' | 'resend' | number | null>(null);
   const rows = clashRows(item);
   const current = item.kind === 'cell' ? item.cell?.current : asRecord(item.error?.current);
   const by = typeof current?.updatedBy === 'string' ? current.updatedBy : null;
@@ -104,8 +110,10 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
   const badge =
     item.error?.code === 'OP_TOO_OLD'
       ? { label: 'Not sent', color: 'gray' }
-      : KIND_BADGE[item.kind];
-  const clash = item.kind === 'conflict' || item.kind === 'cell';
+      : notAClash(item)
+        ? { label: 'Possible duplicate', color: 'orange' }
+        : KIND_BADGE[item.kind];
+  const clash = (item.kind === 'conflict' && !notAClash(item)) || item.kind === 'cell';
   // Names kept on the op for the cell: its pupil, and (marks) its test.
   const names = item.op.names ?? {};
   /** An id the op has a name for (a pupil, a band) shows as that name. */
@@ -121,16 +129,18 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
     .filter(Boolean)
     .join(' · ');
 
-  const act = async (action: 'dismiss' | 'resend') => {
+  const act = async (action: 'dismiss' | 'resend' | number) => {
     setBusy(action);
     try {
       if (action === 'dismiss') await dismissReviewItem(item.id);
-      else await resendReviewItem(item.id);
+      else if (action === 'resend') await resendReviewItem(item.id);
+      else await extra[action].run();
     } finally {
       setBusy(null);
       onDone();
     }
   };
+  const extra = reviewActions(item);
 
   return (
     <Card withBorder radius="md" padding="sm">
@@ -215,6 +225,18 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
               >
                 {clash ? 'Keep theirs' : 'Discard my change'}
               </Button>
+              {extra.map((action, i) => (
+                <Button
+                  key={action.label}
+                  size="compact-sm"
+                  variant="light"
+                  loading={busy === i}
+                  disabled={busy !== null}
+                  onClick={() => act(i)}
+                >
+                  {action.label}
+                </Button>
+              ))}
               {canResend(item) && (
                 <Button
                   size="compact-sm"

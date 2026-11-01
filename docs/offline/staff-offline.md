@@ -260,6 +260,45 @@ flowchart LR
   - **Clock 30 days behind for a whole session (OFF-16, 5/5):** after an offline reload, the receipt and the queued body were dated today, and the payment landed with nothing in review.
   - The earlier suites still pass: tray 12/12, attendance 23/23, marks 15/15, Changes to review 19/19, pull 8/8, past days 3/3.
 
+## Offline admissions (phase 3, backend step 5b, contract v0.5.5 §9.2)
+
+- **Every admission goes through the outbox, online too** (`src/features/students/admissions-sync.ts`, `AdmitStudentModal.tsx`). `studentsApi.admit` is gone.
+  - The body carries a client `id`, which becomes the pupil's `schoolStudentId`. Writes for the new pupil can name them before the admission lands.
+  - The student code is given by the server at sync.
+- **After queuing**, the window waits up to 8 s, but not once the device is known to be offline (`waitUnlessOffline`, shared with payments):
+  - **Landed:** "enrolled with code …", as before.
+  - **Not answered, or offline:** "Saved on this device · … will be admitted when the device is back online; the student code comes then."
+  - **Likely duplicate** (409 `LIKELY_DUPLICATE`, online too, Q6): the window shows "This may be a pupil already in the school", listing each candidate with their code, class, birth date, guardian phone (only with `students:read_sensitive`) and status if not active. The choices are:
+    - **It's this pupil:** not admitted.
+    - **Admit anyway:** resent with `confirmNotDuplicate`.
+    - **Check the details:** back to the form; the refused admission is dropped.
+  - **Other refusals** show in the form, and nothing is left in the tray.
+- **Students list:** pupils admitted on this device and not yet synced are listed first on page 1, filtered on the device, with **Code pending · waiting to sync**. They can't be opened yet, because the server doesn't know them. The list reloads when an admission lands.
+- **Attendance:** registers include pupils admitted to the class on this device and not yet synced, for any day. The server's register does the same, because an admission belongs to the class for its whole admission term. Their marks `dependsOn` the admission op, so they're sent after it.
+- **Engine rules for writes that depend on another (v0.5):**
+  - An op whose dependency is **in review** (conflict or rejected) waits; it isn't sent for a pupil the server doesn't know.
+  - A resend from the tray takes the dependents along: they now wait on the new op (`outbox.takeFromReview`).
+  - A dismissed dependency releases them. They're then sent, and come back with the server's answer.
+- **Review tray, admissions:**
+  - A likely duplicate has a **Possible duplicate** card (not a "Now / Yours" table). It reads "Not admitted yet: this looks like a pupil already in the school (Kojo Owusu · BIS-001/STD/2026/004 · Basic 2 · born … · guardian …). If it's the same child, pick them, and anything recorded for this admission moves to them. If it's a different child, admit anyway."
+  - The buttons are **Discard my change**, one **It's <pupil> (<code>)** per candidate, and **Admit anyway**.
+  - **It's <pupil>** moves every queued op that names the new pupil (key, path and body) to the candidate, drops their wait on the admission, and clears the card (`remapQueued`, `outbox.remap`). That covers attendance, and payments or photos once those can be queued for a new pupil.
+  - Features add buttons like this with `registerReviewText(…, { actions })`.
+  - `ID_MISMATCH_RETURNING` and `DUPLICATE_ID` are explained in words. The form never sends a returning pupil's `studentId`, so the first can't come from it today.
+- **Not covered:** marks for a pupil admitted offline. A mark sheet's pupils come from the server, so a pupil admitted offline isn't on a sheet until the admission lands.
+- **Checked (2 Nov, `next dev` against backend `feat/offline-admissions` 56ae093 on `fastrack_fe18`, principal@bis.test, Playwright, 14/14):**
+  - **Online:**
+    - An admission got a code, and the record's id is the device's.
+    - An admission matching Esi Adjei (same name and birth date) showed her in the window; Check the details left the tray empty.
+  - **Offline:**
+    - An admission was listed with Code pending and appeared in the Basic 1 register. A Late mark was queued with `dependsOn` the admission.
+    - Back online, the admission landed with a code under the device's id, then the mark landed.
+  - **Offline duplicate of Kojo Owusu, with an Excused mark queued:**
+    - The admission went to review and the mark was held, not sent.
+    - The card showed the candidate with "It's Kojo Owusu (BIS-001/STD/2026/004)" and Admit anyway.
+    - "It's Kojo" moved the mark to the existing Kojo, where it landed. No second Kojo was admitted.
+  - The earlier suites still pass: tray 12/12, attendance 23/23, marks 15/15, Changes to review 19/19, pull 8/8, past days 3/3, payments 14/14, double payment 6/6, dates 7/7.
+
 ## Needs review tray
 
 - **Opening it:** click the header chip whenever it shows "N need review" or "N sent to head teacher". It opens a drawer on the right, full width on a phone (`ReviewTray.tsx`).

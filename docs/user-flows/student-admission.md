@@ -6,6 +6,11 @@ Code: the page is `src/app/school-admin/(app)/(school)/students/page.tsx`; the f
 
 **Who:** users with `students:create`: Principal, Academic Head and Secretary. Backend: `POST /schools/me/students` with `@Role(PRINCIPAL, ACADEMIC_HEAD, SECRETARY)`, `students:create`, module `students`.
 
+> **Since 2 Nov (offline step 5b), every admission goes through the sync outbox, online too, and a pupil can be admitted offline.**
+> - The pupil is listed with "Code pending" until sync, and appears in their class's registers.
+> - A likely duplicate (same name, and the same birth date or guardian phone) now gets a question in the window, online too: "It's this pupil", "Admit anyway" or "Check the details".
+> - Details: [docs/offline/staff-offline.md, "Offline admissions"](../offline/staff-offline.md).
+
 ## Backend endpoints
 
 | When | Call | Notes |

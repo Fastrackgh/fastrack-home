@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Alert,
   Box,
@@ -18,12 +18,22 @@ import {
   Title,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle } from 'lucide-react';
+import { AlertCircle, ArrowLeft, ArrowRight, CheckCircle, CloudOff } from 'lucide-react';
 import { todayIso } from '@/features/calendar/dates';
 import type { CurrentTerm } from '@/features/school-setup/api';
 import { emailInputProps } from '@/lib/email-input';
 import { fieldSetter } from '@/lib/state';
-import { studentsApi } from './api';
+import type { ReviewItem } from '@/lib/offline/outbox';
+import {
+  dismissReviewItem,
+  onSyncApplied,
+  resendReviewItem,
+  waitUnlessOffline,
+} from '@/lib/offline/syncEngine';
+import { candidatesOf, queueAdmission, sameAs, type DuplicateCandidate } from './admissions-sync';
+
+/** How long an admission may take to land before "saved on this device" is shown instead. */
+const LAND_WAIT_MS = 8_000;
 
 const initialFormData = {
   // Step 1: Personal Details
@@ -88,6 +98,17 @@ export function AdmitStudentModal({
   const [formError, setFormError] = useState<string | null>(null);
 
   const [formData, setFormData] = useState(initialFormData);
+  // A likely duplicate the server found (409 LIKELY_DUPLICATE): the clerk decides here.
+  const [duplicate, setDuplicate] = useState<ReviewItem | null>(null);
+  // The server's answers, by op: the student code comes from the admission's response.
+  const landed = useRef(new Map<string, unknown>());
+  useEffect(
+    () =>
+      onSyncApplied((op, body) => {
+        landed.current.set(op.opId, body);
+      }),
+    [],
+  );
 
   const setField = fieldSetter(setFormData);
 
@@ -242,21 +263,21 @@ export function AdmitStudentModal({
         payload.emergencyContactRelationship = formData.emergencyContactRelationship.trim();
       }
 
-      const admitted = await studentsApi.admit(payload);
-
-      notifications.show({
-        title: 'Student Admitted Successfully',
-        message: `${admitted.fullName} enrolled with code: ${admitted.studentCode}`,
-        color: 'green',
-        icon: <CheckCircle size={18} />,
-        autoClose: 5000,
+      const className = classes.find((c) => c.id === formData.classId)?.className ?? '';
+      const fullName = [
+        formData.firstName.trim(),
+        formData.otherName.trim(),
+        formData.surname.trim(),
+      ]
+        .filter(Boolean)
+        .join(' ');
+      const op = await queueAdmission(payload, {
+        fullName,
+        classId: formData.classId,
+        className,
+        gender: formData.gender || undefined,
       });
-
-      // Reset form, stepper & close modal
-      setFormData(initialFormData);
-      setActiveStep(0);
-      onClose();
-      onAdmitted();
+      await settle(op.opId, fullName);
     } catch (err: unknown) {
       setFormError(
         err instanceof Error ? err.message : 'Failed to admit student. Please try again.',
@@ -264,6 +285,92 @@ export function AdmitStudentModal({
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  /** The form is done with: reset it, close, and let the page reload. */
+  const finish = () => {
+    setFormData(initialFormData);
+    setActiveStep(0);
+    setDuplicate(null);
+    onClose();
+    onAdmitted();
+  };
+
+  /**
+   * Waits for a queued admission to land (every admission goes through the
+   * outbox, contract §9.2). Unanswered, or offline, it's saved on the device
+   * and the code comes at sync; a likely duplicate is asked about here.
+   */
+  const settle = async (opId: string, fullName: string) => {
+    const outcome = await waitUnlessOffline(opId, LAND_WAIT_MS);
+    if (!outcome) {
+      notifications.show({
+        title: 'Saved on this device',
+        message: `${fullName} will be admitted when the device is back online; the student code comes then.`,
+        color: 'yellow',
+        icon: <CloudOff size={18} />,
+        autoClose: 8000,
+      });
+      finish();
+      return;
+    }
+    if (outcome.state === 'applied') {
+      const body = landed.current.get(outcome.opId) as
+        { data?: { studentCode?: string } } | undefined;
+      const code = body?.data?.studentCode;
+      notifications.show({
+        title: 'Student Admitted Successfully',
+        message: code ? `${fullName} enrolled with code: ${code}` : `${fullName} enrolled.`,
+        color: 'green',
+        icon: <CheckCircle size={18} />,
+        autoClose: 5000,
+      });
+      finish();
+      return;
+    }
+    const item = outcome.item;
+    if (item?.error?.code === 'LIKELY_DUPLICATE') {
+      setDuplicate(item);
+      return;
+    }
+    // Refused for another reason: the form shows why and the tray holds nothing.
+    if (item) await dismissReviewItem(item.id);
+    setFormError(
+      outcome.state === 'forwarded'
+        ? 'You no longer have permission to admit pupils; it was passed to the head teacher.'
+        : (item?.error?.message ?? 'Failed to admit student. Please try again.'),
+    );
+  };
+
+  /** "Admit anyway": the tray resends it as a different child. */
+  const admitAnyway = async () => {
+    if (!duplicate) return;
+    setIsSubmitting(true);
+    try {
+      const next = await resendReviewItem(duplicate.id);
+      setDuplicate(null);
+      if (next) await settle(next.opId, formData.firstName.trim() + ' ' + formData.surname.trim());
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  /** "It's this pupil": not admitted; nothing else was queued for them from this form. */
+  const isExisting = async (candidate: DuplicateCandidate) => {
+    if (!duplicate) return;
+    await sameAs(duplicate, candidate);
+    notifications.show({
+      title: 'Not admitted',
+      message: `${candidate.name} is already in the school${candidate.studentCode ? ` as ${candidate.studentCode}` : ''}.`,
+      color: 'blue',
+    });
+    finish();
+  };
+
+  /** Back to the form to check the details; the refused admission is dropped. */
+  const backToForm = async () => {
+    if (duplicate) await dismissReviewItem(duplicate.id);
+    setDuplicate(null);
   };
 
   const modalClassOptions = useMemo(() => {
@@ -734,6 +841,65 @@ export function AdmitStudentModal({
             </Stepper.Step>
           </Stepper>
 
+          {duplicate ? (
+            <Alert
+              color="orange"
+              radius="md"
+              title="This may be a pupil already in the school"
+              id="alert-admit-duplicate"
+            >
+              <Stack gap="xs">
+                <Text size="sm">
+                  Not admitted yet. If it&apos;s the same child, pick them; if it&apos;s a different
+                  child, admit anyway.
+                </Text>
+                {candidatesOf(duplicate).map((c) => (
+                  <Group key={c.id} justify="space-between" wrap="nowrap">
+                    <Text size="sm">
+                      <b>{c.name}</b>{' '}
+                      {[
+                        c.studentCode ?? 'no code',
+                        c.className,
+                        c.dateOfBirth && `born ${c.dateOfBirth}`,
+                        c.guardianPhone && `guardian ${c.guardianPhone}`,
+                        c.status && c.status !== 'Active' ? c.status.toLowerCase() : null,
+                      ]
+                        .filter(Boolean)
+                        .join(' · ')}
+                    </Text>
+                    <Button
+                      size="compact-sm"
+                      variant="light"
+                      onClick={() => void isExisting(c)}
+                      disabled={isSubmitting}
+                    >
+                      It&apos;s this pupil
+                    </Button>
+                  </Group>
+                ))}
+                <Group justify="flex-end" gap="xs">
+                  <Button
+                    variant="default"
+                    size="compact-sm"
+                    onClick={() => void backToForm()}
+                    disabled={isSubmitting}
+                  >
+                    Check the details
+                  </Button>
+                  <Button
+                    color="fastrackRed"
+                    size="compact-sm"
+                    onClick={() => void admitAnyway()}
+                    loading={isSubmitting}
+                    id="btn-admit-anyway"
+                  >
+                    Admit anyway
+                  </Button>
+                </Group>
+              </Stack>
+            </Alert>
+          ) : null}
+
           {/* Stepper Navigation Buttons */}
           <Group justify="space-between" mt="xl" pt="sm" style={{ borderTop: '1px solid #f1f5f9' }}>
             <Group gap="xs">
@@ -774,6 +940,7 @@ export function AdmitStudentModal({
                 color="fastrackRed"
                 radius="md"
                 loading={isSubmitting}
+                disabled={duplicate !== null}
                 id="modal-btn-submit-admission"
               >
                 Complete Admission

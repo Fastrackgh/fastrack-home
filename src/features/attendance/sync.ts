@@ -23,6 +23,7 @@ import {
   type Register,
   type RegisterStudent,
 } from './api';
+import { admissionOpsFor, pendingAdmissions } from '@/features/students/admissions-sync';
 
 /**
  * Offline attendance (docs/offline/staff-offline.md, contract §5 batch cells,
@@ -138,9 +139,36 @@ export async function loadRegister(classId: string, date: string): Promise<Regis
     register = await withPupilsOfTheDay(built);
   }
   return withPending(
-    await withSynced(register),
+    await withSynced(await withAdmittedHere(register)),
     await pendingWrites(ATTENDANCE_COLLECTION, entityOf(classId, date)),
   );
+}
+
+/**
+ * Pupils admitted to this class on this device and not yet synced (§9.2):
+ * they can be marked, and their marks wait for the admission to land
+ * (`dependsOn`, see `saveRegister`). Any day, as the server's register
+ * does: an admission belongs to the class for its whole admission term.
+ */
+async function withAdmittedHere(register: Register): Promise<Register> {
+  const listed = new Set(register.students.map((s) => s.schoolStudentId ?? s.studentId));
+  const added: RegisterStudent[] = (await pendingAdmissions())
+    .filter((p) => p.classId === register.classId && !listed.has(p.id))
+    .map((p) => ({
+      studentId: p.id,
+      schoolStudentId: p.id,
+      rowVersion: null,
+      studentCode: null,
+      name: [`${p.surname},`, p.firstName, p.otherName].filter(Boolean).join(' '),
+      status: null,
+      arrivalTime: null,
+      note: null,
+      markedBy: null,
+      markedAt: null,
+    }));
+  if (added.length === 0) return register;
+  const students = [...register.students, ...added].sort((a, b) => a.name.localeCompare(b.name));
+  return { ...register, students, unmarked: register.unmarked + added.length };
 }
 
 /** A synced attendance record's data: the register entry plus its class and day (§8). */
@@ -312,6 +340,10 @@ export async function saveRegister(register: Register, changes: MarkChange[]): P
     changes.map(({ student }) => [student.schoolStudentId ?? student.studentId, student.name]),
   );
   const ops: OutboxOp[] = [];
+  // Marks for pupils admitted on this device wait for their admission to land.
+  const admissions = await admissionOpsFor(
+    changes.map(({ student }) => student.schoolStudentId ?? student.studentId),
+  );
   try {
     for (let i = 0; i < marks.length; i += MAX_MARKS) {
       const input: EnqueueInput = {
@@ -326,6 +358,7 @@ export async function saveRegister(register: Register, changes: MarkChange[]): P
         },
         label: `Attendance for ${register.className}, ${formatDay(register.date)}`,
         names,
+        dependsOn: admissions,
       };
       ops.push(await enqueueWrite(input));
     }

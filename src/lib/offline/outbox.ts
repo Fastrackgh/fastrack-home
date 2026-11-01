@@ -147,8 +147,21 @@ export const outbox = {
           const seq = (typeof counter.result === 'number' ? counter.result : 0) + 1;
           meta.put(seq, SEQ_KEY);
           op = newOp(input, seq);
-          tx.objectStore('outbox').put(op);
+          const store = tx.objectStore('outbox');
+          store.put(op);
           tx.objectStore('conflicts').delete(id);
+          // Ops waiting on the refused one now wait on its resend.
+          const all = store.getAll();
+          all.onsuccess = () => {
+            for (const other of all.result as OutboxOp[]) {
+              if (op && other.dependsOn.includes(item!.op.opId)) {
+                store.put({
+                  ...other,
+                  dependsOn: other.dependsOn.map((dep) => (dep === item!.op.opId ? op!.opId : dep)),
+                });
+              }
+            }
+          };
         };
       };
       tx.oncomplete = () => resolve(op);
@@ -179,6 +192,38 @@ export const outbox = {
       };
       tx.objectStore('meta').put(next.opId, aliasKey(op.opId));
       tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    });
+  },
+
+  /**
+   * Moves queued ops from one entity id to another (e.g. a pupil admitted
+   * offline who turned out to be one already in the school): every mention
+   * of `fromId` in their key, path and body becomes `toId`, and they stop
+   * waiting on `droppedOpId`.
+   */
+  remap(db: OfflineDb, fromId: string, toId: string, droppedOpId: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      let moved = 0;
+      const tx = db.transaction(['outbox'], 'readwrite');
+      const store = tx.objectStore('outbox');
+      const all = store.getAll();
+      all.onsuccess = () => {
+        for (const op of all.result as OutboxOp[]) {
+          const mentions = [op.entityId, op.path, op.body ?? ''].some((s) => s.includes(fromId));
+          if (!mentions && !op.dependsOn.includes(droppedOpId)) continue;
+          const swap = (s: string) => s.split(fromId).join(toId);
+          if (mentions) moved++;
+          store.put({
+            ...op,
+            entityId: swap(op.entityId),
+            path: swap(op.path),
+            body: op.body === undefined ? undefined : swap(op.body),
+            dependsOn: op.dependsOn.filter((dep) => dep !== droppedOpId),
+          });
+        }
+      };
+      tx.oncomplete = () => resolve(moved);
       tx.onerror = tx.onabort = () => reject(tx.error);
     });
   },

@@ -137,6 +137,14 @@ export function registerReviewResolver(collection: string, resolver: ReviewResol
 export interface ReviewText {
   explain?: (item: ReviewItem) => string | null;
   resendLabel?: (item: ReviewItem) => string | null;
+  /** More choices than keep / resend, e.g. "It's Ama Mensah" for a likely duplicate. */
+  actions?: (item: ReviewItem) => ReviewAction[];
+}
+
+/** An extra button on a review card. `run` resolves the item (or throws to leave it). */
+export interface ReviewAction {
+  label: string;
+  run: () => Promise<void>;
 }
 const reviewTexts = new Map<string, ReviewText>();
 
@@ -175,6 +183,8 @@ export const reviewExplanation = (item: ReviewItem) =>
   reviewTexts.get(item.op.collection)?.explain?.(item) ?? null;
 export const resendLabel = (item: ReviewItem) =>
   reviewTexts.get(item.op.collection)?.resendLabel?.(item) ?? null;
+export const reviewActions = (item: ReviewItem) =>
+  reviewTexts.get(item.op.collection)?.actions?.(item) ?? [];
 
 /** True when "Send mine again" can be offered for this item. */
 export const canResend = (item: ReviewItem) =>
@@ -281,6 +291,14 @@ class SyncEngine {
     return op;
   }
 
+  /** "It's this pupil": the queued ops for `fromId` move to `toId`, and the review item goes. */
+  async remap(itemId: string, fromId: string, toId: string, droppedOpId: string) {
+    await outbox.remap(this.db, fromId, toId, droppedOpId);
+    await outbox.removeReviewItem(this.db, itemId);
+    await this.changed();
+    this.kick();
+  }
+
   pending(collection: string, entityId?: string): Promise<OutboxOp[]> {
     return outbox
       .all(this.db)
@@ -347,7 +365,14 @@ class SyncEngine {
     try {
       while (!this.stopped) {
         const ops = await outbox.all(this.db);
-        const next = this.nextReady(ops);
+        // An op waiting on one that's in review (e.g. attendance for a pupil whose admission
+        // was refused) waits until it's resolved, rather than being sent for an unknown id.
+        const held = new Set(
+          (await outbox.reviewItems(this.db))
+            .filter((item) => item.kind === 'conflict' || item.kind === 'rejected')
+            .map((item) => item.op.opId),
+        );
+        const next = this.nextReady(ops, held);
         if (!next) {
           // Queue sent (or waiting on a backoff): bring the records up to date (§6, §7).
           if (this.pullDue()) await this.pullNow();
@@ -375,7 +400,7 @@ class SyncEngine {
   }
 
   /** The oldest op that may go now: not backing off, and nothing older on its entity or in `dependsOn`. */
-  private nextReady(ops: OutboxOp[]): OutboxOp | undefined {
+  private nextReady(ops: OutboxOp[], held: Set<string>): OutboxOp | undefined {
     const ids = new Set(ops.map((op) => op.opId));
     const busy = new Set<string>();
     const now = Date.now();
@@ -383,7 +408,7 @@ class SyncEngine {
       const entity = `${op.collection}\u0000${op.entityId}`;
       if (busy.has(entity)) continue;
       busy.add(entity);
-      if (op.dependsOn.some((id) => ids.has(id))) continue;
+      if (op.dependsOn.some((id) => ids.has(id) || held.has(id))) continue;
       // Further off than any backoff can be: the device clock jumped back since. Send now.
       if (op.nextAttemptAt > now && op.nextAttemptAt - now <= MAX_WAIT_MS) continue;
       return op;
@@ -680,11 +705,32 @@ export function waitForOp(opId: string, timeoutMs: number): Promise<OpOutcome | 
   });
 }
 
+/**
+ * Waits up to `timeoutMs` for a queued op to land, but not once the device is
+ * known to be offline (before queuing, or after the first send got no
+ * answer): the screen then says at once that it's saved on the device
+ * (OFF-14).
+ */
+export function waitUnlessOffline(opId: string, timeoutMs: number): Promise<OpOutcome | null> {
+  if (!connectivity.get().online) return Promise.resolve(null);
+  let unsubscribe = () => {};
+  const offline = new Promise<null>((resolve) => {
+    unsubscribe = connectivity.subscribe(() => {
+      if (!connectivity.get().online) resolve(null);
+    });
+  });
+  return Promise.race([waitForOp(opId, timeoutMs), offline]).finally(() => unsubscribe());
+}
+
 /** The review tray's items; empty with no offline store. */
 export const listReviewItems = () => engine?.reviewItems() ?? Promise.resolve([]);
 export const dismissReviewItem = (id: string) => engine?.dismiss(id) ?? Promise.resolve();
 /** Queues the item's resend; resolves the new op, or null when it was already taken. */
 export const resendReviewItem = (id: string) => engine?.resend(id) ?? Promise.resolve(null);
+
+/** Moves the queued ops for one entity id to another and clears the review item (see `outbox.remap`). */
+export const remapQueued = (itemId: string, fromId: string, toId: string, droppedOpId: string) =>
+  engine?.remap(itemId, fromId, toId, droppedOpId) ?? Promise.resolve();
 
 /** The feed cursor after the last page applied, or undefined before the first pull. */
 export const syncCursor = () => engine?.cursor() ?? Promise.resolve(undefined);

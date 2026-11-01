@@ -73,6 +73,8 @@ export const SESSION_STORAGE_KEYS = {
   user: 'fastrack_user',
   school: 'fastrack_school',
   parentActiveWard: 'fastrack_parent_active_ward',
+  /** Server clock minus device clock (ms), kept so an offline reload still dates things right (OFF-16). */
+  serverOffset: 'fastrack_server_offset_ms',
 } as const;
 
 /** Prefix of the parent portal's offline copies of API reads (one key per read). */
@@ -161,10 +163,7 @@ class ApiClient {
     if (Number.isNaN(expires)) {
       localStorage.removeItem(SESSION_STORAGE_KEYS.sessionExpiresAt);
     } else {
-      localStorage.setItem(
-        SESSION_STORAGE_KEYS.sessionExpiresAt,
-        String(expires - this.serverOffsetMs),
-      );
+      localStorage.setItem(SESSION_STORAGE_KEYS.sessionExpiresAt, String(expires - this.offsetMs));
     }
   }
 
@@ -175,17 +174,42 @@ class ApiClient {
     return Number.isFinite(value) && value > 0 ? value : null;
   }
 
-  /** Server clock minus device clock, from the last `X-Server-Time` seen (0 before any). */
-  private serverOffsetMs = 0;
+  /**
+   * Server clock minus device clock, from the last `X-Server-Time` seen. It's
+   * saved with the session (cleared at sign-out), so after an offline reload
+   * a device clock that is days off is still corrected; 0 before any.
+   */
+  private serverOffsetMs: number | null = null;
+
+  private get offsetMs(): number {
+    if (this.serverOffsetMs === null) {
+      const saved =
+        typeof localStorage === 'undefined'
+          ? NaN
+          : Number(localStorage.getItem(SESSION_STORAGE_KEYS.serverOffset));
+      this.serverOffsetMs = Number.isFinite(saved) ? saved : 0;
+    }
+    return this.serverOffsetMs;
+  }
 
   private noteServerTime(headers: Headers) {
     const at = Date.parse(headers.get('X-Server-Time') ?? '');
-    if (!Number.isNaN(at)) this.serverOffsetMs = at - Date.now();
+    if (Number.isNaN(at)) return;
+    const offset = at - Date.now();
+    // Saved only when it moves by more than a second: not on every response.
+    if (Math.abs(offset - this.offsetMs) > 1000) {
+      try {
+        localStorage.setItem(SESSION_STORAGE_KEYS.serverOffset, String(offset));
+      } catch {
+        // No storage: the offset lasts for this page only.
+      }
+    }
+    this.serverOffsetMs = offset;
   }
 
   /** Now on the server's clock, as of the last `X-Server-Time` seen (the device clock before any). */
   serverNow(): Date {
-    return new Date(Date.now() + this.serverOffsetMs);
+    return new Date(Date.now() + this.offsetMs);
   }
 
   /**

@@ -354,7 +354,7 @@ class SyncEngine {
           this.scheduleAt(ops);
           return;
         }
-        if (Date.now() - next.createdAt > MAX_OP_AGE_MS) {
+        if (apiClient.serverNow().getTime() - next.createdAt > MAX_OP_AGE_MS) {
           await this.toReview(next, [this.tooOld(next)]);
           continue;
         }

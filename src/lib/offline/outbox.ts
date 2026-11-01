@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/api-client';
 import type { OfflineDb } from './db';
 import type { CellConflict, SyncError } from './syncOutcome';
 
@@ -32,6 +33,7 @@ export interface OutboxOp {
   names?: Record<string, string>;
   /** Kept on the device only, never sent: what a screen shows for the op before it lands (e.g. a provisional receipt). */
   local?: Record<string, unknown>;
+  /** When it was queued, on the server's clock as last known (the device clock before any). */
   createdAt: number;
   /** Failed sends so far, for the backoff. */
   attempts: number;
@@ -89,6 +91,8 @@ export async function deviceId(db: OfflineDb): Promise<string> {
 
 function newOp(input: EnqueueInput, seq: number): OutboxOp {
   const now = Date.now();
+  // Its age is measured on the server's clock, so a slow device clock can't make it look old (OFF-16).
+  const created = apiClient.serverNow().getTime();
   return {
     opId: crypto.randomUUID(),
     seq,
@@ -103,7 +107,7 @@ function newOp(input: EnqueueInput, seq: number): OutboxOp {
     label: input.label,
     names: input.names,
     local: input.local,
-    createdAt: now,
+    createdAt: created,
     attempts: 0,
     nextAttemptAt: 0,
   };

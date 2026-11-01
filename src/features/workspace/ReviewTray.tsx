@@ -6,6 +6,10 @@ import { registerAttendanceResolver } from '@/features/attendance/sync';
 import { registerPaymentsSync } from '@/features/fees/payments-sync';
 import { itemNameKey, registerMarksResolver } from '@/features/results/marks-sync';
 import { formatAge } from '@/lib/format';
+import { apiClient } from '@/lib/api-client';
+
+/** Now on the server's clock: ops are timed by it (OFF-16). */
+const serverNow = () => apiClient.serverNow().getTime();
 import type { ReviewItem } from '@/lib/offline/outbox';
 import {
   canResend,
@@ -145,7 +149,7 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
           )}
         </Group>
         <Text size="xs" c="dimmed">
-          Made {formatAge(Math.min(item.op.createdAt, Date.now()))}
+          Made {formatAge(Math.min(item.op.createdAt + Date.now() - serverNow(), Date.now()))}
           {by ? ` · changed by ${by}` : ''}
         </Text>
         {item.kind === 'notice' ? (

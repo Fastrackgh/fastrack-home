@@ -1,6 +1,6 @@
 # Offline sync contract (staff portal)
 
-**Status:** **agreed** v0.5.2 (1 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
+**Status:** **agreed** v0.5.3 (1 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
 **Owners:** backend (`fastrack-backend`), staff frontend (`/school-admin`).
 **Plan:** `humming-tumbling-codd.md`, "Sync contract" and "Backend work" B1–B5.
 
@@ -426,6 +426,8 @@ Without `seenBalance` (the online form, today), there are no `BILL_CHANGED` or `
 - with `seenCursor`: a payment for this pupil whose change-log entry comes after that cursor. This is exact, because the cursor is a position in the log, not a time;
 - otherwise, with `seenAsOf`: a payment for this pupil recorded after `seenAsOf` **minus 2 minutes**. The margin covers a payment that committed just before the response but wasn't in the page read. It errs towards showing the warning;
 - with neither, the server can't tell, and gives `CREDIT_KEPT`.
+- **Payments this device itself queued never count as unseen.** The device knew about them. The server matches on the `X-Device-Id` of the op that recorded each payment, which is stored with the payment. So when one clerk takes two offline payments for a pupil (morning and afternoon), the second isn't flagged because of the first.
+- The device's `seenBalance` for a later payment is its **optimistic** balance, after its own earlier queued payments. `BILL_CHANGED` and `CREDIT_KEPT` then compare like with like.
 
 **Warnings are stored with the payment**, not only returned to the clerk, because the person who must act (the head or account officer) may be someone else:
 - every row keeps its `warnings`, and `GET /schools/me/payments`, `GET /schools/me/payments/:id` and the `payments` feed return them;
@@ -614,3 +616,4 @@ QA signs off once these are in. All are now in (v0.5.2):
 | 2026-11-01 | 0.5 | **Draft** for phase 3 (backend), taking in the staff frontend's 13 points (§12). §8: the `invoices`, `payments`, `fee-accounts` (new GET), `student-details` and `school` collections, with a scope rule for each; `guardians` is dropped, because guardians are fields of the pupil. §9: cash payments (`groupId`, `provisionalRef`, `seenBalance`, the outcome table and warnings); admissions (code allocated under a lock, `LIKELY_DUPLICATE` and `confirmNotDuplicate`); student edits under the §5 rule; queued photos through the photo route. §6: new codes and `warnings`. §7: permissions and the fees module are part of the scope. §11: Q5–Q7. |
 | 2026-11-01 | 0.5.1 | **Signed off by the staff frontend**, after its five changes (§12): `printedRef`; the array response with `warnings` on every row; the bounded money snapshot; resends after a refusal keep `id` and `provisionalRef`; "It's this pupil" remaps queued dependents. Q5 and Q6 agreed, and Q6 makes 5b a merge-together step. Awaiting QA review. |
 | 2026-11-01 | 0.5.2 | QA review of v0.5.1 (§12): the `POSSIBLE_DOUBLE_PAYMENT` warning, with the `seenCursor` field (preferred) and `seenAsOf` (2-minute margin); warnings stored on payments and filterable; where `REALLOCATED` money lands when nothing is owed; the logo cached by the frontend; UI test paths; the duplicate check inside the admission lock; queued payments in the "It's this pupil" remap. **Agreed** (staff frontend and QA). |
+| 2026-11-01 | 0.5.3 | QA: payments queued by the same device (`X-Device-Id`, stored with the payment) never count as unseen for `POSSIBLE_DOUBLE_PAYMENT`; a later payment's `seenBalance` is the device's optimistic balance after its own queued payments (§9.1). `seenCursor` is confirmed. QA signs off. |

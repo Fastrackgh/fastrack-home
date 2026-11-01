@@ -145,7 +145,7 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
           )}
         </Group>
         <Text size="xs" c="dimmed">
-          Made {formatAge(item.op.createdAt)}
+          Made {formatAge(Math.min(item.op.createdAt, Date.now()))}
           {by ? ` · changed by ${by}` : ''}
         </Text>
         {item.kind === 'notice' ? (

@@ -97,14 +97,20 @@ interface QueuedBody {
   sharedReference?: boolean;
   provisionalRef: string;
   printedRef?: string;
+  /** The day the cash was taken (YYYY-MM-DD), not the day it syncs (OFF-15). */
+  paymentDate: string;
   seenBalance?: number;
   seenCursor?: string;
   seenAsOf?: string;
 }
 
-interface QueuedLocal extends ProvisionalDetails {
-  paymentDate: string;
-}
+type QueuedLocal = ProvisionalDetails;
+
+/**
+ * Today as YYYY-MM-DD, by the server's clock when the device has heard from
+ * it (a device clock that is off by days would date the payment wrongly).
+ */
+const today = () => apiClient.serverNow().toLocaleDateString('en-CA');
 
 const parseBody = (op: OutboxOp): QueuedBody | null => {
   try {
@@ -134,11 +140,12 @@ export async function queuePayment(
     id: crypto.randomUUID(),
     amount: toCedis(amount),
     provisionalRef,
+    paymentDate: today(),
     seenBalance: toCedis(seen.balance),
     ...(cursor ? { seenCursor: cursor } : {}),
     ...(seen.asOf ? { seenAsOf: seen.asOf } : {}),
   };
-  const local: QueuedLocal = { ...receipt, paymentDate: new Date().toLocaleDateString('en-CA') };
+  const local: QueuedLocal = receipt;
   return enqueueWrite({
     collection: PAYMENTS_COLLECTION,
     entityId: body.id,
@@ -165,7 +172,8 @@ export function provisionalPayment(op: OutboxOp): Payment | null {
     receiptNumber: body.provisionalRef,
     provisionalRef: body.provisionalRef,
     printedRef: body.printedRef ?? null,
-    paymentDate: local.paymentDate ?? '',
+    // Queued before OFF-15, the date was kept on the device only.
+    paymentDate: body.paymentDate ?? String((op.local as Raw | undefined)?.paymentDate ?? ''),
     amountPaid,
     paymentMethod: body.paymentMethod,
     bankType: body.bankType ?? null,
@@ -373,6 +381,12 @@ function cashLine(op: OutboxOp) {
 
 const details = (item: ReviewItem) => (item.error?.details ?? {}) as Raw;
 
+/** 400 "The payment date can't be in the future": the device's clock was ahead (no code). */
+const futureDate = (item: ReviewItem) =>
+  item.error?.status === 400 && /payment date can.t be in the future/i.test(item.error.message);
+
+const dateSent = (item: ReviewItem) => parseBody(item.op)?.paymentDate ?? 'the date sent';
+
 function explain(item: ReviewItem): string | null {
   if (item.kind === 'notice') return noticeText(item);
   if (item.kind !== 'rejected' && item.kind !== 'conflict') return null;
@@ -390,8 +404,11 @@ function explain(item: ReviewItem): string | null {
     case 'RECEIPT_NUMBER_TAKEN':
       return `${cash} The receipt number typed is already used in the school.`;
     case 'PAYMENT_DATE_TOO_EARLY':
-      return `${cash} The payment date is before the school's first academic year.`;
+      return `${cash} It was dated ${dateSent(item)}, before the school's first academic year, so the device's date was probably wrong. Send it dated today, or discard it.`;
     default:
+      if (futureDate(item)) {
+        return `${cash} It was dated ${dateSent(item)}, which is in the future, so the device's date was probably wrong. Send it dated today, or discard it.`;
+      }
       return `${cash} ${item.error?.message ?? ''}`.trim();
   }
 }
@@ -402,8 +419,10 @@ function resendLabel(item: ReviewItem): string | null {
       return 'Keep as credit';
     case 'SHARED_TRANSFER_REFERENCE':
       return 'Same transfer for siblings';
+    case 'PAYMENT_DATE_TOO_EARLY':
+      return 'Send dated today';
     default:
-      return null;
+      return futureDate(item) ? 'Send dated today' : null;
   }
 }
 
@@ -417,8 +436,10 @@ function fixFor(item: ReviewItem): Partial<QueuedBody> | null {
       return { sharedReference: true };
     case 'NO_BILL':
       return {};
+    case 'PAYMENT_DATE_TOO_EARLY':
+      return { paymentDate: today() };
     default:
-      return null;
+      return futureDate(item) ? { paymentDate: today() } : null;
   }
 }
 

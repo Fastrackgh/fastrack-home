@@ -193,6 +193,7 @@ flowchart LR
   - The body carries:
     - a client `id` (the `groupId`);
     - `provisionalRef`: `OFF-<first 4 of the device id>-<n>`;
+    - `paymentDate`: the day the cash was taken. It's set at queue time, by the server's clock when the device has heard from it, otherwise by the device's clock. Resends and renumbering keep it. (OFF-15, fixed 1 Nov: before, a payment synced days later was dated the day it synced.)
     - `seenBalance`;
     - `seenCursor` offline (the feed cursor), or `seenAsOf` online (server time, from `apiClient.serverNow()`).
   - `n` is a **device-wide** counter in localStorage (`fastrack_offline_receipt_n`). It survives sign-out, so two users of one device never reuse a number.
@@ -224,9 +225,11 @@ flowchart LR
     - `PAYMENT_EXCEEDS_BALANCE`: how much more than owed, with **Keep as credit**.
     - `SHARED_TRANSFER_REFERENCE`: **Same transfer for siblings**.
     - `NO_BILL`: bill the pupil first, then **Send again**.
-    - `DUPLICATE_REFERENCE`, `RECEIPT_NUMBER_TAKEN` and `PAYMENT_DATE_TOO_EARLY`: discard only.
+    - `PAYMENT_DATE_TOO_EARLY`, or a 400 "can't be in the future": the device's date was probably wrong. The card shows the date sent and offers **Send dated today**.
+    - `DUPLICATE_REFERENCE` and `RECEIPT_NUMBER_TAKEN`: discard only.
   - A **possible double payment** is applied, but it lands in the tray as a red **"Saved, but check this"** notice, with only **I've checked it**. It names the other receipt and the credit kept, and says the school may owe a refund. Notices count in "N need review".
 - **Renumbering:** 409 `PROVISIONAL_REF_TAKEN` gives the op the next number and keeps the first one in `printedRef`. The op is resent under a new key, in the same place in the queue. Ops that depended on it, and anyone waiting for it, follow it (`outbox.replace`, `opAlias:` in meta). It is never sent to review.
+- **Clock jumps:** an op whose next try is more than 10 minutes away is sent now. The backoff caps at 5 minutes, so a longer wait only happens when the device clock jumped back after the op backed off. A review card made while the clock was ahead reads "Made this minute", not "in 4,320 minutes".
 - **Engine fix:** an op queued while the engine was in the middle of a run (for example a long first pull) waited for the 30 s poll. A kick during a run now starts another run straight after it.
 - **Known limit:** right after an online payment, a device that goes offline before its next pull still has the bill's old balance. The next offline payment then gets `BILL_CHANGED`, which is accurate about what the device showed. The pull runs as soon as the payment lands, so this only happens if the device drops within a second or so.
 - **Checked (1 Nov, `next dev` against backend `feat/offline-payments` cb08fa7 on `fastrack_fe18`, accounts@bis.test, Playwright):**
@@ -239,6 +242,9 @@ flowchart LR
     - Offline overpayment: a tray card with the cash line, then Keep as credit landed it under the same OFF number.
     - A taken OFF number was renumbered: a new number, the printed one kept, and nothing in review.
   - **Double payment (6/6):** an offline payment of a whole bill while the principal paid it online. The server flagged `POSSIBLE_DOUBLE_PAYMENT`. The tray notice named RCT/… by Ama Boateng and the credit kept, the filter found the red list badge, and the receipt showed the warning.
+  - **Dates (OFF-15, 7/7):**
+    - A payment taken offline with the device clock 2 days behind, after a reload so the server offset was gone, showed that day on the provisional receipt and in the queued body, and kept it at sync.
+    - One taken with the clock 3 days ahead was refused as a future date. The card showed the date and the cash line, and **Send dated today** landed it dated today under the same OFF number.
   - The earlier suites still pass: tray 12/12, attendance 23/23, marks 15/15, Changes to review 19/19, pull 8/8, past days 3/3.
 
 ## Needs review tray

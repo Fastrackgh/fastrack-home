@@ -58,6 +58,8 @@ const POLL_MS = 30_000;
 /** Older ops go to review instead of being sent (§4: the server keeps keys for 30 days). */
 export const MAX_OP_AGE_MS = 25 * 24 * 60 * 60_000;
 const LAST_SYNCED_KEY = 'lastSyncedAt';
+/** The longest an op is held back (backoff caps at 5 min; Retry-After rarely says more). */
+const MAX_WAIT_MS = 10 * 60_000;
 const LOGO_KEY = 'schoolLogo';
 const LOGO_URL_KEY = 'schoolLogoUrl';
 /** How often the records are brought up to date while the app is open. */
@@ -382,7 +384,8 @@ class SyncEngine {
       if (busy.has(entity)) continue;
       busy.add(entity);
       if (op.dependsOn.some((id) => ids.has(id))) continue;
-      if (op.nextAttemptAt > now) continue;
+      // Further off than any backoff can be: the device clock jumped back since. Send now.
+      if (op.nextAttemptAt > now && op.nextAttemptAt - now <= MAX_WAIT_MS) continue;
       return op;
     }
     return undefined;
@@ -390,7 +393,7 @@ class SyncEngine {
 
   /** Wakes up when the first backing-off op is due. */
   private scheduleAt(ops: OutboxOp[]) {
-    const due = Math.min(...ops.map((op) => op.nextAttemptAt));
+    const due = Math.min(...ops.map((op) => Math.min(op.nextAttemptAt, Date.now() + MAX_WAIT_MS)));
     if (!Number.isFinite(due)) return;
     this.timer = window.setTimeout(() => this.kick(), Math.max(0, due - Date.now()) + 50);
   }

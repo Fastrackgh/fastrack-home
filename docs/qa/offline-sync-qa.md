@@ -780,3 +780,42 @@ Nit: that card's badge still reads "Not accepted", which claims slightly more th
 
 Known limit, from fastrack-18's docs and not tested here: a clock changed while the app is closed can't be detected, and it shifts dates until the next server contact.
 
+## Backend check: payment date safeguard (a0c3bf4, PR #11) and step 5b (fa4c184)
+
+Tested on 1 Nov 2026 **through the API** on a database copy, at fa4c184, which contains a0c3bf4. The 5b screens aren't built yet, so the UI re-test comes with the frontend step. PR #11 was open and green at a0c3bf4.
+
+**Payment date**
+
+| Case | Result |
+| --- | --- |
+| Keyed payment with no date, recorded 3 days ago | Dated 3 days ago |
+| Explicit date with an older recorded time | The explicit date wins |
+| Future date | 400 `PAYMENT_DATE_IN_FUTURE` |
+| Online, no key, no date | Today |
+| No date, recorded time 5 days in the future | Dated today, not in the future |
+
+**Admissions**
+
+| Case | Result |
+| --- | --- |
+| Keyed admission with a client id | 201, id kept, code allocated, `rowVersion` 1 |
+| The same request again | Same code, `Idempotent-Replayed`, one row |
+| Same key, different body | 409 `IDEMPOTENCY_MISMATCH` |
+| Id reused by another op | 409 `DUPLICATE_ID` |
+| Same name (case and spacing differ) and birth date | 409 `LIKELY_DUPLICATE`, candidate with code, name, class, birth date, phone and status |
+| Same name, other birth date, phone as `+233 54 777 0007` against stored `0547770007` | 409 `LIKELY_DUPLICATE` |
+| Same name, other birth date and phone | Admitted |
+| A one-digit guardian phone | Doesn't match anyone |
+| `confirmNotDuplicate` | Admitted |
+| Online, no key | The same 409 |
+| Same details as a pupil of another school | Admitted, and nothing about that school leaks |
+| Id of another school's pupil | 409 `DUPLICATE_ID`, with no school details |
+| The same child from 4 devices at once | One 201, three 409, one row |
+| 12 different children at once | All admitted, 12 distinct codes |
+| Teacher | 403, nothing created |
+
+**Not exercised:**
+- **`guardianPhone` hidden without `students:read_sensitive`:** the secretary and academic head both received the phone, so neither lacks the permission. No e2e test asserts it either.
+- **`id` with a returning pupil's record (400):** the pupil I used was still enrolled, and got 409 "already actively enrolled", which is correct for that case.
+- **Backend e2e:** not re-run by QA. The backend session reports 488/488 on 5b and some earlier one-off failures that passed when re-run alone, cause not found.
+

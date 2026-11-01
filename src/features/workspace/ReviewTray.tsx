@@ -100,7 +100,11 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
   const rows = clashRows(item);
   const current = item.kind === 'cell' ? item.cell?.current : asRecord(item.error?.current);
   const by = typeof current?.updatedBy === 'string' ? current.updatedBy : null;
-  const badge = KIND_BADGE[item.kind];
+  // Too old to send: it never reached the server this time, so nothing "refused" it.
+  const badge =
+    item.error?.code === 'OP_TOO_OLD'
+      ? { label: 'Not sent', color: 'gray' }
+      : KIND_BADGE[item.kind];
   const clash = item.kind === 'conflict' || item.kind === 'cell';
   // Names kept on the op for the cell: its pupil, and (marks) its test.
   const names = item.op.names ?? {};

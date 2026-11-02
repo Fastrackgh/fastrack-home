@@ -973,3 +973,24 @@ Tested on 2 Nov 2026 **through the UI** with backend 8c99c57 on a database copy 
 - **First download answered with a forced 500 on `/sync/snapshot`:** the chip reads "Couldn't download school data". It clears once a pull succeeds.
 - **No connection at all on first sign-in:** the chip reads "Offline", correctly not the server-error wording.
 
+## Merge state check: frontend main (d0cef88, fastrack-home#6 merged early) with backend #16 (e793dd8, includes #11 and main with #13)
+
+Tested on 2 Nov 2026 **through the UI** on a database copy, with migration OfflinePayments 1792600002900 applied. Frontend #6 merged before backend #11 and #16, so frontend main sends 5a/5b requests that backend main doesn't accept until those two merge. This checks the combination they produce. **Result: 6 of 7, with one failure that didn't reproduce in three re-runs.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online payment | Official RCT, OFF ref stored |
+| 2 | Offline payment | Provisional receipt at once |
+| 3 | Back online, with a double payment and an over-payment | Lands with its own date; the over-payment held as "cash in drawer"; POSSIBLE_DOUBLE_PAYMENT flagged |
+| 4 | Tray wording after #13's error filter | "still in the cash drawer" and "Saved, but check this" intact |
+| 5 | Keep as credit | Lands |
+| 6 | Online likely duplicate | The window shows the candidate |
+| 7 | Offline admission plus offline register mark (Basic 1, today) | **Once:** the pupil was admitted with today's date and a code, but the register mark didn't land, and the device ended with `review: 2`. **Three re-runs:** the register landed every time. |
+
+- **Re-runs of 7:**
+  - a straight run;
+  - an online duplicate closed with Escape first (in Basic 2, and in Basic 1);
+  - an offline register in Basic 3.
+  All landed (PUT 200). The theory that an unresolved duplicate card holds the class register is **disproven**: the register saved with the card still open.
+- **Observation (UX, Low):** closing the online "This may be a pupil already in the school" window with Escape or × doesn't drop the admission. It waits in the tray as "Possible duplicate". "Check the details" leaves nothing queued, so the two ways of backing out behave differently.
+

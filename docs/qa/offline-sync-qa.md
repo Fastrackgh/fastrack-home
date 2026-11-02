@@ -964,3 +964,12 @@ Tested on 2 Nov 2026 on a database copy at 8c99c57, with BIS pupil 011 (who has 
 
 On that fresh device, with 11 `students` records synced, going offline and opening Students shows **"Unable to load students — Can't reach Fastrack"**. After opening Students online once, the same offline visit lists all 11. So the page reads its own saved response, not the synced records. The attendance class picker had the same gap, fixed in 9d7e864. **Fix:** when there's no saved read, list from the synced `students` records (with search and class filter), with the "Offline" note.
 
+### Re-test of OFF-18 (8e50369) and the download-failure chip (caa31c6)
+
+Tested on 2 Nov 2026 **through the UI** with backend 8c99c57 on a database copy (BIS-001, 12 pupils, 3 in Basic 1). **Result: 5 of 5. OFF-18 fixed.**
+- **Fresh device, Students never opened online, then offline:** 12 rows, "of 12 registered", and "Offline: showing the pupils synced to this device."
+- **Offline search "Esi Adjei":** only Esi Adjei.
+- **Offline class filter:** the options come from synced classes, and Basic 1 gives "of 3 registered".
+- **First download answered with a forced 500 on `/sync/snapshot`:** the chip reads "Couldn't download school data". It clears once a pull succeeds.
+- **No connection at all on first sign-in:** the chip reads "Offline", correctly not the server-error wording.
+

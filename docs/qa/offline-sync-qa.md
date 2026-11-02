@@ -870,3 +870,26 @@ Checked on 2 Nov 2026 by grep and by starting the built server with NODE_ENV=pro
 - **Suggestion (Low):** `INVOICE_PUBLIC_BASE_URL=http://localhost:…` is accepted in production. Rejecting localhost there would also catch a copied dev `.env`, like the guard online payments already has.
 - **Still to do:** the frontend has its own: page metadata `https://fastrack.com.gh` in `src/app/layout.tsx`, and the API fallback `http://localhost:3000/api` in `src/lib/api-client.ts`. Waiting for the user's go-ahead to send it to fastrack-18.
 
+## Backend check: step 5c part 1, student edits (a41e650)
+
+Tested on 2 Nov 2026 **through the API** on a database copy (the frontend for 5c isn't built yet). **Result: 11 of 11 as specified. One High finding outside 5c's own rules: QA-283** (in findings.md, also on main).
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online plain PATCH, no key | Applied; rowVersion 1 → 2 |
+| 2 | Keyed `changes`, fresh base | Applied; +1 |
+| 3 | Stale base, a field nobody changed (otherName, on the person) | Applied; +1 |
+| 4 | Stale base, the field already holds `to` | 200, no clash |
+| 5 | A real clash plus a clean field | 409 CONFLICT, conflictingFields `["religion"]`, `current.rowVersion` matches, and **the clean field wasn't applied** |
+| 6 | Plain body from a stale base, differing value | 409 CONFLICT |
+| 7 | Both forms / unknown field / future birth date | 400 each. Another pupil's code is 409 "already exists". |
+| 8 | Same key twice / same key with another body | Replayed, the version rises once / IDEMPOTENCY_MISMATCH |
+| 9 | Feed after an edit | `students` and `student-details` for the pupil, same version |
+| 10 | Teacher | 403 |
+| 11 | Another school's pupil | 404, nothing changed |
+
+- **Observations (Low):**
+  - The no-op in case 4 still raises `rowVersion` (4 → 5), so other devices see the record as changed when it wasn't.
+  - A base version *ahead* of the server (+50) is accepted (200). Harmless with the field-level `from` check, but it may deserve the same treatment as `CURSOR_AHEAD`.
+- **QA-283:** a user without `students:read_sensitive` replaced a guardian phone they see as blank, through both forms.
+

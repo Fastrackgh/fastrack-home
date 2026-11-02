@@ -273,6 +273,7 @@ flowchart LR
     - **It's this pupil:** not admitted.
     - **Admit anyway:** resent with `confirmNotDuplicate`.
     - **Check the details:** back to the form; the refused admission is dropped.
+    - **Escape, × or Cancel** drop it too, rather than leaving it in the tray as a Possible duplicate (QA merge-state check, 2 Nov; admissions suite 18/18).
   - **Other refusals** show in the form, and nothing is left in the tray.
 - **Students list offline (OFF-18, fixed 2 Nov):** offline, the list comes from the synced `students` records, even on a device that never opened it online. Search, the class and status filters, paging and the active count all run on the device (`src/features/students/offline-list.ts`), and the page says "Offline: showing the pupils synced to this device." The class filter falls back to the synced classes, as the attendance picker does. Online, the list is read live, never from a saved copy. A saved copy is used only when nothing has synced yet. Checked on a fresh device against backend e6c9e22 (Playwright, 6/6: 20 of 24 rows, the count, search, the class options and filter).
 - **Students list:** pupils admitted on this device and not yet synced are listed first on page 1, filtered on the device, with **Code pending · waiting to sync**. They can't be opened yet, because the server doesn't know them. The list reloads when an admission lands.

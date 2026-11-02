@@ -1,6 +1,6 @@
 # Offline sync contract (staff portal)
 
-**Status:** **agreed** v0.5.5 (2 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
+**Status:** **agreed** v0.5.6 (2 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
 **Owners:** backend (`fastrack-backend`), staff frontend (`/school-admin`).
 **Plan:** `humming-tumbling-codd.md`, "Sync contract" and "Backend work" B1–B5.
 
@@ -146,7 +146,7 @@ Two endpoints write many independent cells in one request. Putting the whole req
   - The client stores both under the feed's apply rule.
 - On marks, `rowVersion` in the body becomes the sheet base. A stale sheet `rowVersion` no longer rejects the whole request when the cells carry `from`. Without `from`, the current behaviour stays: a stale version gives 409 `CONFLICT` (shape in §6).
 - A sheet that was submitted, approved or returned while the device was offline gives 422 `SHEET_LOCKED`, with `current` set to the sheet and its server values.
-- Attendance checks class membership **as of the attendance date** (enrolment history), not today. A pupil who wasn't in the class that day gives 422 `NOT_ENROLLED_ON_DATE`.
+- Attendance checks class membership **as of the attendance date** (enrolment history), not today. A pupil who wasn't in the class that day gives 422 `NOT_ENROLLED_ON_DATE`. That includes any day before the pupil's `admissionDate` (v0.5.6, user decision); past-day registers leave them out for those days.
 
 ## 6. Error envelope
 
@@ -446,7 +446,8 @@ Without `seenBalance` (the online form, today), there are no `BILL_CHANGED` or `
 ### 9.2 Admissions: `POST /schools/me/students` (step 5b)
 
 - `id` (UUIDv4) becomes the `schoolStudentId` (§2). A returning pupil (`studentId` of someone with an old record here) keeps that record, so `id` must equal its `schoolStudentId`, and ops queued for them can `dependsOn` the re-admission. Any other `id` is 400 `ID_MISMATCH_RETURNING` with `reason.schoolStudentId`, and nothing is saved.
-- With no `id`, the server allocates one as today. The enrolment is already in the body (`admissionClassId`, `classId`, `admissionTermId`), so attendance and marks queued later can `dependsOn` the admission.
+- With no `id`, the server allocates one as today.
+- A keyed admission without `admissionDate` is dated by the school-local date of the corrected `recorded_at` (§1), not by the day it synced. The enrolment is already in the body (`admissionClassId`, `classId`, `admissionTermId`), so attendance and marks queued later can `dependsOn` the admission.
 - `studentCode` is allocated **at sync**, under a per-school advisory lock (`generateNextStudentCode` has none today, so two admissions at once can get the same code). It comes back in the response and the feed. Until then the device shows it as pending. A typed `studentCode` is still accepted, as today.
 - **The duplicate check runs inside the same lock**, before the code is allocated and the pupil is saved, and the lock is held until the admission commits. So of two admissions of the same child at once (two devices syncing together), the second always sees the first and gets `LIKELY_DUPLICATE`. Both can't pass.
 - **Likely duplicate.** Without `studentId` (an admission of a new person), the server looks in this school for a pupil with:
@@ -624,3 +625,4 @@ QA signs off once these are in. All are now in (v0.5.2):
 | 2026-11-01 | 0.5.3 | QA: payments queued by the same device (`X-Device-Id`, stored with the payment) never count as unseen for `POSSIBLE_DOUBLE_PAYMENT`; a later payment's `seenBalance` is the device's optimistic balance after its own queued payments (§9.1). `seenCursor` is confirmed. QA signs off. |
 | 2026-11-02 | 0.5.4 | QA OFF-15: a keyed payment without `paymentDate` is dated by the corrected `recorded_at`; the future-date refusal gets the code `PAYMENT_DATE_IN_FUTURE`, with the same 400 and message (§6, §9.1). **Agreed** (staff frontend). Backend a0c3bf4. |
 | 2026-11-02 | 0.5.5 | Built with step 5b (§9.2): guardian phones compare by the last 9 digits; a returning pupil's `id` must be their record's, otherwise 400 `ID_MISMATCH_RETURNING`. **Agreed** (staff frontend, QA). |
+| 2026-11-02 | 0.5.6 | §9.2: a keyed admission's default date is the corrected `recorded_at`, the same rule as payments (§9.1). Backend bug fix. §5: a day before the pupil's admission date is also `NOT_ENROLLED_ON_DATE` (user decision); the device rule narrows to match. Backend c664e97, b1665ca. |

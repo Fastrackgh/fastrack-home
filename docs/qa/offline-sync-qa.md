@@ -847,3 +847,15 @@ Tested on 1–2 Nov 2026 **through the UI** as the BIS-001 principal, on a datab
   - Marks on a mark sheet for an offline pupil: the sheet's pupils come from the server (fastrack-18's documented limit).
 - **Observation (not a finding):** while offline, a likely duplicate can appear twice in a register, with the new row showing "—" for its code. The clerk can't tell them apart beyond that, so a mark may go on the real pupil's row. Nothing is lost.
 
+### Re-test of frontend 479516e with backend b1665ca and c664e97: admission dates and "Code pending" (contract v0.5.6)
+
+Tested on 2 Nov 2026 **through the UI** on a database copy. **Result: pass.**
+- **Offline admission today:** it's in today's Basic 1 register as "Code pending", and **not** in the 30 Oct register. After sync, `admission_date` is 2026-11-02, a code is given, and today's Late mark landed.
+- **Online:** the 30 Oct register leaves that pupil out. Existing pupils are still listed (4 rows).
+- **API:** a mark for 30 Oct for that pupil is 422 `NOT_ENROLLED_ON_DATE`.
+- **Likely duplicate in a register (57fa24c):** the real Kojo shows with BIS-001/STD/2026/004 and the new one with "Code pending".
+- **Two false alarms from my own script:**
+  - A date-field selector matched three inputs.
+  - I first expected the real Kojo in today's Basic 2 register, but his enrolment history puts him in Basic 1 for Term 1 2026/27 and in Basic 2 only from Term 1 2027/28. The register was right.
+- **Environment:** the dev frontend was slow on this machine (30 s for one page, under load), so timeouts were raised.
+

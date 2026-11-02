@@ -819,3 +819,31 @@ Tested on 1 Nov 2026 **through the API** on a database copy, at fa4c184, which c
 - **`id` with a returning pupil's record (400):** the pupil I used was still enrolled, and got 409 "already actively enrolled", which is correct for that case.
 - **Backend e2e:** not re-run by QA. The backend session reports 488/488 on 5b and some earlier one-off failures that passed when re-run alone, cause not found.
 
+## Step 5b: offline admissions (frontend 44b2605, backend 40e7520)
+
+Tested on 1–2 Nov 2026 **through the UI** as the BIS-001 principal, on a database copy. **Result: pass, no findings.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online admission | "enrolled with code: BIS-001/STD/2026/013" |
+| 2a | Online duplicate (Esi Adjei, same birth date) | "This may be a pupil already in the school", with code, class, birth date and guardian phone. Status is shown only when it isn't Active. |
+| 2b | "Check the details" | Back to the form, tray empty, not admitted |
+| 2c | "It's this pupil" | Not admitted, tray empty |
+| 2d | "Admit anyway" | A second Esi admitted |
+| 3a | Offline admission | "Saved on this device…", survives an offline reload, listed "Code pending · waiting to sync", nothing on the server |
+| 3b | Opening the waiting row | Doesn't open |
+| 3c–d | Offline register lists the pupil; mark Late; back online | The admission lands first with a code, then the mark |
+| 3e | Students list afterwards | Shows the real code |
+| 4 | Offline duplicate of Kojo Owusu with an Excused mark queued for the new pupil | The queued mark names the new id and depends on the admission. Back online: "Possible duplicate" card naming 004, **no attendance row while it's in review**. "It's Kojo Owusu": no second Kojo, and the mark lands on 004. |
+| 5 | Offline duplicate, tray "Admit anyway" | A second pupil admitted, and the held mark lands after it |
+| 6 | The same new child offline on two devices | One admitted, the other gets the card |
+| 7 | Sign out with a queued admission | Guarded |
+| 8 | Secretary with `students:read_sensitive` removed on the copy | Candidates shown, phone hidden |
+
+- **Corrections to my own first run:** case 4 first looked like a mark sent early. In fact the 30 Oct register legitimately lists the real Kojo too, and my script clicked his row. Re-run on the right row, on 29 Oct.
+- **Not covered:**
+  - A queued payment for a pupil admitted offline. They have no bill yet, so the form can't take one.
+  - `ID_MISMATCH_RETURNING`: the form can't send it, and the backend e2e covers it.
+  - Marks on a mark sheet for an offline pupil: the sheet's pupils come from the server (fastrack-18's documented limit).
+- **Observation (not a finding):** while offline, a likely duplicate can appear twice in a register, with the new row showing "—" for its code. The clerk can't tell them apart beyond that, so a mark may go on the real pupil's row. Nothing is lost.
+

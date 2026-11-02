@@ -158,7 +158,8 @@ async function withAdmittedHere(register: Register): Promise<Register> {
       studentId: p.id,
       schoolStudentId: p.id,
       rowVersion: null,
-      studentCode: null,
+      // Shown where the code goes, as on the Students list: tells a likely duplicate apart.
+      studentCode: 'Code pending',
       name: [`${p.surname},`, p.firstName, p.otherName].filter(Boolean).join(' '),
       status: null,
       arrivalTime: null,

@@ -274,7 +274,7 @@ flowchart LR
     - **Check the details:** back to the form; the refused admission is dropped.
   - **Other refusals** show in the form, and nothing is left in the tray.
 - **Students list:** pupils admitted on this device and not yet synced are listed first on page 1, filtered on the device, with **Code pending · waiting to sync**. They can't be opened yet, because the server doesn't know them. The list reloads when an admission lands.
-- **Attendance:** registers include pupils admitted to the class on this device and not yet synced, for any day. The server's register does the same, because an admission belongs to the class for its whole admission term. Their marks `dependsOn` the admission op, so they're sent after it.
+- **Attendance:** registers include pupils admitted to the class on this device and not yet synced, for any day. Their code reads **Code pending**, as on the Students list, so a likely duplicate listed twice can be told apart. The server's register does the same, because an admission belongs to the class for its whole admission term. Their marks `dependsOn` the admission op, so they're sent after it.
 - **Engine rules for writes that depend on another (v0.5):**
   - An op whose dependency is **in review** (conflict or rejected) waits; it isn't sent for a pupil the server doesn't know.
   - A resend from the tray takes the dependents along: they now wait on the new op (`outbox.takeFromReview`).

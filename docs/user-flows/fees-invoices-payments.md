@@ -100,6 +100,12 @@ sequenceDiagram
 
 ## Record a payment and print the receipt
 
+> **Since 1 Nov (offline step 5a), every payment goes through the sync outbox, online too, and a payment can be taken offline with a provisional receipt.**
+> - This replaces `payment-attempts.ts` and the direct `recordPayment` call described below. The key is now the queued op's, so a retry can't record a payment twice.
+> - The questions about credit and shared references work as described below, but the answer is resent from the review tray.
+> - The payments list adds queued rows, "was OFF-…", warning badges and a warnings filter.
+> - Details: [docs/offline/staff-offline.md, "Offline cash payments"](../offline/staff-offline.md).
+
 ```mermaid
 sequenceDiagram
   actor U as Cashier

@@ -23,6 +23,7 @@ import { APP_ROUTES } from '@/lib/rbac';
 import { errorMessage } from '@/lib/api-client';
 import {
   feesApi,
+  PAGE_SIZE,
   type AcademicContext,
   type FeeType,
   type Invoice,
@@ -46,6 +47,15 @@ import { notifyLoadError } from './notify';
 import { PaymentsTab, type PaymentFilters } from './PaymentsTab';
 import { ReceiptModal } from './ReceiptModal';
 import { RecordPaymentModal } from './RecordPaymentModal';
+import {
+  livePayments,
+  offlinePayments,
+  onlineOr,
+  PAYMENTS_COLLECTION,
+  pendingPayments,
+} from './payments-sync';
+import { onRecordsPulled, onSyncApplied } from '@/lib/offline/syncEngine';
+import { useSyncStatus } from '@/lib/offline/useSyncStatus';
 import { StructuresPanel } from './StructuresPanel';
 
 /** A tab's count, shown once its list has loaded so it never reads as zero. */
@@ -96,9 +106,14 @@ export function FeesPage() {
   const [paymentFilters, setPaymentFilters] = useState<PaymentFilters>({
     studentId: null,
     paymentMethod: null,
+    warning: null,
     page: 1,
   });
   const [payments, setPayments] = useState<Page<Payment> | null>(null);
+  /** Payments taken on this device and not yet synced (sync §9.1). */
+  const [pendingPaymentsList, setPendingPaymentsList] = useState<Payment[]>([]);
+  /** The list came from this device's synced records: the server was out of reach. */
+  const [paymentsOffline, setPaymentsOffline] = useState(false);
   const [paymentsLoading, setPaymentsLoading] = useState(false);
   const [paymentsError, setPaymentsError] = useState<string | null>(null);
 
@@ -181,8 +196,18 @@ export function FeesPage() {
   const loadPayments = useCallback(async () => {
     setPaymentsLoading(true);
     setPaymentsError(null);
+    pendingPayments().then(setPendingPaymentsList, () => setPendingPaymentsList([]));
     try {
-      setPayments(await feesApi.listPayments(paymentFilters));
+      const { value, offline } = await onlineOr(
+        () => livePayments(paymentFilters),
+        async () => {
+          const all = await offlinePayments(paymentFilters);
+          const from = (paymentFilters.page - 1) * PAGE_SIZE;
+          return { items: all.slice(from, from + PAGE_SIZE), total: all.length };
+        },
+      );
+      setPayments(value);
+      setPaymentsOffline(offline);
     } catch (err) {
       setPaymentsError(errorMessage(err, 'Could not load the payments.'));
     } finally {
@@ -209,6 +234,22 @@ export function FeesPage() {
   useEffect(() => {
     if (activeTab === 'payments' && may.readPayments) loadPayments();
   }, [activeTab, may.readPayments, loadPayments]);
+
+  // A queued payment landed, or the device's records changed: the list catches up.
+  const { pending: queuedCount } = useSyncStatus();
+  useEffect(() => {
+    if (activeTab !== 'payments' || !may.readPayments) return;
+    const reload = () => void loadPayments();
+    const offApplied = onSyncApplied((op) => op.collection === PAYMENTS_COLLECTION && reload());
+    const offPulled = onRecordsPulled(reload);
+    return () => {
+      offApplied();
+      offPulled();
+    };
+  }, [activeTab, may.readPayments, loadPayments]);
+  useEffect(() => {
+    pendingPayments().then(setPendingPaymentsList, () => setPendingPaymentsList([]));
+  }, [queuedCount]);
 
   const classOptions = useMemo(
     () => classes.map((c) => ({ value: c.id, label: `${c.className} (${c.classCode})` })),
@@ -385,6 +426,8 @@ export function FeesPage() {
           {may.readPayments && (
             <Tabs.Panel value="payments">
               <PaymentsTab
+                pendingPayments={pendingPaymentsList}
+                offline={paymentsOffline}
                 payments={payments?.items ?? []}
                 total={payments?.total ?? 0}
                 loading={paymentsLoading}

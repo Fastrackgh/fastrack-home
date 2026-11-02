@@ -187,6 +187,118 @@ flowchart LR
   - A save arriving after the submit → `SHEET_LOCKED` explained, with Send again.
   - The attendance (19/19) and tray (12/12) suites still pass.
 
+## Offline cash payments (phase 3, backend step 5a, contract v0.5.3 §9.1)
+
+- **Every payment goes through the outbox, online too** (`src/features/fees/payments-sync.ts`, `RecordPaymentModal.tsx`). `payment-attempts.ts` and `feesApi.recordPayment` are gone. The op's key is the payment's Idempotency-Key, and the queued op survives a closed window, a reload or a crash.
+  - The body carries:
+    - a client `id` (the `groupId`);
+    - `provisionalRef`: `OFF-<first 4 of the device id>-<n>`;
+    - `paymentDate`: the day the cash was taken. It's set at queue time, by the server's clock when the device has heard from it, otherwise by the device's clock. Resends and renumbering keep it. (OFF-15, fixed 1 Nov: before, a payment synced days later was dated the day it synced.)
+    - `seenBalance`;
+    - `seenCursor` offline (the feed cursor), or `seenAsOf` online (server time, from `apiClient.serverNow()`).
+  - `n` is a **device-wide** counter in localStorage (`fastrack_offline_receipt_n`). It survives sign-out, so two users of one device never reuse a number.
+  - `seenBalance` is the picked bill's balance **less the payments still queued for it on this device**.
+  - A pupil's queued payments `dependsOn` the earlier ones, so they land in the order they were taken, and each one's `seenBalance` is right. A first payment that is backing off can't be overtaken.
+  - The same payment already queued (same pupil, bill, amount, method and reference) isn't queued again. The window says "Already waiting to sync · saved as OFF-…".
+- **Reading the balance:**
+  - Online, the window reads the bills **straight from the server** (`liveBills`). It never uses a saved read, because a saved copy from before the device's last payment would show the wrong balance. The payments list does the same (`livePayments`).
+  - Offline, the bills come from the synced `invoices` and the account balance from `fee-accounts`. The pupil search uses the synced `students`.
+- **After queuing**, the window waits up to 8 s for the payment to land. It stops waiting as soon as the device is known to be offline: if it was offline before queuing, or when the first send gets no answer. The provisional receipt then shows at once (OFF-14, fixed 1 Nov: it always waited the full 8 s offline; now 0.2 s when already offline, about 0.7 s when the send finds out). Outcomes:
+  - **Landed:** the official receipt as before, from the response, or found by its OFF number when another tab sent it. Warnings show as toasts, and a possible double payment's toast stays up.
+  - **Not answered** (offline, or slow): a **provisional receipt**.
+    - It's titled "Provisional Payment Receipt", has a yellow **PROVISIONAL — PENDING SYNC** badge and shows the OFF number as "Provisional Number".
+    - It reads "It gets an official RCT number when the device syncs; keep this receipt until then."
+    - The school's crest comes from the copy the engine keeps in `blobs`. The engine fetches it at pull from the `school` record's `logoUrl`, and again only when that changes.
+  - **More than owed, or a shared reference:** the existing questions.
+    - **Keep as credit** and **Yes, same transfer** resend the refused op from the tray with `allowCredit` or `sharedReference`, keeping the same `id` and OFF number.
+    - **Change amount** and **Change reference** discard it.
+  - **Anything else refused** shows in the window. Once the window is closed, it stays in the tray.
+- **Payments list:**
+  - Queued payments come first, on page 1, filtered on the device. The OFF number is in yellow, with **Provisional · waiting to sync**.
+  - A synced payment shows its RCT number with "was OFF-…". Its receipt says "Provisional receipt OFF-… is now RCT/…", plus "renumbered OFF-…" when it was renumbered.
+  - Warning badges: **Possibly paid twice** (red), **Bill changed**, **Credit kept** and **Moved to another bill**.
+  - A warnings filter (All payments, Needs checking (any), or one warning) sends `?warning=`, so a head or account officer sees the warnings from every device.
+  - Offline, the list comes from the synced `payments` and says "Offline: showing the payments synced to this device".
+  - The receipt lists each warning in words.
+- **Review tray:**
+  - Every refused payment card starts **"Nothing was recorded: the GHS x is still in the cash drawer."** The rest depends on the code:
+    - `PAYMENT_EXCEEDS_BALANCE`: how much more than owed, with **Keep as credit**.
+    - `SHARED_TRANSFER_REFERENCE`: **Same transfer for siblings**.
+    - `NO_BILL`: bill the pupil first, then **Send again**.
+    - `PAYMENT_DATE_TOO_EARLY`, or a 400 "can't be in the future": the device's date was probably wrong. The card shows the date sent and offers **Send dated today**.
+    - `DUPLICATE_REFERENCE` and `RECEIPT_NUMBER_TAKEN`: discard only.
+    - Too old to send (more than 25 days): discard only. A resend could record the payment twice, because its key may have expired after it landed. Its badge reads **Not sent** (any feature's too-old op does), not "Not accepted". This card alone leads with **"This payment may not have been recorded."**, with no cash-drawer line, because the device can't know whether it landed. It says to correct the device's date if it was wrong, look for the OFF number under Payments, and record the payment again only if it isn't there.
+  - A **possible double payment** is applied, but it lands in the tray as a red **"Saved, but check this"** notice, with only **I've checked it**. It names the other receipt and the credit kept, and says the school may owe a refund. Notices count in "N need review".
+- **Renumbering:** 409 `PROVISIONAL_REF_TAKEN` gives the op the next number and keeps the first one in `printedRef`. The op is resent under a new key, in the same place in the queue. Ops that depended on it, and anyone waiting for it, follow it (`outbox.replace`, `opAlias:` in meta). It is never sent to review.
+- **Device clocks (OFF-16, fixed 1 Nov):**
+  - The server clock offset (from `X-Server-Time`) is saved with the session (`fastrack_server_offset_ms`, cleared at sign-out). An offline reload with a clock that's days off still dates payments by the server's day.
+  - An op's `createdAt`, and so its 25-day age, is on that clock. A slow device clock no longer makes a fresh payment look too old.
+  - A device clock changed while the page is open (for example corrected while offline) is noticed: `Date.now()` against `performance.timeOrigin + performance.now()` moves by more than a minute. The saved offset is then dropped, and the device clock is used until the server is heard from again. It isn't adjusted by the measured jump, because `performance.now()` can pause while a laptop sleeps.
+  - Known limits:
+    - A clock changed while the app was closed can't be noticed. The saved offset then shifts the date by the change until the next server contact.
+    - `X-Server-Time` comes only on auth, sync and keyed writes.
+- **Clock jumps:** an op whose next try is more than 10 minutes away is sent now. The backoff caps at 5 minutes, so a longer wait only happens when the device clock jumped back after the op backed off. A review card made while the clock was ahead reads "Made this minute", not "in 4,320 minutes".
+- **Engine fix:** an op queued while the engine was in the middle of a run (for example a long first pull) waited for the 30 s poll. A kick during a run now starts another run straight after it.
+- **Known limit:** right after an online payment, a device that goes offline before its next pull still has the bill's old balance. The next offline payment then gets `BILL_CHANGED`, which is accurate about what the device showed. The pull runs as soon as the payment lands, so this only happens if the device drops within a second or so.
+- **Checked (1 Nov, `next dev` against backend `feat/offline-payments` cb08fa7 on `fastrack_fe18`, accounts@bis.test, Playwright):**
+  - **Online and offline (12/12):**
+    - An online payment got an RCT number, and the server stored its OFF number and group id.
+    - An offline payment got a provisional receipt with the cached crest and a pending row. So did a second offline payment for the same pupil.
+    - Back online, both landed in order with no warnings. The row read "was OFF-…" and the receipt "OFF-… is now RCT/…".
+  - **Refusals and renumbering (15/15):**
+    - Online overpayment: the question, then Keep as credit landed it.
+    - Offline overpayment: a tray card with the cash line, then Keep as credit landed it under the same OFF number.
+    - A taken OFF number was renumbered: a new number, the printed one kept, and nothing in review.
+  - **Double payment (6/6):** an offline payment of a whole bill while the principal paid it online. The server flagged `POSSIBLE_DOUBLE_PAYMENT`. The tray notice named RCT/… by Ama Boateng and the credit kept, the filter found the red list badge, and the receipt showed the warning.
+  - **Dates (OFF-15, 7/7):**
+    - A payment taken offline with the device clock 2 days behind, after a reload so the server offset was gone, showed that day on the provisional receipt and in the queued body, and kept it at sync.
+    - One taken with the clock 3 days ahead was refused as a future date. The card showed the date and the cash line, and **Send dated today** landed it dated today under the same OFF number.
+  - **Clock corrected while offline, and the too-old card (OFF-16, 4/4):**
+    - The clock was 2 days behind at sign-in, then corrected while offline. The payment was dated today, not 2 days ahead.
+    - A payment queued and then a 26-day jump with no server contact: the card led with "This payment may not have been recorded", with no cash line and discard only.
+    - When a background request reaches the server first, the offset is learned again and the payment, really only minutes old, is rightly sent.
+  - **Clock 30 days behind for a whole session (OFF-16, 5/5):** after an offline reload, the receipt and the queued body were dated today, and the payment landed with nothing in review.
+  - The earlier suites still pass: tray 12/12, attendance 23/23, marks 15/15, Changes to review 19/19, pull 8/8, past days 3/3.
+
+## Offline admissions (phase 3, backend step 5b, contract v0.5.5 §9.2)
+
+- **Every admission goes through the outbox, online too** (`src/features/students/admissions-sync.ts`, `AdmitStudentModal.tsx`). `studentsApi.admit` is gone.
+  - The body carries a client `id`, which becomes the pupil's `schoolStudentId`. Writes for the new pupil can name them before the admission lands.
+  - The student code is given by the server at sync.
+- **After queuing**, the window waits up to 8 s, but not once the device is known to be offline (`waitUnlessOffline`, shared with payments):
+  - **Landed:** "enrolled with code …", as before.
+  - **Not answered, or offline:** "Saved on this device · … will be admitted when the device is back online; the student code comes then."
+  - **Likely duplicate** (409 `LIKELY_DUPLICATE`, online too, Q6): the window shows "This may be a pupil already in the school", listing each candidate with their code, class, birth date, guardian phone (only with `students:read_sensitive`) and status if not active. The choices are:
+    - **It's this pupil:** not admitted.
+    - **Admit anyway:** resent with `confirmNotDuplicate`.
+    - **Check the details:** back to the form; the refused admission is dropped.
+  - **Other refusals** show in the form, and nothing is left in the tray.
+- **Students list:** pupils admitted on this device and not yet synced are listed first on page 1, filtered on the device, with **Code pending · waiting to sync**. They can't be opened yet, because the server doesn't know them. The list reloads when an admission lands.
+- **Attendance:** registers include pupils admitted to the class on this device and not yet synced, from their admission day on. The device sends `admissionDate` as the day the admission was made, on the server's clock (as payments are dated). Earlier days leave them out, as the server's registers do: since contract v0.5.6 (backend b1665ca) a mark for a day before the admission date is 422 `NOT_ENROLLED_ON_DATE`. Their code reads **Code pending**, as on the Students list, so a likely duplicate listed twice can be told apart. Their marks `dependsOn` the admission op, so they're sent after it.
+- **Engine rules for writes that depend on another (v0.5):**
+  - An op whose dependency is **in review** (conflict or rejected) waits; it isn't sent for a pupil the server doesn't know.
+  - A resend from the tray takes the dependents along: they now wait on the new op (`outbox.takeFromReview`).
+  - A dismissed dependency releases them. They're then sent, and come back with the server's answer.
+- **Review tray, admissions:**
+  - A likely duplicate has a **Possible duplicate** card (not a "Now / Yours" table). It reads "Not admitted yet: this looks like a pupil already in the school (Kojo Owusu · BIS-001/STD/2026/004 · Basic 2 · born … · guardian …). If it's the same child, pick them, and anything recorded for this admission moves to them. If it's a different child, admit anyway."
+  - The buttons are **Discard my change**, one **It's <pupil> (<code>)** per candidate, and **Admit anyway**.
+  - **It's <pupil>** moves every queued op that names the new pupil (key, path and body) to the candidate, drops their wait on the admission, and clears the card (`remapQueued`, `outbox.remap`). That covers attendance, and payments or photos once those can be queued for a new pupil.
+  - Features add buttons like this with `registerReviewText(…, { actions })`.
+  - `ID_MISMATCH_RETURNING` and `DUPLICATE_ID` are explained in words. The form never sends a returning pupil's `studentId`, so the first can't come from it today.
+- **Not covered:** marks for a pupil admitted offline. A mark sheet's pupils come from the server, so a pupil admitted offline isn't on a sheet until the admission lands.
+- **Checked (2 Nov, `next dev` against backend `feat/offline-admissions` 56ae093 on `fastrack_fe18`, principal@bis.test, Playwright, 14/14):**
+  - **Online:**
+    - An admission got a code, and the record's id is the device's.
+    - An admission matching Esi Adjei (same name and birth date) showed her in the window; Check the details left the tray empty.
+  - **Offline:**
+    - An admission was listed with Code pending and appeared in the Basic 1 register. A Late mark was queued with `dependsOn` the admission.
+    - Back online, the admission landed with a code under the device's id, then the mark landed.
+  - **Offline duplicate of Kojo Owusu, with an Excused mark queued:**
+    - The admission went to review and the mark was held, not sent.
+    - The card showed the candidate with "It's Kojo Owusu (BIS-001/STD/2026/004)" and Admit anyway.
+    - "It's Kojo" moved the mark to the existing Kojo, where it landed. No second Kojo was admitted.
+  - The earlier suites still pass: tray 12/12, attendance 23/23, marks 15/15, Changes to review 19/19, pull 8/8, past days 3/3, payments 14/14, double payment 6/6, dates 7/7.
+
 ## Needs review tray
 
 - **Opening it:** click the header chip whenever it shows "N need review" or "N sent to head teacher". It opens a drawer on the right, full width on a phone (`ReviewTray.tsx`).
@@ -194,6 +306,7 @@ flowchart LR
   - **Changed by someone else** (409 `CONFLICT`, or a batch-cell conflict): a **Now / Yours** table of the fields that differ. For a field conflict these are the `conflictingFields`, with the device's `changes[f].to` or plain value. For a cell, they're the cell's `current` and `mine`. The buttons are **Keep theirs** (dismiss) and **Keep mine**.
   - **Not accepted** (rejected): the server's message, e.g. "amount must not be less than 0.01". A 403 that wasn't forwarded reads "You no longer have permission to make this change, so it wasn't saved. Ask the head teacher or an admin if it's still needed.", not the server's "Forbidden resource". The buttons are **Discard my change**, and **Send again** where offered.
   - **Sent to the head teacher** (forwarded, §6.2): listed under their own heading for information, with **OK** to clear them.
+  - **Saved, but check this** (a notice, v0.5): an op that applied, but with something the user must see, such as a possible double payment. A feature adds these with `registerAppliedNotices`. The only button is **I've checked it**.
 - **Keep mine / Send again** queue a new op with a new key (§4), built by the feature's resolver: `registerReviewResolver(collection, item => EnqueueInput | null)`. For attendance, for example, that's one cell with `from` set to the server's current value. Queuing the new op and removing the item happen in one IndexedDB transaction (`outbox.takeFromReview`). A failure can't lose the change, and when two tabs press the button together, the second finds the item already gone (OFF-4, fixed 30 Oct: both used to send it, each with its own new key). A collection without a resolver can only be dismissed. None are registered yet; attendance and marks add theirs when they start queuing.
 - **Checked (30 Oct, `next dev` against f60fc3d, Playwright, 12/12):**
   - A real 400 payment: shown, and discarded.
@@ -278,4 +391,5 @@ flowchart LR
 - **Explicit sign-out** (`logout` in `auth-context.tsx`) deletes the user's offline database.
 - **The header's sign-out is guarded** (`SignOutButton`). While changes wait or need review, it asks first: **"1 change hasn't been sent yet. Signing out deletes it from this device."** Offline, it adds that staying signed in sends them later. The choices are **Stay signed in**, **Sync now** (when changes wait) and **Discard N changes and sign out**. If everything lands while it's open, it reads "All your changes have been sent." The platform console's sign-out isn't guarded, since platform users have no offline data.
 - **A session that ends by itself** (the refresh token is rejected or expires) keeps the database. It is reopened when the same user signs in again, so queued changes survive.
+- **Money on shared devices (v0.5):** the `invoices`, `payments` and `fee-accounts` records, queued payments and the cached logo are all in the user's own database, so the sign-out guard and the wipe cover them. Only the device-wide OFF counter is kept, and it holds no money data. Teachers never receive the money collections, because the server scopes them.
 - Each user's data lives in their own database, and a session only opens its own. Another user signing in on the same browser sees none of it.

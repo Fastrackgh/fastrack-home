@@ -1,8 +1,15 @@
 import { ApiError, apiClient } from '@/lib/api-client';
 import { connectivity } from './connectivity';
 import type { OfflineDb } from './db';
-import { deviceId, outbox, type EnqueueInput, type OutboxOp, type ReviewItem } from './outbox';
-import { PULLED_AT_KEY, pull, recordsOf, type SyncedRecord } from './pull';
+import {
+  aliasKey,
+  deviceId,
+  outbox,
+  type EnqueueInput,
+  type OutboxOp,
+  type ReviewItem,
+} from './outbox';
+import { CURSOR_KEY, PULLED_AT_KEY, pull, recordsOf, type SyncedRecord } from './pull';
 import { backoffMs, classify, type SyncOutcome, type SyncResponse } from './syncOutcome';
 
 /**
@@ -51,6 +58,10 @@ const POLL_MS = 30_000;
 /** Older ops go to review instead of being sent (§4: the server keeps keys for 30 days). */
 export const MAX_OP_AGE_MS = 25 * 24 * 60 * 60_000;
 const LAST_SYNCED_KEY = 'lastSyncedAt';
+/** The longest an op is held back (backoff caps at 5 min; Retry-After rarely says more). */
+const MAX_WAIT_MS = 10 * 60_000;
+const LOGO_KEY = 'schoolLogo';
+const LOGO_URL_KEY = 'schoolLogoUrl';
 /** How often the records are brought up to date while the app is open. */
 const PULL_EVERY_MS = 5 * 60_000;
 
@@ -126,6 +137,14 @@ export function registerReviewResolver(collection: string, resolver: ReviewResol
 export interface ReviewText {
   explain?: (item: ReviewItem) => string | null;
   resendLabel?: (item: ReviewItem) => string | null;
+  /** More choices than keep / resend, e.g. "It's Ama Mensah" for a likely duplicate. */
+  actions?: (item: ReviewItem) => ReviewAction[];
+}
+
+/** An extra button on a review card. `run` resolves the item (or throws to leave it). */
+export interface ReviewAction {
+  label: string;
+  run: () => Promise<void>;
 }
 const reviewTexts = new Map<string, ReviewText>();
 
@@ -133,14 +152,45 @@ export function registerReviewText(collection: string, text: ReviewText) {
   reviewTexts.set(collection, text);
 }
 
+/**
+ * Gives an op refused with 409 PROVISIONAL_REF_TAKEN its next number (§9.1):
+ * returns the new body, or null to send it to review instead.
+ */
+export type Renumberer = (
+  op: OutboxOp,
+) => { body: unknown; local?: Record<string, unknown> } | null;
+const renumberers = new Map<string, Renumberer>();
+
+export function registerRenumber(collection: string, renumber: Renumberer) {
+  renumberers.set(collection, renumber);
+}
+
+/**
+ * What an applied op's response says the user must see, e.g. a payment that
+ * may have been taken twice (§9.1). Each becomes a `notice` in the tray.
+ */
+export type AppliedNotices = (
+  op: OutboxOp,
+  body: unknown,
+) => { code: string; message: string; details?: unknown }[];
+const appliedNotices = new Map<string, AppliedNotices>();
+
+export function registerAppliedNotices(collection: string, notices: AppliedNotices) {
+  appliedNotices.set(collection, notices);
+}
+
 export const reviewExplanation = (item: ReviewItem) =>
   reviewTexts.get(item.op.collection)?.explain?.(item) ?? null;
 export const resendLabel = (item: ReviewItem) =>
   reviewTexts.get(item.op.collection)?.resendLabel?.(item) ?? null;
+export const reviewActions = (item: ReviewItem) =>
+  reviewTexts.get(item.op.collection)?.actions?.(item) ?? [];
 
 /** True when "Send mine again" can be offered for this item. */
 export const canResend = (item: ReviewItem) =>
-  item.kind !== 'forwarded' && Boolean(reviewResolvers.get(item.op.collection)?.(item));
+  item.kind !== 'forwarded' &&
+  item.kind !== 'notice' &&
+  Boolean(reviewResolvers.get(item.op.collection)?.(item));
 
 const headersOf = (op: OutboxOp, device: string): Record<string, string> => ({
   'Idempotency-Key': op.opId,
@@ -154,6 +204,7 @@ const headersOf = (op: OutboxOp, device: string): Record<string, string> => ({
 class SyncEngine {
   private stopped = false;
   private running: Promise<void> | null = null;
+  private kickAgain = false;
   private timer: number | undefined;
   private poll: number | undefined;
   private channel: BroadcastChannel | null = null;
@@ -229,7 +280,7 @@ class SyncEngine {
    * new key, §4) and removes the item, atomically, so two tabs can't both
    * send it (OFF-4). False when the item was already taken or has no resolver.
    */
-  async resend(id: string): Promise<boolean> {
+  async resend(id: string): Promise<OutboxOp | null> {
     const op = await outbox.takeFromReview(
       this.db,
       id,
@@ -237,7 +288,15 @@ class SyncEngine {
     );
     await this.changed();
     if (op) this.kick();
-    return op !== null;
+    return op;
+  }
+
+  /** "It's this pupil": the queued ops for `fromId` move to `toId`, and the review item goes. */
+  async remap(itemId: string, fromId: string, toId: string, droppedOpId: string) {
+    await outbox.remap(this.db, fromId, toId, droppedOpId);
+    await outbox.removeReviewItem(this.db, itemId);
+    await this.changed();
+    this.kick();
   }
 
   pending(collection: string, entityId?: string): Promise<OutboxOp[]> {
@@ -253,13 +312,18 @@ class SyncEngine {
 
   /** Where an op stands: still queued (null), or what became of it. */
   async outcome(opId: string): Promise<OpOutcome | null> {
+    // A renumbered op was replaced by another: follow it.
+    for (let next = await this.db.get<string>('meta', aliasKey(opId)); next;) {
+      opId = next;
+      next = await this.db.get<string>('meta', aliasKey(opId));
+    }
     if (await this.db.get<OutboxOp>('outbox', opId)) return null;
     const items = (await outbox.reviewItems(this.db)).filter((item) => item.op.opId === opId);
     const cells = items.filter((item) => item.kind === 'cell').length;
-    const whole = items.find((item) => item.kind !== 'cell');
-    if (whole?.kind === 'forwarded') return { state: 'forwarded', cellConflicts: 0 };
-    if (whole) return { state: 'review', cellConflicts: 0 };
-    return { state: 'applied', cellConflicts: cells };
+    const whole = items.find((item) => item.kind !== 'cell' && item.kind !== 'notice');
+    if (whole?.kind === 'forwarded') return { state: 'forwarded', cellConflicts: 0, opId };
+    if (whole) return { state: 'review', cellConflicts: 0, opId, item: whole };
+    return { state: 'applied', cellConflicts: cells, opId };
   }
 
   syncNow() {
@@ -269,7 +333,13 @@ class SyncEngine {
 
   /** Sends now if this tab can lead and nothing is already sending. */
   kick() {
-    if (this.stopped || this.running) return;
+    if (this.stopped) return;
+    // Something changed during a run (e.g. an op queued while it pulled): run again after it.
+    if (this.running) {
+      this.kickAgain = true;
+      return;
+    }
+    this.kickAgain = false;
     if (status.paused) {
       // A new token means the user signed in again: resume (§6, 401).
       if (apiClient.getAccessToken() === this.pausedToken) return;
@@ -277,6 +347,7 @@ class SyncEngine {
     }
     this.running = this.lead().finally(() => {
       this.running = null;
+      if (this.kickAgain) this.kick();
     });
   }
 
@@ -294,14 +365,21 @@ class SyncEngine {
     try {
       while (!this.stopped) {
         const ops = await outbox.all(this.db);
-        const next = this.nextReady(ops);
+        // An op waiting on one that's in review (e.g. attendance for a pupil whose admission
+        // was refused) waits until it's resolved, rather than being sent for an unknown id.
+        const held = new Set(
+          (await outbox.reviewItems(this.db))
+            .filter((item) => item.kind === 'conflict' || item.kind === 'rejected')
+            .map((item) => item.op.opId),
+        );
+        const next = this.nextReady(ops, held);
         if (!next) {
           // Queue sent (or waiting on a backoff): bring the records up to date (§6, §7).
           if (this.pullDue()) await this.pullNow();
           this.scheduleAt(ops);
           return;
         }
-        if (Date.now() - next.createdAt > MAX_OP_AGE_MS) {
+        if (apiClient.serverNow().getTime() - next.createdAt > MAX_OP_AGE_MS) {
           await this.toReview(next, [this.tooOld(next)]);
           continue;
         }
@@ -322,7 +400,7 @@ class SyncEngine {
   }
 
   /** The oldest op that may go now: not backing off, and nothing older on its entity or in `dependsOn`. */
-  private nextReady(ops: OutboxOp[]): OutboxOp | undefined {
+  private nextReady(ops: OutboxOp[], held: Set<string>): OutboxOp | undefined {
     const ids = new Set(ops.map((op) => op.opId));
     const busy = new Set<string>();
     const now = Date.now();
@@ -330,8 +408,9 @@ class SyncEngine {
       const entity = `${op.collection}\u0000${op.entityId}`;
       if (busy.has(entity)) continue;
       busy.add(entity);
-      if (op.dependsOn.some((id) => ids.has(id))) continue;
-      if (op.nextAttemptAt > now) continue;
+      if (op.dependsOn.some((id) => ids.has(id) || held.has(id))) continue;
+      // Further off than any backoff can be: the device clock jumped back since. Send now.
+      if (op.nextAttemptAt > now && op.nextAttemptAt - now <= MAX_WAIT_MS) continue;
       return op;
     }
     return undefined;
@@ -339,7 +418,7 @@ class SyncEngine {
 
   /** Wakes up when the first backing-off op is due. */
   private scheduleAt(ops: OutboxOp[]) {
-    const due = Math.min(...ops.map((op) => op.nextAttemptAt));
+    const due = Math.min(...ops.map((op) => Math.min(op.nextAttemptAt, Date.now() + MAX_WAIT_MS)));
     if (!Number.isFinite(due)) return;
     this.timer = window.setTimeout(() => this.kick(), Math.max(0, due - Date.now()) + 50);
   }
@@ -374,7 +453,16 @@ class SyncEngine {
           cell,
           createdAt: now,
         }));
-        await outbox.moveToReview(this.db, cells, op.opId);
+        const notices: ReviewItem[] = (appliedNotices.get(op.collection)?.(op, body) ?? []).map(
+          (notice, i) => ({
+            id: `${op.opId}:notice:${i}`,
+            kind: 'notice',
+            op,
+            error: { status: 200, ...notice },
+            createdAt: now,
+          }),
+        );
+        await outbox.moveToReview(this.db, [...cells, ...notices], op.opId);
         await this.db.put('meta', now, LAST_SYNCED_KEY);
         this.pullWanted = true;
         await this.changed();
@@ -388,6 +476,26 @@ class SyncEngine {
           { id: op.opId, kind: outcome.kind, op, error: outcome.error, createdAt: now },
         ]);
         return true;
+      case 'renumber': {
+        const next = renumberers.get(op.collection)?.(op);
+        if (!next) {
+          await this.toReview(op, [
+            { id: op.opId, kind: 'rejected', op, error: outcome.error, createdAt: now },
+          ]);
+          return true;
+        }
+        // A new key: the old one was refused with this ref (§4, §9.1).
+        await outbox.replace(this.db, op, {
+          ...op,
+          opId: crypto.randomUUID(),
+          body: JSON.stringify(next.body),
+          local: next.local ?? op.local,
+          attempts: 0,
+          nextAttemptAt: 0,
+        });
+        await this.changed();
+        return true;
+      }
       case 'paused':
         this.pausedToken = apiClient.getAccessToken();
         setStatus({ paused: true });
@@ -444,7 +552,48 @@ class SyncEngine {
       pulledListeners.forEach((listener) => listener());
       this.channel?.postMessage('pulled');
     }
+    if (outcome === 'done') await this.cacheSchoolLogo();
     await this.changed();
+  }
+
+  /**
+   * Keeps a copy of the school's logo (the `school` record's `logoUrl`) in
+   * `blobs`, so receipts printed offline show the crest. Fetched again only
+   * when the URL changes; a failure leaves the old copy and tries next pull.
+   */
+  private async cacheSchoolLogo() {
+    const [school] = await recordsOf<{ logoUrl?: string | null }>(this.db, 'school');
+    const url = school?.data?.logoUrl || null;
+    if (url === ((await this.db.get<string>('meta', LOGO_URL_KEY)) ?? null)) return;
+    try {
+      if (url) {
+        const res = await fetch(url);
+        if (!res.ok) return;
+        await this.db.put('blobs', await res.blob(), LOGO_KEY);
+      } else {
+        await this.db.delete('blobs', LOGO_KEY);
+      }
+      await this.db.put('meta', url, LOGO_URL_KEY);
+    } catch {
+      // Unreachable or refused: the next pull tries again.
+    }
+  }
+
+  async schoolLogo(): Promise<{ url: string; blob: Blob } | null> {
+    const [url, blob] = await Promise.all([
+      this.db.get<string>('meta', LOGO_URL_KEY),
+      this.db.get<Blob>('blobs', LOGO_KEY),
+    ]);
+    return url && blob ? { url, blob } : null;
+  }
+
+  /** The feed cursor after the last page applied (§7), for `seenCursor` (§9.1). */
+  cursor() {
+    return this.db.get<string>('meta', CURSOR_KEY);
+  }
+
+  device() {
+    return deviceId(this.db);
   }
 
   records<T>(collection: string) {
@@ -469,6 +618,7 @@ class SyncEngine {
       this.db.get<number>('meta', PULLED_AT_KEY),
     ]);
     if (this.stopped) return;
+    // Notices count as review: the user has to see them, even though they applied.
     const forwarded = items.filter((item) => item.kind === 'forwarded').length;
     setStatus({
       pending,
@@ -517,6 +667,10 @@ export const syncNow = () => engine?.syncNow();
 export interface OpOutcome {
   state: 'applied' | 'review' | 'forwarded';
   cellConflicts: number;
+  /** The op that landed: another than the one waited for when it was renumbered. */
+  opId: string;
+  /** With `review`: the item, so the screen can show why. */
+  item?: ReviewItem;
 }
 
 /** The user's queued ops for one collection (and entity), oldest first. */
@@ -551,7 +705,38 @@ export function waitForOp(opId: string, timeoutMs: number): Promise<OpOutcome | 
   });
 }
 
+/**
+ * Waits up to `timeoutMs` for a queued op to land, but not once the device is
+ * known to be offline (before queuing, or after the first send got no
+ * answer): the screen then says at once that it's saved on the device
+ * (OFF-14).
+ */
+export function waitUnlessOffline(opId: string, timeoutMs: number): Promise<OpOutcome | null> {
+  if (!connectivity.get().online) return Promise.resolve(null);
+  let unsubscribe = () => {};
+  const offline = new Promise<null>((resolve) => {
+    unsubscribe = connectivity.subscribe(() => {
+      if (!connectivity.get().online) resolve(null);
+    });
+  });
+  return Promise.race([waitForOp(opId, timeoutMs), offline]).finally(() => unsubscribe());
+}
+
 /** The review tray's items; empty with no offline store. */
 export const listReviewItems = () => engine?.reviewItems() ?? Promise.resolve([]);
 export const dismissReviewItem = (id: string) => engine?.dismiss(id) ?? Promise.resolve();
-export const resendReviewItem = (id: string) => engine?.resend(id) ?? Promise.resolve(false);
+/** Queues the item's resend; resolves the new op, or null when it was already taken. */
+export const resendReviewItem = (id: string) => engine?.resend(id) ?? Promise.resolve(null);
+
+/** Moves the queued ops for one entity id to another and clears the review item (see `outbox.remap`). */
+export const remapQueued = (itemId: string, fromId: string, toId: string, droppedOpId: string) =>
+  engine?.remap(itemId, fromId, toId, droppedOpId) ?? Promise.resolve();
+
+/** The feed cursor after the last page applied, or undefined before the first pull. */
+export const syncCursor = () => engine?.cursor() ?? Promise.resolve(undefined);
+
+/** This user's device id (`X-Device-Id`), or null without an offline store. */
+export const currentDeviceId = () => engine?.device() ?? Promise.resolve(null);
+
+/** The school's logo as last pulled, kept for offline prints, or null. */
+export const cachedSchoolLogo = () => engine?.schoolLogo() ?? Promise.resolve(null);

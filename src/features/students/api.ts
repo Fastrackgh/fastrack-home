@@ -227,15 +227,6 @@ export const studentsApi = {
     const res = await apiClient.get<Raw[], PageMeta>('/schools/me/students?status=Active&limit=1');
     return res.meta?.total ?? 0;
   },
-  /** Admits a student; returns the new name and code. */
-  async admit(payload: Record<string, unknown>) {
-    return (
-      await apiClient.post<{ fullName: string; studentCode: string }>(
-        '/schools/me/students',
-        payload,
-      )
-    ).data;
-  },
   async get(studentId: string) {
     return toDetail((await apiClient.get<Raw>(base(studentId))).data ?? {});
   },

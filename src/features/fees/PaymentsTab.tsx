@@ -12,19 +12,57 @@ import {
   Table,
   Text,
 } from '@mantine/core';
-import { Printer, Receipt } from 'lucide-react';
+import { CloudOff, Printer, Receipt } from 'lucide-react';
 import { LoadErrorRow } from './LoadErrorRow';
-import { PAGE_SIZE, PAYMENT_METHODS, type Payment } from './api';
+import { PAGE_SIZE, PAYMENT_METHODS, PAYMENT_WARNING_LABELS, type Payment } from './api';
 import { formatGhs } from './money';
 import { StudentPicker } from './StudentPicker';
 
 export interface PaymentFilters {
   studentId: string | null;
   paymentMethod: string | null;
+  /** Sync warnings to show only, comma-separated (sync §9.1). */
+  warning: string | null;
   page: number;
 }
 
+const ANY_WARNING = Object.keys(PAYMENT_WARNING_LABELS).join(',');
+
+const WARNING_FILTERS = [
+  { value: ANY_WARNING, label: 'Needs checking (any)' },
+  ...Object.entries(PAYMENT_WARNING_LABELS).map(([value, label]) => ({ value, label })),
+];
+
+/** A payment's sync warnings as badges; a possible double payment in red. */
+function WarningBadges({ payment }: { payment: Payment }) {
+  if (!payment.warnings?.length) return null;
+  return (
+    <Group gap={4} mt={2}>
+      {payment.warnings.map((w, i) => (
+        <Badge
+          key={i}
+          size="xs"
+          radius="sm"
+          variant="light"
+          color={w.code === 'POSSIBLE_DOUBLE_PAYMENT' ? 'red' : 'yellow'}
+          tt="none"
+        >
+          {PAYMENT_WARNING_LABELS[w.code] ?? w.code}
+        </Badge>
+      ))}
+    </Group>
+  );
+}
+
+/** A queued payment matches the list's filters (they're applied on the device). */
+const matches = (p: Payment, filters: PaymentFilters) =>
+  (!filters.paymentMethod || p.paymentMethod === filters.paymentMethod) &&
+  !filters.warning &&
+  (!filters.studentId || p.schoolStudentId === filters.studentId);
+
 export function PaymentsTab({
+  pendingPayments = [],
+  offline = false,
   payments,
   total,
   loading,
@@ -35,6 +73,10 @@ export function PaymentsTab({
   onRecordPayment,
   onShowReceipt,
 }: {
+  /** Taken on this device and not yet synced, newest first: shown above the list on page 1. */
+  pendingPayments?: Payment[];
+  /** The list is this device's synced copy, because the server was out of reach. */
+  offline?: boolean;
   payments: Payment[];
   total: number;
   loading: boolean;
@@ -51,7 +93,10 @@ export function PaymentsTab({
   const filter = (change: Partial<PaymentFilters>) =>
     onFiltersChange({ ...filters, ...change, page: 1 });
   const pages = Math.ceil(total / PAGE_SIZE);
-  const filtered = filters.studentId !== null || filters.paymentMethod !== null;
+  const filtered =
+    filters.studentId !== null || filters.paymentMethod !== null || filters.warning !== null;
+  const waiting = filters.page === 1 ? pendingPayments.filter((p) => matches(p, filters)) : [];
+  const rows = [...waiting, ...payments];
 
   return (
     <>
@@ -76,6 +121,16 @@ export function PaymentsTab({
             w={170}
             id="select-filter-payment-method"
           />
+          <Select
+            placeholder="All payments"
+            data={WARNING_FILTERS}
+            value={filters.warning}
+            onChange={(warning) => filter({ warning })}
+            clearable
+            radius="md"
+            w={210}
+            id="select-filter-payment-warning"
+          />
         </Group>
         {onRecordPayment && (
           <Button
@@ -88,6 +143,15 @@ export function PaymentsTab({
           </Button>
         )}
       </Group>
+
+      {offline && (
+        <Group gap={6} mb="sm">
+          <CloudOff size={14} color="var(--mantine-color-yellow-7)" />
+          <Text size="xs" c="dimmed">
+            Offline: showing the payments synced to this device.
+          </Text>
+        </Group>
+      )}
 
       <ScrollArea>
         <Table verticalSpacing="sm" horizontalSpacing="md" style={{ minWidth: 840 }}>
@@ -114,7 +178,7 @@ export function PaymentsTab({
               </Table.Tr>
             ) : error ? (
               <LoadErrorRow colSpan={8} message={error} onRetry={onRetry} />
-            ) : payments.length === 0 ? (
+            ) : rows.length === 0 ? (
               <Table.Tr>
                 <Table.Td colSpan={8}>
                   <Stack align="center" py="xl" gap={4}>
@@ -128,12 +192,31 @@ export function PaymentsTab({
                 </Table.Td>
               </Table.Tr>
             ) : (
-              payments.map((p) => (
-                <Table.Tr key={p.id}>
+              rows.map((p) => (
+                <Table.Tr key={`${p.pending ? 'pending' : 'row'}:${p.id}`}>
                   <Table.Td>
-                    <Badge variant="outline" color="teal" radius="sm">
+                    <Badge variant="outline" color={p.pending ? 'yellow' : 'teal'} radius="sm">
                       {p.receiptNumber}
                     </Badge>
+                    {p.pending ? (
+                      <Badge
+                        size="xs"
+                        variant="light"
+                        color="yellow"
+                        radius="sm"
+                        tt="none"
+                        mt={2}
+                        display="block"
+                        w="fit-content"
+                      >
+                        Provisional · waiting to sync
+                      </Badge>
+                    ) : p.provisionalRef ? (
+                      <Text size="xs" c="dimmed">
+                        was {p.printedRef ?? p.provisionalRef}
+                      </Text>
+                    ) : null}
+                    <WarningBadges payment={p} />
                   </Table.Td>
                   <Table.Td>
                     <Text fw={600} size="sm">

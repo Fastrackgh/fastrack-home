@@ -11,6 +11,8 @@ export type SyncOutcome =
   | { kind: 'conflict'; error: SyncError }
   /** Never retried: the review tray. */
   | { kind: 'rejected'; error: SyncError }
+  /** 409 PROVISIONAL_REF_TAKEN: give the payment the next number and resend it as a new op (§9.1). */
+  | { kind: 'renumber'; error: SyncError }
   /** 403 with `reason.forwardedTo`: stored on the server for a head or admin (§6.2); leaves this user's tray. */
   | { kind: 'forwarded'; error: SyncError }
   /** 401: pause the whole queue until the same user signs in again. */
@@ -128,6 +130,7 @@ export function classify(
   if (status === 409 && error.code === 'IDEMPOTENCY_IN_PROGRESS') {
     return { kind: 'retry', afterMs: retryAfter ?? 2000, offline: false };
   }
+  if (status === 409 && error.code === 'PROVISIONAL_REF_TAKEN') return { kind: 'renumber', error };
   if (status === 409 && error.code && CONFLICT_CODES.has(error.code)) {
     return { kind: 'conflict', error };
   }

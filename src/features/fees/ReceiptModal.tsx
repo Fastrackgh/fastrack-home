@@ -1,12 +1,14 @@
 'use client';
 
-import type { ReactNode } from 'react';
+import { useEffect, useState, type ReactNode } from 'react';
 import {
+  Alert,
   Badge,
   Box,
   Button,
   Divider,
   Group,
+  Image,
   Modal,
   SimpleGrid,
   Stack,
@@ -14,13 +16,41 @@ import {
   Title,
 } from '@mantine/core';
 import { Printer } from 'lucide-react';
+import { cachedSchoolLogo } from '@/lib/offline/syncEngine';
 import type { Payment } from './api';
 import { formatGhs } from './money';
+import { warningText } from './payments-sync';
 
 interface ReceiptSchool {
   name?: string;
   code?: string | null;
   address?: string | null;
+  logoUrl?: string | null;
+}
+
+/**
+ * The school's logo: the copy kept on the device when it's the same logo
+ * (so an offline print shows the crest), else the live URL.
+ */
+function useLogo(url: string | null | undefined) {
+  const [src, setSrc] = useState<string | null>(url ?? null);
+  useEffect(() => {
+    let objectUrl: string | null = null;
+    let current = true;
+    setSrc(url ?? null);
+    cachedSchoolLogo()
+      .then((cached) => {
+        if (!current || !cached || (url && cached.url !== url)) return;
+        objectUrl = URL.createObjectURL(cached.blob);
+        setSrc(objectUrl);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+      if (objectUrl) URL.revokeObjectURL(objectUrl);
+    };
+  }, [url]);
+  return src;
 }
 
 export function ReceiptModal({
@@ -32,11 +62,19 @@ export function ReceiptModal({
   school: ReceiptSchool | null;
   onClose: () => void;
 }) {
+  const logo = useLogo(school?.logoUrl);
+  const provisional = payment?.pending === true;
+  // The number first printed, when the payment was taken offline and has synced since.
+  const wasProvisional = !provisional ? (payment?.printedRef ?? payment?.provisionalRef) : null;
   return (
     <Modal
       opened={payment !== null}
       onClose={onClose}
-      title={<Text fw={700}>Official Payment Receipt</Text>}
+      title={
+        <Text fw={700}>
+          {provisional ? 'Provisional Payment Receipt' : 'Official Payment Receipt'}
+        </Text>
+      }
       size="md"
       radius="lg"
       centered
@@ -44,6 +82,17 @@ export function ReceiptModal({
       {payment ? (
         <Stack gap="md" p="xs" id="printable-receipt">
           <Box ta="center" pb="sm" style={{ borderBottom: '2px solid #e2e8f0' }}>
+            {logo ? (
+              <Image
+                src={logo}
+                alt=""
+                fit="contain"
+                mx="auto"
+                mb={4}
+                style={{ height: 56, maxHeight: 56, width: 'auto' }}
+                id="receipt-logo"
+              />
+            ) : null}
             <Title order={4} style={{ fontFamily: 'var(--font-heading)' }}>
               {school?.name}
             </Title>
@@ -52,13 +101,34 @@ export function ReceiptModal({
                 .filter(Boolean)
                 .join(' • ')}
             </Text>
-            <Badge color="teal" variant="light" size="lg" mt="xs">
-              OFFICIAL RECEIPT — PAID & VERIFIED
-            </Badge>
+            {provisional ? (
+              <Badge color="yellow" variant="filled" size="lg" mt="xs" id="receipt-provisional">
+                PROVISIONAL — PENDING SYNC
+              </Badge>
+            ) : (
+              <Badge color="teal" variant="light" size="lg" mt="xs">
+                OFFICIAL RECEIPT — PAID & VERIFIED
+              </Badge>
+            )}
           </Box>
 
+          {provisional ? (
+            <Text size="xs" c="dimmed" ta="center">
+              Taken on this device while offline. It gets an official RCT number when the device
+              syncs; keep this receipt until then.
+            </Text>
+          ) : wasProvisional ? (
+            <Text size="xs" ta="center" id="receipt-was-provisional">
+              Provisional receipt <b>{wasProvisional}</b>
+              {payment.printedRef && payment.provisionalRef !== payment.printedRef
+                ? ` (renumbered ${payment.provisionalRef})`
+                : ''}{' '}
+              is now <b>{payment.receiptNumber}</b>.
+            </Text>
+          ) : null}
+
           <SimpleGrid cols={2} spacing="xs">
-            <Field label="Receipt Number:">
+            <Field label={provisional ? 'Provisional Number:' : 'Receipt Number:'}>
               <Text size="sm" fw={700}>
                 {payment.receiptNumber}
               </Text>
@@ -154,6 +224,21 @@ export function ReceiptModal({
               </>
             )}
           </Stack>
+
+          {payment.warnings?.length ? (
+            <Stack gap={4} id="receipt-warnings">
+              {payment.warnings.map((warning, i) => (
+                <Alert
+                  key={i}
+                  color={warning.code === 'POSSIBLE_DOUBLE_PAYMENT' ? 'red' : 'yellow'}
+                  radius="md"
+                  p="xs"
+                >
+                  <Text size="xs">{warningText(warning)}</Text>
+                </Alert>
+              ))}
+            </Stack>
+          ) : null}
 
           <Box ta="center" pt="md" style={{ borderTop: '1px dashed #cbd5e1' }}>
             <Text size="xs" c="dimmed">

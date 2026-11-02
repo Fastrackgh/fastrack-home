@@ -1,11 +1,7 @@
 import { setupApi, type TermInYear } from '@/features/school-setup/api';
-import { ApiError, apiClient, errorCode, errorDetails, PageMeta } from '@/lib/api-client';
+import { ApiError, apiClient, errorDetails, PageMeta } from '@/lib/api-client';
 import { fetchAll, pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { formatGhs, sumPesewas, toCedis, toPesewas, type Pesewas } from './money';
-
-/** A payment whose first attempt is still running is asked about again (the server's `Retry-After`). */
-const IN_PROGRESS_WAIT_MS = 2000;
-const IN_PROGRESS_TRIES = 4;
 
 // Amount fields below are whole pesewas; the API sends and receives cedis.
 
@@ -78,7 +74,43 @@ export interface Payment {
   /** False when the backend has no balances for this payment, made before they were stored (QA-277); both then read 0. */
   balancesRecorded?: boolean;
   recordedByName?: string;
+  invoiceId?: string | null;
+  /** The pupil's enrolment id. */
+  schoolStudentId?: string;
+  /** One payment that paid several bills is saved as one row per bill, all with this id (sync §9.1). */
+  groupId?: string;
+  /** The `OFF-…` number of a payment taken offline, and the one first printed if it was renumbered. */
+  provisionalRef?: string | null;
+  printedRef?: string | null;
+  /** What differed at sync from what the device showed (sync §9.1); empty when nothing did. */
+  warnings?: PaymentWarning[];
+  /** Taken on this device and not yet sent: `receiptNumber` is its provisional number. */
+  pending?: boolean;
 }
+
+/** A sync warning on a payment (sync §9.1). Money values in `details` are cedi strings. */
+export interface PaymentWarning {
+  code: 'BILL_CHANGED' | 'CREDIT_KEPT' | 'REALLOCATED' | 'POSSIBLE_DOUBLE_PAYMENT' | string;
+  message?: string;
+  details?: Raw;
+}
+
+/** A warning as sent: its values sit beside `code` and `message` (or under `details`). */
+export function toWarning(raw: Raw): PaymentWarning {
+  const { code, message, details, ...rest } = raw;
+  return {
+    code: String(code ?? ''),
+    message: typeof message === 'string' ? message : undefined,
+    details: details && typeof details === 'object' ? (details as Raw) : rest,
+  };
+}
+
+export const PAYMENT_WARNING_LABELS: Record<string, string> = {
+  POSSIBLE_DOUBLE_PAYMENT: 'Possibly paid twice',
+  BILL_CHANGED: 'Bill changed',
+  CREDIT_KEPT: 'Credit kept',
+  REALLOCATED: 'Moved to another bill',
+};
 
 export interface FeeStructure {
   id: string;
@@ -180,6 +212,10 @@ export interface PaymentQuery {
   page: number;
   studentId?: string | null;
   paymentMethod?: string | null;
+  /** Only payments with one of these sync warnings, comma-separated. */
+  warning?: string | null;
+  /** A receipt number or an `OFF-…` number. */
+  search?: string | null;
 }
 
 export interface FeeStructureQuery {
@@ -244,7 +280,7 @@ export interface SharedTransfer {
   payments: { receiptNumber: string; studentName: string; amount: Pesewas }[];
 }
 
-const toSharedTransfer = (raw: unknown): SharedTransfer | null => {
+export const toSharedTransfer = (raw: unknown): SharedTransfer | null => {
   if (!raw || typeof raw !== 'object') return null;
   const { reference, payments } = raw as Raw;
   return {
@@ -393,6 +429,7 @@ export const toPayment = (raw: Raw): Payment => ({
   newBalance: toPesewas(raw.newBalance),
   balancesRecorded: raw.previousBalance != null && raw.newBalance != null,
   sharedTransfer: toSharedTransfer(raw.sharedTransfer),
+  warnings: Array.isArray(raw.warnings) ? (raw.warnings as Raw[]).map(toWarning) : [],
 });
 
 const toFeeStructure = (raw: Raw): FeeStructure => ({
@@ -570,34 +607,6 @@ export const feesApi = {
       `/schools/me/payments?${pageParams(page, filters)}`,
     );
     return toPage(res, toPayment);
-  },
-  /**
-   * `idempotencyKey`: one per payment attempt, so a retried submit is not recorded twice.
-   * A resend of a saved payment returns its original receipt; a resend while the first
-   * attempt is still running (`IDEMPOTENCY_IN_PROGRESS`) waits and asks again.
-   */
-  async recordPayment(
-    { amount, ...request }: RecordPaymentRequest,
-    idempotencyKey?: string,
-  ): Promise<Payment | null> {
-    const send = () =>
-      apiClient.post<Raw[] | Raw>(
-        '/schools/me/payments',
-        { ...request, amount: toCedis(amount) },
-        idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : undefined,
-      );
-    let res;
-    for (let attempt = 1; ; attempt++) {
-      try {
-        res = await send();
-        break;
-      } catch (err) {
-        if (errorCode(err) !== 'IDEMPOTENCY_IN_PROGRESS' || attempt >= IN_PROGRESS_TRIES) throw err;
-        await new Promise((resolve) => setTimeout(resolve, IN_PROGRESS_WAIT_MS));
-      }
-    }
-    const created = Array.isArray(res.data) ? res.data[0] : res.data;
-    return created ? toPayment(created) : null;
   },
   async listFeeStructures({ page, ...filters }: FeeStructureQuery): Promise<Page<FeeStructure>> {
     const res = await apiClient.get<Raw[], PageMeta>(

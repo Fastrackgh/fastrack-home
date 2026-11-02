@@ -59,9 +59,7 @@ export function errorDetails<T>(err: unknown): T | undefined {
 
 /** The machine `code` of a failed request (e.g. `CONFLICT`, docs/offline/sync-contract.md §6). */
 export function errorCode(err: unknown): string | undefined {
-  return err instanceof ApiError
-    ? (err.details as { code?: string } | undefined)?.code
-    : undefined;
+  return err instanceof ApiError ? (err.details as { code?: string } | undefined)?.code : undefined;
 }
 
 /** Every browser-storage key that belongs to a signed-in session. */
@@ -75,6 +73,8 @@ export const SESSION_STORAGE_KEYS = {
   user: 'fastrack_user',
   school: 'fastrack_school',
   parentActiveWard: 'fastrack_parent_active_ward',
+  /** Server clock minus device clock (ms), kept so an offline reload still dates things right (OFF-16). */
+  serverOffset: 'fastrack_server_offset_ms',
 } as const;
 
 /** Prefix of the parent portal's offline copies of API reads (one key per read). */
@@ -95,6 +95,8 @@ const UNREACHABLE_MESSAGE =
 
 /** Name of the browser lock that lets one tab at a time refresh the session. */
 const REFRESH_LOCK = 'fastrack-session-refresh';
+/** A device clock moved by more than this since the server was last heard from was changed. */
+const CLOCK_JUMP_MS = 60_000;
 
 /** A saved copy of a GET response, served when the API can't be reached. */
 export interface SavedRead {
@@ -163,10 +165,7 @@ class ApiClient {
     if (Number.isNaN(expires)) {
       localStorage.removeItem(SESSION_STORAGE_KEYS.sessionExpiresAt);
     } else {
-      localStorage.setItem(
-        SESSION_STORAGE_KEYS.sessionExpiresAt,
-        String(expires - this.serverOffsetMs),
-      );
+      localStorage.setItem(SESSION_STORAGE_KEYS.sessionExpiresAt, String(expires - this.offsetMs));
     }
   }
 
@@ -177,12 +176,65 @@ class ApiClient {
     return Number.isFinite(value) && value > 0 ? value : null;
   }
 
-  /** Server clock minus device clock, from the last `X-Server-Time` seen (0 before any). */
-  private serverOffsetMs = 0;
+  /**
+   * Server clock minus device clock, from the last `X-Server-Time` seen. It's
+   * saved with the session (cleared at sign-out), so after an offline reload
+   * a device clock that is days off is still corrected; 0 before any.
+   */
+  private serverOffsetMs: number | null = null;
+  /** The device clock at this page's start, as it stood when the offset was set. */
+  private clockAnchor: number | null = null;
+
+  /** The device clock's reading of this page's start: moves only when the clock is changed. */
+  private static pageStart() {
+    return typeof performance === 'undefined' ? Date.now() : Date.now() - performance.now();
+  }
+
+  private get offsetMs(): number {
+    // The device clock was changed since (e.g. corrected while offline): the offset is stale.
+    // Use the device clock until the server is heard from again, rather than shift the date.
+    if (
+      this.clockAnchor !== null &&
+      Math.abs(ApiClient.pageStart() - this.clockAnchor) > CLOCK_JUMP_MS
+    ) {
+      this.serverOffsetMs = 0;
+      this.clockAnchor = null;
+      try {
+        localStorage.removeItem(SESSION_STORAGE_KEYS.serverOffset);
+      } catch {
+        // Nothing saved.
+      }
+    }
+    if (this.serverOffsetMs === null) {
+      this.clockAnchor = ApiClient.pageStart();
+      const saved =
+        typeof localStorage === 'undefined'
+          ? NaN
+          : Number(localStorage.getItem(SESSION_STORAGE_KEYS.serverOffset));
+      this.serverOffsetMs = Number.isFinite(saved) ? saved : 0;
+    }
+    return this.serverOffsetMs;
+  }
 
   private noteServerTime(headers: Headers) {
     const at = Date.parse(headers.get('X-Server-Time') ?? '');
-    if (!Number.isNaN(at)) this.serverOffsetMs = at - Date.now();
+    if (Number.isNaN(at)) return;
+    const offset = at - Date.now();
+    // Saved only when it moves by more than a second: not on every response.
+    if (Math.abs(offset - this.offsetMs) > 1000) {
+      try {
+        localStorage.setItem(SESSION_STORAGE_KEYS.serverOffset, String(offset));
+      } catch {
+        // No storage: the offset lasts for this page only.
+      }
+    }
+    this.serverOffsetMs = offset;
+    this.clockAnchor = ApiClient.pageStart();
+  }
+
+  /** Now on the server's clock, as of the last `X-Server-Time` seen (the device clock before any). */
+  serverNow(): Date {
+    return new Date(Date.now() + this.offsetMs);
   }
 
   /**

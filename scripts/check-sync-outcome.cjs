@@ -61,8 +61,18 @@ assert.equal(
   }).afterMs,
   5000,
 );
-for (const code of ['IDEMPOTENCY_MISMATCH', 'DUPLICATE_ID', 'DUPLICATE_REFERENCE']) {
+for (const code of [
+  'IDEMPOTENCY_MISMATCH',
+  'DUPLICATE_ID',
+  'DUPLICATE_REFERENCE',
+  'RECEIPT_NUMBER_TAKEN',
+]) {
   assert.equal(kind(err(409, code)), 'rejected', code);
+}
+// v0.5 §9.1: a provisional receipt number used elsewhere is renumbered, never reviewed.
+assert.equal(kind(err(409, 'PROVISIONAL_REF_TAKEN')), 'renumber');
+for (const code of ['PAYMENT_EXCEEDS_BALANCE', 'SHARED_TRANSFER_REFERENCE', 'NO_BILL']) {
+  assert.equal(kind(err(422, code)), 'rejected', code);
 }
 
 // 400 / 404 / 422 rejected; REFERENCE_NOT_FOUND waits for a queued dependency.

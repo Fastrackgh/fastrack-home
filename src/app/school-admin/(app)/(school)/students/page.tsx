@@ -35,6 +35,13 @@ import {
 import { setupApi, type CurrentTerm } from '@/features/school-setup/api';
 import { studentsApi, type StudentRow } from '@/features/students/api';
 import { AdmitStudentModal } from '@/features/students/AdmitStudentModal';
+import {
+  ADMISSIONS_COLLECTION,
+  pendingAdmissions,
+  pendingRow,
+} from '@/features/students/admissions-sync';
+import { onSyncApplied } from '@/lib/offline/syncEngine';
+import { useSyncStatus } from '@/lib/offline/useSyncStatus';
 import { StudentDrawer } from '@/features/students/StudentDrawer';
 import { PAGE_SIZE } from '@/lib/pagination';
 import { PageHeader } from '@/features/workspace';
@@ -51,6 +58,15 @@ interface SchoolClass {
 export default function StudentsPage() {
   const { user, can } = useAuth();
   const [students, setStudents] = useState<StudentRow[]>([]);
+  /** Pupils admitted on this device and not yet synced: listed first, with no code yet (sync §9.2). */
+  const [admittedHere, setAdmittedHere] = useState<(StudentRow & { pending?: true })[]>([]);
+  const { pending: queued } = useSyncStatus();
+  useEffect(() => {
+    pendingAdmissions().then(
+      (list) => setAdmittedHere(list.map(pendingRow)),
+      () => setAdmittedHere([]),
+    );
+  }, [queued]);
   const [classes, setClasses] = useState<SchoolClass[]>([]);
   const [academicContext, setAcademicContext] = useState<CurrentTerm | null>(null);
   const [activeCount, setActiveCount] = useState(0);
@@ -134,6 +150,26 @@ export default function StudentsPage() {
   }, [fetchActiveCount]);
 
   /** After a change: the list and the count. */
+  // Pupils admitted here and not yet synced, on the first page, filtered on the device.
+  const shownPending =
+    page === 1
+      ? admittedHere.filter(
+          (p) =>
+            (!gradeFilter || gradeFilter === 'all' || p.classId === gradeFilter) &&
+            (statusFilter === 'All' || statusFilter === 'Active') &&
+            (!search || p.fullName.toLowerCase().includes(search.toLowerCase())),
+        )
+      : [];
+
+  // An admission landed (any tab): the list now has the pupil with their code.
+  useEffect(
+    () =>
+      onSyncApplied((op) => {
+        if (op.collection === ADMISSIONS_COLLECTION) void fetchStudents();
+      }),
+    [fetchStudents],
+  );
+
   const refreshAll = useCallback(() => {
     fetchStudents();
     fetchActiveCount();
@@ -382,7 +418,7 @@ export default function StudentsPage() {
                     </Alert>
                   </Table.Td>
                 </Table.Tr>
-              ) : students.length === 0 ? (
+              ) : students.length === 0 && shownPending.length === 0 ? (
                 <Table.Tr>
                   <Table.Td colSpan={7}>
                     <Stack align="center" py="xl" gap={4}>
@@ -398,15 +434,19 @@ export default function StudentsPage() {
                   </Table.Td>
                 </Table.Tr>
               ) : (
-                students.map((student) => {
+                [...shownPending, ...students].map((student) => {
                   const initials =
                     `${student.firstName?.[0] || ''}${student.surname?.[0] || ''}`.toUpperCase();
+                  const waiting = 'pending' in student && student.pending === true;
                   return (
                     <Table.Tr
-                      key={student.id}
-                      id={`row-student-${student.studentCode}`}
-                      onClick={() => setOpenStudentId(student.id)}
-                      style={{ cursor: 'pointer' }}
+                      key={waiting ? `pending:${student.id}` : student.id}
+                      id={
+                        waiting ? `row-pending-${student.id}` : `row-student-${student.studentCode}`
+                      }
+                      // The server doesn't know a pupil admitted offline yet: nothing to open.
+                      onClick={waiting ? undefined : () => setOpenStudentId(student.id)}
+                      style={{ cursor: waiting ? 'default' : 'pointer' }}
                     >
                       <Table.Td>
                         <Group gap="sm" wrap="nowrap">
@@ -426,9 +466,15 @@ export default function StudentsPage() {
                         </Group>
                       </Table.Td>
                       <Table.Td>
-                        <Badge variant="outline" color="dark" radius="sm" tt="none">
-                          {student.studentCode}
-                        </Badge>
+                        {waiting ? (
+                          <Badge variant="light" color="yellow" radius="sm" tt="none">
+                            Code pending · waiting to sync
+                          </Badge>
+                        ) : (
+                          <Badge variant="outline" color="dark" radius="sm" tt="none">
+                            {student.studentCode}
+                          </Badge>
+                        )}
                       </Table.Td>
                       <Table.Td>
                         <Badge variant="light" color="blue" radius="sm" tt="none">

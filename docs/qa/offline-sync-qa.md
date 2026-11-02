@@ -698,3 +698,198 @@ Run **through the UI** against frontend :3001 (`fastrack`) and backend :3000 (ma
 | 6 | Parent (Rita Ansah) opens the Bills tab | The totals card shows (In credit GHS 200.00). No "Could not load the totals". |
 
 This test data stays on the shared dev database: FIS Primary 1 registers for 29 and 30 Oct, and the "Split Check" Test 1 mark of 9 on the QPM Mathematics sheet.
+
+## Step 5a: offline cash payments (frontend 4e4a738, backend cb08fa7)
+
+Tested on 1 Nov 2026 **through the UI** as accounts@bis.test and principal@bis.test on BIS-001, on a database copy, with backend cb08fa7 merged with main 444a778. Setup steps and a few server-only cases went through the API, marked below. **Result: all 18 cases pass. Findings: OFF-14 and OFF-15 (both fixed), and OFF-16 (fixed), from the re-tests below.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online payment | Official receipt with an RCT number. The row also stores an OFF number and a group id. |
+| 2 | Offline payment | "Provisional Payment Receipt", "PROVISIONAL — PENDING SYNC", OFF number, and the crest loads from a blob with the network blocked. Nothing on the server. |
+| 2b | Offline list | "Provisional · waiting to sync", and the "Offline:" note after a refresh |
+| 3 | Second offline payment for the pupil | The form shows GHS 4,110.00 (4,130 less the first 20). Both survive an offline reload. |
+| 4 | Back online | Both land once with RCT numbers and no warnings. The balance is 4,080.00. The list shows "was OFF-…". |
+| 5 | GHS 3,000 offline against GHS 2,930 owed | Tray: "Nothing was recorded: the GHS 3,000.00 is still in the cash drawer. It is GHS 70.00 more than the bill owed." Nothing on the server. |
+| 5b | "Keep as credit" | Lands with the same OFF number |
+| 6 | Offline payment for a whole bill the head paid online meanwhile | Applied with BILL_CHANGED and POSSIBLE_DOUBLE_PAYMENT. The tray's "Saved, but check this" names the other RCT, who recorded it, and the credit kept. |
+| 7 | The head modifies the bill down by GHS 100 (API) | Applied with BILL_CHANGED and CREDIT_KEPT. The bill reads -100.00. |
+| 8 | Another op holds the next OFF number (API) | Lands renumbered (OFF-2227-2), printed_ref keeps OFF-2227-1, and nothing goes to review |
+| R | Generate term bills while the clerk is offline (API) | REALLOCATED / CARRIED_FORWARD: the GHS 40 went onto the Term 3 bill (0047). 1,720 carried, 1,680 now owed. Found through the renumbering case, which used the same pupil. |
+| 9 | Response dropped after the server saved | Exactly one payment |
+| 10 | Head's warnings filter | "Possibly paid twice" finds the payment from the other device, with the badge |
+| 11 | Teacher (API) | Naming money collections is 403. The default snapshot has none. |
+| 12 | Sign out with a payment queued | Guarded |
+| 13 | Sign-out wipe | The user's IndexedDB database is gone |
+| 14 | Next user on the same browser | The OFF number continues (4 after 3) |
+| API | NO_BILL, same-key replay, ref taken | 422 NO_BILL; the same RCT with Idempotent-Replayed and one row; 409 PROVISIONAL_REF_TAKEN |
+
+- **Not run:** backend e2e on cb08fa7. Its session stopped without reporting, so CI on its PR is the first e2e run. Typecheck and unit tests pass on the merge with main: 807/807.
+- **Correction:** this log first said fastrack-18 reported the DUPLICATE_REFERENCE, RECEIPT_NUMBER_TAKEN and PAYMENT_DATE_TOO_EARLY cards and the sibling resend as passing. That was QA's misreading: nobody had run them through the UI. See the re-test below.
+- **Observation (not a finding):** RCT numbers follow sync order, not the order cash was taken (Yaa's two payments, queued first, got 0017 and 0018, after later ones got 0014–0016). The contract's order is first-in-first-out per record, so this is allowed. The paper trail is the OFF number and the payment date.
+
+### OFF-14 (Medium; owner: staff frontend): the clerk waits about 8 seconds for each provisional receipt while offline
+
+Measured at 8,425 ms. `RecordPaymentModal.tsx settle()` waits `LAND_WAIT_MS = 8_000` for the op to land, even though the device already shows Offline and nothing can land. A clerk with a queue of parents sits behind a spinner on every payment. **Fix:** skip the wait when the device knows it's offline, and show the provisional receipt at once.
+
+### Re-test of f5a2428: OFF-14 fixed, and the refusal cards
+
+Tested on 1 Nov 2026 on a database copy, frontend f5a2428 with backend cb08fa7 merged with main 444a778.
+- **OFF-14 fixed:** the provisional receipt appears 217 ms after submit on the first offline payment and 114 ms on the second (was 8,425 ms).
+- **SHARED_TRANSFER_REFERENCE, UI:** an offline MoMo payment for another pupil with a used reference. The card reads "Nothing was recorded: the GHS 20.00 is still in the cash drawer", and "Same transfer for siblings" lands it.
+- **DUPLICATE_REFERENCE, UI:** the same pupil and reference. The same cash-drawer wording, only "Discard my change" is offered, and discarding clears it with nothing saved.
+- **RECEIPT_NUMBER_TAKEN and PAYMENT_DATE_TOO_EARLY, API only:** 409 and 422 with the right codes. The form sends neither a receipt number nor a date, so these cards can't be reached from it today.
+
+### OFF-15 (High; owner: staff frontend, with backend input): an offline payment is dated the day it syncs, not the day the cash was taken
+
+The queued body has no `paymentDate`. `payments-sync.ts` keeps the date only in the device's local copy, and `payments.service.ts` defaults a missing date to the server's today. Checked through the API with the same body the form sends: `X-Client-Recorded-At` 29 Oct, synced 1 Nov, `paymentDate` **2026-11-01**. Found from the code and the API, not by waiting days in the UI.
+
+**Why it matters:** the parent's provisional receipt shows the day the cash was taken, but the official receipt shows a later one. The payment falls in the wrong day's cash records, and a payment spanning a term end could fall in the wrong term.
+
+**Suggested fix:** send `paymentDate` (the device's local date when queued) in the body. The backend should also default a missing date on a keyed op to the school-local date of `X-Client-Recorded-At`. Add the rule to contract §9.1.
+
+### Re-test of 73b1011: OFF-15 fixed
+
+Tested on 1 Nov 2026 **through the UI** on a database copy, frontend 73b1011 with backend cb08fa7 merged with main 444a778, with the device clock shifted in the page. **Result: pass.**
+
+| Case | Result |
+| --- | --- |
+| Online | Dated today |
+| Clock 2 days behind, reloaded offline (no server offset) | The receipt and the official payment both read 2026-10-30 |
+| "Keep as credit" resend of that kind of payment | Keeps 2026-10-30 |
+| Clock 3 days ahead, reloaded offline | Not saved. Card: "It was dated 2026-11-04, which is in the future, so the device's date was probably wrong", with the cash line and "Made this minute". "Send dated today" lands it as 2026-11-01 with the same OFF number. |
+| Clock 2 days ahead from before sign-in | Dated 2026-11-01 by the server clock, with no refusal |
+
+- `X-Server-Time` is sent on auth, sync and keyed writes, not on ordinary GETs. A clock changed after sign-in is only corrected at the next such request. Until then it behaves like the reloaded cases above.
+- PAYMENT_DATE_TOO_EARLY can't be reached through the UI on BIS-001: its first year began 61 days ago, past the 25-day rule below. API only.
+
+### OFF-16 (Low; owner: staff frontend): two wrong-clock edges
+
+1. **Misleading card past 25 days.** With the clock 30 or more days behind, the card reads "Made 30 days ago … This change waited more than 25 days and was not sent", and only "Discard my change" is offered, not "Send dated today". It's safe: nothing is saved, and the card says the cash is in the drawer. But the clerk has to record the payment again under a new OFF number, while the parent holds the old one.
+2. **The server offset isn't kept across a reload.** `serverOffsetMs` lives in memory. Reloading offline with a clock that is days behind dates the payment on that wrong day, and nothing flags it, because a past date is valid. Storing the offset on the device would fix this.
+
+### Re-test of 67a442b: OFF-16 fixed
+
+Tested on 1 Nov 2026 **through the UI** on a database copy, frontend 67a442b with backend cb08fa7 merged with main 444a778, with the device clock shifted in the page. **Result: 4 of 4.**
+- **Clock 30 days behind from before sign-in, reloaded offline:** the receipt and the payment read today, with nothing in review.
+- **Clock 2 days behind at sign-in, corrected while offline:** dated today, not 2 days ahead.
+- **Payment queued, then a 26-day jump with no server contact** (GETs blocked, so nothing could re-learn the offset first): the card reads "This payment may not have been recorded…", makes no cash-drawer claim, points to the OFF number under Payments, and offers discard only. Nothing was sent.
+- **Ordinary offline payment, correct clock:** dated today, nothing in review.
+
+Nit: that card's badge still reads "Not accepted", which claims slightly more than its text does.
+
+Known limit, from fastrack-18's docs and not tested here: a clock changed while the app is closed can't be detected, and it shifts dates until the next server contact.
+
+## Backend check: payment date safeguard (a0c3bf4, PR #11) and step 5b (fa4c184)
+
+Tested on 1 Nov 2026 **through the API** on a database copy, at fa4c184, which contains a0c3bf4. The 5b screens aren't built yet, so the UI re-test comes with the frontend step. PR #11 was open and green at a0c3bf4.
+
+**Payment date**
+
+| Case | Result |
+| --- | --- |
+| Keyed payment with no date, recorded 3 days ago | Dated 3 days ago |
+| Explicit date with an older recorded time | The explicit date wins |
+| Future date | 400 `PAYMENT_DATE_IN_FUTURE` |
+| Online, no key, no date | Today |
+| No date, recorded time 5 days in the future | Dated today, not in the future |
+
+**Admissions**
+
+| Case | Result |
+| --- | --- |
+| Keyed admission with a client id | 201, id kept, code allocated, `rowVersion` 1 |
+| The same request again | Same code, `Idempotent-Replayed`, one row |
+| Same key, different body | 409 `IDEMPOTENCY_MISMATCH` |
+| Id reused by another op | 409 `DUPLICATE_ID` |
+| Same name (case and spacing differ) and birth date | 409 `LIKELY_DUPLICATE`, candidate with code, name, class, birth date, phone and status |
+| Same name, other birth date, phone as `+233 54 777 0007` against stored `0547770007` | 409 `LIKELY_DUPLICATE` |
+| Same name, other birth date and phone | Admitted |
+| A one-digit guardian phone | Doesn't match anyone |
+| `confirmNotDuplicate` | Admitted |
+| Online, no key | The same 409 |
+| Same details as a pupil of another school | Admitted, and nothing about that school leaks |
+| Id of another school's pupil | 409 `DUPLICATE_ID`, with no school details |
+| The same child from 4 devices at once | One 201, three 409, one row |
+| 12 different children at once | All admitted, 12 distinct codes |
+| Teacher | 403, nothing created |
+
+**Not exercised:**
+- **`guardianPhone` hidden without `students:read_sensitive`:** the secretary and academic head both received the phone, so neither lacks the permission. No e2e test asserts it either.
+- **`id` with a returning pupil's record (400):** the pupil I used was still enrolled, and got 409 "already actively enrolled", which is correct for that case.
+- **Backend e2e:** not re-run by QA. The backend session reports 488/488 on 5b and some earlier one-off failures that passed when re-run alone, cause not found.
+
+## Step 5b: offline admissions (frontend 44b2605, backend 40e7520)
+
+Tested on 1–2 Nov 2026 **through the UI** as the BIS-001 principal, on a database copy. **Result: pass, no findings.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online admission | "enrolled with code: BIS-001/STD/2026/013" |
+| 2a | Online duplicate (Esi Adjei, same birth date) | "This may be a pupil already in the school", with code, class, birth date and guardian phone. Status is shown only when it isn't Active. |
+| 2b | "Check the details" | Back to the form, tray empty, not admitted |
+| 2c | "It's this pupil" | Not admitted, tray empty |
+| 2d | "Admit anyway" | A second Esi admitted |
+| 3a | Offline admission | "Saved on this device…", survives an offline reload, listed "Code pending · waiting to sync", nothing on the server |
+| 3b | Opening the waiting row | Doesn't open |
+| 3c–d | Offline register lists the pupil; mark Late; back online | The admission lands first with a code, then the mark |
+| 3e | Students list afterwards | Shows the real code |
+| 4 | Offline duplicate of Kojo Owusu with an Excused mark queued for the new pupil | The queued mark names the new id and depends on the admission. Back online: "Possible duplicate" card naming 004, **no attendance row while it's in review**. "It's Kojo Owusu": no second Kojo, and the mark lands on 004. |
+| 5 | Offline duplicate, tray "Admit anyway" | A second pupil admitted, and the held mark lands after it |
+| 6 | The same new child offline on two devices | One admitted, the other gets the card |
+| 7 | Sign out with a queued admission | Guarded |
+| 8 | Secretary with `students:read_sensitive` removed on the copy | Candidates shown, phone hidden |
+
+- **Corrections to my own first run:** case 4 first looked like a mark sent early. In fact the 30 Oct register legitimately lists the real Kojo too, and my script clicked his row. Re-run on the right row, on 29 Oct.
+- **Not covered:**
+  - A queued payment for a pupil admitted offline. They have no bill yet, so the form can't take one.
+  - `ID_MISMATCH_RETURNING`: the form can't send it, and the backend e2e covers it.
+  - Marks on a mark sheet for an offline pupil: the sheet's pupils come from the server (fastrack-18's documented limit).
+- **Observation (not a finding):** while offline, a likely duplicate can appear twice in a register, with the new row showing "—" for its code. The clerk can't tell them apart beyond that, so a mark may go on the real pupil's row. Nothing is lost.
+
+### Re-test of frontend 479516e with backend b1665ca and c664e97: admission dates and "Code pending" (contract v0.5.6)
+
+Tested on 2 Nov 2026 **through the UI** on a database copy. **Result: pass.**
+- **Offline admission today:** it's in today's Basic 1 register as "Code pending", and **not** in the 30 Oct register. After sync, `admission_date` is 2026-11-02, a code is given, and today's Late mark landed.
+- **Online:** the 30 Oct register leaves that pupil out. Existing pupils are still listed (4 rows).
+- **API:** a mark for 30 Oct for that pupil is 422 `NOT_ENROLLED_ON_DATE`.
+- **Likely duplicate in a register (57fa24c):** the real Kojo shows with BIS-001/STD/2026/004 and the new one with "Code pending".
+- **Two false alarms from my own script:**
+  - A date-field selector matched three inputs.
+  - I first expected the real Kojo in today's Basic 2 register, but his enrolment history puts him in Basic 1 for Term 1 2026/27 and in Basic 2 only from Term 1 2027/28. The register was right.
+- **Environment:** the dev frontend was slow on this machine (30 s for one page, under load), so timeouts were raised.
+
+## Production URL clean-up (backend PR #12, e1d17b3)
+
+Checked on 2 Nov 2026 by grep and by starting the built server with NODE_ENV=production. The user asked for it ("I see https://fastrack.com/ a lot in the codebase"), and production domains aren't decided yet, so the rule is "no production host in code".
+- **Grep:** `fastrack.(com|school|edu|space)` over src and test finds nothing outside `seeds/`, which is kept on purpose for the dev demo logins. The `localhost` uses left are the dev-only fallbacks, dev routes, doc comments, test snapshots and DTO examples, plus one guard in online payments that *rejects* localhost.
+- **Production start-up:**
+  - Without `INVOICE_PUBLIC_BASE_URL`: refuses, "INVOICE_PUBLIC_BASE_URL is required in production".
+  - Without `EMAIL_SENDER`: refuses, "EMAIL_SENDER is required in production".
+  - With everything set: passes validation and fails only on the (deliberately missing) database.
+- **Suggestion (Low):** `INVOICE_PUBLIC_BASE_URL=http://localhost:…` is accepted in production. Rejecting localhost there would also catch a copied dev `.env`, like the guard online payments already has.
+- **Still to do:** the frontend has its own: page metadata `https://fastrack.com.gh` in `src/app/layout.tsx`, and the API fallback `http://localhost:3000/api` in `src/lib/api-client.ts`. Waiting for the user's go-ahead to send it to fastrack-18.
+
+## Backend check: step 5c part 1, student edits (a41e650)
+
+Tested on 2 Nov 2026 **through the API** on a database copy (the frontend for 5c isn't built yet). **Result: 11 of 11 as specified. One High finding outside 5c's own rules: QA-283** (in findings.md, also on main).
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online plain PATCH, no key | Applied; rowVersion 1 → 2 |
+| 2 | Keyed `changes`, fresh base | Applied; +1 |
+| 3 | Stale base, a field nobody changed (otherName, on the person) | Applied; +1 |
+| 4 | Stale base, the field already holds `to` | 200, no clash |
+| 5 | A real clash plus a clean field | 409 CONFLICT, conflictingFields `["religion"]`, `current.rowVersion` matches, and **the clean field wasn't applied** |
+| 6 | Plain body from a stale base, differing value | 409 CONFLICT |
+| 7 | Both forms / unknown field / future birth date | 400 each. Another pupil's code is 409 "already exists". |
+| 8 | Same key twice / same key with another body | Replayed, the version rises once / IDEMPOTENCY_MISMATCH |
+| 9 | Feed after an edit | `students` and `student-details` for the pupil, same version |
+| 10 | Teacher | 403 |
+| 11 | Another school's pupil | 404, nothing changed |
+
+- **Observations (Low):**
+  - The no-op in case 4 still raises `rowVersion` (4 → 5), so other devices see the record as changed when it wasn't.
+  - A base version *ahead* of the server (+50) is accepted (200). Harmless with the field-level `from` check, but it may deserve the same treatment as `CURSOR_AHEAD`.
+- **QA-283:** a user without `students:read_sensitive` replaced a guardian phone they see as blank, through both forms.
+

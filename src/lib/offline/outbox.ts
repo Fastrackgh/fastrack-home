@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/api-client';
 import type { OfflineDb } from './db';
 import type { CellConflict, SyncError } from './syncOutcome';
 
@@ -30,6 +31,9 @@ export interface OutboxOp {
   label: string;
   /** Kept on the device only, never sent: display names for ids in the body (e.g. pupils), for the review tray. */
   names?: Record<string, string>;
+  /** Kept on the device only, never sent: what a screen shows for the op before it lands (e.g. a provisional receipt). */
+  local?: Record<string, unknown>;
+  /** When it was queued, on the server's clock as last known (the device clock before any). */
   createdAt: number;
   /** Failed sends so far, for the backoff. */
   attempts: number;
@@ -49,6 +53,7 @@ export interface EnqueueInput {
   dependsOn?: string[];
   label: string;
   names?: Record<string, string>;
+  local?: Record<string, unknown>;
 }
 
 /**
@@ -58,10 +63,12 @@ export interface EnqueueInput {
  *   - cell:     one cell of an applied batch write clashed (attendance, marks)
  *   - forwarded: a 403, handed to a head or admin on the server (§6.2); shown
  *     to the user as information only
+ *   - notice:   the op applied, but with something the user must see (e.g. a
+ *     payment that may have been taken twice, §9.1); only acknowledged
  */
 export interface ReviewItem {
   id: string;
-  kind: 'conflict' | 'rejected' | 'cell' | 'forwarded';
+  kind: 'conflict' | 'rejected' | 'cell' | 'forwarded' | 'notice';
   op: OutboxOp;
   error?: SyncError;
   cell?: CellConflict;
@@ -69,6 +76,8 @@ export interface ReviewItem {
 }
 
 const SEQ_KEY = 'outboxSeq';
+/** Where an op that was replaced (renumbered) went, so waiting for it follows. */
+export const aliasKey = (opId: string) => `opAlias:${opId}`;
 const DEVICE_KEY = 'deviceId';
 
 /** The device's id for this user (`X-Device-Id`), created on first use. */
@@ -82,6 +91,8 @@ export async function deviceId(db: OfflineDb): Promise<string> {
 
 function newOp(input: EnqueueInput, seq: number): OutboxOp {
   const now = Date.now();
+  // Its age is measured on the server's clock, so a slow device clock can't make it look old (OFF-16).
+  const created = apiClient.serverNow().getTime();
   return {
     opId: crypto.randomUUID(),
     seq,
@@ -95,7 +106,8 @@ function newOp(input: EnqueueInput, seq: number): OutboxOp {
     dependsOn: input.dependsOn ?? [],
     label: input.label,
     names: input.names,
-    createdAt: now,
+    local: input.local,
+    createdAt: created,
     attempts: 0,
     nextAttemptAt: 0,
   };
@@ -135,11 +147,83 @@ export const outbox = {
           const seq = (typeof counter.result === 'number' ? counter.result : 0) + 1;
           meta.put(seq, SEQ_KEY);
           op = newOp(input, seq);
-          tx.objectStore('outbox').put(op);
+          const store = tx.objectStore('outbox');
+          store.put(op);
           tx.objectStore('conflicts').delete(id);
+          // Ops waiting on the refused one now wait on its resend.
+          const all = store.getAll();
+          all.onsuccess = () => {
+            for (const other of all.result as OutboxOp[]) {
+              if (op && other.dependsOn.includes(item!.op.opId)) {
+                store.put({
+                  ...other,
+                  dependsOn: other.dependsOn.map((dep) => (dep === item!.op.opId ? op!.opId : dep)),
+                });
+              }
+            }
+          };
         };
       };
       tx.oncomplete = () => resolve(op);
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    });
+  },
+
+  /**
+   * Puts `next` in `op`'s place in the queue (same position, a new key), and
+   * points the ops that depend on it, and `aliasKey(op.opId)`, at the new one.
+   */
+  replace(db: OfflineDb, op: OutboxOp, next: OutboxOp): Promise<void> {
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(['outbox', 'meta'], 'readwrite');
+      const store = tx.objectStore('outbox');
+      store.delete(op.opId);
+      store.put(next);
+      const all = store.getAll();
+      all.onsuccess = () => {
+        for (const other of all.result as OutboxOp[]) {
+          if (other.dependsOn.includes(op.opId)) {
+            store.put({
+              ...other,
+              dependsOn: other.dependsOn.map((id) => (id === op.opId ? next.opId : id)),
+            });
+          }
+        }
+      };
+      tx.objectStore('meta').put(next.opId, aliasKey(op.opId));
+      tx.oncomplete = () => resolve();
+      tx.onerror = tx.onabort = () => reject(tx.error);
+    });
+  },
+
+  /**
+   * Moves queued ops from one entity id to another (e.g. a pupil admitted
+   * offline who turned out to be one already in the school): every mention
+   * of `fromId` in their key, path and body becomes `toId`, and they stop
+   * waiting on `droppedOpId`.
+   */
+  remap(db: OfflineDb, fromId: string, toId: string, droppedOpId: string): Promise<number> {
+    return new Promise((resolve, reject) => {
+      let moved = 0;
+      const tx = db.transaction(['outbox'], 'readwrite');
+      const store = tx.objectStore('outbox');
+      const all = store.getAll();
+      all.onsuccess = () => {
+        for (const op of all.result as OutboxOp[]) {
+          const mentions = [op.entityId, op.path, op.body ?? ''].some((s) => s.includes(fromId));
+          if (!mentions && !op.dependsOn.includes(droppedOpId)) continue;
+          const swap = (s: string) => s.split(fromId).join(toId);
+          if (mentions) moved++;
+          store.put({
+            ...op,
+            entityId: swap(op.entityId),
+            path: swap(op.path),
+            body: op.body === undefined ? undefined : swap(op.body),
+            dependsOn: op.dependsOn.filter((dep) => dep !== droppedOpId),
+          });
+        }
+      };
+      tx.oncomplete = () => resolve(moved);
       tx.onerror = tx.onabort = () => reject(tx.error);
     });
   },

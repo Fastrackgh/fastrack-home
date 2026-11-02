@@ -893,3 +893,20 @@ Tested on 2 Nov 2026 **through the API** on a database copy (the frontend for 5c
   - A base version *ahead* of the server (+50) is accepted (200). Harmless with the field-level `from` check, but it may deserve the same treatment as `CURSOR_AHEAD`.
 - **QA-283:** a user without `students:read_sensitive` replaced a guardian phone they see as blank, through both forms.
 
+### Step 5c part 1 through the UI (frontend b387cf9, backend a41e650)
+
+Tested on 2 Nov 2026 as the BIS-001 principal on a database copy, with the academic head making the "someone else" edits through the API. **Result: 8 of 8.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online profile edit (Residence) | "Student updated", stored |
+| 2a | Offline: Nationality and Digital address | "Saved on this device…", "Changes waiting to sync" in the drawer, photo buttons hidden |
+| 2b | Reload offline and reopen | The queued values show, with "Offline copy" |
+| 2c | Meanwhile the academic head changes Nationality; back online | Digital address lands. Nationality waits in review, and theirs is kept. |
+| 2d | Tray | Only Nationality: "Changed by someone else", Now (theirs) and Yours (mine) |
+| 2e | "Keep mine" | Mine lands |
+| 3 | Guardians tab edit (father's name) offline | Lands |
+| 4 | A clash, then "Keep theirs" | The server value stays, and the tray clears |
+
+Not covered: photos (5c part 2, waiting on contract v0.5.7), RECORD_DELETED, and updatedBy on the card, all listed by fastrack-18. QA-283 (sensitive fields writable without `read_sensitive`) is a backend fix and is unaffected: the staff UI already makes the Guardians tab read-only without that permission.
+

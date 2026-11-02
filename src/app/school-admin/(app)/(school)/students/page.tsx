@@ -24,6 +24,7 @@ import {
 import { useDebouncedValue, useDisclosure } from '@mantine/hooks';
 import {
   ArrowUpCircle,
+  CloudOff,
   Filter,
   RefreshCw,
   TrendingUp,
@@ -33,7 +34,10 @@ import {
   UserX,
 } from 'lucide-react';
 import { setupApi, type CurrentTerm } from '@/features/school-setup/api';
-import { studentsApi, type StudentRow } from '@/features/students/api';
+import { type StudentRow } from '@/features/students/api';
+import { activeStudents, studentsPage } from '@/features/students/offline-list';
+import { offlineClassesFor } from '@/features/attendance/sync';
+import { isUnreachable } from '@/lib/api-client';
 import { AdmitStudentModal } from '@/features/students/AdmitStudentModal';
 import {
   ADMISSIONS_COLLECTION,
@@ -83,6 +87,7 @@ export default function StudentsPage() {
   const [page, setPage] = useState(1);
   const [isLoading, setIsLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+  const [listOffline, setListOffline] = useState(false);
   const [openStudentId, setOpenStudentId] = useState<string | null>(null);
 
   const [admitOpened, { open: openAdmit, close: closeAdmit }] = useDisclosure(false);
@@ -95,7 +100,11 @@ export default function StudentsPage() {
       // Each part shows on its own; a failure of either is reported, not swallowed.
       if (!user) return;
       const [classesRes, currentRes] = await Promise.allSettled([
-        setupApi.classesFor(user),
+        // Offline on a device that never loaded the classes: the synced ones (OFF-18).
+        setupApi.classesFor(user).catch((err) => {
+          if (!isUnreachable(err)) throw err;
+          return offlineClassesFor(user).then((rows) => (rows.length ? rows : Promise.reject(err)));
+        }),
         setupApi.currentTerm(),
       ]);
       if (classesRes.status === 'fulfilled') setClasses(classesRes.value);
@@ -115,15 +124,16 @@ export default function StudentsPage() {
     setIsLoading(true);
     setListError(null);
     try {
-      const result = await studentsApi.list(page, {
+      const result = await studentsPage(page, {
         search,
         classId: gradeFilter && gradeFilter !== 'all' ? gradeFilter : null,
         status: statusFilter && statusFilter !== 'All' ? statusFilter : null,
       });
       // A slower, older response must not replace a newer one.
       if (request !== latestList.current) return;
-      setStudents(result.items);
-      setTotal(result.total);
+      setStudents(result.page.items);
+      setTotal(result.page.total);
+      setListOffline(result.offline);
     } catch (err: unknown) {
       if (request !== latestList.current) return;
       setListError(err instanceof Error ? err.message : 'Could not load the students.');
@@ -135,7 +145,7 @@ export default function StudentsPage() {
   // The active count is school-wide, so paging and filters don't reload it.
   const fetchActiveCount = useCallback(async () => {
     try {
-      setActiveCount(await studentsApi.activeCount());
+      setActiveCount(await activeStudents());
     } catch {
       // A hint on a card; the list shows its own error.
     }
@@ -379,6 +389,15 @@ export default function StudentsPage() {
             radius="md"
           />
         </Group>
+
+        {listOffline && (
+          <Group gap={6} mb="sm">
+            <CloudOff size={14} color="var(--mantine-color-yellow-7)" />
+            <Text size="xs" c="dimmed">
+              Offline: showing the pupils synced to this device.
+            </Text>
+          </Group>
+        )}
 
         <ScrollArea>
           <Table verticalSpacing="sm" horizontalSpacing="md" style={{ minWidth: 840 }}>

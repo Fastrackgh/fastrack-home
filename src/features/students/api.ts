@@ -220,12 +220,20 @@ export interface StudentFilters {
   status?: string | null;
 }
 
+const listPath = (page: number, filters: StudentFilters) =>
+  `/schools/me/students?${pageParams(page, { search: filters.search, classId: filters.classId, status: filters.status })}`;
+
 export const studentsApi = {
   /** One page of the students table. */
   async list(page: number, filters: StudentFilters): Promise<Page<StudentRow>> {
-    const res = await apiClient.get<Raw[], PageMeta>(
-      `/schools/me/students?${pageParams(page, { search: filters.search, classId: filters.classId, status: filters.status })}`,
-    );
+    const res = await apiClient.get<Raw[], PageMeta>(listPath(page, filters));
+    return toPage(res, (raw) => raw as unknown as StudentRow);
+  },
+  /** The same page from the server only, never a saved copy (offline, the synced records are fresher). */
+  async liveList(page: number, filters: StudentFilters): Promise<Page<StudentRow>> {
+    const res = await apiClient.request<Raw[], PageMeta>(listPath(page, filters), {
+      method: 'GET',
+    });
     return toPage(res, (raw) => raw as unknown as StudentRow);
   },
   /** How many students are active, school-wide. */

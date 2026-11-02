@@ -81,6 +81,7 @@ sequenceDiagram
   - With queued changes: **"Offline · 3 waiting"** offline, and **"Syncing 3"** or **"3 waiting"** online until they land.
   - With review items: **"· 2 need review"** is added, and the chip turns red.
   - The tooltip explains each part, and adds "Last synced 5 minutes ago" while anything waits.
+  - **"Couldn't download school data"** (orange) shows online while the device has never downloaded its records and the last pull got a server error rather than no answer (OFF-17: the snapshot gave 500, so offline pages were empty with no sign why). The tooltip reads "Fastrack couldn't send this device the school's records, so pages may be empty offline. It keeps trying; tell your admin if this lasts." The engine keeps `pullFailed` in `meta`, so every tab shows it, and the chip goes once a pull succeeds. Checked with a forced 500 on `/sync/snapshot` (Playwright, 3/3).
 
 ## Outbox and sync engine (phase 2)
 

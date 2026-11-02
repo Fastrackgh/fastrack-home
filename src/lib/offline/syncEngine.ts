@@ -42,6 +42,8 @@ export interface SyncStatus {
   lastSyncedAt: number | null;
   /** When this device last brought its records up to date from the server (§7), or null. */
   lastPulledAt: number | null;
+  /** The last pull got an error from the server (not offline): records may be missing (OFF-17). */
+  pullFailed: boolean;
 }
 
 const IDLE: SyncStatus = {
@@ -52,6 +54,7 @@ const IDLE: SyncStatus = {
   paused: false,
   lastSyncedAt: null,
   lastPulledAt: null,
+  pullFailed: false,
 };
 
 const LOCK_PREFIX = 'fastrack-sync-';
@@ -60,6 +63,8 @@ const POLL_MS = 30_000;
 /** Older ops go to review instead of being sent (§4: the server keeps keys for 30 days). */
 export const MAX_OP_AGE_MS = 25 * 24 * 60 * 60_000;
 const LAST_SYNCED_KEY = 'lastSyncedAt';
+/** Set while pulls fail with a server error, so every tab's chip can say so. */
+const PULL_FAILED_KEY = 'pullFailed';
 /** The longest an op is held back (backoff caps at 5 min; Retry-After rarely says more). */
 const MAX_WAIT_MS = 10 * 60_000;
 const LOGO_KEY = 'schoolLogo';
@@ -613,6 +618,8 @@ class SyncEngine {
     if (outcome === 'done') this.pulledAt = Date.now();
     // Offline or refused: try again on the next run.
     else this.pullWanted = true;
+    if (outcome === 'done' || outcome === 'failed')
+      await this.db.put('meta', outcome === 'failed', PULL_FAILED_KEY);
     if (applied > 0) {
       pulledListeners.forEach((listener) => listener());
       this.channel?.postMessage('pulled');
@@ -676,11 +683,12 @@ class SyncEngine {
 
   private async refresh() {
     if (this.stopped) return;
-    const [pending, items, lastSyncedAt, lastPulledAt] = await Promise.all([
+    const [pending, items, lastSyncedAt, lastPulledAt, pullFailed] = await Promise.all([
       this.db.count('outbox'),
       outbox.reviewItems(this.db),
       this.db.get<number>('meta', LAST_SYNCED_KEY),
       this.db.get<number>('meta', PULLED_AT_KEY),
+      this.db.get<boolean>('meta', PULL_FAILED_KEY),
     ]);
     if (this.stopped) return;
     // Notices count as review: the user has to see them, even though they applied.
@@ -691,6 +699,7 @@ class SyncEngine {
       forwarded,
       lastSyncedAt: lastSyncedAt ?? null,
       lastPulledAt: lastPulledAt ?? null,
+      pullFailed: pullFailed === true,
     });
   }
 }

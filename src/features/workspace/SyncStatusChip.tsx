@@ -20,12 +20,14 @@ const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one :
  */
 export function SyncStatusChip() {
   const { online, oldestShownAt } = useConnectivity();
-  const { pending, review, forwarded, syncing, paused, lastSyncedAt, lastPulledAt } =
+  const { pending, review, forwarded, syncing, paused, lastSyncedAt, lastPulledAt, pullFailed } =
     useSyncStatus();
   const [now, setNow] = useState(() => Date.now());
   const [trayOpen, setTrayOpen] = useState(false);
   const inTray = review + forwarded;
-  const visible = !online || pending > 0 || inTray > 0;
+  // The first download keeps failing: offline pages would be empty (OFF-17).
+  const noData = online && pullFailed && lastPulledAt === null;
+  const visible = !online || pending > 0 || inTray > 0 || noData;
 
   // Keep the ages current while the chip shows.
   useEffect(() => {
@@ -54,6 +56,12 @@ export function SyncStatusChip() {
         : "Can't reach Fastrack. Pages you've opened before still show their saved data.",
     );
   }
+  if (noData) {
+    parts.push("Couldn't download school data");
+    tips.push(
+      "Fastrack couldn't send this device the school's records, so pages may be empty offline. It keeps trying; tell your admin if this lasts.",
+    );
+  }
   if (pending > 0) {
     parts.push(online && syncing ? `Syncing ${pending}` : `${pending} waiting`);
     tips.push(
@@ -77,8 +85,8 @@ export function SyncStatusChip() {
   if (synced && pending + review > 0) tips.push(synced);
   if (inTray > 0) tips.push('Click to review.');
 
-  const color = review > 0 ? 'red' : !online ? 'orange' : 'blue';
-  const Icon = review > 0 ? TriangleAlert : !online ? WifiOff : CloudUpload;
+  const color = review > 0 ? 'red' : !online || noData ? 'orange' : 'blue';
+  const Icon = review > 0 || noData ? TriangleAlert : !online ? WifiOff : CloudUpload;
 
   const badge = (
     <Badge

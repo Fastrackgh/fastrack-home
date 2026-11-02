@@ -910,3 +910,21 @@ Tested on 2 Nov 2026 as the BIS-001 principal on a database copy, with the acade
 
 Not covered: photos (5c part 2, waiting on contract v0.5.7), RECORD_DELETED, and updatedBy on the card, all listed by fastrack-18. QA-283 (sensitive fields writable without `read_sensitive`) is a backend fix and is unaffected: the staff UI already makes the Guardians tab read-only without that permission.
 
+### Backend check: step 5c complete (e6c9e22, contract v0.5.7)
+
+Tested on 2 Nov 2026 **through the API** on a database copy (local media driver). **Result: 11 of 11.** The first run's P1 "failure" was my resend changing `X-Client-Recorded-At`, which correctly gives IDEMPOTENCY_MISMATCH. An identical resend replays.
+
+| # | Case | Result |
+| --- | --- | --- |
+| P1 | Keyed photo upload; identical resend | 200, version +1; the resend is replayed, the version rises once, one media row |
+| P2 | Same key with another file; a wrong `X-Content-SHA256` | 409 IDEMPOTENCY_MISMATCH; 400 VALIDATION_FAILED |
+| P3 | Stale base, and the photo changed since `from` | 409 CONFLICT `["photo"]`, `current.photoId` and `photoUrl` |
+| P4 | Stale base, `from` equals the current photo | Applied |
+| P5 | DELETE with a stale `from` / the current `from` / the photo already gone | 409 / 204 / 204 |
+| P6 | Feed after a photo change | A `student-details` upsert with the new photo |
+| L1 | No-op edit, in both forms | rowVersion unchanged (fixes my Low note) |
+| L2 | Base 50 above the server | 409 CONFLICT, nothing applied (fixes my Low note) |
+| S1 | Clerk without `read_sensitive`, `changes` on a guardian phone, fresh and stale base | 403, no `current` leaked, number unchanged (QA-283 in this branch) |
+| R1 | Pupil deleted by the school: keyed edit and photo / online edit | 422 RECORD_DELETED / 404 |
+| R2 | Another school's pupil, keyed | 404 (no hint that it exists) |
+

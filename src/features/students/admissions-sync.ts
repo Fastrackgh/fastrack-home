@@ -1,3 +1,4 @@
+import { apiClient } from '@/lib/api-client';
 import type { OutboxOp, ReviewItem } from '@/lib/offline/outbox';
 import {
   enqueueWrite,
@@ -14,7 +15,9 @@ import type { StudentRow } from './api';
  * v0.5.5 §9.2, step 5b). Every admission is queued, online too, with a
  * client `id` that becomes the pupil's `schoolStudentId`, so attendance
  * taken before it syncs can name the pupil and wait for the admission
- * (`dependsOn`). The student code is given by the server at sync.
+ * (`dependsOn`). The student code is given by the server at sync. The
+ * admission is dated the day it was made, on the server's clock: marks for
+ * earlier days are refused (`NOT_ENROLLED_ON_DATE`).
  *
  * A likely duplicate (409 `LIKELY_DUPLICATE`) lists the candidates: "Admit
  * anyway" resends with `confirmNotDuplicate`, "It's <pupil>" moves anything
@@ -43,6 +46,9 @@ export interface DuplicateCandidate {
   status: string | null;
 }
 
+/** Today on the server's clock, as payments are dated (§9.1). */
+const today = () => apiClient.serverNow().toLocaleDateString('en-CA');
+
 const parseBody = (op: OutboxOp): Raw | null => {
   try {
     return op.body ? (JSON.parse(op.body) as Raw) : null;
@@ -59,7 +65,7 @@ export function queueAdmission(payload: Raw, shown: AdmissionLocal): Promise<Out
     entityId: id,
     method: 'POST',
     path: ADMISSIONS_PATH,
-    body: { ...payload, id },
+    body: { admissionDate: today(), ...payload, id },
     label: `Admission of ${shown.fullName} to ${shown.className}`,
     names: { [id]: shown.fullName },
     local: shown as unknown as Raw,
@@ -80,6 +86,8 @@ export interface PendingAdmission {
   classId: string;
   className: string;
   gender?: string;
+  /** The first day the pupil is in the class; null on ops queued before it was sent. */
+  admissionDate: string | null;
 }
 
 export async function pendingAdmissions(): Promise<PendingAdmission[]> {
@@ -99,6 +107,7 @@ export async function pendingAdmissions(): Promise<PendingAdmission[]> {
         classId: String(body.admissionClassId ?? local.classId),
         className: local.className,
         gender: (body.gender as string | undefined) ?? local.gender,
+        admissionDate: (body.admissionDate as string | undefined) ?? null,
       };
     });
 }

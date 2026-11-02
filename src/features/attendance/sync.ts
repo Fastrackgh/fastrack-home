@@ -147,13 +147,18 @@ export async function loadRegister(classId: string, date: string): Promise<Regis
 /**
  * Pupils admitted to this class on this device and not yet synced (§9.2):
  * they can be marked, and their marks wait for the admission to land
- * (`dependsOn`, see `saveRegister`). Any day, as the server's register
- * does: an admission belongs to the class for its whole admission term.
+ * (`dependsOn`, see `saveRegister`). From the admission day on, as the
+ * server's register: a mark for an earlier day is `NOT_ENROLLED_ON_DATE`.
  */
 async function withAdmittedHere(register: Register): Promise<Register> {
   const listed = new Set(register.students.map((s) => s.schoolStudentId ?? s.studentId));
   const added: RegisterStudent[] = (await pendingAdmissions())
-    .filter((p) => p.classId === register.classId && !listed.has(p.id))
+    .filter(
+      (p) =>
+        p.classId === register.classId &&
+        !listed.has(p.id) &&
+        (!p.admissionDate || p.admissionDate <= register.date),
+    )
     .map((p) => ({
       studentId: p.id,
       schoolStudentId: p.id,

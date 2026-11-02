@@ -928,3 +928,26 @@ Tested on 2 Nov 2026 **through the API** on a database copy (local media driver)
 | R1 | Pupil deleted by the school: keyed edit and photo / online edit | 422 RECORD_DELETED / 404 |
 | R2 | Another school's pupil, keyed | 404 (no hint that it exists) |
 
+### Step 5c part 2: offline photos through the UI (frontend d27e8c2, backend e6c9e22)
+
+Tested on 2 Nov 2026 as the BIS-001 principal on a database copy, with the academic head making the "someone else" photo change through the API. **Result: 6 of 6. Found along the way: OFF-17.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online photo | Stored; the signed link serves it (200 image/png) |
+| 2a | Offline replacement | The device copy (blob) shows, also after an offline reload. Nothing on the server, 1 op waiting. |
+| 2b | Back online | Replaced |
+| 3a | Offline replacement while someone else changes the photo | Card: "Someone else changed Nana Tetteh's photo after your device last saw it…", with **both pictures loading** (Now from the signed link, Yours from the device). Theirs kept meanwhile. |
+| 3b | "Keep mine" | Mine replaces theirs. The device's photo bytes are dropped; only the cached `schoolLogo` is left in `blobs`. |
+| 4 | Offline removal | Lands |
+| 5 | Edit queued for a pupil deleted meanwhile | "Not saved: Abena Classcheck's record was removed.", discard only |
+
+- **My setup, not the app:** at first the signed photo links answered 404. My temporary folder was `.qa-tmp`, and Express `sendFile` refuses paths that pass through a dot-folder. With the media root in a normal folder they serve fine. That only affects the local (dev) media driver.
+- **Diagnostic:** after the pupil deletion in case 5, a fresh device never received any records, and its offline Students list read "Unable to load students". That led to OFF-17.
+
+### OFF-17 (Medium; owner: backend, step 5a / PR #11): one soft-deleted pupil with a fee account breaks the whole sync snapshot for the school
+
+`GET /schools/me/sync/snapshot` → **500** "Cannot read properties of null (reading 'id')" for the BIS principal, once one pupil with a fee account was soft-deleted (`school_students.deleted_at`, set by SQL as the e2e does). Per collection, only `fee-accounts` fails; the other 12 return 200. Cause: `student-fee-account.repository.ts pageSchoolStudentIds()` loads `schoolStudent` without the deleted rows and maps `row.schoolStudent.id`, so the relation is null. Because the device pulls every collection in one snapshot, **no money-role device in that school can do its first sync**. The pupil list and everything else stay empty offline.
+
+The app has no "delete pupil" route, so this needs AdminJS, a script (e.g. `cleanup-test-schools`) or SQL. Still, one such row takes down sync for the school. **Fix:** skip accounts whose pupil is deleted, or send them as `out_of_scope`/`delete` tombstones, and add an e2e with a deleted pupil that has an account. Check the feed (`changes`) for the same assumption.
+

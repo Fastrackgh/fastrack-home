@@ -930,7 +930,7 @@ Tested on 2 Nov 2026 **through the API** on a database copy (local media driver)
 
 ### Step 5c part 2: offline photos through the UI (frontend d27e8c2, backend e6c9e22)
 
-Tested on 2 Nov 2026 as the BIS-001 principal on a database copy, with the academic head making the "someone else" photo change through the API. **Result: 6 of 6. Found along the way: OFF-17.**
+Tested on 2 Nov 2026 as the BIS-001 principal on a database copy, with the academic head making the "someone else" photo change through the API. **Result: 7 of 7. Found along the way: OFF-17.**
 
 | # | Case | Result |
 | --- | --- | --- |

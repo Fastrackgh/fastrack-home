@@ -995,3 +995,14 @@ Tested on 2 Nov 2026 **through the UI** on a database copy, with migration Offli
 - **Observation (UX, Low):** closing the online "This may be a pupil already in the school" window with Escape or × doesn't drop the admission. It waits in the tray as "Possible duplicate". "Check the details" leaves nothing queued, so the two ways of backing out behave differently.
 - **Likely explanation for case 7** (from fastrack-18; not confirmed, because the copy and its server log were already deleted): a 422 `NOT_ENROLLED_ON_DATE`. Offline, a register for a day the device never opened is built from the class's latest saved register. If that list still held a pupil who has since left Basic 1 (Kojo moved in earlier rounds), the server refuses the whole register, and the card offers "Send without <pupil>", as designed. A refused register writes no `sync_operations` row, so "no PUT recorded" in that table didn't prove no PUT was sent. The re-runs landed because the day had by then been opened online. If it recurs, read the second card, or `conflicts[].error.code`: NOT_ENROLLED_ON_DATE is expected; OP_TOO_OLD would be a bug.
 - **Escape / × / Cancel on the duplicate window** now drop the admission like "Check the details" (frontend 27b9918). **Re-tested 2 Nov through the UI** with backend e793dd8: leaving the window by Escape, by ×, or by "Check the details" each leaves review 0, pending 0 and still one Esi Adjei. Pass.
+
+## Frontend production URL clean-up (f1c973a)
+
+Checked on 2 Nov 2026 by grep, and by production builds in a separate worktree (never the shared folder).
+- **Grep** of src and public: only a wa.me link built from the business phone number, a form placeholder (morningstar.edu.gh), SVG namespaces, and the dev-only localhost fallback in `api-client.ts`, which is empty when NODE_ENV=production.
+- **Production builds:**
+  - Without `NEXT_PUBLIC_API_URL`: exit 1, "NEXT_PUBLIC_API_URL is not set…".
+  - With `api.example.com` (no scheme): exit 1, "not a full address".
+  - With `https://api.example.com/api` and `https://www.example.com`: exit 0, with **no `localhost:3000`** in `.next/static`, `api.example.com` in 4 chunks, and no `fastrack.com.gh` anywhere in `.next`.
+- **Pass.** Left unchanged on purpose: the marketing contact email (fastrackus@gmail.com), a product decision.
+

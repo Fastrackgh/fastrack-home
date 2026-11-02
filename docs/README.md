@@ -9,6 +9,7 @@ These docs cover the Next.js frontend in this repository and check it against th
 | [product-overview.md](./product-overview.md) | What EduSuite is, who uses it, Fastrack's other services, the module (subscription) model, the marketing-to-waitlist funnel, which features are live and which are preview, and marketing claims compared with reality |
 | [roles-and-access.md](./roles-and-access.md) | The 7 roles: landing page, sidebar, routes, actions and their permission keys, frontend-only grants, module gating, closed-term behaviour, and where the frontend and backend disagree |
 | [frontend-architecture.md](./frontend-architecture.md) | Route groups, the AuthProvider → RouteGuard → AppShell chain, guard logic, the API client (refresh and 401 handling), session storage, theming, the sample-data vs live-API boundary, and testing |
+| [deployment.md](./deployment.md) | Settings (`.env.example`): the API and site addresses, which are required, and the check that a production build fails without the API address |
 
 ### User flows
 

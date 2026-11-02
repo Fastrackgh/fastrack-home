@@ -142,7 +142,7 @@ export default function SchoolAdminLoginPage() {
               }}
             />
             <Text size="xs" fw={600} c="#e2e8f0">
-              Fastrack Connected Campus · Port 3001
+              Fastrack Connected Campus
             </Text>
           </Group>
         </Box>

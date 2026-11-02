@@ -1,4 +1,11 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api';
+/**
+ * The backend address, from settings (docs/deployment.md). Only development
+ * falls back to localhost: a production build without NEXT_PUBLIC_API_URL
+ * fails in next.config.mjs.
+ */
+const API_BASE_URL =
+  process.env.NEXT_PUBLIC_API_URL ||
+  (process.env.NODE_ENV === 'production' ? '' : 'http://localhost:3000/api');
 
 /**
  * Every request opts into the backend's v2 response contract

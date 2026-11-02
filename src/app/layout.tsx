@@ -21,7 +21,11 @@ const bodyFont = Manrope({
   display: 'swap',
 });
 
+/** The public site's address, from settings; link previews leave it out when unset. */
+const SITE_URL = process.env.NEXT_PUBLIC_SITE_URL;
+
 export const metadata: Metadata = {
+  ...(SITE_URL && { metadataBase: new URL(SITE_URL) }),
   title: 'Fastrack Management Services | School Management System & Cloud ERP',
   description:
     'Since 2014, Fastrack Management Services provides simple, reliable, and trusted software solutions in Ghana. Flagship School ERP, IT Consultancy, Database Management, Mobile Apps, Bulk SMS, and Accounting Services.',
@@ -40,7 +44,7 @@ export const metadata: Metadata = {
     title: 'Fastrack Management Services | School Management System & Cloud ERP',
     description:
       'Simple, reliable, and trusted software solutions for schools and enterprises across Ghana and beyond.',
-    url: 'https://fastrack.com.gh',
+    ...(SITE_URL && { url: SITE_URL }),
     siteName: 'Fastrack Management Services',
     locale: 'en_GH',
     type: 'website',

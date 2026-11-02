@@ -118,7 +118,7 @@ Added 23 Oct 2026 (backend `a89ee57`, frontend `0fd3b0d`). Code: `src/features/s
   - Editing needs `students:update` plus `students:read_sensitive` (Principal, Academic Head, Secretary).
   - The Account Officer sees the contacts read-only.
   - Teachers see "Phone numbers and emails are hidden for your role".
-- **Edit contacts:** `PATCH me/students/:id`. Values are trimmed, blanks are saved as null, and emails are lowercased. Every real change is recorded in `audit_logs`; a save that changes nothing records nothing.
+- **Edit contacts:** `PATCH me/students/:id`, queued through the outbox as `changes` since step 5c, so it works offline too ([offline/staff-offline.md](../offline/staff-offline.md#offline-pupil-edits-phase-3-backend-step-5c-part-1-contract-v056-93)). Values are trimmed, blanks are saved as null, and emails are lowercased. Every real change is recorded in `audit_logs`; a save that changes nothing records nothing.
 - **Link parent account:** `POST me/students/:id/parents/from-guardian {guardian}` links the one parent account matching the mother's or father's saved phone or email. It answers 404 when none matches and 409 when several do. The button is disabled while edits are unsaved.
 - **Unlink:** "Prevent this parent from linking again" plus a reason stores a block (`parent_link_blocks`) on the account and its phone and email. The parent's OTP linking then fails with the ordinary mismatch message, and staff linking gets 409. **Allow again** (`DELETE …/parent-blocks/:id`) lifts it.
 - **Change history:** `GET me/students/:id/history`. Shown under Change history → Show, newest first (QA-238 fixed 23 Oct).

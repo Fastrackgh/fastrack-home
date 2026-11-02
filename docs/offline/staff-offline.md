@@ -81,6 +81,7 @@ sequenceDiagram
   - With queued changes: **"Offline · 3 waiting"** offline, and **"Syncing 3"** or **"3 waiting"** online until they land.
   - With review items: **"· 2 need review"** is added, and the chip turns red.
   - The tooltip explains each part, and adds "Last synced 5 minutes ago" while anything waits.
+  - **"Couldn't download school data"** (orange) shows online while the device has never downloaded its records and the last pull got a server error rather than no answer (OFF-17: the snapshot gave 500, so offline pages were empty with no sign why). The tooltip reads "Fastrack couldn't send this device the school's records, so pages may be empty offline. It keeps trying; tell your admin if this lasts." The engine keeps `pullFailed` in `meta`, so every tab shows it, and the chip goes once a pull succeeds. Checked with a forced 500 on `/sync/snapshot` (Playwright, 3/3).
 
 ## Outbox and sync engine (phase 2)
 
@@ -272,7 +273,9 @@ flowchart LR
     - **It's this pupil:** not admitted.
     - **Admit anyway:** resent with `confirmNotDuplicate`.
     - **Check the details:** back to the form; the refused admission is dropped.
+    - **Escape, × or Cancel** drop it too, rather than leaving it in the tray as a Possible duplicate (QA merge-state check, 2 Nov; admissions suite 18/18).
   - **Other refusals** show in the form, and nothing is left in the tray.
+- **Students list offline (OFF-18, fixed 2 Nov):** offline, the list comes from the synced `students` records, even on a device that never opened it online. Search, the class and status filters, paging and the active count all run on the device (`src/features/students/offline-list.ts`), and the page says "Offline: showing the pupils synced to this device." The class filter falls back to the synced classes, as the attendance picker does. Online, the list is read live, never from a saved copy. A saved copy is used only when nothing has synced yet. Checked on a fresh device against backend e6c9e22 (Playwright, 6/6: 20 of 24 rows, the count, search, the class options and filter).
 - **Students list:** pupils admitted on this device and not yet synced are listed first on page 1, filtered on the device, with **Code pending · waiting to sync**. They can't be opened yet, because the server doesn't know them. The list reloads when an admission lands.
 - **Attendance:** registers include pupils admitted to the class on this device and not yet synced, from their admission day on. The device sends `admissionDate` as the day the admission was made, on the server's clock (as payments are dated). Earlier days leave them out, as the server's registers do: since contract v0.5.6 (backend b1665ca) a mark for a day before the admission date is 422 `NOT_ENROLLED_ON_DATE`. Their code reads **Code pending**, as on the Students list, so a likely duplicate listed twice can be told apart. Their marks `dependsOn` the admission op, so they're sent after it.
 - **Engine rules for writes that depend on another (v0.5):**
@@ -298,6 +301,48 @@ flowchart LR
     - The card showed the candidate with "It's Kojo Owusu (BIS-001/STD/2026/004)" and Admit anyway.
     - "It's Kojo" moved the mark to the existing Kojo, where it landed. No second Kojo was admitted.
   - The earlier suites still pass: tray 12/12, attendance 23/23, marks 15/15, Changes to review 19/19, pull 8/8, past days 3/3, payments 14/14, double payment 6/6, dates 7/7.
+
+## Offline pupil edits (phase 3, backend step 5c part 1, contract v0.5.6 §9.3)
+
+- **Every edit to a pupil's Profile or Guardians tab goes through the outbox, online too** (`src/features/students/edits-sync.ts`). `studentsApi.update` is gone.
+  - The body is `changes`: each changed field with `from` (the value on screen) and `to`. `X-Base-Version` is the record's `rowVersion`. A cleared field is sent empty; names, gender and the birth date can't be blanked.
+  - Edits to one pupil send in order. A second edit made before the first lands starts from the first one's values, so its `from` matches once the first applies.
+  - An edit to a pupil admitted on this device waits for the admission (`dependsOn`).
+- **After saving**, the tab waits up to 8 s, but not once the device is known to be offline:
+  - **Landed:** "Student updated" / "Guardian contacts updated", as before.
+  - **Offline or no answer:** "Saved on this device · The changes to … will be sent when the device is back online."
+  - **A clash:** "Someone else changed this pupil · Changes that clash are in Needs review. Any others were saved."
+- **The student drawer** reads the server's copy online, never a saved read, so the base version is current. Offline, it reads the synced `student-details` record, or a saved read for a pupil outside the synced scope. It shows:
+  - the device's queued edits on top, with a **Changes waiting to sync** badge;
+  - an **Offline copy** badge when read from the device;
+  - a photo waiting to sync from the device's copy, or none for a queued removal.
+
+  The drawer reloads when one of this pupil's edits lands. The Profile and Guardians forms restart from the record whenever its version moves, so `from` is always what is on screen.
+- **Clashes (contract §5 step 4, in the engine for any `changes` update):** a 409 `CONFLICT` with `conflictingFields` and `current.rowVersion` is split (`src/lib/offline/rebase.ts`):
+  - the clashing fields go to review, under the first op;
+  - the other fields are resent at once as a new op in its place, with `from` taken from `current` and `X-Base-Version = current.rowVersion`. Ops waiting on the first now wait on the resend.
+
+  `waitForOp` follows the resend and still reports the review item. The card is **Changed by someone else** with a Now / Yours table of only the clashing fields. **Keep mine** resends them, each from the server's value now. 404, `RECORD_DELETED` and validation refusals are explained in words. `scripts/check-sync-outcome.cjs` checks the split.
+- **Photos (5c part 2, contract v0.5.7 §9.4).** **Replace photo** and **Remove** go through the outbox too, so they work offline. `studentsApi.uploadPhoto` and `removePhoto` are gone.
+  - **A new photo** is one `PUT …/photo` op. The file's bytes are kept in the `blobs` store (`upload:<key>`) until the op lands or its review item is discarded, and a resend from review reuses them. At send time the engine builds the multipart body from those bytes, along with `from`. It also sends `X-Content-SHA256` (hex SHA-256 of the bytes), which is part of the request hash.
+  - **A removal** is `DELETE …/photo?from=<mediaId>`.
+  - **`from`** is the photo the device last saw (the detail's `photoId`, or `''` for none), so a photo someone else changed meanwhile clashes. It's left out when another photo change for the pupil is already queued, because that one's media id isn't known yet; the later change wins.
+  - A photo for a pupil admitted offline waits for the admission. If the bytes are gone (site data cleared), the op goes to review as "The file for this change is no longer on this device."
+  - **Clash:** the card reads "Someone else changed <pupil>'s photo after your device last saw it. Keep theirs, or keep yours.", with the photo there now (`current.photoUrl`, a signed URL) beside the queued one. **Keep mine** resends it with `from` set to `current.photoId`.
+  - **Checked (2 Nov, against backend e6c9e22 on `fastrack_fe18`, Playwright, 13/13):**
+    - Online, a photo showed "Photo updated" and was sent as a keyed op.
+    - Offline, a replacement showed "Saved on this device", with the device copy (`blob:`) and **Changes waiting to sync**. The op carried `from` (the first photo's id) and the SHA-256, and its bytes were in `blobs`.
+    - Someone else put another photo meanwhile. Back online, theirs was kept and the tray showed the clash in words with Now (signed URL) and Yours (device copy). **Keep mine** landed a new photo, and the bytes were dropped.
+    - An offline **Remove** was queued as `DELETE …/photo?from=<id>`, showed no photo while waiting, and landed.
+    - Edits 13/13, tray 12/12, admissions 17/17 and Changes to review 19/19 pass against e6c9e22.
+- **Not yet:** `updatedBy`/`updatedAt` on `current` (the card has no "changed by"). `RECORD_DELETED` (backend e6c9e22: a queued edit, photo or removal for a deleted pupil) reads "Not saved: <pupil>'s record was removed."; not tested through the UI. A write to a field hidden without `students:read_sensitive` is a 403, handled as any 403 (QA-283, backend PR #14). The Guardians tab is read-only without that permission.
+- **Checked (2 Nov, `next dev` against backend `feat/offline-student-edits` a41e650 on `fastrack_fe18`, principal@bis.test, Playwright, 13/13).** "Someone else" was the principal on another device, editing through the API.
+  - **Online:** a Religion edit showed "Student updated" and was sent through the outbox.
+  - **Stale base, other field:** someone else changed the religion. The open drawer, still on the old version, then saved a Residence edit. It applied, and their religion was kept.
+  - **Offline:** Nationality and Digital address were queued as one `changes` op with `from`, `to` and the base version. The drawer showed "Saved on this device" and **Changes waiting to sync**. Reopened offline, it showed the queued values and **Offline copy**.
+  - **Clash:** someone else changed the nationality meanwhile. Back online, the digital address landed and theirs was kept for the nationality. The tray showed "Changed by someone else" with only Nationality (Now / Yours). **Keep mine** landed mine.
+  - **Guardians tab:** a mother's occupation edit showed "Guardian contacts updated".
+  - **Earlier suites:** tray 12/12, admissions 17/17 and Changes to review 19/19 still pass. Payments was 13/14. The logo check failed because the school's saved logo URL points at the backend on :3000, which wasn't running. That's the environment, not this change.
 
 ## Needs review tray
 

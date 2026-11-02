@@ -1,6 +1,6 @@
 # Offline sync contract (staff portal)
 
-**Status:** **agreed** v0.5.6 (2 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
+**Status:** **agreed** v0.5.7 (2 Nov 2026), for phase 3: cash payments, admissions, student edits and photos (§9), and the money and student-detail collections (§8). It builds on v0.4.1, which is agreed and live. Nothing below changes a phase 1–2 rule. **Signed off by the staff frontend and QA.** Phase 3 builds against this version, step by step (5a payments, 5b admissions, 5c edits and photos).
 **Owners:** backend (`fastrack-backend`), staff frontend (`/school-admin`).
 **Plan:** `humming-tumbling-codd.md`, "Sync contract" and "Backend work" B1–B5.
 
@@ -473,12 +473,19 @@ Without `seenBalance` (the online form, today), there are no `BILL_CHANGED` or `
   So the pupil ends up with every non-clashing change, as with partial apply, but each write is still all or nothing (Q1, Q5).
 - A pupil's `rowVersion` rises on every edit, whether the field is stored on the pupil's enrolment or on the person (name, birth date and contacts are on the person). A pupil is enrolled at only one school at a time, so no other school edits the same record.
 
-### 9.4 Student photos: `PUT /schools/me/students/:id/photo` (step 5c)
+### 9.4 Student photos: `PUT /schools/me/students/:id/photo` and `DELETE …/photo` (step 5c)
 
-- The queued photo is uploaded **through this route**, not through `POST /media` plus a PATCH: one op, keyed by the pupil's `schoolStudentId`. A photo for a pupil admitted offline simply `dependsOn` the admission op, and its path uses the client `id`.
-- It takes `Idempotency-Key`. The request hash covers the file's SHA-256, so a resend of the same file replays the stored media response. The device keeps the blob until the op is applied.
+- A queued photo is uploaded **through this route**: one op, keyed by the pupil's `schoolStudentId`. A photo for a pupil admitted offline `dependsOn` the admission, and its path uses the client `id`.
+- The upload is multipart: the optional field `from`, then the file field `file`. Headers: `Idempotency-Key`, `X-Base-Version`, and **`X-Content-SHA256`**, the lowercase hex SHA-256 of the file's bytes.
+  - The server checks the key before it parses the upload, so the header stands for the file in the request hash (§4). The same key with another file is 409 `IDEMPOTENCY_MISMATCH`. A header that doesn't match the file is 400 `VALIDATION_FAILED`. Without the header, the file isn't part of the hash.
+  - A resend of the same file replays the stored media response. The device keeps the blob until the op is applied.
 - Limits as today: JPEG, PNG or WebP, at most **5 MB**. EXIF is stripped. The file is private to the school.
-- A photo counts as a field (`photo`) for §5. With a stale `X-Base-Version`, if the photo was changed since the base, the server returns 409 `CONFLICT` with `conflictingFields: ["photo"]`. Otherwise the new photo replaces the old one and the `rowVersion` rises.
+- **`from`** is the photo media id the device last saw, `photoId` in `student-details`, or `''` for no photo.
+  - With a stale `X-Base-Version` and a current photo other than `from`, the response is 409 `CONFLICT` with `conflictingFields: ["photo"]` and `current` (the `student-details` shape, including `photoId` and a short-lived signed `photoUrl`). "Keep mine" resends with `from = current.photoId`.
+  - `from` equal to the current photo applies, even from a stale version.
+  - Without `from`, for example when another photo change for the pupil is already queued, the photo applies as before, and the base version is ignored for photos.
+- **Removal:** `DELETE …/photo?from=<mediaId>`, with the same headers except `X-Content-SHA256`, and the same clash rule. With no photo it returns 204, whatever `from` says, so it's safe to resend.
+- Every photo change raises the pupil's `rowVersion` and reaches the feed as `students` and `student-details`.
 
 ### 9.5 Session
 
@@ -626,3 +633,4 @@ QA signs off once these are in. All are now in (v0.5.2):
 | 2026-11-02 | 0.5.4 | QA OFF-15: a keyed payment without `paymentDate` is dated by the corrected `recorded_at`; the future-date refusal gets the code `PAYMENT_DATE_IN_FUTURE`, with the same 400 and message (§6, §9.1). **Agreed** (staff frontend). Backend a0c3bf4. |
 | 2026-11-02 | 0.5.5 | Built with step 5b (§9.2): guardian phones compare by the last 9 digits; a returning pupil's `id` must be their record's, otherwise 400 `ID_MISMATCH_RETURNING`. **Agreed** (staff frontend, QA). |
 | 2026-11-02 | 0.5.6 | §9.2: a keyed admission's default date is the corrected `recorded_at`, the same rule as payments (§9.1). Backend bug fix. §5: a day before the pupil's admission date is also `NOT_ENROLLED_ON_DATE` (user decision); the device rule narrows to match. Backend c664e97, b1665ca. |
+| 2026-11-02 | 0.5.7 | **Agreed** (staff frontend). §9.4: `X-Content-SHA256` stands for the file in the request hash; a multipart `from` (the photo media id the device saw) detects a changed photo; removal is `DELETE …/photo?from=`, 204 when already gone; `current` carries `photoId` and `photoUrl`. §9.3, from building 5c: an edit that changes nothing leaves the version alone; a base version above the server's is a clash; a queued edit to a deleted pupil is 422 `RECORD_DELETED`; a user without `students:read_sensitive` gets 403 for writing a field hidden from them (QA-283). |

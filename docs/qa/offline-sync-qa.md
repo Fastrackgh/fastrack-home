@@ -893,3 +893,106 @@ Tested on 2 Nov 2026 **through the API** on a database copy (the frontend for 5c
   - A base version *ahead* of the server (+50) is accepted (200). Harmless with the field-level `from` check, but it may deserve the same treatment as `CURSOR_AHEAD`.
 - **QA-283:** a user without `students:read_sensitive` replaced a guardian phone they see as blank, through both forms.
 
+### Step 5c part 1 through the UI (frontend b387cf9, backend a41e650)
+
+Tested on 2 Nov 2026 as the BIS-001 principal on a database copy, with the academic head making the "someone else" edits through the API. **Result: 8 of 8.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online profile edit (Residence) | "Student updated", stored |
+| 2a | Offline: Nationality and Digital address | "Saved on this device…", "Changes waiting to sync" in the drawer, photo buttons hidden |
+| 2b | Reload offline and reopen | The queued values show, with "Offline copy" |
+| 2c | Meanwhile the academic head changes Nationality; back online | Digital address lands. Nationality waits in review, and theirs is kept. |
+| 2d | Tray | Only Nationality: "Changed by someone else", Now (theirs) and Yours (mine) |
+| 2e | "Keep mine" | Mine lands |
+| 3 | Guardians tab edit (father's name) offline | Lands |
+| 4 | A clash, then "Keep theirs" | The server value stays, and the tray clears |
+
+Not covered: photos (5c part 2, waiting on contract v0.5.7), RECORD_DELETED, and updatedBy on the card, all listed by fastrack-18. QA-283 (sensitive fields writable without `read_sensitive`) is a backend fix and is unaffected: the staff UI already makes the Guardians tab read-only without that permission.
+
+### Backend check: step 5c complete (e6c9e22, contract v0.5.7)
+
+Tested on 2 Nov 2026 **through the API** on a database copy (local media driver). **Result: 11 of 11.** The first run's P1 "failure" was my resend changing `X-Client-Recorded-At`, which correctly gives IDEMPOTENCY_MISMATCH. An identical resend replays.
+
+| # | Case | Result |
+| --- | --- | --- |
+| P1 | Keyed photo upload; identical resend | 200, version +1; the resend is replayed, the version rises once, one media row |
+| P2 | Same key with another file; a wrong `X-Content-SHA256` | 409 IDEMPOTENCY_MISMATCH; 400 VALIDATION_FAILED |
+| P3 | Stale base, and the photo changed since `from` | 409 CONFLICT `["photo"]`, `current.photoId` and `photoUrl` |
+| P4 | Stale base, `from` equals the current photo | Applied |
+| P5 | DELETE with a stale `from` / the current `from` / the photo already gone | 409 / 204 / 204 |
+| P6 | Feed after a photo change | A `student-details` upsert with the new photo |
+| L1 | No-op edit, in both forms | rowVersion unchanged (fixes my Low note) |
+| L2 | Base 50 above the server | 409 CONFLICT, nothing applied (fixes my Low note) |
+| S1 | Clerk without `read_sensitive`, `changes` on a guardian phone, fresh and stale base | 403, no `current` leaked, number unchanged (QA-283 in this branch) |
+| R1 | Pupil deleted by the school: keyed edit and photo / online edit | 422 RECORD_DELETED / 404 |
+| R2 | Another school's pupil, keyed | 404 (no hint that it exists) |
+
+### Step 5c part 2: offline photos through the UI (frontend d27e8c2, backend e6c9e22)
+
+Tested on 2 Nov 2026 as the BIS-001 principal on a database copy, with the academic head making the "someone else" photo change through the API. **Result: 7 of 7. Found along the way: OFF-17.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online photo | Stored; the signed link serves it (200 image/png) |
+| 2a | Offline replacement | The device copy (blob) shows, also after an offline reload. Nothing on the server, 1 op waiting. |
+| 2b | Back online | Replaced |
+| 3a | Offline replacement while someone else changes the photo | Card: "Someone else changed Nana Tetteh's photo after your device last saw it…", with **both pictures loading** (Now from the signed link, Yours from the device). Theirs kept meanwhile. |
+| 3b | "Keep mine" | Mine replaces theirs. The device's photo bytes are dropped; only the cached `schoolLogo` is left in `blobs`. |
+| 4 | Offline removal | Lands |
+| 5 | Edit queued for a pupil deleted meanwhile | "Not saved: Abena Classcheck's record was removed.", discard only |
+
+- **My setup, not the app:** at first the signed photo links answered 404. My temporary folder was `.qa-tmp`, and Express `sendFile` refuses paths that pass through a dot-folder. With the media root in a normal folder they serve fine. That only affects the local (dev) media driver.
+- **Diagnostic:** after the pupil deletion in case 5, a fresh device never received any records, and its offline Students list read "Unable to load students". That led to OFF-17.
+
+### OFF-17 (Medium; owner: backend, step 5a / PR #11): one soft-deleted pupil with a fee account breaks the whole sync snapshot for the school
+
+`GET /schools/me/sync/snapshot` → **500** "Cannot read properties of null (reading 'id')" for the BIS principal, once one pupil with a fee account was soft-deleted (`school_students.deleted_at`, set by SQL as the e2e does). Per collection, only `fee-accounts` fails; the other 12 return 200. Cause: `student-fee-account.repository.ts pageSchoolStudentIds()` loads `schoolStudent` without the deleted rows and maps `row.schoolStudent.id`, so the relation is null. Because the device pulls every collection in one snapshot, **no money-role device in that school can do its first sync**. The pupil list and everything else stay empty offline.
+
+The app has no "delete pupil" route, so this needs AdminJS, a script (e.g. `cleanup-test-schools`) or SQL. Still, one such row takes down sync for the school. **Fix:** skip accounts whose pupil is deleted, or send them as `out_of_scope`/`delete` tombstones, and add an e2e with a deleted pupil that has an account. Check the feed (`changes`) for the same assumption.
+
+### Re-test of OFF-17 (backend 6c294b0, carried to 8c99c57)
+
+Tested on 2 Nov 2026 on a database copy at 8c99c57, with BIS pupil 011 (who has a fee account) soft-deleted. **Result: fixed.**
+- **Full snapshot:** 200, with 10 fee accounts and the deleted pupil's left out. `GET /fee-accounts` is 200, also without it.
+- **Feed:** `changes` since before the deletion has no entry, as expected, because the deletion happened outside the app.
+- **Fresh device, UI (frontend d27e8c2):** the first pull finishes in 7 s with every collection (students 11, fee-accounts 10, invoices 11, …).
+
+**Known limit:** a device that synced *before* such an out-of-app deletion keeps that account until it next re-snapshots. The feed only sends a tombstone when a change entry for it comes up.
+
+### OFF-18 (Low–Medium; owner: staff frontend): the Students list is blank offline on a device that never opened it online
+
+On that fresh device, with 11 `students` records synced, going offline and opening Students shows **"Unable to load students — Can't reach Fastrack"**. After opening Students online once, the same offline visit lists all 11. So the page reads its own saved response, not the synced records. The attendance class picker had the same gap, fixed in 9d7e864. **Fix:** when there's no saved read, list from the synced `students` records (with search and class filter), with the "Offline" note.
+
+### Re-test of OFF-18 (8e50369) and the download-failure chip (caa31c6)
+
+Tested on 2 Nov 2026 **through the UI** with backend 8c99c57 on a database copy (BIS-001, 12 pupils, 3 in Basic 1). **Result: 5 of 5. OFF-18 fixed.**
+- **Fresh device, Students never opened online, then offline:** 12 rows, "of 12 registered", and "Offline: showing the pupils synced to this device."
+- **Offline search "Esi Adjei":** only Esi Adjei.
+- **Offline class filter:** the options come from synced classes, and Basic 1 gives "of 3 registered".
+- **First download answered with a forced 500 on `/sync/snapshot`:** the chip reads "Couldn't download school data". It clears once a pull succeeds.
+- **No connection at all on first sign-in:** the chip reads "Offline", correctly not the server-error wording.
+
+## Merge state check: frontend main (d0cef88, fastrack-home#6 merged early) with backend #16 (e793dd8, includes #11 and main with #13)
+
+Tested on 2 Nov 2026 **through the UI** on a database copy, with migration OfflinePayments 1792600002900 applied. Frontend #6 merged before backend #11 and #16, so frontend main sends 5a/5b requests that backend main doesn't accept until those two merge. This checks the combination they produce. **Result: 6 of 7, with one failure that didn't reproduce in three re-runs.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| 1 | Online payment | Official RCT, OFF ref stored |
+| 2 | Offline payment | Provisional receipt at once |
+| 3 | Back online, with a double payment and an over-payment | Lands with its own date; the over-payment held as "cash in drawer"; POSSIBLE_DOUBLE_PAYMENT flagged |
+| 4 | Tray wording after #13's error filter | "still in the cash drawer" and "Saved, but check this" intact |
+| 5 | Keep as credit | Lands |
+| 6 | Online likely duplicate | The window shows the candidate |
+| 7 | Offline admission plus offline register mark (Basic 1, today) | **Once:** the pupil was admitted with today's date and a code, but the register mark didn't land, and the device ended with `review: 2`. **Three re-runs:** the register landed every time. |
+
+- **Re-runs of 7:**
+  - a straight run;
+  - an online duplicate closed with Escape first (in Basic 2, and in Basic 1);
+  - an offline register in Basic 3.
+  All landed (PUT 200). The theory that an unresolved duplicate card holds the class register is **disproven**: the register saved with the card still open.
+- **Observation (UX, Low):** closing the online "This may be a pupil already in the school" window with Escape or × doesn't drop the admission. It waits in the tray as "Possible duplicate". "Check the details" leaves nothing queued, so the two ways of backing out behave differently.
+- **Likely explanation for case 7** (from fastrack-18; not confirmed, because the copy and its server log were already deleted): a 422 `NOT_ENROLLED_ON_DATE`. Offline, a register for a day the device never opened is built from the class's latest saved register. If that list still held a pupil who has since left Basic 1 (Kojo moved in earlier rounds), the server refuses the whole register, and the card offers "Send without <pupil>", as designed. A refused register writes no `sync_operations` row, so "no PUT recorded" in that table didn't prove no PUT was sent. The re-runs landed because the day had by then been opened online. If it recurs, read the second card, or `conflicts[].error.code`: NOT_ENROLLED_ON_DATE is expected; OP_TOO_OLD would be a bug.
+- **Escape / × / Cancel on the duplicate window** now drop the admission like "Check the details": frontend 27b9918, to be re-tested in the next round.
+

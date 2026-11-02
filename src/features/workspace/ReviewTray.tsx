@@ -1,9 +1,10 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { Badge, Button, Card, Drawer, Group, Stack, Table, Text } from '@mantine/core';
+import { Avatar, Badge, Button, Card, Drawer, Group, Stack, Table, Text } from '@mantine/core';
 import { registerAttendanceResolver } from '@/features/attendance/sync';
 import { registerPaymentsSync } from '@/features/fees/payments-sync';
+import { registerEditsSync } from '@/features/students/edits-sync';
 import { registerAdmissionsSync } from '@/features/students/admissions-sync';
 import { itemNameKey, registerMarksResolver } from '@/features/results/marks-sync';
 import { formatAge } from '@/lib/format';
@@ -19,6 +20,7 @@ import {
   reviewExplanation,
   dismissReviewItem,
   listReviewItems,
+  queuedFile,
   resendReviewItem,
 } from '@/lib/offline/syncEngine';
 import { useSyncStatus } from '@/lib/offline/useSyncStatus';
@@ -28,6 +30,7 @@ registerAttendanceResolver();
 registerMarksResolver();
 registerPaymentsSync();
 registerAdmissionsSync();
+registerEditsSync();
 
 /** Fields that describe a write, not its value. */
 const META_FIELDS = new Set(['updatedBy', 'updatedAt', 'rowVersion', 'version', 'id']);
@@ -88,10 +91,49 @@ function clashRows(item: ReviewItem): { field: string; theirs: unknown; mine: un
     const fields = item.error?.conflictingFields?.length
       ? item.error.conflictingFields
       : Object.keys(mine).filter((f) => !META_FIELDS.has(f));
-    return fields.map((field) => ({ field, theirs: current[field], mine: mine[field] }));
+    return fields
+      .map((field) => ({ field, theirs: current[field], mine: mine[field] }))
+      .filter((row) => row.theirs !== undefined || row.mine !== undefined);
   }
   return [];
 }
+
+/**
+ * A photo that clashed (§9.4): the one there now beside the one queued here
+ * (none for a removal). `current.photoUrl` is a short-lived signed URL.
+ */
+function PhotoClash({ item }: { item: ReviewItem }) {
+  const [mine, setMine] = useState<string | null>(null);
+  const upload = item.op.upload;
+  useEffect(() => {
+    if (!upload) return;
+    let url: string | null = null;
+    void queuedFile(upload.blobKey).then((file) => {
+      if (file) setMine((url = URL.createObjectURL(file)));
+    });
+    return () => {
+      if (url) URL.revokeObjectURL(url);
+    };
+  }, [upload]);
+  const theirs = asRecord(item.error?.current).photoUrl;
+  const photo = (src: unknown, label: string) => (
+    <Stack gap={4} align="center">
+      <Avatar src={typeof src === 'string' ? src : null} size={64} radius="md" />
+      <Text size="xs" c="dimmed">
+        {label}
+      </Text>
+    </Stack>
+  );
+  return (
+    <Group gap="lg">
+      {photo(theirs, theirs ? 'Now' : 'Now: no photo')}
+      {photo(mine, upload ? 'Yours' : 'Yours: no photo')}
+    </Group>
+  );
+}
+
+const isPhotoClash = (item: ReviewItem) =>
+  item.kind === 'conflict' && Boolean(item.error?.conflictingFields?.includes('photo'));
 
 const KIND_BADGE: Record<ReviewItem['kind'], { label: string; color: string }> = {
   conflict: { label: 'Changed by someone else', color: 'orange' },
@@ -184,6 +226,7 @@ function ReviewCard({ item, onDone }: { item: ReviewItem; onDone: () => void }) 
             </Text>
           )
         )}
+        {isPhotoClash(item) && <PhotoClash item={item} />}
         {rows.length > 0 && (
           <Table withRowBorders={false} verticalSpacing={2} fz="sm">
             <Table.Thead>

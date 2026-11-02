@@ -373,6 +373,16 @@ export function AdmitStudentModal({
     setDuplicate(null);
   };
 
+  /**
+   * Escape, × and Cancel: an online duplicate still on screen is dropped, as
+   * "Check the details" does, rather than left in the tray (QA merge check).
+   */
+  const close = () => {
+    if (duplicate) void dismissReviewItem(duplicate.id);
+    setDuplicate(null);
+    onClose();
+  };
+
   const modalClassOptions = useMemo(() => {
     return classes.map((c) => ({ value: c.id, label: `${c.className} (${c.classCode})` }));
   }, [classes]);
@@ -380,7 +390,7 @@ export function AdmitStudentModal({
   return (
     <Modal
       opened={opened}
-      onClose={onClose}
+      onClose={close}
       closeOnClickOutside={false}
       title={
         <Box>
@@ -903,7 +913,7 @@ export function AdmitStudentModal({
           {/* Stepper Navigation Buttons */}
           <Group justify="space-between" mt="xl" pt="sm" style={{ borderTop: '1px solid #f1f5f9' }}>
             <Group gap="xs">
-              <Button variant="default" onClick={onClose} radius="md">
+              <Button variant="default" onClick={close} radius="md">
                 Cancel
               </Button>
               {activeStep > 0 ? (

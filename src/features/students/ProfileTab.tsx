@@ -15,7 +15,9 @@ import { notifications } from '@mantine/notifications';
 import { todayIso } from '@/features/calendar/dates';
 import { errorMessage } from '@/lib/api-client';
 import { fieldSetter } from '@/lib/state';
-import { PROFILE_FIELDS, studentsApi, type Profile, type StudentDetail } from './api';
+import { PROFILE_FIELDS, type Profile, type StudentDetail } from './api';
+import { saveStudentEdit } from './edits-sync';
+import { notifyEdit } from './notifyEdit';
 
 const BLOOD_GROUPS = ['A+', 'A-', 'B+', 'B-', 'AB+', 'AB-', 'O+', 'O-'];
 const GENOTYPES = ['AA', 'AS', 'AC', 'SS', 'SC'];
@@ -65,8 +67,8 @@ export function ProfileTab({
     if (!draft.firstName.trim() || !draft.surname.trim() || birthInFuture) return;
     setSaving(true);
     try {
-      await studentsApi.update(
-        student.id,
+      const result = await saveStudentEdit(
+        student,
         Object.fromEntries(changed.map((f) => [f, draft[f]])) as Partial<Profile>,
       );
       // The name as just saved; `student` still holds the one from before.
@@ -74,7 +76,7 @@ export function ProfileTab({
         .map((part) => part?.trim())
         .filter(Boolean)
         .join(' ');
-      notifications.show({ title: 'Student updated', message: name, color: 'green' });
+      notifyEdit(result, 'Student updated', name);
       onSaved();
     } catch (err) {
       notifications.show({

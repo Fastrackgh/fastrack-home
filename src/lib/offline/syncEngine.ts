@@ -8,7 +8,9 @@ import {
   type EnqueueInput,
   type OutboxOp,
   type ReviewItem,
+  uploadKey,
 } from './outbox';
+import { rebaseChanges } from './rebase';
 import { CURSOR_KEY, PULLED_AT_KEY, pull, recordsOf, type SyncedRecord } from './pull';
 import { backoffMs, classify, type SyncOutcome, type SyncResponse } from './syncOutcome';
 
@@ -40,6 +42,8 @@ export interface SyncStatus {
   lastSyncedAt: number | null;
   /** When this device last brought its records up to date from the server (§7), or null. */
   lastPulledAt: number | null;
+  /** The last pull got an error from the server (not offline): records may be missing (OFF-17). */
+  pullFailed: boolean;
 }
 
 const IDLE: SyncStatus = {
@@ -50,6 +54,7 @@ const IDLE: SyncStatus = {
   paused: false,
   lastSyncedAt: null,
   lastPulledAt: null,
+  pullFailed: false,
 };
 
 const LOCK_PREFIX = 'fastrack-sync-';
@@ -58,6 +63,8 @@ const POLL_MS = 30_000;
 /** Older ops go to review instead of being sent (§4: the server keeps keys for 30 days). */
 export const MAX_OP_AGE_MS = 25 * 24 * 60 * 60_000;
 const LAST_SYNCED_KEY = 'lastSyncedAt';
+/** Set while pulls fail with a server error, so every tab's chip can say so. */
+const PULL_FAILED_KEY = 'pullFailed';
 /** The longest an op is held back (backoff caps at 5 min; Retry-After rarely says more). */
 const MAX_WAIT_MS = 10 * 60_000;
 const LOGO_KEY = 'schoolLogo';
@@ -199,6 +206,7 @@ const headersOf = (op: OutboxOp, device: string): Record<string, string> => ({
   'X-Client-Sent-At': new Date().toISOString(),
   'X-Device-Id': device,
   ...(op.baseVersion === undefined ? {} : { 'X-Base-Version': String(op.baseVersion) }),
+  ...(op.upload ? { 'X-Content-SHA256': op.upload.sha256 } : {}),
 });
 
 class SyncEngine {
@@ -257,11 +265,17 @@ class SyncEngine {
     statusListeners.forEach((listener) => listener());
   }
 
-  async enqueue(input: EnqueueInput): Promise<OutboxOp> {
+  async enqueue(input: EnqueueInput, file?: Blob): Promise<OutboxOp> {
+    // The bytes first: an op is never queued without its file.
+    if (input.upload && file) await this.db.put('blobs', file, uploadKey(input.upload.blobKey));
     const op = await outbox.enqueue(this.db, input);
     await this.changed();
     this.kick();
     return op;
+  }
+
+  file(blobKey: string) {
+    return this.db.get<Blob>('blobs', uploadKey(blobKey));
   }
 
   /** The review tray, oldest first. */
@@ -271,7 +285,9 @@ class SyncEngine {
 
   /** "Keep theirs" / "Discard my change" / "OK": the item leaves the tray. */
   async dismiss(id: string) {
+    const item = (await outbox.reviewItems(this.db)).find((i) => i.id === id);
     await outbox.removeReviewItem(this.db, id);
+    if (item?.op.upload) await this.db.delete('blobs', uploadKey(item.op.upload.blobKey));
     await this.changed();
   }
 
@@ -312,15 +328,20 @@ class SyncEngine {
 
   /** Where an op stands: still queued (null), or what became of it. */
   async outcome(opId: string): Promise<OpOutcome | null> {
-    // A renumbered op was replaced by another: follow it.
+    // A renumbered or re-based op was replaced by another: follow it.
+    const chain = [opId];
     for (let next = await this.db.get<string>('meta', aliasKey(opId)); next;) {
       opId = next;
+      chain.push(opId);
       next = await this.db.get<string>('meta', aliasKey(opId));
     }
     if (await this.db.get<OutboxOp>('outbox', opId)) return null;
-    const items = (await outbox.reviewItems(this.db)).filter((item) => item.op.opId === opId);
-    const cells = items.filter((item) => item.kind === 'cell').length;
-    const whole = items.find((item) => item.kind !== 'cell' && item.kind !== 'notice');
+    const all = await outbox.reviewItems(this.db);
+    const cells = all.filter((item) => item.kind === 'cell' && item.op.opId === opId).length;
+    // A re-based edit left its clashing fields in review under the first op.
+    const whole = all.find(
+      (item) => chain.includes(item.op.opId) && item.kind !== 'cell' && item.kind !== 'notice',
+    );
     if (whole?.kind === 'forwarded') return { state: 'forwarded', cellConflicts: 0, opId };
     if (whole) return { state: 'review', cellConflicts: 0, opId, item: whole };
     return { state: 'applied', cellConflicts: cells, opId };
@@ -424,6 +445,12 @@ class SyncEngine {
   }
 
   private async send(op: OutboxOp, device: string): Promise<SyncResponse> {
+    // Lost bytes (site data cleared) can't be sent: refused, so it goes to review.
+    if (op.upload && !(await this.db.get<Blob>('blobs', uploadKey(op.upload.blobKey)))) {
+      const message =
+        'The file for this change is no longer on this device. Make the change again.';
+      return { status: 400, body: { code: 'UPLOAD_MISSING', message }, headers: new Headers() };
+    }
     try {
       const {
         body,
@@ -431,7 +458,7 @@ class SyncEngine {
         headers,
       } = await apiClient.exchange(op.path, {
         method: op.method,
-        body: op.body,
+        body: op.upload ? await this.form(op) : op.body,
         headers: headersOf(op, device),
       });
       return { status: code, body, headers };
@@ -439,6 +466,16 @@ class SyncEngine {
       if (!(err instanceof ApiError) || err.statusCode === 0) return { status: 0 };
       return { status: err.statusCode, body: err.details, headers: err.headers ?? new Headers() };
     }
+  }
+
+  /** A queued upload's multipart body, from the bytes kept in `blobs`. */
+  private async form(op: OutboxOp): Promise<FormData> {
+    const { blobKey, field, fields, fileName } = op.upload!;
+    const blob = (await this.db.get<Blob>('blobs', uploadKey(blobKey)))!;
+    const form = new FormData();
+    for (const [name, value] of Object.entries(fields ?? {})) form.append(name, value);
+    form.append(field, blob, fileName);
+    return form;
   }
 
   /** Applies one outcome. False stops this run (offline, or paused). */
@@ -463,13 +500,46 @@ class SyncEngine {
           }),
         );
         await outbox.moveToReview(this.db, [...cells, ...notices], op.opId);
+        if (op.upload) await this.db.delete('blobs', uploadKey(op.upload.blobKey));
         await this.db.put('meta', now, LAST_SYNCED_KEY);
         this.pullWanted = true;
         await this.changed();
         appliedListeners.forEach((listener) => listener(op, body));
         return true;
       }
-      case 'conflict':
+      case 'conflict': {
+        // A `changes` update: resend the fields that didn't clash, review the rest (§5).
+        const split = rebaseChanges(op.body, outcome.error);
+        if (!split) {
+          await this.toReview(op, [
+            { id: op.opId, kind: 'conflict', op, error: outcome.error, createdAt: now },
+          ]);
+          return true;
+        }
+        const item: ReviewItem = {
+          id: op.opId,
+          kind: 'conflict',
+          op: { ...op, body: JSON.stringify(split.clashing) },
+          error: outcome.error,
+          createdAt: now,
+        };
+        if (!split.rest) {
+          await this.toReview(op, [item]);
+          return true;
+        }
+        // Tray first, then the resend in the op's place (a new key: §4).
+        await this.db.put('conflicts', item);
+        await outbox.replace(this.db, op, {
+          ...op,
+          opId: crypto.randomUUID(),
+          body: JSON.stringify(split.rest.body),
+          baseVersion: split.rest.baseVersion,
+          attempts: 0,
+          nextAttemptAt: 0,
+        });
+        await this.changed();
+        return true;
+      }
       case 'rejected':
       case 'forwarded':
         await this.toReview(op, [
@@ -548,6 +618,8 @@ class SyncEngine {
     if (outcome === 'done') this.pulledAt = Date.now();
     // Offline or refused: try again on the next run.
     else this.pullWanted = true;
+    if (outcome === 'done' || outcome === 'failed')
+      await this.db.put('meta', outcome === 'failed', PULL_FAILED_KEY);
     if (applied > 0) {
       pulledListeners.forEach((listener) => listener());
       this.channel?.postMessage('pulled');
@@ -611,11 +683,12 @@ class SyncEngine {
 
   private async refresh() {
     if (this.stopped) return;
-    const [pending, items, lastSyncedAt, lastPulledAt] = await Promise.all([
+    const [pending, items, lastSyncedAt, lastPulledAt, pullFailed] = await Promise.all([
       this.db.count('outbox'),
       outbox.reviewItems(this.db),
       this.db.get<number>('meta', LAST_SYNCED_KEY),
       this.db.get<number>('meta', PULLED_AT_KEY),
+      this.db.get<boolean>('meta', PULL_FAILED_KEY),
     ]);
     if (this.stopped) return;
     // Notices count as review: the user has to see them, even though they applied.
@@ -626,6 +699,7 @@ class SyncEngine {
       forwarded,
       lastSyncedAt: lastSyncedAt ?? null,
       lastPulledAt: lastPulledAt ?? null,
+      pullFailed: pullFailed === true,
     });
   }
 }
@@ -655,10 +729,13 @@ export function stopSync() {
 }
 
 /** Queues a write for the signed-in staff user. Rejects when offline storage isn't available. */
-export function enqueueWrite(input: EnqueueInput): Promise<OutboxOp> {
+export function enqueueWrite(input: EnqueueInput, file?: Blob): Promise<OutboxOp> {
   if (!engine) return Promise.reject(new Error('Offline storage is not available on this device.'));
-  return engine.enqueue(input);
+  return engine.enqueue(input, file);
 }
+
+/** A queued upload's bytes, e.g. to preview a photo waiting to sync. */
+export const queuedFile = (blobKey: string) => engine?.file(blobKey) ?? Promise.resolve(undefined);
 
 /** "Sync now": sends the queue and brings the records up to date. */
 export const syncNow = () => engine?.syncNow();

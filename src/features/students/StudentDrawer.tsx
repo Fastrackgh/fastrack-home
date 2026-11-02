@@ -20,7 +20,10 @@ import { Trash2, Upload } from 'lucide-react';
 import { feesApi, type FeeType } from '@/features/fees/api';
 import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/api-client';
+import { onSyncApplied } from '@/lib/offline/syncEngine';
 import { STATUS_LABELS, studentsApi, type FeePreference, type StudentDetail } from './api';
+import { EDITS_COLLECTION, loadStudent, savePhoto } from './edits-sync';
+import { notifyEdit } from './notifyEdit';
 import { EnrolmentTab } from './EnrolmentTab';
 import { GuardiansTab } from './GuardiansTab';
 import { ProfileTab } from './ProfileTab';
@@ -44,6 +47,8 @@ export function StudentDrawer({
 }) {
   const { can } = useAuth();
   const [student, setStudent] = useState<StudentDetail | null>(null);
+  const [waiting, setWaiting] = useState<Set<string>>(new Set());
+  const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const canUpdate = can('students:update');
@@ -52,7 +57,10 @@ export function StudentDrawer({
     if (!studentId) return;
     setError(null);
     try {
-      setStudent(await studentsApi.get(studentId));
+      const shown = await loadStudent(studentId);
+      setStudent(shown.student);
+      setWaiting(shown.waiting);
+      setOffline(shown.offline);
     } catch (err) {
       setError(errorMessage(err, 'Could not load the student.'));
     }
@@ -63,16 +71,26 @@ export function StudentDrawer({
     load();
   }, [load]);
 
+  // A queued edit of this pupil landing brings the record (and its version) up to date.
+  useEffect(
+    () =>
+      onSyncApplied((op) => {
+        if (op.collection === EDITS_COLLECTION && op.entityId === studentId) load();
+      }),
+    [load, studentId],
+  );
+
   const changed = () => {
     load();
     onChanged();
   };
 
-  const photo = async (run: () => Promise<void>, done: string) => {
+  /** A new photo or none, through the outbox like any edit (§9.4). */
+  const photo = async (file: File | null, done: string) => {
+    if (!student) return;
     setPhotoBusy(true);
     try {
-      await run();
-      notifications.show({ title: done, message: student?.fullName, color: 'green' });
+      notifyEdit(await savePhoto(student, file), done, student.fullName);
       load();
     } catch (err) {
       notifications.show({
@@ -131,6 +149,16 @@ export function StudentDrawer({
                 <Badge variant="light" color={student.status === 'Active' ? 'green' : 'gray'}>
                   {STATUS_LABELS[student.status] ?? student.status}
                 </Badge>
+                {waiting.size > 0 && (
+                  <Badge variant="light" color="yellow" tt="none">
+                    Changes waiting to sync
+                  </Badge>
+                )}
+                {offline && (
+                  <Badge variant="light" color="gray" tt="none">
+                    Offline copy
+                  </Badge>
+                )}
               </Group>
               {canUpdate && (
                 <Group gap="xs">
@@ -146,7 +174,7 @@ export function StudentDrawer({
                         });
                         return;
                       }
-                      photo(() => studentsApi.uploadPhoto(student.id, file), 'Photo updated');
+                      photo(file, 'Photo updated');
                     }}
                   >
                     {(props) => (
@@ -169,9 +197,7 @@ export function StudentDrawer({
                       color="red"
                       leftSection={<Trash2 size={12} />}
                       disabled={photoBusy}
-                      onClick={() =>
-                        photo(() => studentsApi.removePhoto(student.id), 'Photo removed')
-                      }
+                      onClick={() => photo(null, 'Photo removed')}
                     >
                       Remove
                     </Button>
@@ -192,7 +218,7 @@ export function StudentDrawer({
             </Tabs.List>
             <Tabs.Panel value="profile">
               <ProfileTab
-                key={student.id}
+                key={`${student.id}:${student.rowVersion}`}
                 student={student}
                 canEdit={canUpdate}
                 onSaved={changed}
@@ -208,7 +234,7 @@ export function StudentDrawer({
             </Tabs.Panel>
             <Tabs.Panel value="guardians">
               <GuardiansTab
-                key={student.id}
+                key={`${student.id}:${student.rowVersion}`}
                 student={student}
                 canEdit={canUpdate}
                 canReadSensitive={can('students:read_sensitive')}

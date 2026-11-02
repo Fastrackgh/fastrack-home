@@ -146,4 +146,45 @@ assert.equal(
   300000,
 );
 
+// §5 step 4: a 409 CONFLICT on a `changes` update splits into review and a resend.
+const r = require(path.resolve(__dirname, '..', 'src/lib/offline/rebase.ts'));
+const clash409 = (fields, current) => ({
+  status: 409,
+  code: 'CONFLICT',
+  message: 'm',
+  conflictingFields: fields,
+  current,
+});
+const edit = JSON.stringify({
+  changes: { firstName: { from: 'Ama', to: 'Amma' }, religion: { from: '', to: 'Christian' } },
+});
+assert.deepEqual(
+  r.rebaseChanges(
+    edit,
+    clash409(['firstName'], { firstName: 'Akua', religion: null, rowVersion: 7 }),
+  ),
+  {
+    clashing: { changes: { firstName: { from: 'Ama', to: 'Amma' } } },
+    rest: { body: { changes: { religion: { from: null, to: 'Christian' } } }, baseVersion: 7 },
+  },
+);
+assert.equal(
+  r.rebaseChanges(edit, clash409(['firstName', 'religion'], { rowVersion: 7 })).rest,
+  null,
+);
+// Not of that form: a plain body, no current version, another code, nothing it sent.
+assert.equal(
+  r.rebaseChanges('{"firstName":"Amma"}', clash409(['firstName'], { rowVersion: 7 })),
+  null,
+);
+assert.equal(r.rebaseChanges(edit, clash409(['firstName'], { firstName: 'Akua' })), null);
+assert.equal(
+  r.rebaseChanges(edit, {
+    ...clash409(['firstName'], { rowVersion: 7 }),
+    code: 'LIKELY_DUPLICATE',
+  }),
+  null,
+);
+assert.equal(r.rebaseChanges(edit, clash409(['surname'], { rowVersion: 7 })), null);
+
 console.log('sync outcome checks passed');

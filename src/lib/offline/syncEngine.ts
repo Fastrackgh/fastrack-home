@@ -9,6 +9,7 @@ import {
   type OutboxOp,
   type ReviewItem,
 } from './outbox';
+import { rebaseChanges } from './rebase';
 import { CURSOR_KEY, PULLED_AT_KEY, pull, recordsOf, type SyncedRecord } from './pull';
 import { backoffMs, classify, type SyncOutcome, type SyncResponse } from './syncOutcome';
 
@@ -312,15 +313,20 @@ class SyncEngine {
 
   /** Where an op stands: still queued (null), or what became of it. */
   async outcome(opId: string): Promise<OpOutcome | null> {
-    // A renumbered op was replaced by another: follow it.
+    // A renumbered or re-based op was replaced by another: follow it.
+    const chain = [opId];
     for (let next = await this.db.get<string>('meta', aliasKey(opId)); next;) {
       opId = next;
+      chain.push(opId);
       next = await this.db.get<string>('meta', aliasKey(opId));
     }
     if (await this.db.get<OutboxOp>('outbox', opId)) return null;
-    const items = (await outbox.reviewItems(this.db)).filter((item) => item.op.opId === opId);
-    const cells = items.filter((item) => item.kind === 'cell').length;
-    const whole = items.find((item) => item.kind !== 'cell' && item.kind !== 'notice');
+    const all = await outbox.reviewItems(this.db);
+    const cells = all.filter((item) => item.kind === 'cell' && item.op.opId === opId).length;
+    // A re-based edit left its clashing fields in review under the first op.
+    const whole = all.find(
+      (item) => chain.includes(item.op.opId) && item.kind !== 'cell' && item.kind !== 'notice',
+    );
     if (whole?.kind === 'forwarded') return { state: 'forwarded', cellConflicts: 0, opId };
     if (whole) return { state: 'review', cellConflicts: 0, opId, item: whole };
     return { state: 'applied', cellConflicts: cells, opId };
@@ -469,7 +475,39 @@ class SyncEngine {
         appliedListeners.forEach((listener) => listener(op, body));
         return true;
       }
-      case 'conflict':
+      case 'conflict': {
+        // A `changes` update: resend the fields that didn't clash, review the rest (§5).
+        const split = rebaseChanges(op.body, outcome.error);
+        if (!split) {
+          await this.toReview(op, [
+            { id: op.opId, kind: 'conflict', op, error: outcome.error, createdAt: now },
+          ]);
+          return true;
+        }
+        const item: ReviewItem = {
+          id: op.opId,
+          kind: 'conflict',
+          op: { ...op, body: JSON.stringify(split.clashing) },
+          error: outcome.error,
+          createdAt: now,
+        };
+        if (!split.rest) {
+          await this.toReview(op, [item]);
+          return true;
+        }
+        // Tray first, then the resend in the op's place (a new key: §4).
+        await this.db.put('conflicts', item);
+        await outbox.replace(this.db, op, {
+          ...op,
+          opId: crypto.randomUUID(),
+          body: JSON.stringify(split.rest.body),
+          baseVersion: split.rest.baseVersion,
+          attempts: 0,
+          nextAttemptAt: 0,
+        });
+        await this.changed();
+        return true;
+      }
       case 'rejected':
       case 'forwarded':
         await this.toReview(op, [

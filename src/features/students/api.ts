@@ -149,13 +149,15 @@ export interface StudentDetail {
   parents: LinkedParent[];
   linkBlocks: LinkBlock[];
   history: Enrollment[];
+  /** The record's version, the base of a queued edit (contract §5, §9.3); null from an older server. */
+  rowVersion: number | null;
 }
 
-const REQUIRED = new Set<ProfileField>(['firstName', 'surname', 'gender', 'birthDate']);
-const base = (studentId: string) => `/schools/me/students/${pathId(studentId)}`;
+export const REQUIRED = new Set<ProfileField>(['firstName', 'surname', 'gender', 'birthDate']);
+export const studentPath = (studentId: string) => `/schools/me/students/${pathId(studentId)}`;
 const str = (value: unknown) => (typeof value === 'string' ? value : '');
 
-function toDetail(raw: Raw): StudentDetail {
+export function toDetail(raw: Raw): StudentDetail {
   const current = raw.currentClass as { id?: string; className?: string } | null;
   return {
     id: String(raw.id),
@@ -182,6 +184,7 @@ function toDetail(raw: Raw): StudentDetail {
       termLabel: str(e.termLabel),
       enrolledOn: str(e.enrolledOn) || null,
     })),
+    rowVersion: typeof raw.rowVersion === 'number' ? raw.rowVersion : null,
   };
 }
 
@@ -228,39 +231,27 @@ export const studentsApi = {
     return res.meta?.total ?? 0;
   },
   async get(studentId: string) {
-    return toDetail((await apiClient.get<Raw>(base(studentId))).data ?? {});
-  },
-  /**
-   * Sends only the fields that changed. A cleared text field is sent empty to
-   * blank it; names, gender and the birth date can't be blanked.
-   */
-  async update(studentId: string, change: Partial<Profile & Guardians>) {
-    const body = Object.fromEntries(
-      Object.entries(change)
-        .map(([key, value]) => [key, (value ?? '').trim()])
-        .filter(([key, value]) => value !== '' || !REQUIRED.has(key as ProfileField)),
-    );
-    await apiClient.patch(base(studentId), body);
+    return toDetail((await apiClient.get<Raw>(studentPath(studentId))).data ?? {});
   },
   async uploadPhoto(studentId: string, file: File) {
     const form = new FormData();
     form.append('file', file);
-    await apiClient.request(`${base(studentId)}/photo`, { method: 'PUT', body: form });
+    await apiClient.request(`${studentPath(studentId)}/photo`, { method: 'PUT', body: form });
   },
   async removePhoto(studentId: string) {
-    await apiClient.delete(`${base(studentId)}/photo`);
+    await apiClient.delete(`${studentPath(studentId)}/photo`);
   },
   async promote(
     studentId: string,
     input: { targetClassId: string; termId: string; enrolledOn?: string },
   ) {
-    await apiClient.post(`${base(studentId)}/promote`, input);
+    await apiClient.post(`${studentPath(studentId)}/promote`, input);
   },
   async recordExit(
     studentId: string,
     input: { academicTermId: string; exitDate: string; status: StudentStatus; reason?: string },
   ) {
-    await apiClient.post(`${base(studentId)}/exit`, input);
+    await apiClient.post(`${studentPath(studentId)}/exit`, input);
   },
   /**
    * Unlinks a parent; with `preventRelink` they (and anyone on their phone or
@@ -275,27 +266,30 @@ export const studentsApi = {
     if (options.preventRelink) query.set('preventRelink', 'true');
     if (options.preventRelink && options.reason?.trim()) query.set('reason', options.reason.trim());
     const suffix = query.toString() ? `?${query.toString()}` : '';
-    await apiClient.delete(`${base(studentId)}/parents/${pathId(parentId)}${suffix}`);
+    await apiClient.delete(`${studentPath(studentId)}/parents/${pathId(parentId)}${suffix}`);
   },
   /** Links the parent account using the mother's or father's contact on record. */
   async linkFromGuardian(studentId: string, guardian: 'mother' | 'father') {
-    await apiClient.post(`${base(studentId)}/parents/from-guardian`, { guardian });
+    await apiClient.post(`${studentPath(studentId)}/parents/from-guardian`, { guardian });
   },
   async liftBlock(studentId: string, blockId: string) {
-    await apiClient.delete(`${base(studentId)}/parent-blocks/${pathId(blockId)}`);
+    await apiClient.delete(`${studentPath(studentId)}/parent-blocks/${pathId(blockId)}`);
   },
   /** Newest first. A v2 list response, so the entries are `data` itself (QA-238). */
   async history(studentId: string) {
-    const res = await apiClient.get<HistoryEntry[]>(`${base(studentId)}/history?limit=50`);
+    const res = await apiClient.get<HistoryEntry[]>(`${studentPath(studentId)}/history?limit=50`);
     return Array.isArray(res.data) ? res.data : [];
   },
   async feePreferences(studentId: string) {
     return (
-      (await apiClient.get<Record<string, FeePreference>>(`${base(studentId)}/optional-fees`))
-        .data ?? {}
+      (
+        await apiClient.get<Record<string, FeePreference>>(
+          `${studentPath(studentId)}/optional-fees`,
+        )
+      ).data ?? {}
     );
   },
   async setFeePreference(studentId: string, feeTypeId: string, enabled: boolean) {
-    await apiClient.put(`${base(studentId)}/optional-fees`, { feeTypeId, enabled });
+    await apiClient.put(`${studentPath(studentId)}/optional-fees`, { feeTypeId, enabled });
   },
 };

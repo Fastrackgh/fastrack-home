@@ -32,6 +32,8 @@ import {
   type LinkedParent,
   type StudentDetail,
 } from './api';
+import { saveStudentEdit } from './edits-sync';
+import { notifyEdit } from './notifyEdit';
 
 const FIELD_LABELS: Record<string, string> = {
   motherName: "Mother's name",
@@ -109,15 +111,11 @@ export function GuardiansTab({
   const save = async () => {
     setSaving(true);
     try {
-      await studentsApi.update(
-        student.id,
+      const result = await saveStudentEdit(
+        student,
         Object.fromEntries(changed.map((f) => [f, draft[f]])) as Partial<Guardians>,
       );
-      notifications.show({
-        title: 'Guardian contacts updated',
-        message: student.fullName,
-        color: 'green',
-      });
+      notifyEdit(result, 'Guardian contacts updated', student.fullName);
       onChanged();
     } catch (err) {
       notifications.show({

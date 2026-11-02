@@ -299,6 +299,36 @@ flowchart LR
     - "It's Kojo" moved the mark to the existing Kojo, where it landed. No second Kojo was admitted.
   - The earlier suites still pass: tray 12/12, attendance 23/23, marks 15/15, Changes to review 19/19, pull 8/8, past days 3/3, payments 14/14, double payment 6/6, dates 7/7.
 
+## Offline pupil edits (phase 3, backend step 5c part 1, contract v0.5.6 §9.3)
+
+- **Every edit to a pupil's Profile or Guardians tab goes through the outbox, online too** (`src/features/students/edits-sync.ts`). `studentsApi.update` is gone.
+  - The body is `changes`: each changed field with `from` (the value on screen) and `to`. `X-Base-Version` is the record's `rowVersion`. A cleared field is sent empty; names, gender and the birth date can't be blanked.
+  - Edits to one pupil send in order. A second edit made before the first lands starts from the first one's values, so its `from` matches once the first applies.
+  - An edit to a pupil admitted on this device waits for the admission (`dependsOn`).
+- **After saving**, the tab waits up to 8 s, but not once the device is known to be offline:
+  - **Landed:** "Student updated" / "Guardian contacts updated", as before.
+  - **Offline or no answer:** "Saved on this device · The changes to … will be sent when the device is back online."
+  - **A clash:** "Someone else changed this pupil · Changes that clash are in Needs review. Any others were saved."
+- **The student drawer** reads the server's copy online, never a saved read, so the base version is current. Offline, it reads the synced `student-details` record, or a saved read for a pupil outside the synced scope. It shows:
+  - the device's queued edits on top, with a **Changes waiting to sync** badge;
+  - an **Offline copy** badge when read from the device;
+  - no photo buttons offline. Queued photos come with 5c part 2.
+
+  The drawer reloads when one of this pupil's edits lands. The Profile and Guardians forms restart from the record whenever its version moves, so `from` is always what is on screen.
+- **Clashes (contract §5 step 4, in the engine for any `changes` update):** a 409 `CONFLICT` with `conflictingFields` and `current.rowVersion` is split (`src/lib/offline/rebase.ts`):
+  - the clashing fields go to review, under the first op;
+  - the other fields are resent at once as a new op in its place, with `from` taken from `current` and `X-Base-Version = current.rowVersion`. Ops waiting on the first now wait on the resend.
+
+  `waitForOp` follows the resend and still reports the review item. The card is **Changed by someone else** with a Now / Yours table of only the clashing fields. **Keep mine** resends them, each from the server's value now. 404, `RECORD_DELETED` and validation refusals are explained in words. `scripts/check-sync-outcome.cjs` checks the split.
+- **Not yet:** `updatedBy`/`updatedAt` on `current` (the card has no "changed by"), and `RECORD_DELETED` (the backend still answers 404). Photos (§9.4) wait on contract v0.5.7.
+- **Checked (2 Nov, `next dev` against backend `feat/offline-student-edits` a41e650 on `fastrack_fe18`, principal@bis.test, Playwright, 13/13).** "Someone else" was the principal on another device, editing through the API.
+  - **Online:** a Religion edit showed "Student updated" and was sent through the outbox.
+  - **Stale base, other field:** someone else changed the religion. The open drawer, still on the old version, then saved a Residence edit. It applied, and their religion was kept.
+  - **Offline:** Nationality and Digital address were queued as one `changes` op with `from`, `to` and the base version. The drawer showed "Saved on this device" and **Changes waiting to sync**. Reopened offline, it showed the queued values and **Offline copy**.
+  - **Clash:** someone else changed the nationality meanwhile. Back online, the digital address landed and theirs was kept for the nationality. The tray showed "Changed by someone else" with only Nationality (Now / Yours). **Keep mine** landed mine.
+  - **Guardians tab:** a mother's occupation edit showed "Guardian contacts updated".
+  - **Earlier suites:** tray 12/12, admissions 17/17 and Changes to review 19/19 still pass. Payments was 13/14. The logo check failed because the school's saved logo URL points at the backend on :3000, which wasn't running. That's the environment, not this change.
+
 ## Needs review tray
 
 - **Opening it:** click the header chip whenever it shows "N need review" or "N sent to head teacher". It opens a drawer on the right, full width on a phone (`ReviewTray.tsx`).

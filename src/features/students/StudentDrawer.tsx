@@ -20,7 +20,9 @@ import { Trash2, Upload } from 'lucide-react';
 import { feesApi, type FeeType } from '@/features/fees/api';
 import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/api-client';
+import { onSyncApplied } from '@/lib/offline/syncEngine';
 import { STATUS_LABELS, studentsApi, type FeePreference, type StudentDetail } from './api';
+import { EDITS_COLLECTION, loadStudent } from './edits-sync';
 import { EnrolmentTab } from './EnrolmentTab';
 import { GuardiansTab } from './GuardiansTab';
 import { ProfileTab } from './ProfileTab';
@@ -44,6 +46,8 @@ export function StudentDrawer({
 }) {
   const { can } = useAuth();
   const [student, setStudent] = useState<StudentDetail | null>(null);
+  const [waiting, setWaiting] = useState<Set<string>>(new Set());
+  const [offline, setOffline] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [photoBusy, setPhotoBusy] = useState(false);
   const canUpdate = can('students:update');
@@ -52,7 +56,10 @@ export function StudentDrawer({
     if (!studentId) return;
     setError(null);
     try {
-      setStudent(await studentsApi.get(studentId));
+      const shown = await loadStudent(studentId);
+      setStudent(shown.student);
+      setWaiting(shown.waiting);
+      setOffline(shown.offline);
     } catch (err) {
       setError(errorMessage(err, 'Could not load the student.'));
     }
@@ -62,6 +69,15 @@ export function StudentDrawer({
     setStudent(null);
     load();
   }, [load]);
+
+  // A queued edit of this pupil landing brings the record (and its version) up to date.
+  useEffect(
+    () =>
+      onSyncApplied((op) => {
+        if (op.collection === EDITS_COLLECTION && op.entityId === studentId) load();
+      }),
+    [load, studentId],
+  );
 
   const changed = () => {
     load();
@@ -131,8 +147,18 @@ export function StudentDrawer({
                 <Badge variant="light" color={student.status === 'Active' ? 'green' : 'gray'}>
                   {STATUS_LABELS[student.status] ?? student.status}
                 </Badge>
+                {waiting.size > 0 && (
+                  <Badge variant="light" color="yellow" tt="none">
+                    Changes waiting to sync
+                  </Badge>
+                )}
+                {offline && (
+                  <Badge variant="light" color="gray" tt="none">
+                    Offline copy
+                  </Badge>
+                )}
               </Group>
-              {canUpdate && (
+              {canUpdate && !offline && (
                 <Group gap="xs">
                   <FileButton
                     accept="image/png,image/jpeg,image/webp"
@@ -192,7 +218,7 @@ export function StudentDrawer({
             </Tabs.List>
             <Tabs.Panel value="profile">
               <ProfileTab
-                key={student.id}
+                key={`${student.id}:${student.rowVersion}`}
                 student={student}
                 canEdit={canUpdate}
                 onSaved={changed}
@@ -208,7 +234,7 @@ export function StudentDrawer({
             </Tabs.Panel>
             <Tabs.Panel value="guardians">
               <GuardiansTab
-                key={student.id}
+                key={`${student.id}:${student.rowVersion}`}
                 student={student}
                 canEdit={canUpdate}
                 canReadSensitive={can('students:read_sensitive')}

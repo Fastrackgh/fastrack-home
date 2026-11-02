@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge, Button, Card, Drawer, Group, Stack, Table, Text } from '@mantine/core';
 import { registerAttendanceResolver } from '@/features/attendance/sync';
 import { registerPaymentsSync } from '@/features/fees/payments-sync';
+import { registerEditsSync } from '@/features/students/edits-sync';
 import { registerAdmissionsSync } from '@/features/students/admissions-sync';
 import { itemNameKey, registerMarksResolver } from '@/features/results/marks-sync';
 import { formatAge } from '@/lib/format';
@@ -28,6 +29,7 @@ registerAttendanceResolver();
 registerMarksResolver();
 registerPaymentsSync();
 registerAdmissionsSync();
+registerEditsSync();
 
 /** Fields that describe a write, not its value. */
 const META_FIELDS = new Set(['updatedBy', 'updatedAt', 'rowVersion', 'version', 'id']);

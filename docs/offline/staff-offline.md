@@ -312,7 +312,7 @@ flowchart LR
 - **The student drawer** reads the server's copy online, never a saved read, so the base version is current. Offline, it reads the synced `student-details` record, or a saved read for a pupil outside the synced scope. It shows:
   - the device's queued edits on top, with a **Changes waiting to sync** badge;
   - an **Offline copy** badge when read from the device;
-  - no photo buttons offline. Queued photos come with 5c part 2.
+  - a photo waiting to sync from the device's copy, or none for a queued removal.
 
   The drawer reloads when one of this pupil's edits lands. The Profile and Guardians forms restart from the record whenever its version moves, so `from` is always what is on screen.
 - **Clashes (contract §5 step 4, in the engine for any `changes` update):** a 409 `CONFLICT` with `conflictingFields` and `current.rowVersion` is split (`src/lib/offline/rebase.ts`):
@@ -320,7 +320,19 @@ flowchart LR
   - the other fields are resent at once as a new op in its place, with `from` taken from `current` and `X-Base-Version = current.rowVersion`. Ops waiting on the first now wait on the resend.
 
   `waitForOp` follows the resend and still reports the review item. The card is **Changed by someone else** with a Now / Yours table of only the clashing fields. **Keep mine** resends them, each from the server's value now. 404, `RECORD_DELETED` and validation refusals are explained in words. `scripts/check-sync-outcome.cjs` checks the split.
-- **Not yet:** `updatedBy`/`updatedAt` on `current` (the card has no "changed by"), and `RECORD_DELETED` (the backend still answers 404). Photos (§9.4) wait on contract v0.5.7.
+- **Photos (5c part 2, contract v0.5.7 §9.4).** **Replace photo** and **Remove** go through the outbox too, so they work offline. `studentsApi.uploadPhoto` and `removePhoto` are gone.
+  - **A new photo** is one `PUT …/photo` op. The file's bytes are kept in the `blobs` store (`upload:<key>`) until the op lands or its review item is discarded, and a resend from review reuses them. At send time the engine builds the multipart body from those bytes, along with `from`. It also sends `X-Content-SHA256` (hex SHA-256 of the bytes), which is part of the request hash.
+  - **A removal** is `DELETE …/photo?from=<mediaId>`.
+  - **`from`** is the photo the device last saw (the detail's `photoId`, or `''` for none), so a photo someone else changed meanwhile clashes. It's left out when another photo change for the pupil is already queued, because that one's media id isn't known yet; the later change wins.
+  - A photo for a pupil admitted offline waits for the admission. If the bytes are gone (site data cleared), the op goes to review as "The file for this change is no longer on this device."
+  - **Clash:** the card reads "Someone else changed <pupil>'s photo after your device last saw it. Keep theirs, or keep yours.", with the photo there now (`current.photoUrl`, a signed URL) beside the queued one. **Keep mine** resends it with `from` set to `current.photoId`.
+  - **Checked (2 Nov, against backend e6c9e22 on `fastrack_fe18`, Playwright, 13/13):**
+    - Online, a photo showed "Photo updated" and was sent as a keyed op.
+    - Offline, a replacement showed "Saved on this device", with the device copy (`blob:`) and **Changes waiting to sync**. The op carried `from` (the first photo's id) and the SHA-256, and its bytes were in `blobs`.
+    - Someone else put another photo meanwhile. Back online, theirs was kept and the tray showed the clash in words with Now (signed URL) and Yours (device copy). **Keep mine** landed a new photo, and the bytes were dropped.
+    - An offline **Remove** was queued as `DELETE …/photo?from=<id>`, showed no photo while waiting, and landed.
+    - Edits 13/13, tray 12/12, admissions 17/17 and Changes to review 19/19 pass against e6c9e22.
+- **Not yet:** `updatedBy`/`updatedAt` on `current` (the card has no "changed by"). `RECORD_DELETED` (backend e6c9e22: a queued edit, photo or removal for a deleted pupil) reads "Not saved: <pupil>'s record was removed."; not tested through the UI. A write to a field hidden without `students:read_sensitive` is a 403, handled as any 403 (QA-283, backend PR #14). The Guardians tab is read-only without that permission.
 - **Checked (2 Nov, `next dev` against backend `feat/offline-student-edits` a41e650 on `fastrack_fe18`, principal@bis.test, Playwright, 13/13).** "Someone else" was the principal on another device, editing through the API.
   - **Online:** a Religion edit showed "Student updated" and was sent through the outbox.
   - **Stale base, other field:** someone else changed the religion. The open drawer, still on the old version, then saved a Residence edit. It applied, and their religion was kept.

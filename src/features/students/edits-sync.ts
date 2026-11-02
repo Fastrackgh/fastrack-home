@@ -3,6 +3,7 @@ import type { OutboxOp, ReviewItem } from '@/lib/offline/outbox';
 import {
   enqueueWrite,
   pendingWrites,
+  queuedFile,
   registerReviewResolver,
   registerReviewText,
   syncedRecord,
@@ -81,7 +82,15 @@ export async function loadStudent(id: string): Promise<ShownDetail> {
   const waiting = new Set<string>();
   const profile = { ...student.profile };
   const guardians = { ...student.guardians };
+  let photoUrl = student.photoUrl;
   for (const op of await pendingWrites(EDITS_COLLECTION, id)) {
+    if (isPhotoOp(op)) {
+      // The last queued photo shows: the new one from the device, or none for a removal.
+      const file = op.upload ? await queuedFile(op.upload.blobKey) : undefined;
+      photoUrl = file ? URL.createObjectURL(file) : null;
+      waiting.add('photo');
+      continue;
+    }
     for (const [field, { to }] of Object.entries(changesOf(op))) {
       if (PROFILE.has(field)) profile[field as ProfileField] = to ?? '';
       else if (GUARDIAN.has(field)) guardians[field as GuardianField] = to ?? '';
@@ -95,7 +104,7 @@ export async function loadStudent(id: string): Promise<ShownDetail> {
         .filter(Boolean)
         .join(' ')
     : student.fullName;
-  return { student: { ...student, profile, guardians, fullName }, waiting, offline };
+  return { student: { ...student, profile, guardians, fullName, photoUrl }, waiting, offline };
 }
 
 /**
@@ -129,6 +138,69 @@ export async function queueStudentEdit(
   });
 }
 
+// --- Photos (§9.4) -----------------------------------------------------------
+
+const photoPath = (id: string) => `${studentPath(id)}/photo`;
+const isPhotoOp = (op: OutboxOp) => op.path.split('?')[0].endsWith('/photo');
+
+const sha256 = async (file: Blob) =>
+  Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', await file.arrayBuffer())))
+    .map((byte) => byte.toString(16).padStart(2, '0'))
+    .join('');
+
+/**
+ * `from`: the photo the device last saw ('' for none), so a photo someone
+ * else changed meanwhile clashes. Left out after another photo change queued
+ * here, whose media id isn't known yet: the later change wins.
+ */
+async function photoFrom(student: StudentDetail): Promise<string | null> {
+  const earlier = (await pendingWrites(EDITS_COLLECTION, student.id)).some(isPhotoOp);
+  return earlier ? null : (student.photoId ?? '');
+}
+
+/** Queues a new photo: the file stays on the device until it lands. */
+export async function queuePhoto(student: StudentDetail, file: File): Promise<OutboxOp> {
+  const from = await photoFrom(student);
+  return enqueueWrite(
+    {
+      collection: EDITS_COLLECTION,
+      entityId: student.id,
+      method: 'PUT',
+      path: photoPath(student.id),
+      baseVersion: student.rowVersion ?? undefined,
+      upload: {
+        blobKey: crypto.randomUUID(),
+        field: 'file',
+        fields: from === null ? {} : { from },
+        sha256: await sha256(file),
+        fileName: file.name,
+      },
+      dependsOn: await admissionOpsFor([student.id]),
+      label: `New photo of ${student.fullName}`,
+      names: { [student.id]: student.fullName },
+    },
+    file,
+  );
+}
+
+/** Queues removing the photo; safe to resend (an already removed photo is a 200). */
+export async function queuePhotoRemoval(student: StudentDetail): Promise<OutboxOp> {
+  const from = await photoFrom(student);
+  return enqueueWrite({
+    collection: EDITS_COLLECTION,
+    entityId: student.id,
+    method: 'DELETE',
+    path:
+      from === null
+        ? photoPath(student.id)
+        : `${photoPath(student.id)}?${new URLSearchParams({ from })}`,
+    baseVersion: student.rowVersion ?? undefined,
+    dependsOn: await admissionOpsFor([student.id]),
+    label: `Photo of ${student.fullName} removed`,
+    names: { [student.id]: student.fullName },
+  });
+}
+
 /** What became of a saved edit, for the screen's message. */
 export type EditResult = 'saved' | 'queued' | 'review';
 
@@ -137,7 +209,14 @@ export async function saveStudentEdit(
   student: StudentDetail,
   change: Partial<Profile & Guardians>,
 ): Promise<EditResult> {
-  const op = await queueStudentEdit(student, change);
+  return settle(await queueStudentEdit(student, change));
+}
+
+/** A new photo, or none: queued, then waited for as an edit is. */
+export const savePhoto = async (student: StudentDetail, file: File | null) =>
+  settle(await (file ? queuePhoto(student, file) : queuePhotoRemoval(student)));
+
+async function settle(op: OutboxOp | null): Promise<EditResult> {
   if (!op) return 'saved';
   const outcome = await waitUnlessOffline(op.opId, 8000);
   if (!outcome) return 'queued';
@@ -149,6 +228,10 @@ export async function saveStudentEdit(
 function explain(item: ReviewItem): string | null {
   const pupil = item.op.names?.[item.op.entityId] ?? 'this pupil';
   switch (item.error?.code) {
+    case 'CONFLICT':
+      return isPhotoOp(item.op)
+        ? `Someone else changed ${pupil}'s photo after your device last saw it. Keep theirs, or keep yours.`
+        : null;
     case 'RECORD_DELETED':
       return `Not saved: ${pupil}'s record was removed.`;
     case 'VALIDATION_FAILED':
@@ -162,6 +245,24 @@ function explain(item: ReviewItem): string | null {
 function resend(item: ReviewItem) {
   const current = item.error?.current as Raw | undefined;
   if (item.error?.code !== 'CONFLICT' || !current) return null;
+  const baseVersion = typeof current.rowVersion === 'number' ? current.rowVersion : undefined;
+  if (isPhotoOp(item.op)) {
+    // Mine again, from the photo there now.
+    const from = typeof current.photoId === 'string' ? current.photoId : '';
+    const { upload } = item.op;
+    return {
+      collection: EDITS_COLLECTION,
+      entityId: item.op.entityId,
+      method: item.op.method,
+      path: upload
+        ? item.op.path
+        : `${item.op.path.split('?')[0]}?${new URLSearchParams({ from })}`,
+      baseVersion,
+      upload: upload && { ...upload, fields: { ...upload.fields, from } },
+      label: item.op.label,
+      names: item.op.names,
+    };
+  }
   const changes = Object.fromEntries(
     Object.entries(changesOf(item.op)).map(([field, { to }]) => [
       field,
@@ -175,7 +276,7 @@ function resend(item: ReviewItem) {
     method: 'PATCH' as const,
     path: item.op.path,
     body: { changes },
-    baseVersion: typeof current.rowVersion === 'number' ? current.rowVersion : undefined,
+    baseVersion,
     label: item.op.label,
     names: item.op.names,
   };

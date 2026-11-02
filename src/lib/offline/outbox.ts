@@ -23,6 +23,8 @@ export interface OutboxOp {
   body?: string;
   /** `X-Base-Version`: the rowVersion the device last saw. */
   baseVersion?: number;
+  /** A file sent as multipart in place of `body` (a queued photo, §9.4). */
+  upload?: Upload;
   /** `X-Client-Recorded-At`: the raw device clock when the user acted (the server corrects skew). */
   recordedAt: string;
   /** Ops that must land first (e.g. an admission before its attendance). */
@@ -43,6 +45,23 @@ export interface OutboxOp {
   lastError?: string;
 }
 
+/**
+ * A queued file: the bytes stay in `blobs` under `uploadKey(blobKey)` until
+ * the op lands or is discarded, and a resend from review reuses them.
+ */
+export interface Upload {
+  blobKey: string;
+  /** The multipart field the file goes in. */
+  field: string;
+  /** Other multipart fields, e.g. `from` (§9.4). */
+  fields?: Record<string, string>;
+  /** Hex SHA-256 of the bytes: `X-Content-SHA256`, part of the request hash (§9.4). */
+  sha256: string;
+  fileName: string;
+}
+
+export const uploadKey = (blobKey: string) => `upload:${blobKey}`;
+
 export interface EnqueueInput {
   collection: string;
   entityId: string;
@@ -50,6 +69,7 @@ export interface EnqueueInput {
   path: string;
   body?: unknown;
   baseVersion?: number;
+  upload?: Upload;
   dependsOn?: string[];
   label: string;
   names?: Record<string, string>;
@@ -102,6 +122,7 @@ function newOp(input: EnqueueInput, seq: number): OutboxOp {
     path: input.path,
     body: input.body === undefined ? undefined : JSON.stringify(input.body),
     baseVersion: input.baseVersion,
+    upload: input.upload,
     recordedAt: new Date(now).toISOString(),
     dependsOn: input.dependsOn ?? [],
     label: input.label,

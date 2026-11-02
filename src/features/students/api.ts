@@ -142,6 +142,8 @@ export interface StudentDetail {
   fullName: string;
   status: StudentStatus;
   photoUrl: string | null;
+  /** The photo's media id: `from` of a queued photo change (§9.4). */
+  photoId: string | null;
   classId: string | null;
   className: string | null;
   profile: Profile;
@@ -165,6 +167,7 @@ export function toDetail(raw: Raw): StudentDetail {
     fullName: str(raw.fullName),
     status: (raw.status as StudentStatus) ?? 'Active',
     photoUrl: str(raw.photoUrl) || null,
+    photoId: str(raw.photoId) || null,
     classId: current?.id ?? null,
     className: current?.className ?? null,
     profile: Object.fromEntries(
@@ -232,14 +235,6 @@ export const studentsApi = {
   },
   async get(studentId: string) {
     return toDetail((await apiClient.get<Raw>(studentPath(studentId))).data ?? {});
-  },
-  async uploadPhoto(studentId: string, file: File) {
-    const form = new FormData();
-    form.append('file', file);
-    await apiClient.request(`${studentPath(studentId)}/photo`, { method: 'PUT', body: form });
-  },
-  async removePhoto(studentId: string) {
-    await apiClient.delete(`${studentPath(studentId)}/photo`);
   },
   async promote(
     studentId: string,

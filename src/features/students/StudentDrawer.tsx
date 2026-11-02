@@ -22,7 +22,8 @@ import { useAuth } from '@/lib/auth';
 import { errorMessage } from '@/lib/api-client';
 import { onSyncApplied } from '@/lib/offline/syncEngine';
 import { STATUS_LABELS, studentsApi, type FeePreference, type StudentDetail } from './api';
-import { EDITS_COLLECTION, loadStudent } from './edits-sync';
+import { EDITS_COLLECTION, loadStudent, savePhoto } from './edits-sync';
+import { notifyEdit } from './notifyEdit';
 import { EnrolmentTab } from './EnrolmentTab';
 import { GuardiansTab } from './GuardiansTab';
 import { ProfileTab } from './ProfileTab';
@@ -84,11 +85,12 @@ export function StudentDrawer({
     onChanged();
   };
 
-  const photo = async (run: () => Promise<void>, done: string) => {
+  /** A new photo or none, through the outbox like any edit (§9.4). */
+  const photo = async (file: File | null, done: string) => {
+    if (!student) return;
     setPhotoBusy(true);
     try {
-      await run();
-      notifications.show({ title: done, message: student?.fullName, color: 'green' });
+      notifyEdit(await savePhoto(student, file), done, student.fullName);
       load();
     } catch (err) {
       notifications.show({
@@ -158,7 +160,7 @@ export function StudentDrawer({
                   </Badge>
                 )}
               </Group>
-              {canUpdate && !offline && (
+              {canUpdate && (
                 <Group gap="xs">
                   <FileButton
                     accept="image/png,image/jpeg,image/webp"
@@ -172,7 +174,7 @@ export function StudentDrawer({
                         });
                         return;
                       }
-                      photo(() => studentsApi.uploadPhoto(student.id, file), 'Photo updated');
+                      photo(file, 'Photo updated');
                     }}
                   >
                     {(props) => (
@@ -195,9 +197,7 @@ export function StudentDrawer({
                       color="red"
                       leftSection={<Trash2 size={12} />}
                       disabled={photoBusy}
-                      onClick={() =>
-                        photo(() => studentsApi.removePhoto(student.id), 'Photo removed')
-                      }
+                      onClick={() => photo(null, 'Photo removed')}
                     >
                       Remove
                     </Button>

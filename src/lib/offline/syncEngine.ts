@@ -8,6 +8,7 @@ import {
   type EnqueueInput,
   type OutboxOp,
   type ReviewItem,
+  uploadKey,
 } from './outbox';
 import { rebaseChanges } from './rebase';
 import { CURSOR_KEY, PULLED_AT_KEY, pull, recordsOf, type SyncedRecord } from './pull';
@@ -200,6 +201,7 @@ const headersOf = (op: OutboxOp, device: string): Record<string, string> => ({
   'X-Client-Sent-At': new Date().toISOString(),
   'X-Device-Id': device,
   ...(op.baseVersion === undefined ? {} : { 'X-Base-Version': String(op.baseVersion) }),
+  ...(op.upload ? { 'X-Content-SHA256': op.upload.sha256 } : {}),
 });
 
 class SyncEngine {
@@ -258,11 +260,17 @@ class SyncEngine {
     statusListeners.forEach((listener) => listener());
   }
 
-  async enqueue(input: EnqueueInput): Promise<OutboxOp> {
+  async enqueue(input: EnqueueInput, file?: Blob): Promise<OutboxOp> {
+    // The bytes first: an op is never queued without its file.
+    if (input.upload && file) await this.db.put('blobs', file, uploadKey(input.upload.blobKey));
     const op = await outbox.enqueue(this.db, input);
     await this.changed();
     this.kick();
     return op;
+  }
+
+  file(blobKey: string) {
+    return this.db.get<Blob>('blobs', uploadKey(blobKey));
   }
 
   /** The review tray, oldest first. */
@@ -272,7 +280,9 @@ class SyncEngine {
 
   /** "Keep theirs" / "Discard my change" / "OK": the item leaves the tray. */
   async dismiss(id: string) {
+    const item = (await outbox.reviewItems(this.db)).find((i) => i.id === id);
     await outbox.removeReviewItem(this.db, id);
+    if (item?.op.upload) await this.db.delete('blobs', uploadKey(item.op.upload.blobKey));
     await this.changed();
   }
 
@@ -430,6 +440,12 @@ class SyncEngine {
   }
 
   private async send(op: OutboxOp, device: string): Promise<SyncResponse> {
+    // Lost bytes (site data cleared) can't be sent: refused, so it goes to review.
+    if (op.upload && !(await this.db.get<Blob>('blobs', uploadKey(op.upload.blobKey)))) {
+      const message =
+        'The file for this change is no longer on this device. Make the change again.';
+      return { status: 400, body: { code: 'UPLOAD_MISSING', message }, headers: new Headers() };
+    }
     try {
       const {
         body,
@@ -437,7 +453,7 @@ class SyncEngine {
         headers,
       } = await apiClient.exchange(op.path, {
         method: op.method,
-        body: op.body,
+        body: op.upload ? await this.form(op) : op.body,
         headers: headersOf(op, device),
       });
       return { status: code, body, headers };
@@ -445,6 +461,16 @@ class SyncEngine {
       if (!(err instanceof ApiError) || err.statusCode === 0) return { status: 0 };
       return { status: err.statusCode, body: err.details, headers: err.headers ?? new Headers() };
     }
+  }
+
+  /** A queued upload's multipart body, from the bytes kept in `blobs`. */
+  private async form(op: OutboxOp): Promise<FormData> {
+    const { blobKey, field, fields, fileName } = op.upload!;
+    const blob = (await this.db.get<Blob>('blobs', uploadKey(blobKey)))!;
+    const form = new FormData();
+    for (const [name, value] of Object.entries(fields ?? {})) form.append(name, value);
+    form.append(field, blob, fileName);
+    return form;
   }
 
   /** Applies one outcome. False stops this run (offline, or paused). */
@@ -469,6 +495,7 @@ class SyncEngine {
           }),
         );
         await outbox.moveToReview(this.db, [...cells, ...notices], op.opId);
+        if (op.upload) await this.db.delete('blobs', uploadKey(op.upload.blobKey));
         await this.db.put('meta', now, LAST_SYNCED_KEY);
         this.pullWanted = true;
         await this.changed();
@@ -693,10 +720,13 @@ export function stopSync() {
 }
 
 /** Queues a write for the signed-in staff user. Rejects when offline storage isn't available. */
-export function enqueueWrite(input: EnqueueInput): Promise<OutboxOp> {
+export function enqueueWrite(input: EnqueueInput, file?: Blob): Promise<OutboxOp> {
   if (!engine) return Promise.reject(new Error('Offline storage is not available on this device.'));
-  return engine.enqueue(input);
+  return engine.enqueue(input, file);
 }
+
+/** A queued upload's bytes, e.g. to preview a photo waiting to sync. */
+export const queuedFile = (blobKey: string) => engine?.file(blobKey) ?? Promise.resolve(undefined);
 
 /** "Sync now": sends the queue and brings the records up to date. */
 export const syncNow = () => engine?.syncNow();

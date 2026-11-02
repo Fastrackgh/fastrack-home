@@ -859,3 +859,14 @@ Tested on 2 Nov 2026 **through the UI** on a database copy. **Result: pass.**
   - I first expected the real Kojo in today's Basic 2 register, but his enrolment history puts him in Basic 1 for Term 1 2026/27 and in Basic 2 only from Term 1 2027/28. The register was right.
 - **Environment:** the dev frontend was slow on this machine (30 s for one page, under load), so timeouts were raised.
 
+## Production URL clean-up (backend PR #12, e1d17b3)
+
+Checked on 2 Nov 2026 by grep and by starting the built server with NODE_ENV=production. The user asked for it ("I see https://fastrack.com/ a lot in the codebase"), and production domains aren't decided yet, so the rule is "no production host in code".
+- **Grep:** `fastrack.(com|school|edu|space)` over src and test finds nothing outside `seeds/`, which is kept on purpose for the dev demo logins. The `localhost` uses left are the dev-only fallbacks, dev routes, doc comments, test snapshots and DTO examples, plus one guard in online payments that *rejects* localhost.
+- **Production start-up:**
+  - Without `INVOICE_PUBLIC_BASE_URL`: refuses, "INVOICE_PUBLIC_BASE_URL is required in production".
+  - Without `EMAIL_SENDER`: refuses, "EMAIL_SENDER is required in production".
+  - With everything set: passes validation and fails only on the (deliberately missing) database.
+- **Suggestion (Low):** `INVOICE_PUBLIC_BASE_URL=http://localhost:…` is accepted in production. Rejecting localhost there would also catch a copied dev `.env`, like the guard online payments already has.
+- **Still to do:** the frontend has its own: page metadata `https://fastrack.com.gh` in `src/app/layout.tsx`, and the API fallback `http://localhost:3000/api` in `src/lib/api-client.ts`. Waiting for the user's go-ahead to send it to fastrack-18.
+

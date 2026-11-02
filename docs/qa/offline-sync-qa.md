@@ -951,3 +951,16 @@ Tested on 2 Nov 2026 as the BIS-001 principal on a database copy, with the acade
 
 The app has no "delete pupil" route, so this needs AdminJS, a script (e.g. `cleanup-test-schools`) or SQL. Still, one such row takes down sync for the school. **Fix:** skip accounts whose pupil is deleted, or send them as `out_of_scope`/`delete` tombstones, and add an e2e with a deleted pupil that has an account. Check the feed (`changes`) for the same assumption.
 
+### Re-test of OFF-17 (backend 6c294b0, carried to 8c99c57)
+
+Tested on 2 Nov 2026 on a database copy at 8c99c57, with BIS pupil 011 (who has a fee account) soft-deleted. **Result: fixed.**
+- **Full snapshot:** 200, with 10 fee accounts and the deleted pupil's left out. `GET /fee-accounts` is 200, also without it.
+- **Feed:** `changes` since before the deletion has no entry, as expected, because the deletion happened outside the app.
+- **Fresh device, UI (frontend d27e8c2):** the first pull finishes in 7 s with every collection (students 11, fee-accounts 10, invoices 11, …).
+
+**Known limit:** a device that synced *before* such an out-of-app deletion keeps that account until it next re-snapshots. The feed only sends a tombstone when a change entry for it comes up.
+
+### OFF-18 (Low–Medium; owner: staff frontend): the Students list is blank offline on a device that never opened it online
+
+On that fresh device, with 11 `students` records synced, going offline and opening Students shows **"Unable to load students — Can't reach Fastrack"**. After opening Students online once, the same offline visit lists all 11. So the page reads its own saved response, not the synced records. The attendance class picker had the same gap, fixed in 9d7e864. **Fix:** when there's no saved read, list from the synced `students` records (with search and class filter), with the "Offline" note.
+

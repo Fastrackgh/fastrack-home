@@ -59,6 +59,7 @@ export function MarkGridPage() {
 
   const marks = useMarkSheet(termId, classId, subjectId);
   const { data, setData, load, items, rows, drafts, cellErrors, conflicts } = marks;
+  const refused = Object.values(cellErrors);
   const [itemModal, setItemModal] = useState<{ componentKey: string; item?: Item } | null>(null);
   const [returning, setReturning] = useState(false);
   /** A test a head asked to remove that already has marks, waiting for "yes". */
@@ -245,11 +246,20 @@ export function MarkGridPage() {
           )}
           <Text
             size="sm"
-            c={marks.saving || marks.hasUnsaved() || marks.waiting ? 'blue' : 'dimmed'}
+            c={
+              refused.length
+                ? 'red'
+                : marks.saving || marks.hasUnsaved() || marks.waiting
+                  ? 'blue'
+                  : 'dimmed'
+            }
           >
             {marks.saving
               ? 'Saving…'
-              : marks.hasUnsaved()
+              : refused.length
+                ? // A refused cell was never saved, so "All changes saved" would be wrong (QA-289).
+                  `${refused.length} ${refused.length === 1 ? 'mark' : 'marks'} not saved: ${refused[0]} Fix the red ${refused.length === 1 ? 'cell' : 'cells'}.`
+                : marks.hasUnsaved()
                 ? 'Unsaved changes'
                 : marks.waiting
                   ? `${marks.waiting} ${marks.waiting === 1 ? 'mark' : 'marks'} waiting to sync`

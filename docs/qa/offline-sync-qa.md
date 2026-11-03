@@ -1011,7 +1011,7 @@ Checked on 2 Nov 2026 by grep, and by production builds in a separate worktree (
 
 GitHub lists backend PRs #16 (offline admissions, 5b) and #17 (student edits and photos, 5c) as merged, but they were stacked PRs. They merged into their base branches, `feat/offline-payments` (d2cb09d) and `feat/offline-admissions` (e762195), not into `main`. Backend `main` is d55fa69 (#11, #12, #14, #15). `fa4c184`, `c664e97`, `a41e650` and `e6c9e22` are not in it. Frontend `main` (6b29abc, PR #7) already holds the 5b and 5c screens (44b2605, d27e8c2, 27b9918).
 
-### OFF-19 (High; owner: backend, merge only): on backend main, admitting a pupil and editing a pupil both fail
+### OFF-19 (High; owner: backend, merge only; fixed by PR #19, 80e85e2): on backend main, admitting a pupil and editing a pupil both fail
 
 Tested on 3 Nov 2026 **through the UI** as the BIS-001 principal. Backend `main` d55fa69 was run from a clean checkout on a database copy (`fastrack_qamain`; OfflinePayments1792600002900 applied there). Frontend `main` 6b29abc ran on :3005.
 
@@ -1027,3 +1027,27 @@ Tested on 3 Nov 2026 **through the UI** as the BIS-001 principal. Backend `main`
 - **Side issue (Low, frontend):** a 400 on an edit shows "Someone else changed this pupil… Any others were saved", though nothing was saved. A refusal that isn't a clash should say the change wasn't saved.
 - **Environment note:** the shared `fastrack` database has not run `OfflinePayments1792600002900`, which backend `main` needs.
 - **Merging #16/#17 into main is not mechanical** (found 3 Nov in the full run). `git merge e762195` on main has an add/add conflict in `test/sensitive-student-writes.e2e-spec.ts`, and after that, `src/modules/students/services/student-enrollment.service.ts` fails to compile (17 errors, missing `OpContext`, `syncError`, `SyncErrorCode`): main's QA-283 change (f545ad6) and the offline branch's (9406be0) touched the same imports. The full run used the offline branch's version of that file, which keeps the QA-283 guard (`assertMayWriteSensitive`). The backend session should do the real merge and run the e2e suites.
+
+### Re-test of OFF-19: fixed on main (PR #19, 80e85e2)
+
+PR #19 (`feat/offline-admissions` into `main`) had conflicts in the same two files. They were resolved in 6eedeb0: the branch's `update()` was kept, since it checks sensitive fields before the version check and covers queued `changes`. Main's later second check was dropped as redundant. The branch's `sensitive-student-writes` e2e spec was also kept, since it is main's copy plus the queued-`changes` case. Checked before the push: tsc, nest build, 805 unit tests and 506 e2e tests on a database copy. CI "verify" passed. The owner merged #19 as 80e85e2.
+
+Tested on 3 Nov 2026 **through the UI**, with backend `main` 80e85e2 and frontend `main` 6b29abc (production build), on AHA-001 (`fastrack_qafull`; no migrations pending). The secretary worked in one window and the principal in a second. Offline meant only the secretary's window was set offline, so the principal stayed online. **Result: 11 of 11 pass. OFF-19 fixed.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| R1 | Admit Nana Mainline online | Admitted in 505 ms, AHA-001/STD/2026/008 |
+| R2 | Edit Kofi's other name to "Kwesi" online | Saved. After a fresh sign-in the form shows Kwesi and the list shows "Kofi Kwesi Asare" |
+| R3 | Add a photo for Kofi online | Uploads straight away, with "Replace photo" and "Remove" shown. Stored (`photo_media_id` set) |
+| R4 | Admit Abena Outbox offline | "Saved on this device" in 313 ms. The list row reads "Code pending · waiting to sync" |
+| R4b | Reconnect | Synced 17.8 s after reconnecting, AHA-001/STD/2026/009 |
+| R5 / R5b | Edit Esi's other name offline, then reconnect | "Saved on this device… will be sent when the device is back online". Then stored on the server |
+| R7 | Offline: Akosua's digital address. Meanwhile the principal changes her residence | Both kept (res=Tema, addr=GA-123-4567) |
+| R6 | Offline: Adjoa's and then Nana's residence to Kumasi. Meanwhile the principal sets Accra | Accra is kept. The header chip turns red, "1 need review". The tray reads "Changes to Nana Mainline's details · Changed by someone else · Residence: Now Accra, Yours Kumasi · Keep theirs / Keep mine" |
+| R6b | Keep mine | Kumasi is stored, v3 |
+| R8 / R8b | Add a photo for Ama Offline while offline, then reconnect | Stored on the server after sync |
+
+- A clash found during background sync shows no toast, only the red chip and the tray. The "Someone else changed this pupil" toast is only for a save made online. This is as designed.
+- My script's failures in the first pass were in the test, not the app: R2 reopened the record by its old name, and R3/R8 waited for a photo confirm window that doesn't exist.
+- **Still open from OFF-19:** the side issue (Low, frontend). A refused edit that isn't a clash still says "Any others were saved". It wasn't seen this run, because nothing was refused.
+

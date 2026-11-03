@@ -156,6 +156,19 @@ export function InvoiceDrawer({
                 color="teal.7"
               />
             ) : null}
+            {/* Which discounts make up that total (QA-043). */}
+            {invoice.discounts.length > 0
+              ? invoice.discounts.map((d, i) => (
+                  <Group key={`${d.reason}-${i}`} justify="space-between" pl="md">
+                    <Text size="xs" c="dimmed">
+                      {d.reason}
+                    </Text>
+                    <Text size="xs" c="dimmed">
+                      - {formatGhs(d.amount)}
+                    </Text>
+                  </Group>
+                ))
+              : null}
             <Group justify="space-between">
               <Text size="md" fw={700}>
                 Net Fee Payable:

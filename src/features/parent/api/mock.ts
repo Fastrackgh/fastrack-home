@@ -192,6 +192,7 @@ function buildInvoices(studentId: string): ParentInvoice[] {
       arrearsFromEarlierTerms: 0,
       totalFees,
       discountAmount,
+      discounts: discountAmount ? [{ reason: 'Sibling discount', amount: discountAmount }] : [],
       feePayable,
       totalPayment,
       balance,

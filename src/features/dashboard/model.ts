@@ -339,9 +339,22 @@ export function canAccess(viewer: Viewer, area: Area) {
     : can({ ...viewer, readOnly: false }, areaPermission[area]);
 }
 
+/**
+ * Preview areas (sample data, no live page yet) are shown to staff only where
+ * NEXT_PUBLIC_SHOW_PREVIEW_PAGES=1, such as a demo deployment. A real school
+ * never sees invented figures in its menu (QA-290).
+ */
+export const showPreviewPages = process.env.NEXT_PUBLIC_SHOW_PREVIEW_PAGES === '1';
+
+/** Whether `area` is a staff preview that this build hides. */
+export const isHiddenPreview = (viewer: Viewer, area: Area) =>
+  !showPreviewPages && audienceOf(viewer.role) === 'staff' && !areaPage(viewer, area);
+
 /** The viewer's areas they may open, in layout order. */
 export function accessibleAreas(viewer: Viewer): Area[] {
-  return roleConfig[viewer.role].areas.filter((area) => canAccess(viewer, area));
+  return roleConfig[viewer.role].areas.filter(
+    (area) => canAccess(viewer, area) && !isHiddenPreview(viewer, area),
+  );
 }
 
 /** Accessible areas the viewer works in inside the preview workspace. */

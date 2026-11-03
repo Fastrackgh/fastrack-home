@@ -1006,3 +1006,23 @@ Checked on 2 Nov 2026 by grep, and by production builds in a separate worktree (
   - With `https://api.example.com/api` and `https://www.example.com`: exit 0, with **no `localhost:3000`** in `.next/static`, `api.example.com` in 4 chunks, and no `fastrack.com.gh` anywhere in `.next`.
 - **Pass.** Left unchanged on purpose: the marketing contact email (fastrackus@gmail.com), a product decision.
 
+
+## Merge state check, 3 Nov 2026: backend main lacks steps 5b and 5c
+
+GitHub lists backend PRs #16 (offline admissions, 5b) and #17 (student edits and photos, 5c) as merged, but they were stacked PRs. They merged into their base branches, `feat/offline-payments` (d2cb09d) and `feat/offline-admissions` (e762195), not into `main`. Backend `main` is d55fa69 (#11, #12, #14, #15). `fa4c184`, `c664e97`, `a41e650` and `e6c9e22` are not in it. Frontend `main` (6b29abc, PR #7) already holds the 5b and 5c screens (44b2605, d27e8c2, 27b9918).
+
+### OFF-19 (High; owner: backend, merge only): on backend main, admitting a pupil and editing a pupil both fail
+
+Tested on 3 Nov 2026 **through the UI** as the BIS-001 principal. Backend `main` d55fa69 was run from a clean checkout on a database copy (`fastrack_qamain`; OfflinePayments1792600002900 applied there). Frontend `main` 6b29abc ran on :3005.
+
+| Case | What the user sees | Request | DB |
+| --- | --- | --- | --- |
+| Admit a pupil **online** (Mainpair Admitcheck, Basic 1, mother's name and phone) | "Admission Form Alert: This action can't be queued offline (Idempotency-Key not supported here)" | `POST /schools/me/students` → 400 `IDEMPOTENCY_NOT_SUPPORTED` | No pupil |
+| Edit Esi Adjei's other name online, then Save changes | Toast "Someone else changed this pupil. Changes that clash are in Needs review. Any others were saved." | `PATCH /schools/me/students/:id` with `{changes:{otherName:{from,to}}}` → 400 `IDEMPOTENCY_NOT_SUPPORTED` | Other name still empty |
+
+- The photo upload and removal use the same queued path, so they fail for the same reason.
+- Registers, marks and cash payments are on main (#7, #11) and aren't affected.
+- The same screens passed on 2 Nov against `feat/offline-student-edits` (e793dd8, f877e87).
+- **Fix:** open a PR from `feat/offline-student-edits` (f877e87, which contains 5b and 5c) or `feat/offline-admissions` (e762195) into `main`. Until it merges, deploying the two `main` branches together means no school can admit or edit a pupil.
+- **Side issue (Low, frontend):** a 400 on an edit shows "Someone else changed this pupil… Any others were saved", though nothing was saved. A refusal that isn't a clash should say the change wasn't saved.
+- **Environment note:** the shared `fastrack` database has not run `OfflinePayments1792600002900`, which backend `main` needs.

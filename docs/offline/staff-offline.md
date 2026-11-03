@@ -213,6 +213,7 @@ flowchart LR
   - **More than owed, or a shared reference:** the existing questions.
     - **Keep as credit** and **Yes, same transfer** resend the refused op from the tray with `allowCredit` or `sharedReference`, keeping the same `id` and OFF number.
     - **Change amount** and **Change reference** discard it.
+    - **Escape, × or Cancel** while the question is on screen discard it too, rather than leaving it in the tray as if the cash were taken (QA-285).
   - **Anything else refused** shows in the window. Once the window is closed, it stays in the tray.
 - **Payments list:**
   - Queued payments come first, on page 1, filtered on the device. The OFF number is in yellow, with **Provisional · waiting to sync**.

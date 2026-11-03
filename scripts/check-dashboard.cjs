@@ -23,6 +23,9 @@ require.extensions['.ts'] = (mod, filename) => {
 function load(relative) {
   return require(path.resolve(__dirname, '..', relative));
 }
+// The checks below cover the preview workspace, as a demo build shows it. A
+// real school's build hides the previews (QA-290): checked at the end.
+process.env.NEXT_PUBLIC_SHOW_PREVIEW_PAGES = '1';
 const d = load('src/features/dashboard/phase-one/domain.ts');
 const m = load('src/features/dashboard/model.ts');
 const rbac = load('src/lib/rbac/index.ts');
@@ -893,5 +896,45 @@ check('shared formatting: ordinals and shared places', () => {
   assert.equal(money.formatCedis(undefined), 'GHS 0.00');
   const client = load('src/lib/api-client.ts');
   assert.equal(client.pathId('PRM-001/STD/2026/005'), 'PRM-001%2FSTD%2F2026%2F005');
+});
+check('a real school build hides the sample-data preview pages (QA-290)', () => {
+  delete process.env.NEXT_PUBLIC_SHOW_PREVIEW_PAGES;
+  for (const key of Object.keys(require.cache)) if (key.startsWith(SRC)) delete require.cache[key];
+  const realModel = load('src/features/dashboard/model.ts');
+  const realNav = load('src/features/workspace/navigation.ts');
+  assert.equal(realModel.showPreviewPages, false);
+  assert.deepEqual(
+    realNav.workspaceNavigation(viewer('ACCOUNT_OFFICER')).map((i) => [i.label, i.href]),
+    [
+      ['Overview', '/school-admin/dashboard'],
+      ['Fees & Billing', '/school-admin/fees'],
+      ['Students', '/school-admin/students'],
+      ['School calendar', '/school-admin/calendar'],
+    ],
+  );
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD', 'TEACHER', 'SECRETARY', 'ACCOUNT_OFFICER']) {
+    const previews = realNav
+      .workspaceNavigation(viewer(role))
+      .filter((i) => i.href.startsWith('/school-admin/dashboard/'));
+    assert.deepEqual(previews, [], role);
+  }
+  assert.equal(realModel.isHiddenPreview(viewer('ACCOUNT_OFFICER'), 'budgets'), true);
+  assert.equal(realModel.isHiddenPreview(viewer('ACCOUNT_OFFICER'), 'calendar'), false);
+});
+check('a rate-limited request says how long to wait (QA-291)', () => {
+  const client = load('src/lib/api-client.ts');
+  const headers = (h) => new Headers(h);
+  assert.equal(
+    client.tooManyMessage('ThrottlerException: Too Many Requests', headers({ 'Retry-After': '60' })),
+    'Too many attempts. Wait 60 seconds and try again.',
+  );
+  assert.equal(
+    client.tooManyMessage('ThrottlerException: Too Many Requests', headers({})),
+    'Too many attempts. Wait a minute and try again.',
+  );
+  assert.equal(
+    client.tooManyMessage('Too many session refreshes. Try again in a minute.', headers({})),
+    'Too many session refreshes. Try again in a minute.',
+  );
 });
 console.log(`${checks} dashboard and access checks passed.`);

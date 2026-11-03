@@ -51,6 +51,7 @@ Each flow has a Mermaid diagram, its loading, empty, error and success states, i
 | [qa/e2e-bismark-international.md](./qa/e2e-bismark-international.md) | 21 Oct end-to-end UI run: a new school (BIS-001) set up and taken through every feature, step by step, with a ledger reconciliation |
 | [qa/test-matrix.md](./qa/test-matrix.md) | Role × route/endpoint, security, money and lifecycle scenarios with results |
 | [qa/live-test-log.md](./qa/live-test-log.md) | How the live run was set up, every request made and response received, and the browser walk-through ([scripts](./qa/browser-walkthrough/), [screenshots](./qa/screenshots/)) |
+| [qa/full-run-2026-11-03.md](./qa/full-run-2026-11-03.md) | 3 Nov full UI run: a new school (AHA-001) from sign-up to report cards, with page and action timings, 156 checks and QA-284 to QA-291 |
 | [qa/parent-two-schools-qa.md](./qa/parent-two-schools-qa.md) | 1 Nov UI run: a parent with children in two schools that offer different areas (attendance, reports) switching between them |
 | [qa/offline-sync-qa.md](./qa/offline-sync-qa.md) | Offline-first staff portal: sync contract review rounds and the per-phase UI re-tests (B1 idempotent writes onward) |
 

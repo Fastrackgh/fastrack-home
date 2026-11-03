@@ -2,6 +2,8 @@
 
 20 Oct 2026. Full detail: [findings.md](./findings.md) (151 findings; QA-060 to QA-088 and QA-200 to QA-262 added 21 Oct), [test-matrix.md](./test-matrix.md), [live-test-log.md](./live-test-log.md) (API probes plus a browser walk-through of every staff role).
 
+**Full UI run, 3 Nov 2026** ([full-run-2026-11-03.md](./full-run-2026-11-03.md), [report page](https://claude.ai/artifact/Kv9QoTYt5mp2f3rAe5kxY3)): a new school, AHA-001, taken from sign-up to published report cards. 156 checks: 150 pass, 4 fail, 2 with a problem; 66 timed page loads clean. Sign-in takes 0.23 s, a page from the menu 0.09 s, and the server answers in 15 ms (p95 73 ms) on a local machine. **Blocker:** backend main lacks PRs #16/#17 (OFF-19), so admitting or editing a pupil fails there, and merging them needs a hand-fixed service file. New: QA-284 to QA-291, two Medium (QA-285: a payment abandoned at a warning waits in Needs review as if taken; QA-290: 11 of 23 staff pages are sample-data previews). Still open: QA-229, QA-043.
+
 **Status on 26 Oct 2026, reconciled against the code and re-tests:** 124 fixed or closed, 15 partly fixed, 28 open (167 findings). All eight Critical findings are fixed (QA-020, the last one, on 26 Oct). The security fixes QA-005, QA-006, QA-010, QA-012 and QA-013 were re-tested and pass on 24 Oct. The High items still open or partly fixed:
 - **Open:** none (QA-061 fixed 26 Oct). The design builder ones (QA-064, QA-065, QA-066) were fixed and re-tested in the browser on 25 Oct.
 - **Partly fixed:** none. Every High finding is fixed (QA-034, the last, on 26 Oct).

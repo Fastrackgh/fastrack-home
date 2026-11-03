@@ -127,7 +127,7 @@ Statuses reconciled against the code and re-test history on 24 Oct 2026; see [St
 | QA-225 | Medium | EDGE | BE | Browser ✔ | Attendance roster uses current class for past dates — **open** (code re-checked 24 Oct) |
 | QA-226 | Medium | UX | FE | Browser ✔ | Design preview needs the invoice UUID, not its number — **open** (code re-checked 24 Oct) |
 | QA-228 | Medium | FLOW | BE | Browser ✔ | Published design not used on public bill links — **fixed** (reconciled 24 Oct) |
-| QA-229 | Medium | FLOW | Both | Browser ✔ | Paystack rejects some parent emails; raw error; no fallback — **open** (code re-checked 24 Oct) |
+| QA-229 | Medium | FLOW | Both | Browser ✔ | Paystack rejects some parent emails; raw error; no fallback — **fixed** (3 Nov; BE `8792d3f` on branch fix/paystack-email + FE `3d0126c` on feat/rbac-workspace, neither in main yet) |
 | QA-231 | Medium | UX/trust | BE | Browser ✔ Code ✔ | The design preview shows another school ("Fastrack International School") instead of the user's own — **open** (code re-checked 24 Oct) |
 | QA-232 | Medium | FLOW/audit | Both | Code ✔ (DB) | Invoices from one billing run share no run ID: runs can't be undone, audited or re-sent as a unit — **open** (code re-checked 24 Oct) |
 | QA-233 | Medium | FLOW | Both | Code ✔ | Subject teachers can be assigned per class now; `timetable_slots` still has no API, and attendance stays with the class teacher — **partly fixed** (25 Oct; results phase 0) |
@@ -1307,7 +1307,7 @@ Every index row that wasn't marked fixed was checked against the current code (b
 | QA-225 | Open | attendance rosters still use the current class, not enrolment history |
 | QA-226 | Open | design preview still needs the invoice UUID |
 | QA-228 | Fixed | public bill renders through the document renderer with the school's published design (public-invoices.controller.ts:53-58; live link checked); likely 326ee64 |
-| QA-229 | Open | checkout still uses the login email; raw Paystack error; no fallback |
+| QA-229 | Fixed | 3 Nov, BE `8792d3f` (fix/paystack-email) + FE `3d0126c`, in the UI on a phone-sized screen against **Paystack test mode**. Product call (user, 3 Nov): ask the parent for another email. Ama (ama.asare@aha.test) pays GHS 50 by card for Kofi: Paystack refuses the email, and the window says "Our payment partner didn't accept the email on your account. Enter another email for this payment's receipt, then tap Pay again." It shows a required "Email for the receipt" field and no raw Paystack text. "ama.asare" keeps Pay disabled with "Enter an email address, like name@gmail.com." "ama.asare@example.org" → checkout.paystack.com opens. DB: the first attempt is FAILED "Paystack refused the email address", the second PENDING. Backend unit 809/809, e2e 506/506 (contract snapshot updated for the optional `email`). Not paid through to the end, since that path is unchanged and passed in the full run (9.11). |
 | QA-230 | Open | parent home still takes the first 3 events; no parent calendar |
 | QA-231 | Open | design samples still hard-coded to Fastrack International School |
 | QA-232 | Open | no run/batch id on invoices |

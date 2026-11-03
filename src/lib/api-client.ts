@@ -49,6 +49,23 @@ export class ApiError extends Error {
 /** An id or code made safe to put in a URL path, e.g. a student code with slashes. */
 export const pathId = (value: string) => encodeURIComponent(value);
 
+/**
+ * A 429 from the rate limiter reads "ThrottlerException: Too Many Requests";
+ * say how long to wait instead, from Retry-After when sent (QA-291). A 429
+ * the backend worded itself is kept.
+ */
+export function tooManyMessage(raw: string, headers: Headers): string {
+  if (!/throttler|too many requests/i.test(raw)) return raw;
+  const seconds = Number(headers.get('Retry-After'));
+  const wait =
+    Number.isFinite(seconds) && seconds > 0
+      ? seconds <= 90
+        ? `${Math.ceil(seconds)} seconds`
+        : `${Math.ceil(seconds / 60)} minutes`
+      : 'a minute';
+  return `Too many attempts. Wait ${wait} and try again.`;
+}
+
 /** A failed request's message, or `fallback` for anything that isn't an Error. */
 export function errorMessage(error: unknown, fallback: string): string {
   return error instanceof Error ? error.message : fallback;
@@ -409,9 +426,10 @@ class ApiClient {
     if (!response.ok) {
       // v2 errors carry a string `message` (+ `details` for validation);
       // arrays are still handled for any legacy body.
-      const message = Array.isArray(data?.message)
+      const raw = Array.isArray(data?.message)
         ? data.message.join(', ')
         : data?.message || response.statusText || 'Request failed';
+      const message = response.status === 429 ? tooManyMessage(raw, response.headers) : raw;
       throw new ApiError(response.status, message, data, response.headers);
     }
 

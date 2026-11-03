@@ -121,6 +121,8 @@ export interface CheckoutRequest {
   idempotencyKey: string;
   /** Where the payment provider returns the parent after paying. */
   callbackUrl: string;
+  /** Another email for this payment's receipt, when the provider refused the account's (QA-229). */
+  email?: string;
 }
 
 export interface CheckoutSession {

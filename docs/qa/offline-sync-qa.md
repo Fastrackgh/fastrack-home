@@ -1049,5 +1049,5 @@ Tested on 3 Nov 2026 **through the UI**, with backend `main` 80e85e2 and fronten
 
 - A clash found during background sync shows no toast, only the red chip and the tray. The "Someone else changed this pupil" toast is only for a save made online. This is as designed.
 - My script's failures in the first pass were in the test, not the app: R2 reopened the record by its old name, and R3/R8 waited for a photo confirm window that doesn't exist.
-- **Still open from OFF-19:** the side issue (Low, frontend). A refused edit that isn't a clash still says "Any others were saved". It wasn't seen this run, because nothing was refused.
+- **OFF-19 side issue fixed** in FE `1f7c7ef` (feat/rbac-workspace). Tested 3 Nov in the UI as secretary@aha.test: Akosua's mother's email set to "mary@frimpong" → Save contacts → PATCH 400 → toast **"Not saved. Nothing was changed for Akosua Frimpong. Needs review says why."** The chip reads "1 need review", and the tray card says "Not accepted… changes.motherEmail must be an email · Discard my change". The DB email is unchanged. A clash still gives "Someone else changed this pupil". Left as is: the tray shows the server's raw validation text ("changes.motherEmail must be an email"), and the Guardians tab doesn't check email format before sending.
 

@@ -63,6 +63,24 @@ export interface AssessmentResults {
   }[];
   onRoll: number;
   complete: boolean;
+  /** The class's subjects without a paper in it; `addMissingPapers` adds them where it can. */
+  notIncluded?: { subjectId: string; name: string }[];
+}
+
+/** How the messages to parents went when results were published, per channel the school has on. */
+export interface PublishNotified {
+  email: { sent: number; failed: number };
+  sms: { sent: number; failed: number };
+  /** Pupils with no linked parent reachable on a channel that is on. */
+  pupilsNotReached: number;
+}
+
+/** Where an assessment's papers went: `partsAdded` subjects had no such part and got one at 0% (also in `added`). */
+export interface AssessmentPapersResult {
+  assessment: Assessment;
+  added: { subjectId: string; subjectName: string; sheetId: string }[];
+  skipped: { subjectId: string; subjectName: string; reason: string }[];
+  partsAdded: { subjectId: string; subjectName: string; weighting: string }[];
 }
 
 export interface CreateAssessmentInput {
@@ -80,19 +98,59 @@ export const assessmentsApi = {
   async list(termId: string): Promise<Assessment[]> {
     return (await apiClient.get<Assessment[]>(`${base}?termId=${pathId(termId)}`)).data ?? [];
   },
-  async create(input: CreateAssessmentInput) {
-    return (
-      await apiClient.post<{
-        assessment: Assessment;
-        added: { subjectId: string; subjectName: string; sheetId: string }[];
-        skipped: { subjectId: string; subjectName: string; reason: string }[];
-      }>(base, input)
-    ).data;
+  async create(input: CreateAssessmentInput): Promise<AssessmentPapersResult> {
+    return (await apiClient.post<AssessmentPapersResult>(base, input)).data;
+  },
+  /** Puts the paper on the class's subjects that don't have it yet (heads). */
+  async addMissingPapers(id: string): Promise<AssessmentPapersResult> {
+    return (await apiClient.post<AssessmentPapersResult>(`${base}/${pathId(id)}/papers`)).data;
   },
   async results(id: string): Promise<AssessmentResults> {
     return (await apiClient.get<AssessmentResults>(`${base}/${pathId(id)}`)).data;
   },
-  async publish(id: string): Promise<AssessmentResults> {
-    return (await apiClient.post<AssessmentResults>(`${base}/${pathId(id)}/publish`)).data;
+  async publish(id: string): Promise<AssessmentResults & { notified: PublishNotified }> {
+    return (
+      await apiClient.post<AssessmentResults & { notified: PublishNotified }>(
+        `${base}/${pathId(id)}/publish`,
+      )
+    ).data;
   },
 };
+
+const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
+const names = (list: { subjectName: string }[]) => list.map((s) => s.subjectName).join(', ');
+
+/** A one-line summary of where a mock's papers went, for a notification. */
+export function papersMessage(res: AssessmentPapersResult): string {
+  const parts: string[] = [];
+  if (res.added.length) parts.push(`Its paper is on ${plural(res.added.length, 'subject')}.`);
+  if (res.partsAdded.length) {
+    // The new weighting is "<old> + <Part> 0%".
+    const part = res.partsAdded[0].weighting.split(' + ').pop()?.replace(/ 0%$/, '') ?? 'such';
+    parts.push(
+      `${names(res.partsAdded)} had no ${part} part, so one was added at 0%: their term results don't change.`,
+    );
+  }
+  if (res.skipped.length)
+    parts.push(
+      `Not on ${res.skipped.map((s) => `${s.subjectName} (${s.reason.replace(/\.$/, '')})`).join(', ')}.`,
+    );
+  return parts.join(' ') || 'Every subject already has its paper.';
+}
+
+/** What publishing did about messages to parents, for a notification. */
+export function notifiedMessage(n: PublishNotified): string {
+  const sent = [
+    n.email.sent && plural(n.email.sent, 'email'),
+    n.sms.sent && plural(n.sms.sent, 'text message'),
+  ].filter(Boolean);
+  const parts = [sent.length ? `Sent ${sent.join(' and ')} to parents.` : 'No parent was told.'];
+  const failed = n.email.failed + n.sms.failed;
+  if (failed) parts.push(`${plural(failed, 'message')} failed to send.`);
+  if (n.pupilsNotReached)
+    parts.push(
+      `${plural(n.pupilsNotReached, 'pupil')} ${n.pupilsNotReached === 1 ? 'has' : 'have'} no linked parent to reach.`,
+    );
+  parts.push('Term reports are not affected.');
+  return parts.join(' ');
+}

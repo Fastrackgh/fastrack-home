@@ -24,7 +24,12 @@ import { useAuth } from '@/lib/auth';
 import { PageHeader } from '@/features/workspace';
 import { APP_ROUTES } from '@/lib/rbac';
 import { errorMessage } from '@/lib/api-client';
-import { assessmentsApi, type AssessmentResults } from './assessments-api';
+import {
+  assessmentsApi,
+  notifiedMessage,
+  papersMessage,
+  type AssessmentResults,
+} from './assessments-api';
 
 const ordinal = (n: number) => {
   const s = ['th', 'st', 'nd', 'rd'];
@@ -47,6 +52,7 @@ export function MockResultsPage() {
   const [data, setData] = useState<AssessmentResults | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
+  const [adding, setAdding] = useState(false);
 
   const load = useCallback(async () => {
     setError(null);
@@ -64,11 +70,16 @@ export function MockResultsPage() {
   const publish = async () => {
     setPublishing(true);
     try {
-      setData(await assessmentsApi.publish(id));
+      const { notified, ...results } = await assessmentsApi.publish(id);
+      setData(results);
+      const short =
+        notified.email.failed + notified.sms.failed > 0 ||
+        notified.email.sent + notified.sms.sent === 0;
       notifications.show({
-        color: 'green',
+        color: short ? 'orange' : 'green',
         title: 'Published to parents',
-        message: 'Linked parents have been emailed. Term reports are not affected.',
+        message: notifiedMessage(notified),
+        autoClose: short ? false : undefined,
       });
     } catch (err) {
       notifications.show({
@@ -78,6 +89,28 @@ export function MockResultsPage() {
       });
     } finally {
       setPublishing(false);
+    }
+  };
+
+  const addMissing = async () => {
+    setAdding(true);
+    try {
+      const res = await assessmentsApi.addMissingPapers(id);
+      notifications.show({
+        color: res.skipped.length ? 'orange' : 'green',
+        title: res.added.length ? 'Subjects added' : 'Nothing added',
+        message: papersMessage(res),
+        autoClose: false,
+      });
+      await load();
+    } catch (err) {
+      notifications.show({
+        color: 'red',
+        title: 'Not added',
+        message: errorMessage(err, 'Try again.'),
+      });
+    } finally {
+      setAdding(false);
     }
   };
 
@@ -102,6 +135,7 @@ export function MockResultsPage() {
   const { assessment: mock } = data;
   const published = mock.status === 'published';
   const pupils = data.pupils.filter((p) => !p.left);
+  const notIncluded = data.notIncluded ?? [];
   return (
     <>
       {back}
@@ -133,6 +167,30 @@ export function MockResultsPage() {
           Publishing opens once every paper is marked. Teachers enter the marks on their mark
           sheets, in the {mock.title} column.
         </Text>
+      )}
+      {notIncluded.length > 0 && (
+        <Alert color="orange" radius="md" mb="md" title={`Not in ${mock.title}`}>
+          <Group justify="space-between" align="center" gap="sm">
+            <Text size="sm">
+              {notIncluded.map((s) => s.name).join(', ')}{' '}
+              {notIncluded.length === 1 ? 'has' : 'have'} no {mock.title} paper, so{' '}
+              {notIncluded.length === 1 ? 'it isn’t' : 'they aren’t'} in these results.
+              {published && ' Parents keep seeing the published results until you republish.'}
+            </Text>
+            {isHead && (
+              <Button
+                size="xs"
+                variant="light"
+                color="orange"
+                radius="md"
+                onClick={addMissing}
+                loading={adding}
+              >
+                Add {notIncluded.length === 1 ? 'it' : 'them'} to {mock.title}
+              </Button>
+            )}
+          </Group>
+        </Alert>
       )}
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }} mb="lg">

@@ -600,6 +600,14 @@ export const feesApi = {
     );
     return res.data;
   },
+  /** Which channels bill links may go by at this school (the platform sets them). */
+  async billLinkChannels(): Promise<{ email: boolean; sms: boolean }> {
+    const res = await apiClient.get<{ feature: string; email: boolean; sms: boolean }[]>(
+      '/schools/me/notification-channels',
+    );
+    const row = (res.data ?? []).find((r) => r.feature === 'bill_links');
+    return row ? { email: row.email, sms: row.sms } : { email: true, sms: true };
+  },
   /** Queues bill links to every matching parent. */
   async broadcastInvoiceLinks(request: BroadcastRequest) {
     const res = await apiClient.post<{ queuedCount: number; message: string }>(

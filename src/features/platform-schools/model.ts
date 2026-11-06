@@ -98,3 +98,27 @@ export interface PageMeta {
   total: number;
   totalPages: number;
 }
+
+/** A kind of message the platform sends; the super admin picks its channels per school. */
+export type NotificationFeature =
+  | 'bill_links'
+  | 'term_reports'
+  | 'assessment_results'
+  | 'account_invites'
+  | 'password_reset'
+  | 'verification_codes';
+
+/** One feature's channels at a school. */
+export interface NotificationChannelSetting {
+  feature: NotificationFeature;
+  label: string;
+  description: string;
+  /** Sign-in and account messages: email or SMS must stay on. */
+  security: boolean;
+  email: boolean;
+  sms: boolean;
+  /** True until the super admin saves it (today's defaults). */
+  isDefault: boolean;
+  updatedAt: string | null;
+  updatedBy: string | null;
+}

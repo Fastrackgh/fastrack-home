@@ -25,7 +25,7 @@ import { PageHeader } from '@/features/workspace';
 import { APP_ROUTES } from '@/lib/rbac';
 import { errorMessage } from '@/lib/api-client';
 import { resultsApi } from './api';
-import { assessmentsApi, type Assessment } from './assessments-api';
+import { assessmentsApi, papersMessage, type Assessment } from './assessments-api';
 import { TermPicker, useTerms } from './TermPicker';
 
 export const mockResultsHref = (id: string) =>
@@ -204,13 +204,12 @@ function NewMockModal({
         maxRaw: Number(maxRaw),
         takenOn: takenOn || undefined,
       });
+      const notable = res.skipped.length > 0 || res.partsAdded.length > 0;
       notifications.show({
         color: res.skipped.length ? 'orange' : 'green',
         title: `${res.assessment.title} created for ${res.assessment.className}`,
-        message: res.skipped.length
-          ? `On ${res.added.length} subject${res.added.length === 1 ? '' : 's'}; not on ${res.skipped.map((s) => s.subjectName).join(', ')} (no such part in their weighting).`
-          : `Its paper is on all ${res.added.length} subjects' mark sheets.`,
-        autoClose: res.skipped.length ? false : undefined,
+        message: papersMessage(res),
+        autoClose: notable ? false : undefined,
       });
       onCreated();
     } catch (err) {

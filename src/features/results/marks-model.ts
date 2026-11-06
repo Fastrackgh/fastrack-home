@@ -81,9 +81,21 @@ export function missingFor(row: RosterRow, items: Item[]): number {
   return items.filter((item) => !markFor(row, item) && !isNotRequired(row, item)).length;
 }
 
-/** Components of the scheme that have no items yet, so no pupil can be complete. */
+/** Whether a part's marks are needed: every descriptor strand, and numeric parts that count. A part weighted 0 (mocks recorded, not counted) never holds up submitting. */
+const isRequired = (scheme: OpenSheet['scheme'], c: OpenSheet['scheme']['components'][number]) =>
+  scheme.mode === 'descriptor' || c.weight > 0;
+
+/** The items whose marks are needed before the sheet can be submitted. */
+export const requiredItems = (scheme: OpenSheet['scheme'], items: Item[]) => {
+  const keys = new Set(scheme.components.filter((c) => isRequired(scheme, c)).map((c) => c.key));
+  return items.filter((i) => keys.has(i.componentKey));
+};
+
+/** Counted components of the scheme that have no items yet, so no pupil can be complete. */
 export const emptyComponents = (sheet: Pick<OpenSheet, 'scheme' | 'items'>) =>
-  sheet.scheme.components.filter((c) => !sheet.items.some((i) => i.componentKey === c.key));
+  sheet.scheme.components.filter(
+    (c) => isRequired(sheet.scheme, c) && !sheet.items.some((i) => i.componentKey === c.key),
+  );
 
 /**
  * The row's result as the engine works it out, used while the server's

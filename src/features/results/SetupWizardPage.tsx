@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import Link from 'next/link';
 import {
+  ActionIcon,
   Alert,
   Badge,
   Button,
@@ -22,7 +23,7 @@ import {
   TextInput,
 } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { CheckCircle2, Scale as ScaleIcon } from 'lucide-react';
+import { CheckCircle2, Plus, Scale as ScaleIcon, Trash2 } from 'lucide-react';
 import { setupApi, type AcademicYear, type Department } from '@/features/school-setup/api';
 import { PageHeader } from '@/features/workspace';
 import { APP_ROUTES } from '@/lib/rbac';
@@ -48,6 +49,7 @@ import {
   prefillFrom,
   sameEdit,
   evenSplit,
+  newPart,
   overridesFor,
   sampleResult,
   tryScore,
@@ -494,6 +496,7 @@ function Wizard({
           settings={settings}
           changes={changes}
           notShown={prefill?.notShown ?? 0}
+          kept={prefill?.kept ?? 0}
           addSubjects={addSubjects}
           setAddSubjects={setAddSubjects}
         />
@@ -646,6 +649,27 @@ function WeightsCard({
       ...edit,
       components: edit.components.map((c, j) => (j === i ? { ...c, ...change } : c)),
     });
+  const remove = (i: number) =>
+    onChange({ ...edit, components: edit.components.filter((_, j) => j !== i) });
+  const presetKeys = new Set(preset.scheme.components.map((c) => c.key));
+  const keys = edit.components.map((c) => c.key);
+  const addPart = () =>
+    onChange({
+      ...edit,
+      components: [
+        ...edit.components,
+        newPart(keys.includes('mocks') ? 'New part' : 'Mocks', keys),
+      ],
+    });
+  // Parts at 0 stay out of the split: they're recorded, not counted, until the school weighs them.
+  const splitCounted = () => {
+    const counted = edit.components.filter((c) => c.weight > 0);
+    const split = evenSplit(counted.length ? counted : edit.components);
+    onChange({
+      ...edit,
+      components: edit.components.map((c) => split.find((s) => s.key === c.key) ?? c),
+    });
+  };
   if (preset.scheme.mode === 'descriptor')
     return (
       <Card withBorder radius="lg" p="lg">
@@ -664,6 +688,7 @@ function WeightsCard({
     );
   const total = weightTotal(edit.components);
   const sample = sampleResult(edit, settings);
+  const problem = weightsProblem(edit, preset.scheme.mode);
   return (
     <Card withBorder radius="lg" p="lg">
       <Group justify="space-between" mb="sm">
@@ -672,85 +697,147 @@ function WeightsCard({
           <Badge color={total === 100 ? 'green' : 'red'} variant="light">
             Total {total} / 100
           </Badge>
-          <Button
-            size="compact-xs"
-            variant="subtle"
-            onClick={() => onChange({ ...edit, components: evenSplit(edit.components) })}
-          >
+          <Button size="compact-xs" variant="subtle" onClick={splitCounted}>
             Split evenly
           </Button>
         </Group>
       </Group>
       <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
-        <Table verticalSpacing="xs">
-          <Table.Thead>
-            <Table.Tr>
-              <Table.Th>Part</Table.Th>
-              <Table.Th w={110}>Weight</Table.Th>
-              <Table.Th w={130}>Count</Table.Th>
-            </Table.Tr>
-          </Table.Thead>
-          <Table.Tbody>
-            {edit.components.map((c, i) => (
-              <Table.Tr key={c.key}>
-                <Table.Td>
-                  <TextInput
-                    aria-label={`Name of ${c.label}`}
-                    value={c.label}
-                    onChange={(e) => update(i, { label: e.currentTarget.value })}
-                    size="xs"
-                    radius="md"
-                  />
-                </Table.Td>
-                <Table.Td>
-                  <NumberInput
-                    aria-label={`Weight of ${c.label}`}
-                    value={c.weight}
-                    onChange={(v) => update(i, { weight: Number(v) || 0 })}
-                    min={0}
-                    max={100}
-                    decimalScale={2}
-                    suffix="%"
-                    size="xs"
-                    radius="md"
-                  />
-                </Table.Td>
-                <Table.Td>
-                  {c.entry === 'items' ? (
-                    <NumberInput
-                      aria-label={`Best tests counted for ${c.label}`}
-                      value={c.bestOf ?? ''}
-                      onChange={(v) => update(i, { bestOf: v === '' ? null : Number(v) })}
-                      min={1}
-                      allowDecimal={false}
-                      placeholder="All tests"
-                      prefix={c.bestOf ? 'Best ' : undefined}
+        <Stack gap="xs">
+          <Table verticalSpacing="xs">
+            <Table.Thead>
+              <Table.Tr>
+                <Table.Th>Part</Table.Th>
+                <Table.Th w={100}>Weight</Table.Th>
+                <Table.Th w={150}>Papers</Table.Th>
+                <Table.Th w={36} />
+              </Table.Tr>
+            </Table.Thead>
+            <Table.Tbody>
+              {edit.components.map((c, i) => (
+                <Table.Tr key={c.key}>
+                  <Table.Td>
+                    <TextInput
+                      aria-label={`Name of ${c.label || 'a part'}`}
+                      value={c.label}
+                      onChange={(e) => update(i, { label: e.currentTarget.value })}
                       size="xs"
                       radius="md"
                     />
-                  ) : (
-                    <Text size="xs" c="dimmed">
-                      One paper
-                    </Text>
-                  )}
-                </Table.Td>
-              </Table.Tr>
-            ))}
-          </Table.Tbody>
-        </Table>
+                    {c.weight === 0 && (
+                      <Text size="xs" c="dimmed" mt={2}>
+                        Recorded, not counted
+                      </Text>
+                    )}
+                  </Table.Td>
+                  <Table.Td>
+                    <NumberInput
+                      aria-label={`Weight of ${c.label || 'a part'}`}
+                      value={c.weight}
+                      onChange={(v) => update(i, { weight: Number(v) || 0 })}
+                      min={0}
+                      max={100}
+                      decimalScale={2}
+                      suffix="%"
+                      size="xs"
+                      radius="md"
+                    />
+                  </Table.Td>
+                  <Table.Td>
+                    <Stack gap={4}>
+                      {!presetKeys.has(c.key) && (
+                        <Select
+                          aria-label={`Papers for ${c.label || 'a part'}`}
+                          data={[
+                            { value: 'items', label: 'Several papers' },
+                            { value: 'single', label: 'One paper' },
+                          ]}
+                          value={c.entry}
+                          onChange={(v) =>
+                            v &&
+                            update(i, {
+                              entry: v as Component['entry'],
+                              bestOf: v === 'single' ? null : c.bestOf,
+                            })
+                          }
+                          allowDeselect={false}
+                          size="xs"
+                          radius="md"
+                        />
+                      )}
+                      {c.entry === 'items' ? (
+                        <NumberInput
+                          aria-label={`Best papers counted for ${c.label || 'a part'}`}
+                          value={c.bestOf ?? ''}
+                          onChange={(v) => update(i, { bestOf: v === '' ? null : Number(v) })}
+                          min={1}
+                          max={50}
+                          allowDecimal={false}
+                          placeholder="All papers"
+                          prefix={c.bestOf ? 'Best ' : undefined}
+                          size="xs"
+                          radius="md"
+                        />
+                      ) : (
+                        presetKeys.has(c.key) && (
+                          <Text size="xs" c="dimmed">
+                            One paper
+                          </Text>
+                        )
+                      )}
+                    </Stack>
+                  </Table.Td>
+                  <Table.Td>
+                    <ActionIcon
+                      variant="subtle"
+                      color="red"
+                      aria-label={`Remove ${c.label || 'this part'}`}
+                      onClick={() => remove(i)}
+                      disabled={edit.components.length === 1}
+                    >
+                      <Trash2 size={14} />
+                    </ActionIcon>
+                  </Table.Td>
+                </Table.Tr>
+              ))}
+            </Table.Tbody>
+          </Table>
+          <Group justify="space-between" align="flex-start" wrap="nowrap">
+            <Text size="xs" c="dimmed">
+              Add a part such as Mocks, with as many papers as you set. At 0% it is recorded but not
+              counted in totals or grades.
+            </Text>
+            <Button
+              size="compact-xs"
+              variant="light"
+              leftSection={<Plus size={12} />}
+              onClick={addPart}
+            >
+              Add a part
+            </Button>
+          </Group>
+        </Stack>
         <Card bg="var(--mantine-color-default-hover)" radius="md" p="md">
           <Text size="xs" fw={700} tt="uppercase" c="dimmed" mb={6}>
             Worked example
           </Text>
-          {total === 100 ? (
+          {!problem ? (
             <Stack gap={4}>
               {edit.components.map((c, i) => (
                 <Text key={c.key} size="sm">
                   {c.label}:{' '}
                   {c.entry === 'items'
-                    ? `tests 6, 8, 7, 9 out of 10${c.bestOf ? `, best ${c.bestOf}` : ''}`
+                    ? `papers 6, 8, 7, 9 out of 10${c.bestOf ? `, best ${c.bestOf}` : ''}`
                     : '61 out of 80'}{' '}
-                  → <b>{sample.result.componentScores[i]?.score ?? '—'}</b> of {c.weight}
+                  {c.weight > 0 ? (
+                    <>
+                      → <b>{sample.result.componentScores[i]?.score ?? '—'}</b> of {c.weight}
+                    </>
+                  ) : (
+                    <Text span size="sm" c="dimmed">
+                      → recorded, not counted
+                    </Text>
+                  )}
                 </Text>
               ))}
               <Text size="sm" fw={700}>
@@ -759,7 +846,7 @@ function WeightsCard({
             </Stack>
           ) : (
             <Text size="sm" c="dimmed">
-              Shown once the weights add up to 100.
+              {problem}
             </Text>
           )}
         </Card>
@@ -997,6 +1084,7 @@ function ReviewStep({
   settings,
   changes,
   notShown,
+  kept,
   addSubjects,
   setAddSubjects,
 }: {
@@ -1008,7 +1096,10 @@ function ReviewStep({
   settings: Settings;
   /** Null on a first setup; otherwise the levels this would change. */
   changes: string[] | null;
+  /** Department rows the wizard can't show (one setting only, e.g. just the grades); replaced. */
   notShown: number;
+  /** One class's, subject's or class subject's own settings; applying keeps them. */
+  kept: number;
   addSubjects: boolean;
   setAddSubjects: (on: boolean) => void;
 }) {
@@ -1044,9 +1135,17 @@ function ReviewStep({
         {notShown > 0 && (
           <Alert color="red" title="Some settings will be removed">
             <Text size="sm">
-              {notShown} setting{notShown === 1 ? '' : 's'} for a single class or subject, or a
-              department&apos;s own grades, can&apos;t be shown here and will be removed when you
-              apply.
+              {notShown} department setting{notShown === 1 ? '' : 's'} (for example a
+              department&apos;s own grades only) can&apos;t be shown here and will be replaced when
+              you apply.
+            </Text>
+          </Alert>
+        )}
+        {kept > 0 && (
+          <Alert color="gray" title="Class and subject settings are kept">
+            <Text size="sm">
+              {kept} setting{kept === 1 ? '' : 's'} for a single class or subject stay as they are.
+              Change them under &ldquo;Class and subject settings&rdquo;.
             </Text>
           </Alert>
         )}

@@ -84,6 +84,10 @@ export interface PresetOverrides {
     string,
     Partial<Pick<Component, 'label' | 'shortLabel' | 'weight' | 'bestOf'>>
   >;
+  /** Parts the school adds after the preset's, e.g. Mocks (weight 0 = recorded, not counted). */
+  addComponents?: Component[];
+  /** Keys of the preset's parts the school leaves out. */
+  removeComponents?: string[];
   bands?: ({ index: number } & Partial<Omit<Band, 'description'>>)[];
 }
 

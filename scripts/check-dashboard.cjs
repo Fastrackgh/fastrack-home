@@ -713,6 +713,29 @@ check('grading setup is for heads with the results module; its maths matches the
   const renamed = sm.editFrom(preset);
   renamed.components[0].label = 'Classwork';
   assert.deepEqual(sm.overridesFor(preset, renamed), { components: { c0: { label: 'Classwork' } } });
+  // The school's own parts: Mocks added at its own weight, a preset part removed, matched by key.
+  const mocks = sm.newPart('Mocks', ['c0', 'c1'], 20);
+  assert.deepEqual([mocks.key, mocks.entry, mocks.bestOf, mocks.defaultMaxRaw], ['mocks', 'items', null, 100]);
+  assert.equal(sm.partKey('Mocks', ['mocks']), 'mocks_2');
+  const withMocks = sm.editFrom(preset);
+  withMocks.components[0].weight = 20;
+  withMocks.components[1].weight = 60;
+  withMocks.components.push(mocks);
+  assert.deepEqual(sm.overridesFor(preset, withMocks), {
+    components: { c0: { weight: 20 }, c1: { weight: 60 } },
+    addComponents: [mocks],
+    schemeName: 'C0 20 / C1 60 / Mocks 20',
+  });
+  const noClass = sm.editFrom(preset);
+  noClass.components = [{ ...noClass.components[1], weight: 60 }, { ...mocks, weight: 40 }];
+  assert.deepEqual(sm.overridesFor(preset, noClass).removeComponents, ['c0']);
+  // Mocks at 0% are recorded, not counted; something must still count.
+  assert.equal(sm.weightsProblem({ components: [...parts([30, 70]), { ...mocks, weight: 0 }], bands: [] }, 'numeric'), null);
+  assert.equal(sm.weightsProblem({ components: [{ ...mocks, weight: 0 }], bands: [] }, 'numeric'), 'At least one part must count (a weight above 0).');
+  assert.equal(sm.weightsProblem({ components: [...parts([30, 70]), { ...mocks, label: 'c1' }], bands: [] }, 'numeric'), 'Two parts have the same name.');
+  // Running setup again reads a stored Mocks part back, and leaves out a removed one.
+  const back = sm.editFromStored(preset, { components: [parts([20])[0], { ...mocks }] });
+  assert.deepEqual(back.components.map((c) => [c.key, c.weight]), [['c0', 20], ['mocks', 20]]);
   // Running setup again starts from what is stored (QA-257): each distinct
   // stored setup is its own copy, even on the same preset as the school.
   const stored = sm.editFrom(preset);
@@ -736,7 +759,9 @@ check('grading setup is for heads with the results module; its maths matches the
   assert.deepEqual(pre.deptKeys, { lp: 'current-1', up: 'current-1' });
   assert.deepEqual(pre.copies.map((c) => c.label), ['GES basic: your current (Class score 40 / Exam 60, GES A–F)']);
   assert.deepEqual(pre.edits['current-1'].components.map((c) => c.weight), [40, 60]);
-  assert.equal(pre.notShown, 1);
+  // A single class's own setting is kept when setup runs again, not removed.
+  assert.equal(pre.notShown, 0);
+  assert.equal(pre.kept, 1);
   assert.ok(sm.sameEdit(pre.edits['current-1'], stored));
   assert.equal(sm.sameEdit(stored, sm.editFrom(preset)), false);
   // 79.5 is an A at whole numbers and a B at one decimal, as in the fixtures.
@@ -769,6 +794,17 @@ check('mark sheets: teachers and heads with results; cell typing, missing marks 
   // Tests before the pupil joined aren't needed, and leavers never need marks.
   assert.equal(mm.missingFor(row([mark('exam', 1, 50, 70)], { notRequired: [{ componentKey: 'class', itemIndex: 1 }, { componentKey: 'class', itemIndex: 2 }] }), items), 0);
   assert.equal(mm.missingFor(row([], { flags: { leftOn: '2026-11-02' } }), items), 0);
+  // Mocks weighted 0 are recorded, not counted: an unmarked mock (or no mock yet) never holds up submitting.
+  const withMocks = {
+    mode: 'numeric',
+    components: [{ key: 'class', weight: 30 }, { key: 'exam', weight: 70 }, { key: 'mocks', weight: 0 }],
+  };
+  const mockItems = [...items, item('mocks', 1, 100)];
+  assert.deepEqual(mm.requiredItems(withMocks, mockItems).map((i) => i.componentKey), ['class', 'class', 'exam']);
+  assert.equal(mm.missingFor(row([mark('class', 1, 8), mark('class', 2, 9), mark('exam', 1, 50, 70)]), mm.requiredItems(withMocks, mockItems)), 0);
+  assert.deepEqual(mm.emptyComponents({ scheme: withMocks, items }).map((c) => c.key), []);
+  // Descriptor strands weigh 0 and are always needed.
+  assert.equal(mm.requiredItems({ mode: 'descriptor', components: [{ key: 'reading', weight: 0 }] }, [item('reading', 1)]).length, 1);
 
   // The local preview matches the engine: a late joiner's missed test is exempt, so
   // class 8/10 = 0.8 x 30 = 24 and exam 56/70 = 56 give 80, an A.

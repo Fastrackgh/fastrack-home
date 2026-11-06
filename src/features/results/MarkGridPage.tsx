@@ -38,6 +38,7 @@ import {
   localPreview,
   markFor,
   missingFor,
+  requiredItems,
   otherTotal,
   showMark,
 } from './marks-model';
@@ -84,7 +85,8 @@ export function MarkGridPage() {
     return `Marked out of ${mark!.maxRaw}${from}; it counts as ${mark!.rawScore} of ${mark!.maxRaw}. Type a new mark to replace it.`;
   };
 
-  const missing = rows.reduce((n, r) => n + missingFor(r, items), 0);
+  const needed = data ? requiredItems(data.scheme, items) : [];
+  const missing = rows.reduce((n, r) => n + missingFor(r, needed), 0);
   const noItems = data ? emptyComponents({ scheme: data.scheme, items }) : [];
 
   const onPaste = (

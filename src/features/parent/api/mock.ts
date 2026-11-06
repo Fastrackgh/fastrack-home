@@ -492,6 +492,10 @@ export const mockParentApi: ParentApi = {
       reportTerms().map((term) => ({ ...buildReport(studentId, term), subjects: undefined })),
     );
   },
+  async listAssessments() {
+    // Preview data has no mocks; the live API lists the school's published ones.
+    return wait([]);
+  },
   async getReport(studentId, reportId) {
     const term = reportTerms().find((t) => reportId.endsWith(t.id));
     if (!term) throw notFound();

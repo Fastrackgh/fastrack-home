@@ -14,6 +14,7 @@ import type {
   ResentChallenge,
   TermReport,
   Ward,
+  WardAssessment,
   WardCalendar,
   WardOptionalServices,
   WardProfile,
@@ -60,6 +61,8 @@ export interface ParentApi {
   ): Promise<CheckoutSession>;
   verifyPayment(reference: string): Promise<PaymentVerification>;
   listReports(studentId: string): Promise<TermReport[]>;
+  /** Published standalone assessments (e.g. mocks), newest first. */
+  listAssessments(studentId: string): Promise<WardAssessment[]>;
   getReport(studentId: string, reportId: string): Promise<TermReport>;
   reportDocument(studentId: string, reportId: string): Promise<string>;
   attendance(studentId: string, range: { from: string; to: string }): Promise<AttendanceRecord>;

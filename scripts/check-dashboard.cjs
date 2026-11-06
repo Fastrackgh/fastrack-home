@@ -795,6 +795,13 @@ check('mark sheets: teachers and heads with results; cell typing, missing marks 
   for (const role of ['SECRETARY', 'ACCOUNT_OFFICER', 'PARENT'])
     assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), false, role);
   assert.equal(rbac.canAccessPath({ ...viewer('TEACHER'), modules: [] }, path), false);
+  // Mock exams: the same people as mark sheets (heads create and publish; the backend checks that).
+  const mocksPath = '/school-admin/results/mocks/view';
+  assert.equal(rbac.findRoute(mocksPath).path, '/school-admin/results/mocks');
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD', 'TEACHER'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, mocksPath), role);
+  for (const role of ['SECRETARY', 'ACCOUNT_OFFICER', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, mocksPath), false, role);
 
   const mm = load('src/features/results/marks-model.ts');
   assert.deepEqual(mm.parseCell('7.5', 10), { change: { status: 'scored', rawScore: 7.5 } });

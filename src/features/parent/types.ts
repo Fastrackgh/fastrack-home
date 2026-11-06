@@ -171,6 +171,38 @@ export interface ReportComponent {
   group?: 'continuous' | 'exam';
 }
 
+/** A ward's result on a standalone assessment such as "Mock 1", published by the school on its own (no term report). */
+export interface WardAssessment {
+  id: string;
+  title: string;
+  className: string;
+  termLabel: string;
+  yearLabel: string | null;
+  takenOn: string | null;
+  publishedAt: string;
+  revision: number;
+  subjects: {
+    subjectId: string;
+    name: string;
+    status: 'ok' | 'missing' | 'exempt';
+    /** Out of 100. */
+    score: number | null;
+    grade: string | null;
+    remark: string | null;
+    /** Null when the school doesn't show subject positions to parents. */
+    position: number | null;
+    positionTied: boolean;
+  }[];
+  average: number | null;
+  total: number | null;
+  outOf: number | null;
+  aggregate: number | null;
+  /** Null when the school doesn't show class positions to parents. */
+  position: number | null;
+  positionTied: boolean;
+  onRoll: number;
+}
+
 /** A published terminal report; the list endpoint omits `subjects`. */
 export interface TermReport {
   id: string;

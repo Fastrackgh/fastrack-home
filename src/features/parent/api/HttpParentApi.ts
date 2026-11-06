@@ -10,6 +10,7 @@ import type {
   OptionalFeeRequest,
   ResentChallenge,
   TermReport,
+  WardAssessment,
   Ward,
   WardCalendar,
   WardProfile,
@@ -135,6 +136,11 @@ export class HttpParentApi implements ParentApi {
 
   async listReports(studentId: string) {
     const res = await apiClient.get<TermReport[]>(`${this.ward(studentId)}/reports`);
+    return res.data ?? [];
+  }
+
+  async listAssessments(studentId: string) {
+    const res = await apiClient.get<WardAssessment[]>(`${this.ward(studentId)}/assessments`);
     return res.data ?? [];
   }
 

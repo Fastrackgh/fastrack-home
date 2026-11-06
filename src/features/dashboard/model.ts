@@ -24,6 +24,7 @@ export type Area =
   | 'reports'
   | 'communication'
   | 'gradebook'
+  | 'mocks'
   | 'schedule'
   | 'children'
   | 'meals'
@@ -125,6 +126,7 @@ export const roleConfig: Record<
       'questions',
       'templates',
       'gradebook',
+      'mocks',
       'grading',
       'setup',
       'syncReview',
@@ -150,6 +152,7 @@ export const roleConfig: Record<
       'communication',
       'schedule',
       'gradebook',
+      'mocks',
       'grading',
       'setup',
       'syncReview',
@@ -164,6 +167,7 @@ export const roleConfig: Record<
     areas: [
       'attendance',
       'gradebook',
+      'mocks',
       'schedule',
       'performance',
       'meals',
@@ -225,6 +229,7 @@ export const areaLabels: Record<Area, string> = {
   reports: 'Reports & results',
   communication: 'Communication',
   gradebook: 'Gradebook',
+  mocks: 'Mock exams',
   schedule: 'Timetable',
   children: 'My children',
   meals: 'Weekly meal menu',
@@ -257,6 +262,7 @@ export const areaPermission: Record<Area, AccessPermission> = {
   performance: 'marks:read',
   reports: 'marks:read',
   gradebook: 'marks:enter',
+  mocks: 'marks:enter',
   grading: 'grading:manage',
   templates: 'document_templates:read',
   setup: 'classes:manage',
@@ -303,6 +309,7 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   setup: 'setup',
   grading: 'resultsSetup',
   gradebook: 'marks',
+  mocks: 'mocks',
   reports: 'reports',
   syncReview: 'syncReview',
 };

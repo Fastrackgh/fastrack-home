@@ -26,6 +26,7 @@ import {
   CheckCheck,
   ChevronRight,
   CircleHelp,
+  ClipboardCheck,
   ClipboardList,
   CloudUpload,
   CreditCard,
@@ -73,6 +74,7 @@ const icons: Record<NavItem['id'], typeof Users> = {
   reports: BookOpen,
   communication: MessageSquare,
   gradebook: NotebookPen,
+  mocks: ClipboardCheck,
   grading: SlidersHorizontal,
   schedule: CalendarDays,
   children: Baby,
@@ -284,9 +286,9 @@ export function AppShell({ children }: { children: ReactNode }) {
                 Pages without a “UI preview” banner show your school’s live records.
               </Text>
               <Text size="sm">
-                Sections marked “UI preview” use sample data. Their forms save temporary drafts
-                that clear when you switch child or term, or reload. No payments, invitations,
-                messages or uploads are sent.
+                Sections marked “UI preview” use sample data. Their forms save temporary drafts that
+                clear when you switch child or term, or reload. No payments, invitations, messages
+                or uploads are sent.
               </Text>
             </>
           ) : (

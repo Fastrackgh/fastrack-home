@@ -764,6 +764,25 @@ check('grading setup is for heads with the results module; its maths matches the
   assert.equal(pre.kept, 1);
   assert.ok(sm.sameEdit(pre.edits['current-1'], stored));
   assert.equal(sm.sameEdit(stored, sm.editFrom(preset)), false);
+  // One class's or subject's own setting: named, replaced in place, removed, and checked.
+  const pm = load('src/features/results/policy-model.ts');
+  const names = { c3: 'JHS 3' };
+  const subj = { fr: 'French', ma: 'Mathematics' };
+  const nameOf = (r) => pm.targetName(r, (id) => names[id], (id) => subj[id]);
+  assert.equal(nameOf({ scope: 'class', classId: 'c3' }), 'JHS 3');
+  assert.equal(nameOf({ scope: 'subject', subjectId: 'fr' }), 'French in every class');
+  assert.equal(nameOf({ scope: 'class_subject', classId: 'c3', subjectId: 'ma' }), 'Mathematics in JHS 3');
+  const schoolRow = { id: 'r0', scope: 'school', schemeFamilyId: 's', scaleFamilyId: 'g' };
+  const jhs3 = { id: 'r1', scope: 'class', classId: 'c3', schemeFamilyId: 'old', scaleFamilyId: null };
+  const replaced = pm.withRow([schoolRow, jhs3], { scope: 'class', classId: 'c3', schemeFamilyId: 'mocks', scaleFamilyId: null });
+  assert.equal(replaced.length, 2);
+  assert.ok(replaced.every((r) => !('id' in r)), 'the replace body carries no ids');
+  assert.equal(replaced[1].schemeFamilyId, 'mocks');
+  assert.deepEqual(pm.withoutRow([schoolRow, jhs3], jhs3).map((r) => r.scope), ['school']);
+  assert.equal(pm.narrowProblem({ scope: 'class', classId: null, schemeFamilyId: 's', scaleFamilyId: null }, [], false), 'Choose the class.');
+  assert.match(pm.narrowProblem({ scope: 'class', classId: 'c3', schemeFamilyId: null, scaleFamilyId: null }, [], false), /weighting or grades/);
+  assert.match(pm.narrowProblem({ scope: 'class', classId: 'c3', schemeFamilyId: 's', scaleFamilyId: null }, [jhs3], false), /already a setting/);
+  assert.equal(pm.narrowProblem({ scope: 'class', classId: 'c3', schemeFamilyId: 's', scaleFamilyId: null }, [jhs3], true), null);
   // 79.5 is an A at whole numbers and a B at one decimal, as in the fixtures.
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 0), { printed: 80, grade: 'A' });
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 1), { printed: 79.5, grade: 'B' });

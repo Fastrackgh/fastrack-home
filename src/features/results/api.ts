@@ -158,6 +158,21 @@ export const resultsApi = {
       ).data ?? []
     );
   },
+  /** Replaces the year's policy rows; the backend checks them all (400 names where modes clash). */
+  async replacePolicy(academicYearId: string, assignments: PolicyRow[]): Promise<PolicyRow[]> {
+    return (
+      (
+        await apiClient.put<PolicyRow[]>('/schools/me/results-policy/assignments', {
+          academicYearId,
+          assignments,
+        })
+      ).data ?? []
+    );
+  },
+  /** A new weighting of the school's own (version 1 of a new family). */
+  async createScheme(content: SchemeContent): Promise<Scheme> {
+    return (await apiClient.post<Scheme>('/schools/me/assessment-schemes', content)).data;
+  },
   async getSettings(): Promise<Settings> {
     const raw = (await apiClient.get<Partial<Settings>>('/schools/me/results-settings')).data;
     return { ...DEFAULT_SETTINGS, ...raw };

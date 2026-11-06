@@ -4,6 +4,7 @@ import { useState } from 'react';
 import {
   Alert,
   Button,
+  Checkbox,
   Group,
   Modal,
   NumberInput,
@@ -26,9 +27,11 @@ export function ItemModal({
   numeric,
   next,
   item,
+  classWide,
   onClose,
   onSaved,
   onStale,
+  onClassWide,
 }: {
   sheetId: string;
   rowVersion: number;
@@ -38,11 +41,18 @@ export function ItemModal({
   numeric: boolean;
   next: number;
   item?: Item;
+  /** Heads adding a new test: the class and term, so it can go on every subject's sheet at once. */
+  classWide?: { termId: string; classId: string };
   onClose: () => void;
   onSaved: (res: { rowVersion: number; items: Item[] }) => void;
   onStale: () => void;
+  /** After adding to every subject: this sheet changed too, so reload it. */
+  onClassWide?: () => void;
 }) {
-  const [label, setLabel] = useState(item?.label ?? `Test ${next}`);
+  const [label, setLabel] = useState(
+    item?.label ?? `${componentKey === 'mocks' ? 'Mock' : 'Test'} ${next}`,
+  );
+  const [everySubject, setEverySubject] = useState(false);
   const [maxRaw, setMaxRaw] = useState<number | string>(item?.maxRaw ?? defaultMax);
   const [takenOn, setTakenOn] = useState(item?.takenOn ?? '');
   const [saving, setSaving] = useState(false);
@@ -54,6 +64,25 @@ export function ItemModal({
     setSaving(true);
     setError(null);
     try {
+      if (classWide && everySubject && !item) {
+        const res = await marksApi.addItemToClass({
+          ...classWide,
+          componentKey,
+          label: label.trim(),
+          maxRaw: Number(maxRaw),
+          takenOn: takenOn || undefined,
+        });
+        notifications.show({
+          color: res.skipped.length ? 'orange' : 'green',
+          title: `${label.trim()} added to ${res.added.length} subject${res.added.length === 1 ? '' : 's'}`,
+          message: res.skipped.length
+            ? `Not added to ${res.skipped.map((s) => `${s.subjectName} (${s.reason.replace(/\.$/, '').toLowerCase()})`).join('; ')}.`
+            : 'Every subject in this class has it now.',
+          autoClose: res.skipped.length ? false : undefined,
+        });
+        onClassWide?.();
+        return;
+      }
       const body = {
         rowVersion,
         label: label.trim(),
@@ -119,6 +148,14 @@ export function ItemModal({
             onChange={(e) => setTakenOn(e.currentTarget.value)}
             radius="md"
           />
+          {classWide && !item && (
+            <Checkbox
+              label="Add to every subject in this class"
+              description={`Puts ${label.trim() || 'it'} on each subject's ${componentLabel} for this term, e.g. one mock across all papers.`}
+              checked={everySubject}
+              onChange={(e) => setEverySubject(e.currentTarget.checked)}
+            />
+          )}
           <Group justify="flex-end">
             <Button variant="default" onClick={onClose} radius="md" disabled={saving}>
               Cancel

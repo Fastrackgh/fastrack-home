@@ -72,7 +72,7 @@ Conventions follow the rest of the API:
 The definitions behind every number on a report. The fixture file has a worked case for each rule.
 
 - **Notation:**
-  - component *c* has weight *w_c*, and a scheme's weights total exactly 100;
+  - component *c* has weight *w_c*, and a scheme's weights total exactly 100. A numeric component may weigh 0 (decided 6 Nov): it is **recorded, not counted** (e.g. mocks a school tracks without them changing term results). It never counts in a total and never makes a subject `missing`; at least one component must weigh more than 0;
   - item *i* scores *r_i* out of *m_i*;
   - *D* = `scoreDecimals`;
   - **R** = round half away from zero, after dropping binary noise at 12 significant digits. Not `roundCurrency`: 79.49999999999999 must round to 80.
@@ -175,6 +175,8 @@ The backend adds an any-of permission decorator for the GETs, because its permis
   ```ts
   { schemeName?, scaleName?,
     components?: { [componentKey]: { label?, shortLabel?, weight?, bestOf? } },  // matched by key
+    addComponents?: Component[],      // the school's own parts after the preset's, e.g. Mocks (decided 6 Nov)
+    removeComponents?: string[],      // keys of preset parts to leave out
     bands?: [{ index, label?, remark?, minScore?, points?, isPass? }] }          // index = position in the preset's bands
   ```
 
@@ -186,12 +188,13 @@ The backend adds an any-of permission decorator for the GETs, because its permis
 - **Overrides allowed:**
   - scheme and scale `name`;
   - component `label`, `shortLabel`, `weight` and `bestOf`, but not `key` or `group`. `weight` and `bestOf` are numeric-only and get 400 on a descriptor preset;
+  - **parts the school adds or removes** (decided 6 Nov): `addComponents` takes whole components (any key not in the preset; weight 0 allowed for "recorded, not counted"; `entry: 'items'` with `bestOf` null counts every paper, so the number of mocks is up to each school), and `removeComponents` drops preset parts by key. An unknown key to remove is 400; a repeated key is 409. The edited copy is named after its parts, e.g. "Class score 20 / Exam 60 / Mocks 20";
   - band `label`, `remark`, `minScore`, `points` and `isPass`. An `index` outside the preset's bands gets 400.
 
   Overrides carry no settings; those go in `settings`.
 - **Validation.** Overrides pass the same checks as the normal routes. Bands are checked again after the overrides are applied (one at 0, no repeated minimums) and stored highest first. A 400 names where the problem is, e.g. "Lower Primary: weights add up to 95, not 100." or "School default: …". Components and bands are added or removed afterwards, on the scheme and scale routes.
 - **Settings.** The order is built-in defaults < the default preset's settings < apply `settings`. Department presets' settings are ignored, because there is one settings row per school. The wizard pre-fills from them (e.g. an aggregate when a department uses `bece_jhs`) and always sends the full settings.
-- **Re-running** apply for a year replaces that year's policy rows in one transaction, like the PUT, and reuses families by the rule above. `settings` merges like a PATCH. `subjects: true` only adds subjects, never removes them. Other years and sheets already frozen are untouched.
+- **Re-running** apply for a year replaces that year's school and department rows in one transaction and reuses families by the rule above. Class, subject and class-subject rows are kept (decided 6 Nov) and validated with the rest; the wizard's "Class and subject settings" section changes them through the PUT below. `settings` merges like a PATCH. `subjects: true` only adds subjects, never removes them. Other years and sheets already frozen are untouched.
 - **Subjects.** With `subjects: true`, each preset's subjects are matched to the catalogue by code or name (ignoring case), created if missing, and added to that department's classes, as `/class-subjects/apply` does. A department (or the school default) with no classes is skipped, so it adds nothing to the catalogue; `subjects.created` and `existing` count only targets that have classes.
 - Returns `{schemesCreated, scalesCreated, assignments, subjects: {created, existing}, classSubjects: {added, alreadyThere}}`.
 
@@ -288,6 +291,7 @@ Agreed with the backend session on 24 Oct, including the shapes the frontend pro
 | `GET /mark-sheets/open?termId&classId&subjectId` | The sheet view: `{context: {className, subjectName, termLabel, yearLabel}, sheet \| null, canEdit, scheme, scale, settings, items, roster}`. `canEdit` is true for heads at any status, and for a teacher only on a draft they may enter. Creates the sheet only when the caller may enter marks there; otherwise `sheet: null`, `items: []` and the roster, read-only. `settings` is the school's results settings, so previews use the same rounding. |
 | `PUT /mark-sheets/:id/marks` | `{rowVersion, marks: [{schoolStudentId, componentKey, itemIndex, status \| null, rawScore?, descriptorBandId?}]}`. `status: null` removes a mark. Descriptor marks are `scored` with `descriptorBandId` and no `rawScore`. The backend fills `maxRaw` from the item. Returns `{rowVersion, rows}` with the changed pupils only. A stale version gives 409 with `details.rowVersion`. A bad cell gives 422 with `details.cells [{schoolStudentId, componentKey, itemIndex, message}]`, and nothing is saved. |
 | `POST /mark-sheets/:id/items` | `{rowVersion, componentKey, label, maxRaw, takenOn?}`. `itemIndex` is the next free one. Returns `{rowVersion, items}`. |
+| `POST /mark-sheets/class-items` | Heads. `{termId, classId, componentKey, label, maxRaw, takenOn?}`: one test or mock (e.g. "Mock 3") on every active subject sheet of the class, opening sheets as needed, in one transaction. Returns `{added: [{subjectId, subjectName, sheetId}], skipped: [{subjectId, subjectName, reason}]}`; a subject whose weighting has no such multi-paper part, or that isn't assessed this term, is skipped with the reason. (decided 6 Nov) |
 | `PATCH /mark-sheets/:id/items/:itemId` | `{rowVersion, label?, maxRaw?, takenOn?}`. Returns `{rowVersion, items}`. |
 | `DELETE /mark-sheets/:id/items/:itemId?rowVersion=&force=` | Returns `{rowVersion, items}`. |
 | `POST /mark-sheets/:id/submit` | See Status. Submit, return, reopen, `PATCH {notAssessed}` and apply-latest all return the sheet view, as open does. |

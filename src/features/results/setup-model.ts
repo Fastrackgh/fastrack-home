@@ -44,7 +44,8 @@ export function weightsProblem(edit: PresetEdit, mode: Preset['scheme']['mode'])
   if (mode === 'descriptor') return null;
   if (edit.components.some((c) => !(c.weight >= 0))) return "A weight can't be below 0.";
   // A part at 0 is recorded but not counted (e.g. mocks); something must count.
-  if (!edit.components.some((c) => c.weight > 0)) return 'At least one part must count (a weight above 0).';
+  if (!edit.components.some((c) => c.weight > 0))
+    return 'At least one part must count (a weight above 0).';
   const total = weightTotal(edit.components);
   return total === 100 ? null : `The weights add up to ${total}, not 100.`;
 }

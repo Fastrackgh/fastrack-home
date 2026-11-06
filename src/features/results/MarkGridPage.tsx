@@ -262,10 +262,10 @@ export function MarkGridPage() {
                 ? // A refused cell was never saved, so "All changes saved" would be wrong (QA-289).
                   `${refused.length} ${refused.length === 1 ? 'mark' : 'marks'} not saved: ${refused[0]} Fix the red ${refused.length === 1 ? 'cell' : 'cells'}.`
                 : marks.hasUnsaved()
-                ? 'Unsaved changes'
-                : marks.waiting
-                  ? `${marks.waiting} ${marks.waiting === 1 ? 'mark' : 'marks'} waiting to sync`
-                  : 'All changes saved'}
+                  ? 'Unsaved changes'
+                  : marks.waiting
+                    ? `${marks.waiting} ${marks.waiting === 1 ? 'mark' : 'marks'} waiting to sync`
+                    : 'All changes saved'}
           </Text>
         </Group>
         {isHead && sheet && (
@@ -584,6 +584,11 @@ export function MarkGridPage() {
           numeric={!descriptor}
           next={items.filter((i) => i.componentKey === itemModal.componentKey).length + 1}
           item={itemModal.item}
+          classWide={isHead ? { termId, classId } : undefined}
+          onClassWide={() => {
+            setItemModal(null);
+            load();
+          }}
           onClose={() => setItemModal(null)}
           onSaved={(res) => {
             setItemModal(null);

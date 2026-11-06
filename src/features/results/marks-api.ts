@@ -158,6 +158,22 @@ export const marksApi = {
       )
     ).data;
   },
+  /** One test or mock on every subject sheet of a class (heads); subjects without that multi-paper part are skipped with the reason. */
+  async addItemToClass(body: {
+    termId: string;
+    classId: string;
+    componentKey: string;
+    label: string;
+    maxRaw: number;
+    takenOn?: string;
+  }) {
+    return (
+      await apiClient.post<{
+        added: { subjectId: string; subjectName: string; sheetId: string }[];
+        skipped: { subjectId: string; subjectName: string; reason: string }[];
+      }>(`${base}/class-items`, body)
+    ).data;
+  },
   async addItem(
     sheetId: string,
     body: {

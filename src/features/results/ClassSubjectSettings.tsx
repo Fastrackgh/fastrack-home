@@ -237,6 +237,11 @@ function SettingModal({
   const [saving, setSaving] = useState(false);
 
   const base = schemes.find((s) => s.familyId === baseId) ?? null;
+  // A weighting only pairs with grades of its own kind (marks or words); with grades chosen, offer only those.
+  const chosenScale = scales.find((s) => s.familyId === row.scaleFamilyId);
+  const pickableSchemes = chosenScale
+    ? schemes.filter((s) => s.mode === chosenScale.mode)
+    : schemes;
   // The new weighting is edited like a wizard preset: the base's parts, any scale of its mode for the example.
   const basePreset: Preset | null = useMemo(() => {
     if (!base) return null;
@@ -313,7 +318,7 @@ function SettingModal({
       onClose={onClose}
       title={existing ? 'Change a setting' : 'Add a setting'}
       radius="lg"
-      size={weighting === NEW ? 'xl' : 'md'}
+      size={weighting === NEW ? 'xl' : 'lg'}
       centered
     >
       <Stack gap="md">
@@ -352,7 +357,10 @@ function SettingModal({
           description="How the marks add up, e.g. with a Mocks part"
           data={[
             { value: INHERIT, label: 'From the level above' },
-            ...schemes.map((s) => ({ value: s.familyId, label: s.name })),
+            ...pickableSchemes.map((s) => ({
+              value: s.familyId,
+              label: s.mode === 'descriptor' ? `${s.name} (rated in words)` : s.name,
+            })),
             { value: NEW, label: 'Make a new weighting…' },
           ]}
           value={weighting}
@@ -386,6 +394,7 @@ function SettingModal({
                   preset={basePreset}
                   edit={draft}
                   settings={settings}
+                  stacked
                   onChange={setDraft}
                 />
               </>

@@ -29,12 +29,15 @@ export function WeightsCard({
   preset,
   edit,
   settings,
+  stacked = false,
   onChange,
 }: {
   title: string;
   preset: Preset;
   edit: PresetEdit;
   settings: Settings;
+  /** The worked example below the parts, not beside them (narrow spaces such as a dialog). */
+  stacked?: boolean;
   onChange: (edit: PresetEdit) => void;
 }) {
   const update = (i: number, change: Partial<Component>) =>
@@ -95,7 +98,7 @@ export function WeightsCard({
           </Button>
         </Group>
       </Group>
-      <SimpleGrid cols={{ base: 1, md: 2 }} spacing="lg">
+      <SimpleGrid cols={stacked ? 1 : { base: 1, md: 2 }} spacing="lg">
         <Stack gap="xs">
           <Table verticalSpacing="xs">
             <Table.Thead>
@@ -195,8 +198,8 @@ export function WeightsCard({
               ))}
             </Table.Tbody>
           </Table>
-          <Group justify="space-between" align="flex-start" wrap="nowrap">
-            <Text size="xs" c="dimmed">
+          <Group justify="space-between" align="flex-start" wrap="nowrap" gap="sm">
+            <Text size="xs" c="dimmed" style={{ flex: 1 }}>
               Add a part such as Mocks, with as many papers as you set. At 0% it is recorded but not
               counted in totals or grades.
             </Text>
@@ -205,6 +208,7 @@ export function WeightsCard({
               variant="light"
               leftSection={<Plus size={12} />}
               onClick={addPart}
+              style={{ flexShrink: 0 }}
             >
               Add a part
             </Button>

@@ -3,8 +3,8 @@ import type { PolicyRow, Scope } from './api';
 /** The levels a single class or subject can be set at, below the wizard's school and departments. */
 export const NARROW_SCOPES: { value: Scope; label: string }[] = [
   { value: 'class', label: 'One class' },
-  { value: 'subject', label: 'A subject in every class' },
-  { value: 'class_subject', label: 'A subject in one class' },
+  { value: 'subject', label: 'A subject, all classes' },
+  { value: 'class_subject', label: 'A subject, one class' },
 ];
 
 export const isNarrow = (row: Pick<PolicyRow, 'scope'>) =>

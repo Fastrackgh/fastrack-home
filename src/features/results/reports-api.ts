@@ -1,3 +1,4 @@
+import type { DeliveryProgress } from './delivery';
 import { apiClient, pathId } from '@/lib/api-client';
 
 /*
@@ -135,6 +136,11 @@ export const reportsApi = {
   },
   async action(termId: string, classId: string, action: 'approve' | 'publish', body = {}) {
     return (await apiClient.post(`${batchPath(termId, classId)}/${action}`, body)).data;
+  },
+  /** How the messages to parents from the class's latest publish stand (heads). */
+  async notifications(termId: string, classId: string): Promise<DeliveryProgress> {
+    return (await apiClient.get<DeliveryProgress>(`${batchPath(termId, classId)}/notifications`))
+      .data;
   },
   async reopen(termId: string, classId: string, reason: string) {
     return (await apiClient.post(`${batchPath(termId, classId)}/reopen`, { reason })).data;

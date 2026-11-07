@@ -24,12 +24,9 @@ import { useAuth } from '@/lib/auth';
 import { PageHeader } from '@/features/workspace';
 import { APP_ROUTES } from '@/lib/rbac';
 import { errorMessage } from '@/lib/api-client';
-import {
-  assessmentsApi,
-  notifiedMessage,
-  papersMessage,
-  type AssessmentResults,
-} from './assessments-api';
+import { assessmentsApi, papersMessage, type AssessmentResults } from './assessments-api';
+import { queuedMessage } from './delivery';
+import { ParentDelivery } from './ParentDelivery';
 
 const ordinal = (n: number) => {
   const s = ['th', 'st', 'nd', 'rd'];
@@ -53,6 +50,7 @@ export function MockResultsPage() {
   const [error, setError] = useState<string | null>(null);
   const [publishing, setPublishing] = useState(false);
   const [adding, setAdding] = useState(false);
+  const loadDelivery = useCallback(() => assessmentsApi.notifications(id), [id]);
 
   const load = useCallback(async () => {
     setError(null);
@@ -72,14 +70,12 @@ export function MockResultsPage() {
     try {
       const { notified, ...results } = await assessmentsApi.publish(id);
       setData(results);
-      const short =
-        notified.email.failed + notified.sms.failed > 0 ||
-        notified.email.sent + notified.sms.sent === 0;
+      const nobody = notified.email.pending + notified.sms.pending === 0;
       notifications.show({
-        color: short ? 'orange' : 'green',
+        color: nobody ? 'orange' : 'green',
         title: 'Published to parents',
-        message: notifiedMessage(notified),
-        autoClose: short ? false : undefined,
+        message: `${queuedMessage(notified)} Term reports are not affected.`,
+        autoClose: nobody ? false : undefined,
       });
     } catch (err) {
       notifications.show({
@@ -162,6 +158,7 @@ export function MockResultsPage() {
           </Button>
         )}
       </Group>
+      {isHead && published && <ParentDelivery key={mock.revision} load={loadDelivery} />}
       {!data.complete && (
         <Text size="sm" c="dimmed" mb="md">
           Publishing opens once every paper is marked. Teachers enter the marks on their mark

@@ -38,6 +38,7 @@ import {
 } from './reports-api';
 import { place } from '@/lib/format';
 import { BATCH_STATUS } from './ReportsBoardPage';
+import { ParentDelivery } from './ParentDelivery';
 
 const PUPIL_STATUS: Record<PupilReport['status'], { label: string; color: string }> = {
   ready: { label: 'Ready', color: 'green' },
@@ -78,6 +79,10 @@ export function ClassReportPage() {
   const [busy, setBusy] = useState<string | null>(null);
   const [open, setOpen] = useState<PupilReport | null>(null);
   const [reopening, setReopening] = useState(false);
+  const loadDelivery = useCallback(
+    () => reportsApi.notifications(termId, classId),
+    [termId, classId],
+  );
 
   const schoolClass = classes.find((c) => c.id === classId);
   // The class teacher writes remarks for their own class only; heads for any.
@@ -260,7 +265,7 @@ export function ClassReportPage() {
                 run(
                   'publish',
                   () => reportsApi.action(termId, classId, 'publish'),
-                  'Reports published; parents have been emailed',
+                  'Reports published; messages to parents are on the way',
                 )
               }
             >
@@ -290,6 +295,9 @@ export function ClassReportPage() {
         <Alert color="orange" mb="md" title="Reopened">
           {batch.reopenReason}. Parents still see the published version until you publish again.
         </Alert>
+      )}
+      {isHead && batch && batch.revision > 0 && (
+        <ParentDelivery key={batch.revision} load={loadDelivery} />
       )}
       {batch?.status === 'published' && (
         <Alert color="green" mb="md" icon={<CheckCircle2 size={18} />} title="Published">

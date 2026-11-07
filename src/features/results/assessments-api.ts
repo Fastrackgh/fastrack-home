@@ -1,4 +1,5 @@
 import { apiClient, pathId } from '@/lib/api-client';
+import type { DeliveryProgress } from './delivery';
 
 /** A standalone assessment such as "Mock 1" for one class. */
 export interface Assessment {
@@ -67,14 +68,6 @@ export interface AssessmentResults {
   notIncluded?: { subjectId: string; name: string }[];
 }
 
-/** How the messages to parents went when results were published, per channel the school has on. */
-export interface PublishNotified {
-  email: { sent: number; failed: number };
-  sms: { sent: number; failed: number };
-  /** Pupils with no linked parent reachable on a channel that is on. */
-  pupilsNotReached: number;
-}
-
 /** Where an assessment's papers went: `partsAdded` subjects had no such part and got one at 0% (also in `added`). */
 export interface AssessmentPapersResult {
   assessment: Assessment;
@@ -108,12 +101,17 @@ export const assessmentsApi = {
   async results(id: string): Promise<AssessmentResults> {
     return (await apiClient.get<AssessmentResults>(`${base}/${pathId(id)}`)).data;
   },
-  async publish(id: string): Promise<AssessmentResults & { notified: PublishNotified }> {
+  /** Publishes and queues the messages to parents; `notified` is what was queued. */
+  async publish(id: string): Promise<AssessmentResults & { notified: DeliveryProgress }> {
     return (
-      await apiClient.post<AssessmentResults & { notified: PublishNotified }>(
+      await apiClient.post<AssessmentResults & { notified: DeliveryProgress }>(
         `${base}/${pathId(id)}/publish`,
       )
     ).data;
+  },
+  /** How the messages from the latest publish stand (heads). */
+  async notifications(id: string): Promise<DeliveryProgress> {
+    return (await apiClient.get<DeliveryProgress>(`${base}/${pathId(id)}/notifications`)).data;
   },
 };
 
@@ -136,21 +134,4 @@ export function papersMessage(res: AssessmentPapersResult): string {
       `Not on ${res.skipped.map((s) => `${s.subjectName} (${s.reason.replace(/\.$/, '')})`).join(', ')}.`,
     );
   return parts.join(' ') || 'Every subject already has its paper.';
-}
-
-/** What publishing did about messages to parents, for a notification. */
-export function notifiedMessage(n: PublishNotified): string {
-  const sent = [
-    n.email.sent && plural(n.email.sent, 'email'),
-    n.sms.sent && plural(n.sms.sent, 'text message'),
-  ].filter(Boolean);
-  const parts = [sent.length ? `Sent ${sent.join(' and ')} to parents.` : 'No parent was told.'];
-  const failed = n.email.failed + n.sms.failed;
-  if (failed) parts.push(`${plural(failed, 'message')} failed to send.`);
-  if (n.pupilsNotReached)
-    parts.push(
-      `${plural(n.pupilsNotReached, 'pupil')} ${n.pupilsNotReached === 1 ? 'has' : 'have'} no linked parent to reach.`,
-    );
-  parts.push('Term reports are not affected.');
-  return parts.join(' ');
 }

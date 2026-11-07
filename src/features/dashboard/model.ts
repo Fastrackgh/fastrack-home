@@ -24,6 +24,7 @@ export type Area =
   | 'reports'
   | 'communication'
   | 'gradebook'
+  | 'mocks'
   | 'schedule'
   | 'children'
   | 'meals'
@@ -125,6 +126,7 @@ export const roleConfig: Record<
       'questions',
       'templates',
       'gradebook',
+      'mocks',
       'grading',
       'setup',
       'syncReview',
@@ -150,6 +152,7 @@ export const roleConfig: Record<
       'communication',
       'schedule',
       'gradebook',
+      'mocks',
       'grading',
       'setup',
       'syncReview',
@@ -164,6 +167,7 @@ export const roleConfig: Record<
     areas: [
       'attendance',
       'gradebook',
+      'mocks',
       'schedule',
       'performance',
       'meals',
@@ -225,6 +229,7 @@ export const areaLabels: Record<Area, string> = {
   reports: 'Reports & results',
   communication: 'Communication',
   gradebook: 'Gradebook',
+  mocks: 'Mock exams',
   schedule: 'Timetable',
   children: 'My children',
   meals: 'Weekly meal menu',
@@ -257,6 +262,7 @@ export const areaPermission: Record<Area, AccessPermission> = {
   performance: 'marks:read',
   reports: 'marks:read',
   gradebook: 'marks:enter',
+  mocks: 'marks:enter',
   grading: 'grading:manage',
   templates: 'document_templates:read',
   setup: 'classes:manage',
@@ -303,6 +309,7 @@ const areaPages: Partial<Record<Area, AppRouteKey>> = {
   setup: 'setup',
   grading: 'resultsSetup',
   gradebook: 'marks',
+  mocks: 'mocks',
   reports: 'reports',
   syncReview: 'syncReview',
 };
@@ -339,9 +346,22 @@ export function canAccess(viewer: Viewer, area: Area) {
     : can({ ...viewer, readOnly: false }, areaPermission[area]);
 }
 
+/**
+ * Preview areas (sample data, no live page yet) are shown to staff only where
+ * NEXT_PUBLIC_SHOW_PREVIEW_PAGES=1, such as a demo deployment. A real school
+ * never sees invented figures in its menu (QA-290).
+ */
+export const showPreviewPages = process.env.NEXT_PUBLIC_SHOW_PREVIEW_PAGES === '1';
+
+/** Whether `area` is a staff preview that this build hides. */
+export const isHiddenPreview = (viewer: Viewer, area: Area) =>
+  !showPreviewPages && audienceOf(viewer.role) === 'staff' && !areaPage(viewer, area);
+
 /** The viewer's areas they may open, in layout order. */
 export function accessibleAreas(viewer: Viewer): Area[] {
-  return roleConfig[viewer.role].areas.filter((area) => canAccess(viewer, area));
+  return roleConfig[viewer.role].areas.filter(
+    (area) => canAccess(viewer, area) && !isHiddenPreview(viewer, area),
+  );
 }
 
 /** Accessible areas the viewer works in inside the preview workspace. */

@@ -26,6 +26,7 @@ export const parentQueryKeys = {
   receiptDocument: (studentId: string, paymentId: string) =>
     `receipt-doc:${studentId}:${paymentId}`,
   reports: (studentId: string) => `reports:${studentId}`,
+  assessments: (studentId: string) => `assessments:${studentId}`,
   report: (studentId: string, reportId: string) => `report:${studentId}:${reportId}`,
   reportDocument: (studentId: string, reportId: string) => `report-doc:${studentId}:${reportId}`,
   attendance: (studentId: string, month: string) => `attendance:${studentId}:${month}`,
@@ -79,6 +80,11 @@ export const usePayment = (studentId: string, paymentId: string) =>
 
 export const useReports = (studentId: string, { enabled }: Options = {}) =>
   useParentQuery(keyIf(enabled, keys.reports(studentId)), () => parentApi.listReports(studentId));
+
+export const useAssessments = (studentId: string, { enabled }: Options = {}) =>
+  useParentQuery(keyIf(enabled, keys.assessments(studentId)), () =>
+    parentApi.listAssessments(studentId),
+  );
 
 export const useReport = (studentId: string, reportId: string) =>
   useParentQuery(keys.report(studentId, reportId), () => parentApi.getReport(studentId, reportId));

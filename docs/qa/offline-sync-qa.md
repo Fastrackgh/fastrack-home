@@ -994,5 +994,60 @@ Tested on 2 Nov 2026 **through the UI** on a database copy, with migration Offli
   All landed (PUT 200). The theory that an unresolved duplicate card holds the class register is **disproven**: the register saved with the card still open.
 - **Observation (UX, Low):** closing the online "This may be a pupil already in the school" window with Escape or × doesn't drop the admission. It waits in the tray as "Possible duplicate". "Check the details" leaves nothing queued, so the two ways of backing out behave differently.
 - **Likely explanation for case 7** (from fastrack-18; not confirmed, because the copy and its server log were already deleted): a 422 `NOT_ENROLLED_ON_DATE`. Offline, a register for a day the device never opened is built from the class's latest saved register. If that list still held a pupil who has since left Basic 1 (Kojo moved in earlier rounds), the server refuses the whole register, and the card offers "Send without <pupil>", as designed. A refused register writes no `sync_operations` row, so "no PUT recorded" in that table didn't prove no PUT was sent. The re-runs landed because the day had by then been opened online. If it recurs, read the second card, or `conflicts[].error.code`: NOT_ENROLLED_ON_DATE is expected; OP_TOO_OLD would be a bug.
-- **Escape / × / Cancel on the duplicate window** now drop the admission like "Check the details": frontend 27b9918, to be re-tested in the next round.
+- **Escape / × / Cancel on the duplicate window** now drop the admission like "Check the details" (frontend 27b9918). **Re-tested 2 Nov through the UI** with backend e793dd8: leaving the window by Escape, by ×, or by "Check the details" each leaves review 0, pending 0 and still one Esi Adjei. Pass.
+
+## Frontend production URL clean-up (f1c973a)
+
+Checked on 2 Nov 2026 by grep, and by production builds in a separate worktree (never the shared folder).
+- **Grep** of src and public: only a wa.me link built from the business phone number, a form placeholder (morningstar.edu.gh), SVG namespaces, and the dev-only localhost fallback in `api-client.ts`, which is empty when NODE_ENV=production.
+- **Production builds:**
+  - Without `NEXT_PUBLIC_API_URL`: exit 1, "NEXT_PUBLIC_API_URL is not set…".
+  - With `api.example.com` (no scheme): exit 1, "not a full address".
+  - With `https://api.example.com/api` and `https://www.example.com`: exit 0, with **no `localhost:3000`** in `.next/static`, `api.example.com` in 4 chunks, and no `fastrack.com.gh` anywhere in `.next`.
+- **Pass.** Left unchanged on purpose: the marketing contact email (fastrackus@gmail.com), a product decision.
+
+
+## Merge state check, 3 Nov 2026: backend main lacks steps 5b and 5c
+
+GitHub lists backend PRs #16 (offline admissions, 5b) and #17 (student edits and photos, 5c) as merged, but they were stacked PRs. They merged into their base branches, `feat/offline-payments` (d2cb09d) and `feat/offline-admissions` (e762195), not into `main`. Backend `main` is d55fa69 (#11, #12, #14, #15). `fa4c184`, `c664e97`, `a41e650` and `e6c9e22` are not in it. Frontend `main` (6b29abc, PR #7) already holds the 5b and 5c screens (44b2605, d27e8c2, 27b9918).
+
+### OFF-19 (High; owner: backend, merge only; fixed by PR #19, 80e85e2): on backend main, admitting a pupil and editing a pupil both fail
+
+Tested on 3 Nov 2026 **through the UI** as the BIS-001 principal. Backend `main` d55fa69 was run from a clean checkout on a database copy (`fastrack_qamain`; OfflinePayments1792600002900 applied there). Frontend `main` 6b29abc ran on :3005.
+
+| Case | What the user sees | Request | DB |
+| --- | --- | --- | --- |
+| Admit a pupil **online** (Mainpair Admitcheck, Basic 1, mother's name and phone) | "Admission Form Alert: This action can't be queued offline (Idempotency-Key not supported here)" | `POST /schools/me/students` → 400 `IDEMPOTENCY_NOT_SUPPORTED` | No pupil |
+| Edit Esi Adjei's other name online, then Save changes | Toast "Someone else changed this pupil. Changes that clash are in Needs review. Any others were saved." | `PATCH /schools/me/students/:id` with `{changes:{otherName:{from,to}}}` → 400 `IDEMPOTENCY_NOT_SUPPORTED` | Other name still empty |
+
+- The photo upload and removal use the same queued path, so they fail for the same reason.
+- Registers, marks and cash payments are on main (#7, #11) and aren't affected.
+- The same screens passed on 2 Nov against `feat/offline-student-edits` (e793dd8, f877e87).
+- **Fix:** open a PR from `feat/offline-student-edits` (f877e87, which contains 5b and 5c) or `feat/offline-admissions` (e762195) into `main`. Until it merges, deploying the two `main` branches together means no school can admit or edit a pupil.
+- **Side issue (Low, frontend):** a 400 on an edit shows "Someone else changed this pupil… Any others were saved", though nothing was saved. A refusal that isn't a clash should say the change wasn't saved.
+- **Environment note:** the shared `fastrack` database has not run `OfflinePayments1792600002900`, which backend `main` needs.
+- **Merging #16/#17 into main is not mechanical** (found 3 Nov in the full run). `git merge e762195` on main has an add/add conflict in `test/sensitive-student-writes.e2e-spec.ts`, and after that, `src/modules/students/services/student-enrollment.service.ts` fails to compile (17 errors, missing `OpContext`, `syncError`, `SyncErrorCode`): main's QA-283 change (f545ad6) and the offline branch's (9406be0) touched the same imports. The full run used the offline branch's version of that file, which keeps the QA-283 guard (`assertMayWriteSensitive`). The backend session should do the real merge and run the e2e suites.
+
+### Re-test of OFF-19: fixed on main (PR #19, 80e85e2)
+
+PR #19 (`feat/offline-admissions` into `main`) had conflicts in the same two files. They were resolved in 6eedeb0: the branch's `update()` was kept, since it checks sensitive fields before the version check and covers queued `changes`. Main's later second check was dropped as redundant. The branch's `sensitive-student-writes` e2e spec was also kept, since it is main's copy plus the queued-`changes` case. Checked before the push: tsc, nest build, 805 unit tests and 506 e2e tests on a database copy. CI "verify" passed. The owner merged #19 as 80e85e2.
+
+Tested on 3 Nov 2026 **through the UI**, with backend `main` 80e85e2 and frontend `main` 6b29abc (production build), on AHA-001 (`fastrack_qafull`; no migrations pending). The secretary worked in one window and the principal in a second. Offline meant only the secretary's window was set offline, so the principal stayed online. **Result: 11 of 11 pass. OFF-19 fixed.**
+
+| # | Case | Result |
+| --- | --- | --- |
+| R1 | Admit Nana Mainline online | Admitted in 505 ms, AHA-001/STD/2026/008 |
+| R2 | Edit Kofi's other name to "Kwesi" online | Saved. After a fresh sign-in the form shows Kwesi and the list shows "Kofi Kwesi Asare" |
+| R3 | Add a photo for Kofi online | Uploads straight away, with "Replace photo" and "Remove" shown. Stored (`photo_media_id` set) |
+| R4 | Admit Abena Outbox offline | "Saved on this device" in 313 ms. The list row reads "Code pending · waiting to sync" |
+| R4b | Reconnect | Synced 17.8 s after reconnecting, AHA-001/STD/2026/009 |
+| R5 / R5b | Edit Esi's other name offline, then reconnect | "Saved on this device… will be sent when the device is back online". Then stored on the server |
+| R7 | Offline: Akosua's digital address. Meanwhile the principal changes her residence | Both kept (res=Tema, addr=GA-123-4567) |
+| R6 | Offline: Adjoa's and then Nana's residence to Kumasi. Meanwhile the principal sets Accra | Accra is kept. The header chip turns red, "1 need review". The tray reads "Changes to Nana Mainline's details · Changed by someone else · Residence: Now Accra, Yours Kumasi · Keep theirs / Keep mine" |
+| R6b | Keep mine | Kumasi is stored, v3 |
+| R8 / R8b | Add a photo for Ama Offline while offline, then reconnect | Stored on the server after sync |
+
+- A clash found during background sync shows no toast, only the red chip and the tray. The "Someone else changed this pupil" toast is only for a save made online. This is as designed.
+- My script's failures in the first pass were in the test, not the app: R2 reopened the record by its old name, and R3/R8 waited for a photo confirm window that doesn't exist.
+- **OFF-19 side issue fixed** in FE `1f7c7ef` (feat/rbac-workspace). Tested 3 Nov in the UI as secretary@aha.test: Akosua's mother's email set to "mary@frimpong" → Save contacts → PATCH 400 → toast **"Not saved. Nothing was changed for Akosua Frimpong. Needs review says why."** The chip reads "1 need review", and the tray card says "Not accepted… changes.motherEmail must be an email · Discard my change". The DB email is unchanged. A clash still gives "Someone else changed this pupil". Left as is: the tray shows the server's raw validation text ("changes.motherEmail must be an email"), and the Guardians tab doesn't check email format before sending.
 

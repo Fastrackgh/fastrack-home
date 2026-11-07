@@ -1,5 +1,5 @@
 import { setupApi, type TermInYear } from '@/features/school-setup/api';
-import { ApiError, apiClient, errorDetails, PageMeta } from '@/lib/api-client';
+import { ApiError, apiClient, errorCode, errorDetails, PageMeta } from '@/lib/api-client';
 import { fetchAll, pageParams, toPage, type Page, type Raw } from '@/lib/pagination';
 import { formatGhs, sumPesewas, toCedis, toPesewas, type Pesewas } from './money';
 
@@ -36,6 +36,8 @@ export interface Invoice {
   carriedForwardToInvoiceNumber?: string | null;
   totalFees: Pesewas;
   discountAmount: Pesewas;
+  /** The discounts making up `discountAmount`, as applied on the bill; empty from older backends (QA-043). */
+  discounts: { reason: string; amount: Pesewas }[];
   feePayable: Pesewas;
   totalPayment: Pesewas;
   balance: Pesewas;
@@ -259,6 +261,15 @@ export interface DiscountInput {
   /** A percentage for `percentage`, otherwise pesewas. */
   value: number;
   reason?: string;
+  /** When the student already has one for this fee type and term: replace it, or keep both (QA-043). */
+  onExisting?: 'replace' | 'keep';
+}
+
+/** The discounts already there when the backend asks "replace or keep both" (409 DISCOUNT_EXISTS); null otherwise. */
+export function existingDiscounts(err: unknown): Discount[] | null {
+  if (errorCode(err) !== 'DISCOUNT_EXISTS') return null;
+  const existing = errorDetails<{ existing?: Raw[] }>(err)?.existing;
+  return Array.isArray(existing) ? existing.map(toDiscount) : [];
 }
 
 export interface RecordPaymentRequest {
@@ -410,6 +421,12 @@ export function toInvoice(raw: Raw): Invoice {
         : toPesewas(raw.arrearsFromEarlierTerms),
     totalFees: toPesewas(raw.totalFees),
     discountAmount: toPesewas(raw.discountAmount),
+    discounts: Array.isArray(raw.discounts)
+      ? (raw.discounts as Raw[]).map((d) => ({
+          reason: String(d.reason ?? 'Discount'),
+          amount: toPesewas(d.amount),
+        }))
+      : [],
     feePayable: toPesewas(raw.feePayable),
     totalPayment: toPesewas(raw.totalPayment),
     balance: toPesewas(raw.balance),
@@ -582,6 +599,14 @@ export const feesApi = {
       `/schools/me/invoices/${encodeURIComponent(id)}/send-link`,
     );
     return res.data;
+  },
+  /** Which channels bill links may go by at this school (the platform sets them). */
+  async billLinkChannels(): Promise<{ email: boolean; sms: boolean }> {
+    const res = await apiClient.get<{ feature: string; email: boolean; sms: boolean }[]>(
+      '/schools/me/notification-channels',
+    );
+    const row = (res.data ?? []).find((r) => r.feature === 'bill_links');
+    return row ? { email: row.email, sms: row.sms } : { email: true, sms: true };
   },
   /** Queues bill links to every matching parent. */
   async broadcastInvoiceLinks(request: BroadcastRequest) {

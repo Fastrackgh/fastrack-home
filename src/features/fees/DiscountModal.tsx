@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import {
   Alert,
   Button,
@@ -17,7 +17,15 @@ import { notifications } from '@mantine/notifications';
 import { Info } from 'lucide-react';
 import { errorMessage } from '@/lib/api-client';
 import { termOption, type TermInYear } from '@/features/school-setup/api';
-import { DISCOUNT_TYPES, feesApi, type DiscountType, type FeeType } from './api';
+import {
+  DISCOUNT_TYPES,
+  existingDiscounts,
+  feesApi,
+  type Discount,
+  type DiscountType,
+  type FeeType,
+} from './api';
+import { discountLabel } from './DiscountsTab';
 import { toPesewas } from './money';
 import { StudentPicker } from './StudentPicker';
 
@@ -46,11 +54,18 @@ export function DiscountModal({
   const [value, setValue] = useState<number | ''>('');
   const [reason, setReason] = useState('');
   const [saving, setSaving] = useState(false);
+  // Discounts the student already has for this fee type and term: replace, or keep both (QA-043).
+  const [already, setAlready] = useState<Discount[] | null>(null);
+  useEffect(() => setAlready(null), [studentId, feeTypeId, termId]);
 
   const percentage = discountType === 'percentage';
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    void save();
+  };
+
+  const save = async (onExisting?: 'replace' | 'keep') => {
     const amount = percentage ? Number(value) : toPesewas(value);
     const problem = !studentId
       ? 'Choose a student.'
@@ -72,14 +87,23 @@ export function DiscountModal({
         discountType,
         value: amount,
         reason: reason.trim() || undefined,
+        onExisting,
       });
       notifications.show({
-        title: 'Discount added',
-        message: studentName,
+        title: onExisting === 'replace' ? 'Discount replaced' : 'Discount added',
+        message:
+          onExisting === 'keep'
+            ? `${studentName}: ${(already?.length ?? 0) + 1} discounts now apply.`
+            : studentName,
         color: 'green',
       });
       onSaved();
     } catch (err) {
+      const existing = existingDiscounts(err);
+      if (existing) {
+        setAlready(existing);
+        return;
+      }
       notifications.show({
         title: 'Could not add the discount',
         message: errorMessage(err, 'Try again.'),
@@ -170,20 +194,63 @@ export function DiscountModal({
               fee below zero, and invoices already generated are not changed.
             </Text>
           </Alert>
-          <Group justify="flex-end">
-            <Button variant="default" onClick={onClose} radius="md" disabled={saving}>
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              color="fastrackRed"
-              loading={saving}
-              radius="md"
-              id="btn-save-discount"
-            >
-              Add discount
-            </Button>
-          </Group>
+          {already ? (
+            <Alert color="yellow" radius="md" title="Already has a discount" id="alert-discount-exists">
+              <Stack gap="sm">
+                <Text size="sm">
+                  {studentName || 'This student'} already has{' '}
+                  {already.map((d, i) => (
+                    <span key={d.id}>
+                      {i ? ' and ' : ''}
+                      <b>{discountLabel(d)}</b>
+                      {d.reason ? ` (${d.reason})` : ''}
+                    </span>
+                  ))}{' '}
+                  for {feeTypeId === WHOLE_BILL ? 'the whole bill' : 'this fee'},{' '}
+                  {termId === EVERY_TERM ? 'every term' : 'this term'}. Replace it, or keep both?
+                  Both apply to the bill, never taking it below zero.
+                </Text>
+                <Group justify="flex-end">
+                  <Button variant="default" onClick={() => setAlready(null)} disabled={saving} radius="md">
+                    Back
+                  </Button>
+                  <Button
+                    variant="default"
+                    onClick={() => void save('keep')}
+                    loading={saving}
+                    radius="md"
+                    id="btn-discount-keep"
+                  >
+                    Keep both
+                  </Button>
+                  <Button
+                    color="fastrackRed"
+                    onClick={() => void save('replace')}
+                    loading={saving}
+                    radius="md"
+                    id="btn-discount-replace"
+                  >
+                    Replace it
+                  </Button>
+                </Group>
+              </Stack>
+            </Alert>
+          ) : (
+            <Group justify="flex-end">
+              <Button variant="default" onClick={onClose} radius="md" disabled={saving}>
+                Cancel
+              </Button>
+              <Button
+                type="submit"
+                color="fastrackRed"
+                loading={saving}
+                radius="md"
+                id="btn-save-discount"
+              >
+                Add discount
+              </Button>
+            </Group>
+          )}
         </Stack>
       </form>
     </Modal>

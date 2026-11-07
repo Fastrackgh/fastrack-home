@@ -26,6 +26,7 @@ import {
   CheckCheck,
   ChevronRight,
   CircleHelp,
+  ClipboardCheck,
   ClipboardList,
   CloudUpload,
   CreditCard,
@@ -46,6 +47,7 @@ import {
   Wallet,
 } from 'lucide-react';
 import { BrandLogo } from '@/components/atoms';
+import { showPreviewPages } from '@/features/dashboard/model';
 import { setupApi } from '@/features/school-setup/api';
 import { useAuth } from '@/lib/auth';
 import { APP_ROUTES, ROLE_LABELS, dataScopeOf, findRoute } from '@/lib/rbac';
@@ -72,6 +74,7 @@ const icons: Record<NavItem['id'], typeof Users> = {
   reports: BookOpen,
   communication: MessageSquare,
   gradebook: NotebookPen,
+  mocks: ClipboardCheck,
   grading: SlidersHorizontal,
   schedule: CalendarDays,
   children: Baby,
@@ -277,14 +280,20 @@ export function AppShell({ children }: { children: ReactNode }) {
             Navigation and actions follow your role’s responsibilities. You only see the sections
             and buttons your role is allowed to use.
           </Text>
-          <Text size="sm">
-            Pages without a “UI preview” banner show your school’s live records.
-          </Text>
-          <Text size="sm">
-            Sections marked “UI preview” use sample data. Their forms save temporary drafts that
-            clear when you switch child or term, or reload. No payments, invitations, messages or
-            uploads are sent.
-          </Text>
+          {showPreviewPages ? (
+            <>
+              <Text size="sm">
+                Pages without a “UI preview” banner show your school’s live records.
+              </Text>
+              <Text size="sm">
+                Sections marked “UI preview” use sample data. Their forms save temporary drafts that
+                clear when you switch child or term, or reload. No payments, invitations, messages
+                or uploads are sent.
+              </Text>
+            </>
+          ) : (
+            <Text size="sm">Every page shows your school’s live records.</Text>
+          )}
         </Stack>
       </Modal>
     </div>

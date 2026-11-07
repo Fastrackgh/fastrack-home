@@ -37,8 +37,15 @@ export function evenSplit(components: Component[]): Component[] {
 }
 
 export function weightsProblem(edit: PresetEdit, mode: Preset['scheme']['mode']): string | null {
+  if (edit.components.length === 0) return 'Keep at least one part.';
+  const names = edit.components.map((c) => c.label.trim().toLowerCase());
+  if (names.some((n) => !n)) return 'Every part needs a name.';
+  if (new Set(names).size !== names.length) return 'Two parts have the same name.';
   if (mode === 'descriptor') return null;
-  if (edit.components.some((c) => !(c.weight > 0))) return 'Every part needs a weight above 0.';
+  if (edit.components.some((c) => !(c.weight >= 0))) return "A weight can't be below 0.";
+  // A part at 0 is recorded but not counted (e.g. mocks); something must count.
+  if (!edit.components.some((c) => c.weight > 0))
+    return 'At least one part must count (a weight above 0).';
   const total = weightTotal(edit.components);
   return total === 100 ? null : `The weights add up to ${total}, not 100.`;
 }
@@ -60,11 +67,43 @@ export function bandsProblem(edit: PresetEdit, mode: Preset['scale']['mode']): s
     : `The lowest grade, ${labels.at(-1)}, must start at 0.`;
 }
 
-/** What changed from the preset, in the apply body's shape; undefined if nothing did. */
+/** A new part's key from its name ("Mock exams" → "mock_exams"), unique among the others. */
+export function partKey(label: string, taken: string[]): string {
+  const base =
+    label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/^_+|_+$/g, '')
+      .replace(/^(?=[0-9])/, 'p_')
+      .slice(0, 24) || 'part';
+  let key = base;
+  for (let n = 2; taken.includes(key); n++) key = `${base}_${n}`;
+  return key;
+}
+
+/** A new part the school adds to a preset, e.g. Mocks: several papers out of 100, all counted. */
+export const newPart = (label: string, taken: string[], weight = 0): Component => ({
+  key: partKey(label, taken),
+  label,
+  shortLabel: label.slice(0, 3).toUpperCase(),
+  weight,
+  defaultMaxRaw: 100,
+  entry: 'items',
+  bestOf: null,
+  group: 'exam',
+});
+
+/** What changed from the preset, in the apply body's shape (parts matched by key); undefined if nothing did. */
 export function overridesFor(preset: Preset, edit: PresetEdit): PresetOverrides | undefined {
   const components: NonNullable<PresetOverrides['components']> = {};
-  preset.scheme.components.forEach((original, i) => {
-    const now = edit.components[i];
+  const presetKeys = new Set(preset.scheme.components.map((c) => c.key));
+  const removeComponents = preset.scheme.components
+    .filter((c) => !edit.components.some((e) => e.key === c.key))
+    .map((c) => c.key);
+  const addComponents = edit.components.filter((c) => !presetKeys.has(c.key));
+  preset.scheme.components.forEach((original) => {
+    const now = edit.components.find((c) => c.key === original.key);
+    if (!now) return;
     const change: NonNullable<PresetOverrides['components']>[string] = {};
     if (now.label !== original.label) change.label = now.label;
     if (now.shortLabel !== original.shortLabel) change.shortLabel = now.shortLabel;
@@ -87,10 +126,16 @@ export function overridesFor(preset: Preset, edit: PresetEdit): PresetOverrides 
   });
   const result: PresetOverrides = {};
   if (Object.keys(components).length) result.components = components;
+  if (addComponents.length) result.addComponents = addComponents.map((c) => ({ ...c }));
+  if (removeComponents.length) result.removeComponents = removeComponents;
   if (bands.length) result.bands = bands;
   // The preset's name would describe the old numbers ("GES 30/70" holding 40/60),
   // so an edited copy is named after what it now holds.
-  if (Object.values(components).some((c) => c.weight !== undefined))
+  if (
+    addComponents.length ||
+    removeComponents.length ||
+    Object.values(components).some((c) => c.weight !== undefined)
+  )
     result.schemeName = edit.components.map((c) => `${c.label} ${c.weight}`).join(' / ');
   if (bands.length) result.scaleName = `${preset.scale.name} (edited)`;
   return Object.keys(result).length ? result : undefined;
@@ -135,13 +180,13 @@ export interface CurrentSetup {
   scales: Scale[];
 }
 
-/** A preset's working copy holding what the school has stored, matched by part key and band position. */
+/** A preset's working copy holding what the school has stored: its parts by key (the school's own parts, like Mocks, included; parts it removed left out) and bands by position. */
 export function editFromStored(preset: Preset, scheme?: Scheme, scale?: Scale): PresetEdit {
   const edit = editFrom(preset);
   if (scheme)
-    edit.components = edit.components.map((c) => {
-      const stored = scheme.components.find((s) => s.key === c.key);
-      return stored
+    edit.components = scheme.components.map((stored) => {
+      const c = edit.components.find((p) => p.key === stored.key);
+      return c
         ? {
             ...c,
             label: stored.label,
@@ -149,7 +194,7 @@ export function editFromStored(preset: Preset, scheme?: Scheme, scale?: Scale): 
             weight: stored.weight,
             bestOf: stored.bestOf,
           }
-        : c;
+        : { ...stored };
     });
   if (scale && scale.bands.length === edit.bands.length)
     edit.bands = scale.bands.map((b) => ({ ...b }));
@@ -195,6 +240,8 @@ export function prefillFrom(current: CurrentSetup, presets: Preset[]) {
   const deptKeys: Record<string, string> = {};
   let defaultKey: string | undefined;
   let notShown = 0;
+  // One class's, one subject's or one class subject's own setting: kept when the wizard applies.
+  let kept = 0;
   const copyFor = (row: PolicyRow): string | undefined => {
     const s = scheme(row.schemeFamilyId);
     const key = s?.presetKey ?? scale(row.scaleFamilyId)?.presetKey;
@@ -218,7 +265,8 @@ export function prefillFrom(current: CurrentSetup, presets: Preset[]) {
       const id = copyFor(row);
       if (id) deptKeys[row.departmentId] = id;
       else notShown++;
-    } else notShown++;
+    } else if (row.scope === 'department') notShown++;
+    else kept++;
   }
-  return { defaultKey, deptKeys, edits, copies, notShown };
+  return { defaultKey, deptKeys, edits, copies, notShown, kept };
 }

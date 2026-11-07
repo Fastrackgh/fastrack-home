@@ -64,6 +64,8 @@ export function FeeStructureModal({
   const [classIds, setClassIds] = useState<string[]>([]);
   const [rows, setRows] = useState<Row[]>(() => [emptyRow()]);
   const [saving, setSaving] = useState(false);
+  // After a refused Save, each empty line field says what it needs (QA-284).
+  const [tried, setTried] = useState(false);
 
   const term = terms.find((t) => t.termId === termId) ?? null;
   const update = (key: number, change: Partial<Row>) =>
@@ -84,6 +86,7 @@ export function FeeStructureModal({
     e.preventDefault();
     const message = problem();
     if (message || !term) {
+      setTried(true);
       notifications.show({ title: 'Check the form', message, color: 'red' });
       return;
     }
@@ -160,10 +163,13 @@ export function FeeStructureModal({
 
           <Stack gap="xs">
             {rows.map((row, index) => (
-              <Grid key={row.key} gutter="sm" align="flex-end">
+              <Grid key={row.key} gutter="sm" align="flex-start">
                 <Grid.Col span={{ base: 12, sm: 4 }}>
                   <Select
                     label={index === 0 ? 'Fee type' : undefined}
+                    aria-label="Fee type"
+                    withAsterisk
+                    error={tried && !row.feeTypeId ? 'Choose a fee type' : undefined}
                     placeholder="Choose a fee type"
                     data={feeTypes.map((ft) => ({
                       value: ft.id,
@@ -178,6 +184,9 @@ export function FeeStructureModal({
                 <Grid.Col span={{ base: 6, sm: 2.5 }}>
                   <NumberInput
                     label={index === 0 ? 'Amount (GHS)' : undefined}
+                    aria-label="Amount (GHS)"
+                    withAsterisk
+                    error={tried && toPesewas(row.amount) <= 0 ? 'Enter an amount' : undefined}
                     placeholder="0.00"
                     decimalScale={2}
                     min={0}
@@ -190,6 +199,9 @@ export function FeeStructureModal({
                 <Grid.Col span={{ base: 6, sm: 2.5 }}>
                   <TextInput
                     label={index === 0 ? 'Due date' : undefined}
+                    aria-label="Due date"
+                    withAsterisk
+                    error={tried && !row.dueDate ? 'Enter a due date' : undefined}
                     type="date"
                     value={row.dueDate}
                     onChange={(e) => update(row.key, { dueDate: e.currentTarget.value })}
@@ -199,6 +211,7 @@ export function FeeStructureModal({
                 <Grid.Col span={{ base: 10, sm: 2.25 }}>
                   <NumberInput
                     label={index === 0 ? 'Late penalty (GHS)' : undefined}
+                    aria-label="Late penalty (GHS)"
                     placeholder="None"
                     decimalScale={2}
                     min={0}
@@ -213,6 +226,8 @@ export function FeeStructureModal({
                     color="red"
                     size="lg"
                     aria-label="Remove this fee"
+                    // Level with the inputs: only the first line has labels above them.
+                    mt={index === 0 ? 26 : 1}
                     disabled={rows.length === 1}
                     onClick={() => setRows((current) => current.filter((r) => r.key !== row.key))}
                   >

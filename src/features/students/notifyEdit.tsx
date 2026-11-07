@@ -2,7 +2,7 @@ import { notifications } from '@mantine/notifications';
 import { CloudOff } from 'lucide-react';
 import type { EditResult } from './edits-sync';
 
-/** The message after saving a pupil's details: saved, waiting on the device, or in review. */
+/** The message after saving a pupil's details: saved, waiting on the device, in review, or refused. */
 export function notifyEdit(result: EditResult, savedTitle: string, name: string) {
   if (result === 'queued') {
     notifications.show({
@@ -17,6 +17,13 @@ export function notifyEdit(result: EditResult, savedTitle: string, name: string)
       title: 'Someone else changed this pupil',
       message: 'Changes that clash are in Needs review. Any others were saved.',
       color: 'orange',
+      autoClose: 10000,
+    });
+  } else if (result === 'refused') {
+    notifications.show({
+      title: 'Not saved',
+      message: `Nothing was changed for ${name}. Needs review says why.`,
+      color: 'red',
       autoClose: 10000,
     });
   } else {

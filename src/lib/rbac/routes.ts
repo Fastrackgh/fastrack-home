@@ -69,6 +69,12 @@ export const APP_ROUTES = {
     // Secretaries read results for reports, but don't open mark sheets.
     rule: { audiences: ['staff'], permission: 'marks:enter', module: 'results' },
   },
+  mocks: {
+    path: '/school-admin/results/mocks',
+    label: 'Mock exams',
+    // As mark sheets: heads and teachers; heads create and publish.
+    rule: { audiences: ['staff'], permission: 'marks:enter', module: 'results' },
+  },
   reports: {
     path: '/school-admin/results/reports',
     label: 'Term reports',

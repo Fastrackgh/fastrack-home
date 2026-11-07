@@ -263,6 +263,40 @@
         "grade": null,
         "reweighted": false
       }
+    },
+    {
+      "name": "a part weighted 0 (mocks recorded, not counted) leaves the total alone",
+      "why": "Class 8/10 is 24 of 30 and the exam 56/70 is 56 of 70, total 80. The mocks are kept on the sheet but weigh 0, so they have no printed score and change nothing.",
+      "components": [{ "key": "class", "weight": 30, "bestOf": 4 }, { "key": "exam", "weight": 70 }, { "key": "mocks", "weight": 0 }],
+      "marks": {
+        "class": [{ "status": "scored", "raw": 8, "maxRaw": 10 }],
+        "exam": [{ "status": "scored", "raw": 56, "maxRaw": 70 }],
+        "mocks": [{ "status": "scored", "raw": 95, "maxRaw": 100 }, { "status": "scored", "raw": 20, "maxRaw": 100 }]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "class": 24, "exam": 56, "mocks": null },
+        "total": 80,
+        "grade": "A",
+        "reweighted": false
+      }
+    },
+    {
+      "name": "a part weighted 0 never blocks the result, even with no papers or marks yet",
+      "why": "Mocks weigh 0, so an unmarked mock or none at all doesn't make the subject missing; class and exam give 80 as above.",
+      "components": [{ "key": "class", "weight": 30, "bestOf": 4 }, { "key": "exam", "weight": 70 }, { "key": "mocks", "weight": 0 }],
+      "marks": {
+        "class": [{ "status": "scored", "raw": 8, "maxRaw": 10 }],
+        "exam": [{ "status": "scored", "raw": 56, "maxRaw": 70 }],
+        "mocks": [null]
+      },
+      "expected": {
+        "status": "ok",
+        "componentScores": { "class": 24, "exam": 56, "mocks": null },
+        "total": 80,
+        "grade": "A",
+        "reweighted": false
+      }
     }
   ],
   "summary": [

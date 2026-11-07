@@ -12,7 +12,7 @@ export type ItemMark = { status: MarkStatus; raw?: number | null; maxRaw: number
 
 export interface SchemeComponent {
   key: string;
-  /** Share of the subject's 100; a scheme's weights total 100. */
+  /** Share of the subject's 100; a scheme's weights total 100. 0 means recorded but not counted (e.g. mocks). */
   weight: number;
   /** Count only the best N items; null counts all of them. */
   bestOf?: number | null;
@@ -82,8 +82,9 @@ export interface SubjectResult {
 
 /**
  * One pupil's result in one subject. `marks[key]` lists the component's items
- * in order. A component with no items, or any item without a mark, makes the
- * subject `missing`, which blocks submitting the mark sheet.
+ * in order. A counted component with no items, or any item without a mark,
+ * makes the subject `missing`, which blocks submitting the mark sheet.
+ * Components weighted 0 are recorded only: they never block and never count.
  */
 export function subjectResult(
   components: SchemeComponent[],
@@ -93,7 +94,7 @@ export function subjectResult(
 ): SubjectResult {
   const d = settings.scoreDecimals;
   const fractions = new Map<string, number | null>();
-  for (const c of components) {
+  for (const c of components.filter(({ weight }) => weight > 0)) {
     const items = marks[c.key] ?? [];
     if (items.length === 0 || items.some((item) => item === null)) {
       return {

@@ -45,7 +45,7 @@ Conventions follow the rest of the API:
 13. **A pupil who leaves mid-term stays on the term's sheets** (decided 24 Oct), flagged `leftOn`. Their marks aren't required and never block submitting, and marks already entered are kept.
 14. **Attendance on a report** (decided 24 Oct) comes from the register when the school uses attendance and the class has registers: days present (present or late) out of the term's school days. Otherwise the class teacher or a head types it in.
 15. **Promotion shows only on the year's last term** (decided 24 Oct). Each pupil defaults to promoted to the next class by order (or graduated from the top class), and can be changed before approval. It moves nobody: the promotions page still does that.
-16. **Publishing emails each pupil's linked parents** (decided 24 Oct): "<Pupil>'s Term 1 report is ready", with a link to the parent app. Withheld reports send nothing. Republishing after a reopen sends "updated".
+16. **Publishing tells each pupil's linked parents** (decided 24 Oct): "<Pupil>'s Term 1 report is ready", with a link to the parent app, by email and/or SMS as the school has term reports on. Withheld reports send nothing. Republishing after a reopen sends "updated". The messages go out from a queue (7 Nov): publish returns `notified` (what was queued) and `GET …/notifications` counts them as they go.
 
 ## Module and permissions
 
@@ -72,7 +72,7 @@ Conventions follow the rest of the API:
 The definitions behind every number on a report. The fixture file has a worked case for each rule.
 
 - **Notation:**
-  - component *c* has weight *w_c*, and a scheme's weights total exactly 100;
+  - component *c* has weight *w_c*, and a scheme's weights total exactly 100. A numeric component may weigh 0 (decided 6 Nov): it is **recorded, not counted** (e.g. mocks a school tracks without them changing term results). It never counts in a total and never makes a subject `missing`; at least one component must weigh more than 0;
   - item *i* scores *r_i* out of *m_i*;
   - *D* = `scoreDecimals`;
   - **R** = round half away from zero, after dropping binary noise at 12 significant digits. Not `roundCurrency`: 79.49999999999999 must round to 80.
@@ -175,6 +175,8 @@ The backend adds an any-of permission decorator for the GETs, because its permis
   ```ts
   { schemeName?, scaleName?,
     components?: { [componentKey]: { label?, shortLabel?, weight?, bestOf? } },  // matched by key
+    addComponents?: Component[],      // the school's own parts after the preset's, e.g. Mocks (decided 6 Nov)
+    removeComponents?: string[],      // keys of preset parts to leave out
     bands?: [{ index, label?, remark?, minScore?, points?, isPass? }] }          // index = position in the preset's bands
   ```
 
@@ -186,12 +188,13 @@ The backend adds an any-of permission decorator for the GETs, because its permis
 - **Overrides allowed:**
   - scheme and scale `name`;
   - component `label`, `shortLabel`, `weight` and `bestOf`, but not `key` or `group`. `weight` and `bestOf` are numeric-only and get 400 on a descriptor preset;
+  - **parts the school adds or removes** (decided 6 Nov): `addComponents` takes whole components (any key not in the preset; weight 0 allowed for "recorded, not counted"; `entry: 'items'` with `bestOf` null counts every paper, so the number of mocks is up to each school), and `removeComponents` drops preset parts by key. An unknown key to remove is 400; a repeated key is 409. The edited copy is named after its parts, e.g. "Class score 20 / Exam 60 / Mocks 20";
   - band `label`, `remark`, `minScore`, `points` and `isPass`. An `index` outside the preset's bands gets 400.
 
   Overrides carry no settings; those go in `settings`.
 - **Validation.** Overrides pass the same checks as the normal routes. Bands are checked again after the overrides are applied (one at 0, no repeated minimums) and stored highest first. A 400 names where the problem is, e.g. "Lower Primary: weights add up to 95, not 100." or "School default: …". Components and bands are added or removed afterwards, on the scheme and scale routes.
 - **Settings.** The order is built-in defaults < the default preset's settings < apply `settings`. Department presets' settings are ignored, because there is one settings row per school. The wizard pre-fills from them (e.g. an aggregate when a department uses `bece_jhs`) and always sends the full settings.
-- **Re-running** apply for a year replaces that year's policy rows in one transaction, like the PUT, and reuses families by the rule above. `settings` merges like a PATCH. `subjects: true` only adds subjects, never removes them. Other years and sheets already frozen are untouched.
+- **Re-running** apply for a year replaces that year's school and department rows in one transaction and reuses families by the rule above. Class, subject and class-subject rows are kept (decided 6 Nov) and validated with the rest; the wizard's "Class and subject settings" section changes them through the PUT below. `settings` merges like a PATCH. `subjects: true` only adds subjects, never removes them. Other years and sheets already frozen are untouched.
 - **Subjects.** With `subjects: true`, each preset's subjects are matched to the catalogue by code or name (ignoring case), created if missing, and added to that department's classes, as `/class-subjects/apply` does. A department (or the school default) with no classes is skipped, so it adds nothing to the catalogue; `subjects.created` and `existing` count only targets that have classes.
 - Returns `{schemesCreated, scalesCreated, assignments, subjects: {created, existing}, classSubjects: {added, alreadyThere}}`.
 
@@ -288,6 +291,8 @@ Agreed with the backend session on 24 Oct, including the shapes the frontend pro
 | `GET /mark-sheets/open?termId&classId&subjectId` | The sheet view: `{context: {className, subjectName, termLabel, yearLabel}, sheet \| null, canEdit, scheme, scale, settings, items, roster}`. `canEdit` is true for heads at any status, and for a teacher only on a draft they may enter. Creates the sheet only when the caller may enter marks there; otherwise `sheet: null`, `items: []` and the roster, read-only. `settings` is the school's results settings, so previews use the same rounding. |
 | `PUT /mark-sheets/:id/marks` | `{rowVersion, marks: [{schoolStudentId, componentKey, itemIndex, status \| null, rawScore?, descriptorBandId?}]}`. `status: null` removes a mark. Descriptor marks are `scored` with `descriptorBandId` and no `rawScore`. The backend fills `maxRaw` from the item. Returns `{rowVersion, rows}` with the changed pupils only. A stale version gives 409 with `details.rowVersion`. A bad cell gives 422 with `details.cells [{schoolStudentId, componentKey, itemIndex, message}]`, and nothing is saved. |
 | `POST /mark-sheets/:id/items` | `{rowVersion, componentKey, label, maxRaw, takenOn?}`. `itemIndex` is the next free one. Returns `{rowVersion, items}`. |
+| `GET /assessments?termId`, `POST /assessments`, `POST /assessments/:id/papers`, `GET /assessments/:id`, `POST /assessments/:id/publish` | **Standalone assessments (mock exams), decided 6 Nov.** One per class and title in a term. Creating (heads, `marks:enter`) `{termId, classId, componentKey, title, maxRaw, takenOn?}` puts its paper on every subject sheet of the class (`added`/`skipped` as below; 409 repeated title, 422 when no subject can take it). A sheet whose weighting has no such part is moved to the same weighting plus the part at 0% ("<weighting> + Mocks 0%", reused when identical), listed in `partsAdded[{subjectName, weighting}]`, so its term results don't change; approved and word-rated sheets are skipped with the reason. `POST /:id/papers` (heads) does the same for subjects that don't have the paper yet (e.g. added to the class later) and leaves the rest alone. Teachers enter its marks on the sheets. `GET /:id` returns `{assessment, subjects[{name, sheetId, entered, expected}], pupils[{fullName, subjects[{name, raw, score, grade, remark, position}], average, total, outOf, aggregate, position, complete}], stats[], onRoll, complete, notIncluded[{subjectId, name}]}`: each paper as a percentage graded on the subject's scale, then summaries and positions as for term reports (rules 4–6); subjects without the part aren't in it. Publish (heads, `reports:approve`) needs every paper marked (422 lists subjects), freezes the results, and queues a message to linked parents by email and/or SMS (the school's `assessment_results` channels, set by the super admin), returning `notified` with the results (see *Delivery progress* below); republishing says "updated". It never makes or publishes a term report. Whether the mock also counts in term results is the part's weight (0% = never). Parents: `GET /parents/me/wards/:studentId/assessments` lists their child's rows, newest first, positions per rule 5. |
+| `POST /mark-sheets/class-items` | Heads. `{termId, classId, componentKey, label, maxRaw, takenOn?}`: one test or mock (e.g. "Mock 3") on every active subject sheet of the class, opening sheets as needed, in one transaction. Returns `{added: [{subjectId, subjectName, sheetId}], skipped: [{subjectId, subjectName, reason}]}`; a subject whose weighting has no such multi-paper part, or that isn't assessed this term, is skipped with the reason. (decided 6 Nov) |
 | `PATCH /mark-sheets/:id/items/:itemId` | `{rowVersion, label?, maxRaw?, takenOn?}`. Returns `{rowVersion, items}`. |
 | `DELETE /mark-sheets/:id/items/:itemId?rowVersion=&force=` | Returns `{rowVersion, items}`. |
 | `POST /mark-sheets/:id/submit` | See Status. Submit, return, reopen, `PATCH {notAssessed}` and apply-latest all return the sheet view, as open does. |
@@ -311,7 +316,7 @@ Agreed with the backend session on 24 Oct, including the shapes the frontend pro
   - recomputes first;
   - sets the class's sheets to `approved` (teachers can no longer change them; heads still can, rule 12);
   - locks remarks.
-- **publish** (approved → published): writes revision *n* for every report and sends the rule 16 emails.
+- **publish** (approved → published): writes revision *n* for every report and queues the rule 16 messages; the response adds `notified`.
 - **reopen** `{reason}` (published or approved → reopened):
   - unlocks remarks and recompute;
   - sheets stay approved, and a head reopens a sheet itself through the mark-sheet route;
@@ -389,3 +394,12 @@ New fields:
 | 2 | Mark sheets, items, marks, submit/return, teacher scoping, carry-over on a class move | My mark sheets and the mark-entry grid |
 | 3 | Batches, compute, remarks, approve/publish/reopen, revisions, `exam.report` v2, documents | Reports board, class review, print |
 | 4 | Parent report routes | Parent report screens on live data; `parentAreaReady.reports` turned on |
+
+## Delivery progress (7 Nov)
+
+Messages to parents about published results go out from a queue, so publishing answers at once. Heads (`reports:approve`) follow them with:
+
+- `GET /schools/me/assessments/:id/notifications` (a mock)
+- `GET /schools/me/report-batches/:termId/:classId/notifications` (a class's term reports)
+
+Both return the latest publish's `{ revision, tracked, email: {pending, sent, failed, cancelled}, sms: {…}, pupilsNotReached, done }`. `tracked: false` means there is nothing to show (never published, or published before messages were tracked); the page hides the panel. The publish responses' `notified` has the same shape, with everything `pending`. `failed` = every retry used (about 5 over a few minutes) or the queue was down; `cancelled` = the super admin turned the channel off before it went out. Poll every couple of seconds until `done` (`ParentDelivery` in `src/features/results/`).

@@ -12,6 +12,7 @@ import {
   areaPage,
   canAccess,
   isArea,
+  isHiddenPreview,
   isPhaseArea,
   type Area,
   type Panel,
@@ -33,7 +34,8 @@ import styles from './Dashboard.module.css';
 export function AreaView({ slug }: { slug: string }) {
   const router = useRouter();
   const { viewer, term, child, data } = useWorkspace();
-  const area = isArea(slug) && canAccess(viewer, slug) ? slug : null;
+  const area =
+    isArea(slug) && canAccess(viewer, slug) && !isHiddenPreview(viewer, slug) ? slug : null;
   const page = area ? areaPage(viewer, area) : undefined;
   const redirect = !area ? OVERVIEW_PATH : page && APP_ROUTES[page].path;
 

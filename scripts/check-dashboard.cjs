@@ -23,6 +23,9 @@ require.extensions['.ts'] = (mod, filename) => {
 function load(relative) {
   return require(path.resolve(__dirname, '..', relative));
 }
+// The checks below cover the preview workspace, as a demo build shows it. A
+// real school's build hides the previews (QA-290): checked at the end.
+process.env.NEXT_PUBLIC_SHOW_PREVIEW_PAGES = '1';
 const d = load('src/features/dashboard/phase-one/domain.ts');
 const m = load('src/features/dashboard/model.ts');
 const rbac = load('src/lib/rbac/index.ts');
@@ -710,6 +713,29 @@ check('grading setup is for heads with the results module; its maths matches the
   const renamed = sm.editFrom(preset);
   renamed.components[0].label = 'Classwork';
   assert.deepEqual(sm.overridesFor(preset, renamed), { components: { c0: { label: 'Classwork' } } });
+  // The school's own parts: Mocks added at its own weight, a preset part removed, matched by key.
+  const mocks = sm.newPart('Mocks', ['c0', 'c1'], 20);
+  assert.deepEqual([mocks.key, mocks.entry, mocks.bestOf, mocks.defaultMaxRaw], ['mocks', 'items', null, 100]);
+  assert.equal(sm.partKey('Mocks', ['mocks']), 'mocks_2');
+  const withMocks = sm.editFrom(preset);
+  withMocks.components[0].weight = 20;
+  withMocks.components[1].weight = 60;
+  withMocks.components.push(mocks);
+  assert.deepEqual(sm.overridesFor(preset, withMocks), {
+    components: { c0: { weight: 20 }, c1: { weight: 60 } },
+    addComponents: [mocks],
+    schemeName: 'C0 20 / C1 60 / Mocks 20',
+  });
+  const noClass = sm.editFrom(preset);
+  noClass.components = [{ ...noClass.components[1], weight: 60 }, { ...mocks, weight: 40 }];
+  assert.deepEqual(sm.overridesFor(preset, noClass).removeComponents, ['c0']);
+  // Mocks at 0% are recorded, not counted; something must still count.
+  assert.equal(sm.weightsProblem({ components: [...parts([30, 70]), { ...mocks, weight: 0 }], bands: [] }, 'numeric'), null);
+  assert.equal(sm.weightsProblem({ components: [{ ...mocks, weight: 0 }], bands: [] }, 'numeric'), 'At least one part must count (a weight above 0).');
+  assert.equal(sm.weightsProblem({ components: [...parts([30, 70]), { ...mocks, label: 'c1' }], bands: [] }, 'numeric'), 'Two parts have the same name.');
+  // Running setup again reads a stored Mocks part back, and leaves out a removed one.
+  const back = sm.editFromStored(preset, { components: [parts([20])[0], { ...mocks }] });
+  assert.deepEqual(back.components.map((c) => [c.key, c.weight]), [['c0', 20], ['mocks', 20]]);
   // Running setup again starts from what is stored (QA-257): each distinct
   // stored setup is its own copy, even on the same preset as the school.
   const stored = sm.editFrom(preset);
@@ -733,9 +759,30 @@ check('grading setup is for heads with the results module; its maths matches the
   assert.deepEqual(pre.deptKeys, { lp: 'current-1', up: 'current-1' });
   assert.deepEqual(pre.copies.map((c) => c.label), ['GES basic: your current (Class score 40 / Exam 60, GES A–F)']);
   assert.deepEqual(pre.edits['current-1'].components.map((c) => c.weight), [40, 60]);
-  assert.equal(pre.notShown, 1);
+  // A single class's own setting is kept when setup runs again, not removed.
+  assert.equal(pre.notShown, 0);
+  assert.equal(pre.kept, 1);
   assert.ok(sm.sameEdit(pre.edits['current-1'], stored));
   assert.equal(sm.sameEdit(stored, sm.editFrom(preset)), false);
+  // One class's or subject's own setting: named, replaced in place, removed, and checked.
+  const pm = load('src/features/results/policy-model.ts');
+  const names = { c3: 'JHS 3' };
+  const subj = { fr: 'French', ma: 'Mathematics' };
+  const nameOf = (r) => pm.targetName(r, (id) => names[id], (id) => subj[id]);
+  assert.equal(nameOf({ scope: 'class', classId: 'c3' }), 'JHS 3');
+  assert.equal(nameOf({ scope: 'subject', subjectId: 'fr' }), 'French in every class');
+  assert.equal(nameOf({ scope: 'class_subject', classId: 'c3', subjectId: 'ma' }), 'Mathematics in JHS 3');
+  const schoolRow = { id: 'r0', scope: 'school', schemeFamilyId: 's', scaleFamilyId: 'g' };
+  const jhs3 = { id: 'r1', scope: 'class', classId: 'c3', schemeFamilyId: 'old', scaleFamilyId: null };
+  const replaced = pm.withRow([schoolRow, jhs3], { scope: 'class', classId: 'c3', schemeFamilyId: 'mocks', scaleFamilyId: null });
+  assert.equal(replaced.length, 2);
+  assert.ok(replaced.every((r) => !('id' in r)), 'the replace body carries no ids');
+  assert.equal(replaced[1].schemeFamilyId, 'mocks');
+  assert.deepEqual(pm.withoutRow([schoolRow, jhs3], jhs3).map((r) => r.scope), ['school']);
+  assert.equal(pm.narrowProblem({ scope: 'class', classId: null, schemeFamilyId: 's', scaleFamilyId: null }, [], false), 'Choose the class.');
+  assert.match(pm.narrowProblem({ scope: 'class', classId: 'c3', schemeFamilyId: null, scaleFamilyId: null }, [], false), /weighting or grades/);
+  assert.match(pm.narrowProblem({ scope: 'class', classId: 'c3', schemeFamilyId: 's', scaleFamilyId: null }, [jhs3], false), /already a setting/);
+  assert.equal(pm.narrowProblem({ scope: 'class', classId: 'c3', schemeFamilyId: 's', scaleFamilyId: null }, [jhs3], true), null);
   // 79.5 is an A at whole numbers and a B at one decimal, as in the fixtures.
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 0), { printed: 80, grade: 'A' });
   assert.deepEqual(sm.tryScore(79.5, sm.editFrom(preset), 1), { printed: 79.5, grade: 'B' });
@@ -748,6 +795,13 @@ check('mark sheets: teachers and heads with results; cell typing, missing marks 
   for (const role of ['SECRETARY', 'ACCOUNT_OFFICER', 'PARENT'])
     assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, path), false, role);
   assert.equal(rbac.canAccessPath({ ...viewer('TEACHER'), modules: [] }, path), false);
+  // Mock exams: the same people as mark sheets (heads create and publish; the backend checks that).
+  const mocksPath = '/school-admin/results/mocks/view';
+  assert.equal(rbac.findRoute(mocksPath).path, '/school-admin/results/mocks');
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD', 'TEACHER'])
+    assert.ok(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, mocksPath), role);
+  for (const role of ['SECRETARY', 'ACCOUNT_OFFICER', 'PARENT'])
+    assert.equal(rbac.canAccessPath({ ...viewer(role), modules: ['results'] }, mocksPath), false, role);
 
   const mm = load('src/features/results/marks-model.ts');
   assert.deepEqual(mm.parseCell('7.5', 10), { change: { status: 'scored', rawScore: 7.5 } });
@@ -766,6 +820,17 @@ check('mark sheets: teachers and heads with results; cell typing, missing marks 
   // Tests before the pupil joined aren't needed, and leavers never need marks.
   assert.equal(mm.missingFor(row([mark('exam', 1, 50, 70)], { notRequired: [{ componentKey: 'class', itemIndex: 1 }, { componentKey: 'class', itemIndex: 2 }] }), items), 0);
   assert.equal(mm.missingFor(row([], { flags: { leftOn: '2026-11-02' } }), items), 0);
+  // Mocks weighted 0 are recorded, not counted: an unmarked mock (or no mock yet) never holds up submitting.
+  const withMocks = {
+    mode: 'numeric',
+    components: [{ key: 'class', weight: 30 }, { key: 'exam', weight: 70 }, { key: 'mocks', weight: 0 }],
+  };
+  const mockItems = [...items, item('mocks', 1, 100)];
+  assert.deepEqual(mm.requiredItems(withMocks, mockItems).map((i) => i.componentKey), ['class', 'class', 'exam']);
+  assert.equal(mm.missingFor(row([mark('class', 1, 8), mark('class', 2, 9), mark('exam', 1, 50, 70)]), mm.requiredItems(withMocks, mockItems)), 0);
+  assert.deepEqual(mm.emptyComponents({ scheme: withMocks, items }).map((c) => c.key), []);
+  // Descriptor strands weigh 0 and are always needed.
+  assert.equal(mm.requiredItems({ mode: 'descriptor', components: [{ key: 'reading', weight: 0 }] }, [item('reading', 1)]).length, 1);
 
   // The local preview matches the engine: a late joiner's missed test is exempt, so
   // class 8/10 = 0.8 x 30 = 24 and exam 56/70 = 56 give 80, an A.
@@ -893,5 +958,45 @@ check('shared formatting: ordinals and shared places', () => {
   assert.equal(money.formatCedis(undefined), 'GHS 0.00');
   const client = load('src/lib/api-client.ts');
   assert.equal(client.pathId('PRM-001/STD/2026/005'), 'PRM-001%2FSTD%2F2026%2F005');
+});
+check('a real school build hides the sample-data preview pages (QA-290)', () => {
+  delete process.env.NEXT_PUBLIC_SHOW_PREVIEW_PAGES;
+  for (const key of Object.keys(require.cache)) if (key.startsWith(SRC)) delete require.cache[key];
+  const realModel = load('src/features/dashboard/model.ts');
+  const realNav = load('src/features/workspace/navigation.ts');
+  assert.equal(realModel.showPreviewPages, false);
+  assert.deepEqual(
+    realNav.workspaceNavigation(viewer('ACCOUNT_OFFICER')).map((i) => [i.label, i.href]),
+    [
+      ['Overview', '/school-admin/dashboard'],
+      ['Fees & Billing', '/school-admin/fees'],
+      ['Students', '/school-admin/students'],
+      ['School calendar', '/school-admin/calendar'],
+    ],
+  );
+  for (const role of ['PRINCIPAL', 'ACADEMIC_HEAD', 'TEACHER', 'SECRETARY', 'ACCOUNT_OFFICER']) {
+    const previews = realNav
+      .workspaceNavigation(viewer(role))
+      .filter((i) => i.href.startsWith('/school-admin/dashboard/'));
+    assert.deepEqual(previews, [], role);
+  }
+  assert.equal(realModel.isHiddenPreview(viewer('ACCOUNT_OFFICER'), 'budgets'), true);
+  assert.equal(realModel.isHiddenPreview(viewer('ACCOUNT_OFFICER'), 'calendar'), false);
+});
+check('a rate-limited request says how long to wait (QA-291)', () => {
+  const client = load('src/lib/api-client.ts');
+  const headers = (h) => new Headers(h);
+  assert.equal(
+    client.tooManyMessage('ThrottlerException: Too Many Requests', headers({ 'Retry-After': '60' })),
+    'Too many attempts. Wait 60 seconds and try again.',
+  );
+  assert.equal(
+    client.tooManyMessage('ThrottlerException: Too Many Requests', headers({})),
+    'Too many attempts. Wait a minute and try again.',
+  );
+  assert.equal(
+    client.tooManyMessage('Too many session refreshes. Try again in a minute.', headers({})),
+    'Too many session refreshes. Try again in a minute.',
+  );
 });
 console.log(`${checks} dashboard and access checks passed.`);

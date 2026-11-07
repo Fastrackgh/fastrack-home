@@ -9,6 +9,7 @@ These docs cover the Next.js frontend in this repository and check it against th
 | [product-overview.md](./product-overview.md) | What EduSuite is, who uses it, Fastrack's other services, the module (subscription) model, the marketing-to-waitlist funnel, which features are live and which are preview, and marketing claims compared with reality |
 | [roles-and-access.md](./roles-and-access.md) | The 7 roles: landing page, sidebar, routes, actions and their permission keys, frontend-only grants, module gating, closed-term behaviour, and where the frontend and backend disagree |
 | [frontend-architecture.md](./frontend-architecture.md) | Route groups, the AuthProvider → RouteGuard → AppShell chain, guard logic, the API client (refresh and 401 handling), session storage, theming, the sample-data vs live-API boundary, and testing |
+| [deployment.md](./deployment.md) | Settings (`.env.example`): the API and site addresses, which are required, and the check that a production build fails without the API address |
 
 ### User flows
 
@@ -50,6 +51,7 @@ Each flow has a Mermaid diagram, its loading, empty, error and success states, i
 | [qa/e2e-bismark-international.md](./qa/e2e-bismark-international.md) | 21 Oct end-to-end UI run: a new school (BIS-001) set up and taken through every feature, step by step, with a ledger reconciliation |
 | [qa/test-matrix.md](./qa/test-matrix.md) | Role × route/endpoint, security, money and lifecycle scenarios with results |
 | [qa/live-test-log.md](./qa/live-test-log.md) | How the live run was set up, every request made and response received, and the browser walk-through ([scripts](./qa/browser-walkthrough/), [screenshots](./qa/screenshots/)) |
+| [qa/full-run-2026-11-03.md](./qa/full-run-2026-11-03.md) | 3 Nov full UI run: a new school (AHA-001) from sign-up to report cards, with page and action timings, 156 checks and QA-284 to QA-291 |
 | [qa/parent-two-schools-qa.md](./qa/parent-two-schools-qa.md) | 1 Nov UI run: a parent with children in two schools that offer different areas (attendance, reports) switching between them |
 | [qa/offline-sync-qa.md](./qa/offline-sync-qa.md) | Offline-first staff portal: sync contract review rounds and the per-phase UI re-tests (B1 idempotent writes onward) |
 

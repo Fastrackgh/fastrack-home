@@ -5,6 +5,7 @@
   "scripts": {
     "test:dashboard": "node scripts/check-dashboard.cjs",
     "test:sync": "node scripts/check-sync-outcome.cjs",
+    "test:settings": "node scripts/check-settings.mjs",
     "dev": "next dev --turbopack",
     "build": "next build",
     "start": "next start",

@@ -202,7 +202,8 @@ export async function queuePhotoRemoval(student: StudentDetail): Promise<OutboxO
 }
 
 /** What became of a saved edit, for the screen's message. */
-export type EditResult = 'saved' | 'queued' | 'review';
+/** `review`: a clash, other fields saved. `refused`: nothing saved (validation, permission, removed record). */
+export type EditResult = 'saved' | 'queued' | 'review' | 'refused';
 
 /** Queues the edit and waits a few seconds for it to land (not at all when offline). */
 export async function saveStudentEdit(
@@ -220,7 +221,9 @@ async function settle(op: OutboxOp | null): Promise<EditResult> {
   if (!op) return 'saved';
   const outcome = await waitUnlessOffline(op.opId, 8000);
   if (!outcome) return 'queued';
-  return outcome.state === 'review' ? 'review' : 'saved';
+  if (outcome.state !== 'review') return 'saved';
+  // Only a clash saves the other fields; any other refusal saved nothing (OFF-19 side issue).
+  return outcome.item?.error?.code === 'CONFLICT' ? 'review' : 'refused';
 }
 
 // --- Review tray ------------------------------------------------------------

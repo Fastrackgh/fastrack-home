@@ -11,7 +11,7 @@ import {
   onSyncApplied,
   pendingWrites,
   syncStatus,
-  waitForOp,
+  waitUnlessOffline,
 } from '@/lib/offline/syncEngine';
 import {
   marksApi,
@@ -320,7 +320,8 @@ export function useMarkSheet(termId: string, classId: string, subjectId: string)
     const id = dataRef.current?.sheet?.id;
     if (!id) return 0;
     const ops = await pendingWrites(MARKS_COLLECTION, id).catch(() => []);
-    const landed = await Promise.all(ops.map((op) => waitForOp(op.opId, SETTLE_WAIT_MS)));
+    // Known offline: no 15 s wait before saying the marks are waiting (QA-288).
+    const landed = await Promise.all(ops.map((op) => waitUnlessOffline(op.opId, SETTLE_WAIT_MS)));
     return queuedChanges(ops.filter((_, i) => landed[i] === null)).length;
   };
 

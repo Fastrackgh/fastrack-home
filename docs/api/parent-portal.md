@@ -61,6 +61,7 @@ Backend rules:
    - Reject `amount <= 0` or `amount > balance` with 400 (QA-029).
    - Treat `idempotencyKey` as unique per parent. A repeat with the same key returns the original `{reference, authorizationUrl}` and creates no new transaction (QA-004).
    - Only accept a `callbackUrl` on the frontend's own origin; anything else is rejected. Pass it to Paystack's `initialize` together with the channel (`mobile_money` or `card`). The frontend sends `<origin>/parent/fees/pay/callback`.
+   - Paystack gets the parent's sign-in email, or `email` when the request sends one. If Paystack refuses the email, checkout answers 422 `PAYMENT_EMAIL_REJECTED` and marks the attempt failed. The Pay window then asks for an "Email for the receipt", used only for that payment, and tries again with a new key (QA-229). Other Paystack refusals give a plain 502 message.
 2. **Only the backend marks an invoice paid.** It does this from the **webhook** (`charge.success`, after the HMAC check), or from `verify` calling Paystack's verify endpoint. It never trusts the redirect.
    - Posting must be idempotent per `reference`.
    - The payment is recorded through the same ledger path as staff payments, with method `MoMo` or `Card`, `recordedBy` set to the parent, and the provider reference kept.

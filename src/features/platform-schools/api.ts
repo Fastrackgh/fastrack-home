@@ -2,6 +2,8 @@ import { apiClient } from '@/lib/api-client';
 import { fetchAll } from '@/lib/pagination';
 import type {
   ModuleEntitlement,
+  NotificationChannelSetting,
+  NotificationFeature,
   PageMeta,
   PlatformSchool,
   PlatformStaff,
@@ -57,6 +59,29 @@ export const platformSchoolsApi = {
       `/super-admin/modules/schools/${encodeURIComponent(schoolId)}`,
     );
     return res.data ?? [];
+  },
+  async listNotificationChannels(schoolId: string) {
+    return (
+      (
+        await apiClient.get<NotificationChannelSetting[]>(
+          `${schoolPath(schoolId)}/notification-channels`,
+        )
+      ).data ?? []
+    );
+  },
+  /** Sets one feature's channels; returns every feature. */
+  async setNotificationChannels(
+    schoolId: string,
+    setting: { feature: NotificationFeature; email: boolean; sms: boolean },
+  ) {
+    return (
+      (
+        await apiClient.put<NotificationChannelSetting[]>(
+          `${schoolPath(schoolId)}/notification-channels`,
+          { settings: [setting] },
+        )
+      ).data ?? []
+    );
   },
   async setModule(schoolId: string, moduleId: string, isEnabled: boolean) {
     await apiClient.post(`/super-admin/modules/schools/${encodeURIComponent(schoolId)}/toggle`, {

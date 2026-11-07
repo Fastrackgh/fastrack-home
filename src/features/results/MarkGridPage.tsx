@@ -38,6 +38,7 @@ import {
   localPreview,
   markFor,
   missingFor,
+  requiredItems,
   otherTotal,
   showMark,
 } from './marks-model';
@@ -59,6 +60,7 @@ export function MarkGridPage() {
 
   const marks = useMarkSheet(termId, classId, subjectId);
   const { data, setData, load, items, rows, drafts, cellErrors, conflicts } = marks;
+  const refused = Object.values(cellErrors);
   const [itemModal, setItemModal] = useState<{ componentKey: string; item?: Item } | null>(null);
   const [returning, setReturning] = useState(false);
   /** A test a head asked to remove that already has marks, waiting for "yes". */
@@ -83,7 +85,8 @@ export function MarkGridPage() {
     return `Marked out of ${mark!.maxRaw}${from}; it counts as ${mark!.rawScore} of ${mark!.maxRaw}. Type a new mark to replace it.`;
   };
 
-  const missing = rows.reduce((n, r) => n + missingFor(r, items), 0);
+  const needed = data ? requiredItems(data.scheme, items) : [];
+  const missing = rows.reduce((n, r) => n + missingFor(r, needed), 0);
   const noItems = data ? emptyComponents({ scheme: data.scheme, items }) : [];
 
   const onPaste = (
@@ -245,15 +248,24 @@ export function MarkGridPage() {
           )}
           <Text
             size="sm"
-            c={marks.saving || marks.hasUnsaved() || marks.waiting ? 'blue' : 'dimmed'}
+            c={
+              refused.length
+                ? 'red'
+                : marks.saving || marks.hasUnsaved() || marks.waiting
+                  ? 'blue'
+                  : 'dimmed'
+            }
           >
             {marks.saving
               ? 'Saving…'
-              : marks.hasUnsaved()
-                ? 'Unsaved changes'
-                : marks.waiting
-                  ? `${marks.waiting} ${marks.waiting === 1 ? 'mark' : 'marks'} waiting to sync`
-                  : 'All changes saved'}
+              : refused.length
+                ? // A refused cell was never saved, so "All changes saved" would be wrong (QA-289).
+                  `${refused.length} ${refused.length === 1 ? 'mark' : 'marks'} not saved: ${refused[0]} Fix the red ${refused.length === 1 ? 'cell' : 'cells'}.`
+                : marks.hasUnsaved()
+                  ? 'Unsaved changes'
+                  : marks.waiting
+                    ? `${marks.waiting} ${marks.waiting === 1 ? 'mark' : 'marks'} waiting to sync`
+                    : 'All changes saved'}
           </Text>
         </Group>
         {isHead && sheet && (
@@ -572,6 +584,11 @@ export function MarkGridPage() {
           numeric={!descriptor}
           next={items.filter((i) => i.componentKey === itemModal.componentKey).length + 1}
           item={itemModal.item}
+          classWide={isHead ? { termId, classId } : undefined}
+          onClassWide={() => {
+            setItemModal(null);
+            load();
+          }}
           onClose={() => setItemModal(null)}
           onSaved={(res) => {
             setItemModal(null);

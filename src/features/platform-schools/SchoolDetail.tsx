@@ -23,6 +23,7 @@ import {
 import { notifications } from '@mantine/notifications';
 import {
   ArrowLeft,
+  Bell,
   Building2,
   Edit3,
   FileText,
@@ -50,6 +51,7 @@ import type {
 import { SchoolDesigns } from '@/features/document-templates';
 import { fieldSetter } from '@/lib/state';
 import { AssignPrincipalModal } from './AssignPrincipalModal';
+import { NotificationChannelsTab } from './NotificationChannelsTab';
 import styles from './SchoolDetail.module.css';
 
 /** One school as the platform sees it, loaded from the Super Admin API. */
@@ -200,6 +202,9 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
               <Tabs.Tab value="modules" leftSection={<Settings2 size={14} />}>
                 Modules
               </Tabs.Tab>
+              <Tabs.Tab value="notifications" leftSection={<Bell size={14} />}>
+                Notifications
+              </Tabs.Tab>
               <Tabs.Tab value="designs" leftSection={<FileText size={14} />}>
                 Designs
               </Tabs.Tab>
@@ -215,6 +220,9 @@ export function PlatformSchoolDetail({ schoolId }: { schoolId: string }) {
             </Tabs.Panel>
             <Tabs.Panel value="modules" pt="lg">
               <ModulesTab schoolId={school.id} onChange={load} />
+            </Tabs.Panel>
+            <Tabs.Panel value="notifications" pt="lg">
+              <NotificationChannelsTab schoolId={school.id} />
             </Tabs.Panel>
             <Tabs.Panel value="designs" pt="lg">
               <SchoolDesigns schoolId={school.id} />

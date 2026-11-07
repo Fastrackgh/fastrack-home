@@ -114,7 +114,7 @@ See [roles-and-access.md](./roles-and-access.md) for the per-role result.
 
 ## API client (`src/lib/api-client.ts`)
 
-- **Base URL**: `process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000/api'`. Port 3000 is also `next dev`'s default port. If the variable is unset and the frontend runs on 3000, API calls hit Next itself and return 404 HTML. The login page's decorative pill says "Port 3001", which shows the intended setup.
+- **Base URL**: `NEXT_PUBLIC_API_URL`, baked into the build. A production build fails without it (`next.config.mjs`, `checkSettings`); only development falls back to `http://localhost:3000/api`. Port 3000 is also `next dev`'s default port, so run the frontend on another port (for example `next dev --port 3001`) when the backend uses 3000. See [deployment.md](./deployment.md).
 - **Envelope**: `ApiResponse<T, M> = { statusCode?, message?, data: T, meta?: M, success? }`. Callers read `res.data` and sometimes `res.meta`. List endpoints are read in two different shapes:
   - `data: T[]` with `meta` (students, staff, invitations, Super Admin students);
   - `data: { items, total }` (invoices, payments, fee structures, Super Admin schools and modules).

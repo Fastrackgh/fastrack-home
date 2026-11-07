@@ -192,6 +192,7 @@ function buildInvoices(studentId: string): ParentInvoice[] {
       arrearsFromEarlierTerms: 0,
       totalFees,
       discountAmount,
+      discounts: discountAmount ? [{ reason: 'Sibling discount', amount: discountAmount }] : [],
       feePayable,
       totalPayment,
       balance,
@@ -490,6 +491,10 @@ export const mockParentApi: ParentApi = {
     return wait(
       reportTerms().map((term) => ({ ...buildReport(studentId, term), subjects: undefined })),
     );
+  },
+  async listAssessments() {
+    // Preview data has no mocks; the live API lists the school's published ones.
+    return wait([]);
   },
   async getReport(studentId, reportId) {
     const term = reportTerms().find((t) => reportId.endsWith(t.id));

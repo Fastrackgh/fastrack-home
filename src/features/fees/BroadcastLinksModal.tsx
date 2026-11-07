@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Button, Group, Modal, SegmentedControl, Select, Stack, Text } from '@mantine/core';
+import { useEffect, useState } from 'react';
+import { Alert, Button, Group, Modal, SegmentedControl, Select, Stack, Text } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '@/lib/api-client';
 import { termOption, type TermInYear } from '@/features/school-setup/api';
@@ -25,6 +25,29 @@ export function BroadcastLinksModal({
   const [classId, setClassId] = useState<string | null>(null);
   const [channel, setChannel] = useState<Channel>('BOTH');
   const [sending, setSending] = useState(false);
+  // The channels the platform allows for bill links at this school.
+  const [allowed, setAllowed] = useState<{ email: boolean; sms: boolean } | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    feesApi
+      .billLinkChannels()
+      .catch(() => ({ email: true, sms: true }))
+      .then((on) => {
+        if (!active) return;
+        setAllowed(on);
+        setChannel(on.email && on.sms ? 'BOTH' : on.sms ? 'SMS' : 'EMAIL');
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+  const options = [
+    { value: 'BOTH', label: 'SMS and email', on: !!allowed?.email && !!allowed?.sms },
+    { value: 'SMS', label: 'SMS', on: !!allowed?.sms },
+    { value: 'EMAIL', label: 'Email', on: !!allowed?.email },
+  ].filter((o) => o.on);
+  const nothingAllowed = allowed !== null && options.length === 0;
 
   const send = async () => {
     if (!termId) return;
@@ -77,21 +100,29 @@ export function BroadcastLinksModal({
           clearable
           radius="md"
         />
-        <Stack gap={6}>
-          <Text size="sm" fw={500}>
-            Send by
-          </Text>
-          <SegmentedControl
-            value={channel}
-            onChange={(v) => setChannel(v as Channel)}
-            data={[
-              { value: 'BOTH', label: 'SMS and email' },
-              { value: 'SMS', label: 'SMS' },
-              { value: 'EMAIL', label: 'Email' },
-            ]}
-            radius="md"
-          />
-        </Stack>
+        {nothingAllowed ? (
+          <Alert color="orange" radius="md">
+            Bill links are turned off for this school. Ask Fastrack support to turn on email or SMS.
+          </Alert>
+        ) : (
+          <Stack gap={6}>
+            <Text size="sm" fw={500}>
+              Send by
+            </Text>
+            {options.length > 1 ? (
+              <SegmentedControl
+                value={channel}
+                onChange={(v) => setChannel(v as Channel)}
+                data={options.map(({ value, label }) => ({ value, label }))}
+                radius="md"
+              />
+            ) : (
+              <Text size="sm" c="dimmed">
+                {options[0]?.label ?? '…'} (the only channel on for this school)
+              </Text>
+            )}
+          </Stack>
+        )}
         <Group justify="flex-end" mt="sm">
           <Button variant="default" onClick={onClose} radius="md" disabled={sending}>
             Cancel
@@ -100,7 +131,7 @@ export function BroadcastLinksModal({
             color="fastrackRed"
             onClick={send}
             loading={sending}
-            disabled={!termId}
+            disabled={!termId || !allowed || nothingAllowed}
             radius="md"
           >
             Send links

@@ -95,6 +95,8 @@ export function ScoreCell({
       label={error ?? (conflict ? 'Changed by someone else; check it' : carriedHint)}
       disabled={!error && !conflict && !carriedHint}
       color={error ? 'red' : 'orange'}
+      // On focus and touch too, so the reason shows without a mouse (QA-289).
+      events={{ hover: true, focus: true, touch: true }}
     >
       <TextInput
         data-cell={`${position.row}:${position.col}`}

@@ -11,7 +11,7 @@ import {
   registerReviewText,
   syncedRecord,
   syncedRecords,
-  waitForOp,
+  waitUnlessOffline,
   type OpOutcome,
 } from '@/lib/offline/syncEngine';
 import {
@@ -383,7 +383,8 @@ export async function saveRegister(register: Register, changes: MarkChange[]): P
       count,
     };
   }
-  const outcomes = await Promise.all(ops.map((op) => waitForOp(op.opId, LAND_WAIT_MS)));
+  // Known offline: say "Saved on this device" at once, not after the whole wait (QA-288).
+  const outcomes = await Promise.all(ops.map((op) => waitUnlessOffline(op.opId, LAND_WAIT_MS)));
   if (outcomes.some((outcome) => outcome === null)) return { kind: 'waiting', count };
   const landed = outcomes as OpOutcome[];
   const worst =

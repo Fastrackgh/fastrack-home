@@ -1,14 +1,14 @@
 'use client';
 
-import { Badge, Group, Stack, Text } from '@mantine/core';
+import { Badge, Card, Divider, Group, Stack, Text } from '@mantine/core';
 import { FileText } from 'lucide-react';
 import { parentAreaReady } from '../config';
-import { useReports } from '../data/queries';
+import { useAssessments, useReports } from '../data/queries';
 import { joinDetails } from '../domain/format';
 import { gradeColor, positionLabel, publicationNote } from '../domain/reports';
 import { wardName } from '../domain/wards';
 import { parentRoutes } from '../routes';
-import type { TermReport, Ward } from '../types';
+import type { TermReport, Ward, WardAssessment } from '../types';
 import {
   ComingSoon,
   EmptyState,
@@ -61,7 +61,69 @@ function WardReports({ ward }: { ward: Ward }) {
           </Stack>
         )}
       </QueryView>
+      <MockResults ward={ward} />
     </>
+  );
+}
+
+/** Mock exams and other assessments the school publishes on their own, apart from term reports. */
+function MockResults({ ward }: { ward: Ward }) {
+  const query = useAssessments(ward.studentId);
+  if (!query.data?.length) return null;
+  return (
+    <Stack gap="sm" mt="xl">
+      <Text fw={700}>Mock exams</Text>
+      {query.data.map((mock) => (
+        <MockCard key={mock.id} mock={mock} />
+      ))}
+    </Stack>
+  );
+}
+
+function MockCard({ mock }: { mock: WardAssessment }) {
+  return (
+    <Card withBorder radius="lg" p="md">
+      <Group justify="space-between" align="flex-start" wrap="nowrap">
+        <div style={{ minWidth: 0 }}>
+          <Text fw={700}>{mock.title}</Text>
+          <Text size="xs" c="dimmed">
+            {joinDetails(
+              mock.className,
+              [mock.termLabel, mock.yearLabel].filter(Boolean).join(', '),
+              mock.revision > 1 ? 'Updated' : null,
+            )}
+          </Text>
+        </div>
+        {mock.average != null && (
+          <div style={{ textAlign: 'right' }}>
+            <Text fw={700}>{mock.average}%</Text>
+            {mock.position != null && (
+              <Text size="xs" c="dimmed">
+                {positionLabel(mock.position, mock.positionTied, mock.onRoll, ' of ')}
+              </Text>
+            )}
+          </div>
+        )}
+      </Group>
+      <Divider my="sm" />
+      <Stack gap={6}>
+        {mock.subjects.map((s) => (
+          <Group key={s.subjectId} justify="space-between" wrap="nowrap">
+            <Text size="sm">{s.name}</Text>
+            <Group gap="xs" wrap="nowrap">
+              <Text size="sm" c={s.score == null ? 'dimmed' : undefined}>
+                {s.score == null ? (s.status === 'exempt' ? 'Exempt' : '—') : `${s.score}%`}
+              </Text>
+              {s.grade && (
+                <Badge variant="light" color={gradeColor(s.grade)}>
+                  {s.grade}
+                </Badge>
+              )}
+            </Group>
+          </Group>
+        ))}
+      </Stack>
+    </Card>
   );
 }
 

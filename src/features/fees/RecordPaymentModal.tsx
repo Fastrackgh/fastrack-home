@@ -129,6 +129,16 @@ export function RecordPaymentModal({
   // The pupil's account balance before this payment, for the provisional receipt.
   const [accountBalance, setAccountBalance] = useState(0);
   const locked = saving;
+  /**
+   * Escape, × and Cancel: a refusal whose question is still on screen is
+   * dropped, as "Change amount" does, rather than left in the tray as if the
+   * money were taken (QA-285; admissions did the same in 27b9918).
+   */
+  const close = () => {
+    if (asked.current) void dismissReviewItem(asked.current);
+    asked.current = null;
+    onClose();
+  };
 
   // The payment goes against the bill picked, by default the student's latest;
   // its balance fills the amount unless one was already typed.
@@ -370,7 +380,7 @@ export function RecordPaymentModal({
   return (
     <Modal
       opened
-      onClose={() => !locked && onClose()}
+      onClose={() => !locked && close()}
       closeOnEscape={!locked}
       closeOnClickOutside={!locked}
       withCloseButton={!locked}
@@ -531,7 +541,7 @@ export function RecordPaymentModal({
             />
           ) : (
             <Group justify="flex-end" mt="md">
-              <Button variant="default" onClick={onClose} radius="md" disabled={locked}>
+              <Button variant="default" onClick={close} radius="md" disabled={locked}>
                 Cancel
               </Button>
               <Button

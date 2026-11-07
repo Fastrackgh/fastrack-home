@@ -12,6 +12,8 @@ export interface ChannelProgress {
 /** How a publish's messages to parents stand; they go out from a queue, so poll until `done`. */
 export interface DeliveryProgress {
   revision: number;
+  /** False when there's nothing to show: never published, or published before messages were tracked. */
+  tracked: boolean;
   email: ChannelProgress;
   sms: ChannelProgress;
   /** Pupils with no linked parent reachable on a channel that is on. */

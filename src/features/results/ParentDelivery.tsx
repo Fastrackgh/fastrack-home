@@ -35,7 +35,7 @@ export function ParentDelivery({ load }: { load: () => Promise<DeliveryProgress>
     };
   }, [load]);
 
-  if (!progress || progress.revision === 0) return null;
+  if (!progress || !progress.tracked) return null;
   const lines = channelLines(progress);
   const failed = anyFailed(progress);
   const color = !progress.done ? 'blue' : failed ? 'orange' : 'green';

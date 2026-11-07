@@ -16,6 +16,7 @@ Listed in [`.env.example`](../.env.example). For development, copy it to
 | `NEXT_PUBLIC_SITE_URL` | No | The public site's address, used as the base for link previews (Open Graph `url`, `metadataBase`). Left out of the page when unset. |
 | `NEXT_PUBLIC_PARENT_API_MOCK` | No, development only | `1` serves the parent portal from mock data. |
 | `NEXT_PUBLIC_SHOW_PREVIEW_PAGES` | No, demo deployments only | `1` shows staff the pages that are still UI previews with sample data (Communication, Timetable, Budgets & expenses and 8 others). Leave it unset for real schools: those pages are then left out of the menu and the overview, and their links open the overview (QA-290). |
+| `BUSINESS_GUIDE_CODE` | No | The access code for the Business Guide at `/guide` (Fastrack's plain-language guide for its business team, built from the backend repo's `docs/business/`). Server-only and read per request: changing it needs a restart, not a rebuild, and signs everyone out. Unset, the guide stays locked. |
 | `FASTRACK_BUILD_ID` | No | Set by `next.config.mjs` per build; the staff service worker re-saves its offline pages when it changes. |
 
 `NEXT_PUBLIC_` values are copied into the JavaScript at build time. Changing
